@@ -1,11 +1,15 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README"))]
-pub mod request;
-pub use request::UdsRequest;
+mod request;
+pub use request::{
+    CommunicationControl, ControlDTCSettings, DiagnosticsSessionControl, ReadDataByIdentifier,
+    RequestDownload, RequestTransferExit, RoutineControl, TesterPresent, TransferData, UdsRequest,
+    UdsRequestType, WriteDataByIdentifier,
+};
 
-pub mod response;
+mod response;
 pub use response::UdsResponse;
 
-pub mod service;
+mod service;
 pub use service::UdsServiceType;
 
 use clap::ValueEnum;
