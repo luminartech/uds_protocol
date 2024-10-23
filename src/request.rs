@@ -1,6 +1,9 @@
 use std::io::{Read, Write};
 
+use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
+
+use crate::Error;
 
 use super::{
     service::{UdsService, UdsServiceType},
@@ -153,26 +156,26 @@ impl ControlDTCSettings {
             suppress_response,
         }
     }
-    pub fn read( reader: Read) -> Result<Self,Error>
 
+    pub fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let request_byte = buffer.read_u8()?;
+        let setting = DtcSettings::from(request_byte & !0x80);
+        let suppress_response = request_byte & 0x80 != 0;
+        Ok(Self {
+            setting,
+            suppress_response,
+        })
+    }
+    pub fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        let request_byte = self.setting.into() | if self.suppress_response { 0x80 } else { 0 };
+        buffer.write_u8(request_byte)?;
+        Ok(())
+    }
 }
 
 impl UdsService for ControlDTCSettings {
     fn get_service_type(&self) -> UdsServiceType {
         UdsServiceType::ControlDTCSettings
-    }
-    fn read<T: std::io::Read>(&self, reader: T) -> Result<usize, std::io::Error> {
-        let suppression_byte = match dtc_settings.suppress_response {
-            true => 0x80,
-            false => 0x00,
-        };
-        let dtc_setting_byte: u8 = dtc_settings.setting.into();
-        Self {
-            data: vec![
-                dtc_settings.get_service_type().request_to_byte(),
-                dtc_setting_byte | suppression_byte,
-            ],
-        }
     }
 }
 pub struct DiagnosticsSessionControl {

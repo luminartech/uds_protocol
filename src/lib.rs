@@ -1,4 +1,7 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README"))]
+mod error;
+pub use error::Error;
+
 mod request;
 pub use request::{
     CommunicationControl, ControlDTCSettings, DiagnosticsSessionControl, ReadDataByIdentifier,
