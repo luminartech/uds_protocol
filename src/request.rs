@@ -1,3 +1,5 @@
+use std::io::{Read, Write};
+
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -144,9 +146,33 @@ pub struct ControlDTCSettings {
     pub suppress_response: bool,
 }
 
+impl ControlDTCSettings {
+    pub fn new(setting: DtcSettings, suppress_response: bool) -> Self {
+        Self {
+            setting,
+            suppress_response,
+        }
+    }
+    pub fn read( reader: Read) -> Result<Self,Error>
+
+}
+
 impl UdsService for ControlDTCSettings {
     fn get_service_type(&self) -> UdsServiceType {
         UdsServiceType::ControlDTCSettings
+    }
+    fn read<T: std::io::Read>(&self, reader: T) -> Result<usize, std::io::Error> {
+        let suppression_byte = match dtc_settings.suppress_response {
+            true => 0x80,
+            false => 0x00,
+        };
+        let dtc_setting_byte: u8 = dtc_settings.setting.into();
+        Self {
+            data: vec![
+                dtc_settings.get_service_type().request_to_byte(),
+                dtc_setting_byte | suppression_byte,
+            ],
+        }
     }
 }
 pub struct DiagnosticsSessionControl {

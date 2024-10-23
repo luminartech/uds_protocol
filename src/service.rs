@@ -1,8 +1,11 @@
+use std::io::{Error, Read, Write};
+
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 pub trait UdsService {
     fn get_service_type(&self) -> UdsServiceType;
+    fn write<T: Write>(&self, writer: T) -> Result<usize, Error>;
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
