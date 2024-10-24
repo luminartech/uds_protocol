@@ -111,7 +111,7 @@ impl UdsRequest {
     }
 
     pub fn service_type(&self) -> UdsServiceType {
-        UdsServiceType::request_from_byte(self.data[0])
+        UdsServiceType::service_from_request_byte(self.data[0])
     }
 
     pub fn to_network(&self) -> Vec<u8> {

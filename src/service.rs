@@ -138,7 +138,7 @@ pub enum UdsServiceType {
 }
 
 impl UdsServiceType {
-    pub fn request_from_byte(value: u8) -> Self {
+    pub fn service_from_request_byte(value: u8) -> Self {
         match value {
             0x10 => Self::DiagnosticSessionControl,
             0x11 => Self::EcuReset,
