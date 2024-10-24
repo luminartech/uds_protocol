@@ -202,6 +202,20 @@ pub struct DiagnosticsSessionControl {
     _private: (),
 }
 
+impl DiagnosticsSessionControl {
+    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let session_type = SessionType::from(buffer.read_u8()?);
+        Ok(Self {
+            session_type,
+            _private: (),
+        })
+    }
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u8(u8::from(self.session_type))?;
+        Ok(())
+    }
+}
+
 impl UdsService for DiagnosticsSessionControl {
     fn get_service_type(&self) -> UdsServiceType {
         UdsServiceType::DiagnosticSessionControl
