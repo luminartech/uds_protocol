@@ -227,6 +227,20 @@ pub struct EcuReset {
     _private: (),
 }
 
+impl EcuReset {
+    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let reset_type = EcuResetType::from(buffer.read_u8()?);
+        Ok(Self {
+            reset_type,
+            _private: (),
+        })
+    }
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u8(u8::from(self.reset_type))?;
+        Ok(())
+    }
+}
+
 impl UdsService for EcuReset {
     fn get_service_type(&self) -> UdsServiceType {
         UdsServiceType::EcuReset
