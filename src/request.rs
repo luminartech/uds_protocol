@@ -131,6 +131,32 @@ pub struct CommunicationControl {
     _private: (),
 }
 
+impl CommunicationControl {
+    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let enable_byte = buffer.read_u8()?;
+        let communication_enable = CommunicationEnable::from(enable_byte & !POSITIVE_RESPONSE);
+        let suppress_response = enable_byte & POSITIVE_RESPONSE == POSITIVE_RESPONSE;
+        let communication_type = CommunicationType::from(buffer.read_u8()?);
+        Ok(Self {
+            communication_enable,
+            communication_type,
+            suppress_response,
+            _private: (),
+        })
+    }
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        let communication_enable_byte = u8::from(self.communication_enable)
+            | if self.suppress_response {
+                POSITIVE_RESPONSE
+            } else {
+                0
+            };
+        buffer.write_u8(communication_enable_byte)?;
+        buffer.write_u8(u8::from(self.communication_type))?;
+        Ok(())
+    }
+}
+
 impl UdsService for CommunicationControl {
     fn get_service_type(&self) -> UdsServiceType {
         UdsServiceType::CommunicationControl
