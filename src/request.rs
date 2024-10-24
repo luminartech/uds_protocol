@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
+const POSITIVE_RESPONSE: u8 = 0x80;
+
 use super::{
     service::{UdsService, UdsServiceType},
     CommunicationEnable, CommunicationType, DtcSettings, EcuResetType, RoutineControlSubFunction,
@@ -21,7 +23,7 @@ impl UdsRequest {
         match service_type {
             UdsRequestType::CommunicationControl(communication_control) => {
                 let suppression_byte = match communication_control.suppress_response {
-                    true => 0x80,
+                    true => POSITIVE_RESPONSE,
                     false => 0x00,
                 };
                 let enable_byte: u8 = communication_control.communication_enable.into();
@@ -35,7 +37,7 @@ impl UdsRequest {
             }
             UdsRequestType::ControlDTCSettings(dtc_settings) => {
                 let suppression_byte = match dtc_settings.suppress_response {
-                    true => 0x80,
+                    true => POSITIVE_RESPONSE,
                     false => 0x00,
                 };
                 let dtc_setting_byte: u8 = dtc_settings.setting.into();
@@ -149,16 +151,16 @@ pub struct ControlDTCSettings {
 impl ControlDTCSettings {
     pub fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
         let request_byte = buffer.read_u8()?;
-        let setting = DtcSettings::from(request_byte & !0x80);
-        let suppress_response = request_byte & 0x80 != 0;
+        let setting = DtcSettings::from(request_byte & !POSITIVE_RESPONSE);
+        let suppress_response = request_byte & POSITIVE_RESPONSE != 0;
         Ok(Self {
             setting,
             suppress_response,
             _private: (),
         })
     }
-    pub fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        let request_byte = u8::from(self.setting) | if self.suppress_response { 0x80 } else { 0 };
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        let request_byte = u8::from(self.setting) | if self.suppress_response { POSITIVE_RESPONSE } else { 0 };
         buffer.write_u8(request_byte)?;
         Ok(())
     }
