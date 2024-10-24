@@ -312,6 +312,27 @@ pub struct RoutineControl {
     _private: (),
 }
 
+impl RoutineControl {
+    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let sub_function = RoutineControlSubFunction::from(buffer.read_u8()?);
+        let routine_id = buffer.read_u16::<BigEndian>()?;
+        let mut data = Vec::new();
+        buffer.read_to_end(&mut data)?;
+        Ok(Self {
+            sub_function,
+            routine_id,
+            data,
+            _private: (),
+        })
+    }
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u8(u8::from(self.sub_function))?;
+        buffer.write_u16::<BigEndian>(self.routine_id)?;
+        buffer.write_all(&self.data)?;
+        Ok(())
+    }
+}
+
 impl UdsService for RoutineControl {
     fn get_service_type(&self) -> UdsServiceType {
         UdsServiceType::RoutineControl
