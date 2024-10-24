@@ -355,6 +355,24 @@ pub struct WriteDataByIdentifier {
     _private: (),
 }
 
+impl WriteDataByIdentifier {
+    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let did = buffer.read_u16::<BigEndian>()?;
+        let mut data = Vec::new();
+        buffer.read_to_end(&mut data)?;
+        Ok(Self {
+            did,
+            data,
+            _private: (),
+        })
+    }
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u16::<BigEndian>(self.did)?;
+        buffer.write_all(&self.data)?;
+        Ok(())
+    }
+}
+
 impl UdsService for WriteDataByIdentifier {
     fn get_service_type(&self) -> UdsServiceType {
         UdsServiceType::WriteDataByIdentifier
