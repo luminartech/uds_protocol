@@ -5,10 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
-const POSITIVE_RESPONSE: u8 = 0x80;
-
 use super::{
-    service::{UdsService, UdsServiceType},
+    service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
     CommunicationEnable, CommunicationType, DtcSettings, EcuResetType, RoutineControlSubFunction,
     SessionType, SUCCESS,
 };
@@ -143,8 +141,8 @@ pub struct CommunicationControl {
 impl CommunicationControl {
     fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
         let enable_byte = buffer.read_u8()?;
-        let communication_enable = CommunicationEnable::from(enable_byte & !POSITIVE_RESPONSE);
-        let suppress_response = enable_byte & POSITIVE_RESPONSE == POSITIVE_RESPONSE;
+        let communication_enable = CommunicationEnable::from(enable_byte & !SUCCESS);
+        let suppress_response = enable_byte & SUCCESS == SUCCESS;
         let communication_type = CommunicationType::from(buffer.read_u8()?);
         Ok(Self {
             communication_enable,
@@ -154,12 +152,8 @@ impl CommunicationControl {
         })
     }
     fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        let communication_enable_byte = u8::from(self.communication_enable)
-            | if self.suppress_response {
-                POSITIVE_RESPONSE
-            } else {
-                0
-            };
+        let communication_enable_byte =
+            u8::from(self.communication_enable) | if self.suppress_response { SUCCESS } else { 0 };
         buffer.write_u8(communication_enable_byte)?;
         buffer.write_u8(u8::from(self.communication_type))?;
         Ok(())
@@ -186,8 +180,8 @@ pub struct ControlDTCSettings {
 impl ControlDTCSettings {
     fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
         let request_byte = buffer.read_u8()?;
-        let setting = DtcSettings::from(request_byte & !POSITIVE_RESPONSE);
-        let suppress_response = request_byte & POSITIVE_RESPONSE != 0;
+        let setting = DtcSettings::from(request_byte & !SUCCESS);
+        let suppress_response = request_byte & SUCCESS != 0;
         Ok(Self {
             setting,
             suppress_response,
@@ -195,7 +189,8 @@ impl ControlDTCSettings {
         })
     }
     fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        let request_byte = u8::from(self.setting) | if self.suppress_response { POSITIVE_RESPONSE } else { 0 };
+        let request_byte =
+            u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
         buffer.write_u8(request_byte)?;
         Ok(())
     }
