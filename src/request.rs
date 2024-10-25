@@ -108,12 +108,6 @@ impl EcuReset {
         Ok(())
     }
 }
-pub struct TransferData {
-    pub sequence: u8,
-    pub data: Vec<u8>,
-    _private: (),
-}
-
 
 pub struct ReadDataByIdentifier {
     pub did: u16,
@@ -123,6 +117,11 @@ pub struct ReadDataByIdentifier {
 impl ReadDataByIdentifier {
     fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
         let did = buffer.read_u16::<BigEndian>()?;
+        Ok(Self { did, _private: () })
+    }
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u16::<BigEndian>(self.did)?;
+        Ok(())
     }
 }
 
@@ -135,10 +134,14 @@ pub struct RequestDownload {
 }
 
 impl RequestDownload {
-    fn new(memory_address: u32, memory_size: u32) -> Self {
-        Self {
-            data_format_identifier: 0x00,
-            address_and_length_format_identifier: 0x44,
+    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let data_format_identifier = buffer.read_u8()?;
+        let address_and_length_format_identifier = buffer.read_u8()?;
+        let memory_address = buffer.read_u32::<BigEndian>()?;
+        let memory_size = buffer.read_u32::<BigEndian>()?;
+        Ok(Self {
+            data_format_identifier,
+            address_and_length_format_identifier,
             memory_address,
             memory_size,
             _private: (),
@@ -190,6 +193,18 @@ pub struct TransferData {
 impl TransferData {
     fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
         let sequence = buffer.read_u8()?;
+        let mut data = Vec::new();
+        buffer.read_to_end(&mut data)?;
+        Ok(Self {
+            sequence,
+            data,
+            _private: (),
+        })
+    }
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u8(self.sequence)?;
+        buffer.write_all(&self.data)?;
+        Ok(())
     }
 }
 
@@ -224,9 +239,9 @@ pub enum UdsRequestType {
     EcuReset(EcuReset),
     ReadDataByIdentifier(ReadDataByIdentifier),
     RequestDownload(RequestDownload),
-    RequestTransferExit(RequestTransferExit),
+    RequestTransferExit,
     RoutineControl(RoutineControl),
-    TesterPresent(TesterPresent),
+    TesterPresent,
     TransferData(TransferData),
     WriteDataByIdentifier(WriteDataByIdentifier),
 }
@@ -285,7 +300,7 @@ impl UdsRequestType {
     }
 
     pub fn request_transfer_exit() -> Self {
-        UdsRequestType::RequestTransferExit(RequestTransferExit { _private: () })
+        Self::RequestTransferExit
     }
 
     pub fn routine_control(
@@ -302,7 +317,7 @@ impl UdsRequestType {
     }
 
     pub fn tester_present() -> Self {
-        UdsRequestType::TesterPresent(TesterPresent { _private: () })
+        Self::TesterPresent
     }
 
     pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
@@ -335,5 +350,71 @@ impl UdsRequestType {
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
         }
+    }
+
+    pub fn from_reader<T: Read>(reader: &mut T) -> Result<Self, Error> {
+        let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
+        Ok(match service {
+            UdsServiceType::CommunicationControl => {
+                Self::CommunicationControl(CommunicationControl::read(reader)?)
+            }
+            UdsServiceType::ControlDTCSettings => {
+                Self::ControlDTCSettings(ControlDTCSettings::read(reader)?)
+            }
+            UdsServiceType::DiagnosticSessionControl => {
+                Self::DiagnosticSessionControl(DiagnosticsSessionControl::read(reader)?)
+            }
+            UdsServiceType::EcuReset => Self::EcuReset(EcuReset::read(reader)?),
+            UdsServiceType::ReadDataByIdentifier => {
+                Self::ReadDataByIdentifier(ReadDataByIdentifier::read(reader)?)
+            }
+            UdsServiceType::RequestDownload => {
+                Self::RequestDownload(RequestDownload::read(reader)?)
+            }
+            UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
+            UdsServiceType::RoutineControl => Self::RoutineControl(RoutineControl::read(reader)?),
+            UdsServiceType::TesterPresent => Self::TesterPresent,
+            UdsServiceType::TransferData => Self::TransferData(TransferData::read(reader)?),
+            UdsServiceType::WriteDataByIdentifier => {
+                Self::WriteDataByIdentifier(WriteDataByIdentifier::read(reader)?)
+            }
+            UdsServiceType::SecurityAccess => todo!(),
+            UdsServiceType::Authentication => todo!(),
+            UdsServiceType::AccessTimingParameters => todo!(),
+            UdsServiceType::SecuredDataTransmission => todo!(),
+            UdsServiceType::ResponseOnEvent => todo!(),
+            UdsServiceType::LinkControl => todo!(),
+            UdsServiceType::ReadMemoryByAddress => todo!(),
+            UdsServiceType::ReadScalingDataByIdentifier => todo!(),
+            UdsServiceType::ReadDataByIdentifierPeriodic => todo!(),
+            UdsServiceType::DynamicallyDefinedDataIdentifier => todo!(),
+            UdsServiceType::WriteMemoryByAddress => todo!(),
+            UdsServiceType::ClearDiagnosticInfo => todo!(),
+            UdsServiceType::ReadDTCInfo => todo!(),
+            UdsServiceType::InputOutputControlByIdentifier => todo!(),
+            UdsServiceType::RequestUpload => todo!(),
+            UdsServiceType::RequestFileTransfer => todo!(),
+            UdsServiceType::NegativeResponse => todo!(),
+            UdsServiceType::UnsupportedDiagnosticService => todo!(),
+        })
+    }
+
+    pub fn to_writer<T: Write>(&self, writer: &mut T) -> Result<(), Error> {
+        // Write the service byte
+        writer.write_u8(self.service().request_service_to_byte())?;
+        // Write the payload
+        match self {
+            Self::CommunicationControl(cc) => cc.write(writer),
+            Self::ControlDTCSettings(ct) => ct.write(writer),
+            Self::DiagnosticSessionControl(ds) => ds.write(writer),
+            Self::EcuReset(er) => er.write(writer),
+            Self::ReadDataByIdentifier(rd) => rd.write(writer),
+            Self::RequestDownload(rd) => rd.write(writer),
+            Self::RequestTransferExit => Ok(()),
+            Self::RoutineControl(rc) => rc.write(writer),
+            Self::TesterPresent => Ok(()),
+            Self::TransferData(td) => td.write(writer),
+            Self::WriteDataByIdentifier(wd) => wd.write(writer),
         }
+    }
 }
