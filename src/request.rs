@@ -439,4 +439,20 @@ impl UdsRequestType {
             _private: (),
         })
     }
+
+    pub fn service(&self) -> UdsServiceType {
+        match self {
+            Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
+            Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings,
+            Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
+            Self::EcuReset(_) => UdsServiceType::EcuReset,
+            Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
+            Self::RequestDownload(_) => UdsServiceType::RequestDownload,
+            Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
+            Self::RoutineControl(_) => UdsServiceType::RoutineControl,
+            Self::TesterPresent => UdsServiceType::TesterPresent,
+            Self::TransferData(_) => UdsServiceType::TransferData,
+            Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
+        }
+        }
 }
