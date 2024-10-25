@@ -171,7 +171,7 @@ impl UdsServiceType {
         }
     }
 
-    pub fn request_to_byte(&self) -> u8 {
+    pub fn request_service_to_byte(&self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x10,
             Self::EcuReset => 0x11,

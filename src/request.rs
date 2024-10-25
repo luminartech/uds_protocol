@@ -29,7 +29,9 @@ impl UdsRequest {
                 let enable_byte: u8 = communication_control.communication_enable.into();
                 Self {
                     data: vec![
-                        communication_control.get_service_type().request_to_byte(),
+                        communication_control
+                            .get_service_type()
+                            .request_service_to_byte(),
                         enable_byte | suppression_byte,
                         communication_control.communication_type.into(),
                     ],
@@ -43,20 +45,20 @@ impl UdsRequest {
                 let dtc_setting_byte: u8 = dtc_settings.setting.into();
                 Self {
                     data: vec![
-                        dtc_settings.get_service_type().request_to_byte(),
+                        dtc_settings.get_service_type().request_service_to_byte(),
                         dtc_setting_byte | suppression_byte,
                     ],
                 }
             }
             UdsRequestType::DiagnosticSessionControl(session_control) => Self {
                 data: vec![
-                    session_control.get_service_type().request_to_byte(),
+                    session_control.get_service_type().request_service_to_byte(),
                     session_control.session_type.into(),
                 ],
             },
             UdsRequestType::EcuReset(ecu_reset) => Self {
                 data: vec![
-                    ecu_reset.get_service_type().request_to_byte(),
+                    ecu_reset.get_service_type().request_service_to_byte(),
                     ecu_reset.reset_type.into(),
                 ],
             },
@@ -64,7 +66,9 @@ impl UdsRequest {
                 let did_bytes = read_data_by_identifier.did.to_be_bytes();
                 Self {
                     data: vec![
-                        read_data_by_identifier.get_service_type().request_to_byte(),
+                        read_data_by_identifier
+                            .get_service_type()
+                            .request_service_to_byte(),
                         did_bytes[0],
                         did_bytes[1],
                     ],
@@ -72,7 +76,9 @@ impl UdsRequest {
             }
             UdsRequestType::RequestDownload(request_download) => {
                 let mut data = vec![
-                    request_download.get_service_type().request_to_byte(),
+                    request_download
+                        .get_service_type()
+                        .request_service_to_byte(),
                     request_download.data_format_identifier,
                     request_download.address_and_length_format_identifier,
                 ];
@@ -81,20 +87,23 @@ impl UdsRequest {
                 Self { data }
             }
             UdsRequestType::RequestTransferExit(_) => Self {
-                data: vec![UdsServiceType::RequestTransferExit.request_to_byte()],
+                data: vec![UdsServiceType::RequestTransferExit.request_service_to_byte()],
             },
             UdsRequestType::RoutineControl(routine_control) => {
-                let mut data = vec![routine_control.get_service_type().request_to_byte()];
+                let mut data = vec![routine_control.get_service_type().request_service_to_byte()];
                 data.push(routine_control.sub_function.into());
                 data.extend_from_slice(&routine_control.routine_id.to_be_bytes());
                 data.extend_from_slice(routine_control.data.as_slice());
                 Self { data }
             }
             UdsRequestType::TesterPresent(tester_present) => Self {
-                data: (vec![tester_present.get_service_type().request_to_byte(), SUCCESS]),
+                data: (vec![
+                    tester_present.get_service_type().request_service_to_byte(),
+                    SUCCESS,
+                ]),
             },
             UdsRequestType::TransferData(transfer_data) => {
-                let mut data = vec![transfer_data.get_service_type().request_to_byte()];
+                let mut data = vec![transfer_data.get_service_type().request_service_to_byte()];
                 data.push(transfer_data.sequence);
                 data.extend_from_slice(transfer_data.data.as_slice());
                 Self { data }
@@ -102,7 +111,7 @@ impl UdsRequest {
             UdsRequestType::WriteDataByIdentifier(write_data_by_identifier) => {
                 let mut data = vec![write_data_by_identifier
                     .get_service_type()
-                    .request_to_byte()];
+                    .request_service_to_byte()];
                 data.extend_from_slice(&write_data_by_identifier.did.to_be_bytes());
                 data.extend_from_slice(write_data_by_identifier.data.as_slice());
                 Self { data }
