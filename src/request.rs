@@ -160,12 +160,6 @@ impl CommunicationControl {
     }
 }
 
-impl UdsService for CommunicationControl {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::CommunicationControl
-    }
-}
-
 /// The ControlDTCSettings service is used to control the DTC settings of the ECU.
 #[derive(Clone, Copy, Debug)]
 pub struct ControlDTCSettings {
@@ -196,11 +190,6 @@ impl ControlDTCSettings {
     }
 }
 
-impl UdsService for ControlDTCSettings {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::ControlDTCSettings
-    }
-}
 pub struct DiagnosticsSessionControl {
     pub session_type: SessionType,
     _private: (),
@@ -217,12 +206,6 @@ impl DiagnosticsSessionControl {
     fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
         buffer.write_u8(u8::from(self.session_type))?;
         Ok(())
-    }
-}
-
-impl UdsService for DiagnosticsSessionControl {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::DiagnosticSessionControl
     }
 }
 
@@ -244,33 +227,21 @@ impl EcuReset {
         Ok(())
     }
 }
-
-impl UdsService for EcuReset {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::EcuReset
-    }
-}
-
 pub struct TransferData {
     pub sequence: u8,
     pub data: Vec<u8>,
     _private: (),
 }
 
-impl UdsService for TransferData {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::TransferData
-    }
-}
 
 pub struct ReadDataByIdentifier {
     pub did: u16,
     _private: (),
 }
 
-impl UdsService for ReadDataByIdentifier {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::ReadDataByIdentifier
+impl ReadDataByIdentifier {
+    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let did = buffer.read_u16::<BigEndian>()?;
     }
 }
 
@@ -290,22 +261,14 @@ impl RequestDownload {
             memory_address,
             memory_size,
             _private: (),
-        }
+        })
     }
-}
-impl UdsService for RequestDownload {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::RequestDownload
-    }
-}
-
-pub struct RequestTransferExit {
-    _private: (),
-}
-
-impl UdsService for RequestTransferExit {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::RequestTransferExit
+    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u8(self.data_format_identifier)?;
+        buffer.write_u8(self.address_and_length_format_identifier)?;
+        buffer.write_u32::<BigEndian>(self.memory_address)?;
+        buffer.write_u32::<BigEndian>(self.memory_size)?;
+        Ok(())
     }
 }
 
@@ -337,19 +300,15 @@ impl RoutineControl {
     }
 }
 
-impl UdsService for RoutineControl {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::RoutineControl
-    }
-}
-
-pub struct TesterPresent {
+pub struct TransferData {
+    pub sequence: u8,
+    pub data: Vec<u8>,
     _private: (),
 }
 
-impl UdsService for TesterPresent {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::TesterPresent
+impl TransferData {
+    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let sequence = buffer.read_u8()?;
     }
 }
 
@@ -374,12 +333,6 @@ impl WriteDataByIdentifier {
         buffer.write_u16::<BigEndian>(self.did)?;
         buffer.write_all(&self.data)?;
         Ok(())
-    }
-}
-
-impl UdsService for WriteDataByIdentifier {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::WriteDataByIdentifier
     }
 }
 
