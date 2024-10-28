@@ -2,12 +2,11 @@ use crate::{CommunicationEnable, CommunicationType, Error, SUCCESS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
+#[non_exhaustive]
 pub struct CommunicationControl {
     pub communication_enable: CommunicationEnable,
     pub communication_type: CommunicationType,
     pub suppress_response: bool,
-    /// Stop external code from creating instances of this struct directly
-    _private: (),
 }
 
 impl CommunicationControl {
@@ -20,7 +19,6 @@ impl CommunicationControl {
             communication_enable,
             communication_type,
             suppress_response,
-            _private: (),
         }
     }
     pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
@@ -32,7 +30,6 @@ impl CommunicationControl {
             communication_enable,
             communication_type,
             suppress_response,
-            _private: (),
         })
     }
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {

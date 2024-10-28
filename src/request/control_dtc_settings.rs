@@ -4,13 +4,12 @@ use std::io::{Read, Write};
 
 /// The ControlDTCSettings service is used to control the DTC settings of the ECU.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub struct ControlDTCSettings {
     /// The requested DTC logging setting
     pub setting: DtcSettings,
     /// Whether the ECU should suppress a response
     pub suppress_response: bool,
-    /// Stop external code from creating instances of this struct directly
-    _private: (),
 }
 
 impl ControlDTCSettings {
@@ -18,7 +17,6 @@ impl ControlDTCSettings {
         Self {
             setting,
             suppress_response,
-            _private: (),
         }
     }
 
@@ -29,7 +27,6 @@ impl ControlDTCSettings {
         Ok(Self {
             setting,
             suppress_response,
-            _private: (),
         })
     }
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {

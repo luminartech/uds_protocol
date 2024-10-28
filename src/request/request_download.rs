@@ -8,7 +8,6 @@ pub struct RequestDownload {
     pub address_and_length_format_identifier: u8,
     pub memory_address: u32,
     pub memory_size: u32,
-    _private: (),
 }
 
 impl RequestDownload {
@@ -23,7 +22,6 @@ impl RequestDownload {
             address_and_length_format_identifier,
             memory_address,
             memory_size,
-            _private: (),
         }
     }
 
@@ -37,7 +35,6 @@ impl RequestDownload {
             address_and_length_format_identifier,
             memory_address,
             memory_size,
-            _private: (),
         })
     }
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {

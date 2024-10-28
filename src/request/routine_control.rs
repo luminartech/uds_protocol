@@ -6,7 +6,6 @@ pub struct RoutineControl {
     pub sub_function: RoutineControlSubFunction,
     pub routine_id: u16,
     pub data: Vec<u8>,
-    _private: (),
 }
 
 impl RoutineControl {
@@ -19,7 +18,6 @@ impl RoutineControl {
             sub_function,
             routine_id,
             data,
-            _private: (),
         }
     }
 
@@ -32,7 +30,6 @@ impl RoutineControl {
             sub_function,
             routine_id,
             data,
-            _private: (),
         })
     }
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
