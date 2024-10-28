@@ -9,6 +9,9 @@ pub use control_dtc_settings::ControlDTCSettings;
 mod diagnostic_session_control;
 pub use diagnostic_session_control::DiagnosticSessionControl;
 
+mod ecu_reset;
+pub use ecu_reset::EcuReset;
+
 use std::io::{Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -19,26 +22,6 @@ use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
     RoutineControlSubFunction, SessionType, SUCCESS,
 };
-
-pub struct EcuReset {
-    pub reset_type: EcuResetType,
-    _private: (),
-}
-
-impl EcuReset {
-    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let reset_type = EcuResetType::from(buffer.read_u8()?);
-        Ok(Self {
-            reset_type,
-            _private: (),
-        })
-    }
-    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.reset_type))?;
-        Ok(())
-    }
-}
-
 pub struct ReadDataByIdentifier {
     pub did: u16,
     _private: (),
@@ -183,35 +166,24 @@ impl UdsRequestType {
         communication_type: CommunicationType,
         suppress_response: bool,
     ) -> Self {
-        UdsRequestType::CommunicationControl(CommunicationControl {
+        UdsRequestType::CommunicationControl(CommunicationControl::new(
             communication_enable,
             communication_type,
             suppress_response,
-            _private: (),
-        })
+        ))
     }
 
     /// Create a new ControlDTCSettings request
     pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
-        UdsRequestType::ControlDTCSettings(ControlDTCSettings {
-            setting,
-            suppress_response,
-            _private: (),
-        })
+        UdsRequestType::ControlDTCSettings(ControlDTCSettings::new(setting, suppress_response))
     }
 
     pub fn diagnostic_session_control(session_type: SessionType) -> Self {
-        UdsRequestType::DiagnosticSessionControl(DiagnosticsSessionControl {
-            session_type,
-            _private: (),
-        })
+        UdsRequestType::DiagnosticSessionControl(DiagnosticSessionControl::new(session_type))
     }
 
     pub fn ecu_reset(reset_type: EcuResetType) -> Self {
-        UdsRequestType::EcuReset(EcuReset {
-            reset_type,
-            _private: (),
-        })
+        UdsRequestType::EcuReset(EcuReset::new(reset_type))
     }
 
     pub fn read_data_by_identifier(did: u16) -> Self {
