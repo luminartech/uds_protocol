@@ -1,0 +1,22 @@
+use crate::Error;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Write};
+
+pub struct ReadDataByIdentifier {
+    pub did: u16,
+    _private: (),
+}
+
+impl ReadDataByIdentifier {
+    pub(crate) fn new(did: u16) -> Self {
+        Self { did, _private: () }
+    }
+    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let did = buffer.read_u16::<BigEndian>()?;
+        Ok(Self { did, _private: () })
+    }
+    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u16::<BigEndian>(self.did)?;
+        Ok(())
+    }
+}

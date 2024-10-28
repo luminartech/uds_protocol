@@ -12,6 +12,9 @@ pub use diagnostic_session_control::DiagnosticSessionControl;
 mod ecu_reset;
 pub use ecu_reset::EcuReset;
 
+mod read_data_by_identifier;
+pub use read_data_by_identifier::ReadDataByIdentifier;
+
 use std::io::{Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -22,22 +25,6 @@ use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
     RoutineControlSubFunction, SessionType, SUCCESS,
 };
-pub struct ReadDataByIdentifier {
-    pub did: u16,
-    _private: (),
-}
-
-impl ReadDataByIdentifier {
-    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let did = buffer.read_u16::<BigEndian>()?;
-        Ok(Self { did, _private: () })
-    }
-    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u16::<BigEndian>(self.did)?;
-        Ok(())
-    }
-}
-
 pub struct RequestDownload {
     pub data_format_identifier: u8,
     pub address_and_length_format_identifier: u8,
@@ -187,7 +174,7 @@ impl UdsRequestType {
     }
 
     pub fn read_data_by_identifier(did: u16) -> Self {
-        UdsRequestType::ReadDataByIdentifier(ReadDataByIdentifier { did, _private: () })
+        UdsRequestType::ReadDataByIdentifier(ReadDataByIdentifier::new(did))
     }
 
     // TODO:: Figure out if the format and length identifiers should be configurable
