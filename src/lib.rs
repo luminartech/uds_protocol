@@ -4,7 +4,7 @@ pub use error::Error;
 
 mod request;
 pub use request::{
-    CommunicationControl, ControlDTCSettings, DiagnosticsSessionControl, ReadDataByIdentifier,
+    CommunicationControl, ControlDTCSettings, DiagnosticSessionControl, ReadDataByIdentifier,
     RequestDownload, RoutineControl, TransferData, UdsRequestType, WriteDataByIdentifier,
 };
 

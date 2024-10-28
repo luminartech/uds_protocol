@@ -26,21 +26,21 @@ pub use transfer_data::TransferData;
 
 mod write_data_by_identifier;
 pub use write_data_by_identifier::WriteDataByIdentifier;
-use std::io::{Read, Write};
 
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Write};
 
 use crate::Error;
 
 use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
-    RoutineControlSubFunction, SessionType, SUCCESS,
+    RoutineControlSubFunction, SessionType,
 };
 
 pub enum UdsRequestType {
     CommunicationControl(CommunicationControl),
     ControlDTCSettings(ControlDTCSettings),
-    DiagnosticSessionControl(DiagnosticsSessionControl),
+    DiagnosticSessionControl(DiagnosticSessionControl),
     EcuReset(EcuReset),
     ReadDataByIdentifier(ReadDataByIdentifier),
     RequestDownload(RequestDownload),
@@ -142,7 +142,7 @@ impl UdsRequestType {
                 Self::ControlDTCSettings(ControlDTCSettings::read(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => {
-                Self::DiagnosticSessionControl(DiagnosticsSessionControl::read(reader)?)
+                Self::DiagnosticSessionControl(DiagnosticSessionControl::read(reader)?)
             }
             UdsServiceType::EcuReset => Self::EcuReset(EcuReset::read(reader)?),
             UdsServiceType::ReadDataByIdentifier => {
