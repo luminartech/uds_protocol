@@ -21,6 +21,9 @@ pub use request_download::RequestDownload;
 mod routine_control;
 pub use routine_control::RoutineControl;
 
+mod transfer_data;
+pub use transfer_data::TransferData;
+
 use std::io::{Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -31,30 +34,6 @@ use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
     RoutineControlSubFunction, SessionType, SUCCESS,
 };
-pub struct TransferData {
-    pub sequence: u8,
-    pub data: Vec<u8>,
-    _private: (),
-}
-
-impl TransferData {
-    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let sequence = buffer.read_u8()?;
-        let mut data = Vec::new();
-        buffer.read_to_end(&mut data)?;
-        Ok(Self {
-            sequence,
-            data,
-            _private: (),
-        })
-    }
-    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(self.sequence)?;
-        buffer.write_all(&self.data)?;
-        Ok(())
-    }
-}
-
 pub struct WriteDataByIdentifier {
     pub did: u16,
     pub data: Vec<u8>,
@@ -151,11 +130,7 @@ impl UdsRequestType {
     }
 
     pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
-        UdsRequestType::TransferData(TransferData {
-            sequence,
-            data,
-            _private: (),
-        })
+        UdsRequestType::TransferData(TransferData::new(sequence, data))
     }
 
     pub fn write_data_by_identifier(did: u16, data: Vec<u8>) -> Self {
