@@ -17,6 +17,10 @@ pub use read_data_by_identifier::ReadDataByIdentifier;
 
 mod request_download;
 pub use request_download::RequestDownload;
+
+mod routine_control;
+pub use routine_control::RoutineControl;
+
 use std::io::{Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -27,34 +31,6 @@ use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
     RoutineControlSubFunction, SessionType, SUCCESS,
 };
-pub struct RoutineControl {
-    pub sub_function: RoutineControlSubFunction,
-    pub routine_id: u16,
-    pub data: Vec<u8>,
-    _private: (),
-}
-
-impl RoutineControl {
-    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let sub_function = RoutineControlSubFunction::from(buffer.read_u8()?);
-        let routine_id = buffer.read_u16::<BigEndian>()?;
-        let mut data = Vec::new();
-        buffer.read_to_end(&mut data)?;
-        Ok(Self {
-            sub_function,
-            routine_id,
-            data,
-            _private: (),
-        })
-    }
-    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.sub_function))?;
-        buffer.write_u16::<BigEndian>(self.routine_id)?;
-        buffer.write_all(&self.data)?;
-        Ok(())
-    }
-}
-
 pub struct TransferData {
     pub sequence: u8,
     pub data: Vec<u8>,
@@ -167,12 +143,7 @@ impl UdsRequestType {
         routine_id: u16,
         data: Vec<u8>,
     ) -> Self {
-        UdsRequestType::RoutineControl(RoutineControl {
-            sub_function,
-            routine_id,
-            data,
-            _private: (),
-        })
+        UdsRequestType::RoutineControl(RoutineControl::new(sub_function, routine_id, data))
     }
 
     pub fn tester_present() -> Self {
