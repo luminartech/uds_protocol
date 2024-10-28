@@ -24,6 +24,8 @@ pub use routine_control::RoutineControl;
 mod transfer_data;
 pub use transfer_data::TransferData;
 
+mod write_data_by_identifier;
+pub use write_data_by_identifier::WriteDataByIdentifier;
 use std::io::{Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -34,29 +36,6 @@ use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
     RoutineControlSubFunction, SessionType, SUCCESS,
 };
-pub struct WriteDataByIdentifier {
-    pub did: u16,
-    pub data: Vec<u8>,
-    _private: (),
-}
-
-impl WriteDataByIdentifier {
-    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let did = buffer.read_u16::<BigEndian>()?;
-        let mut data = Vec::new();
-        buffer.read_to_end(&mut data)?;
-        Ok(Self {
-            did,
-            data,
-            _private: (),
-        })
-    }
-    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u16::<BigEndian>(self.did)?;
-        buffer.write_all(&self.data)?;
-        Ok(())
-    }
-}
 
 pub enum UdsRequestType {
     CommunicationControl(CommunicationControl),
@@ -134,11 +113,7 @@ impl UdsRequestType {
     }
 
     pub fn write_data_by_identifier(did: u16, data: Vec<u8>) -> Self {
-        UdsRequestType::WriteDataByIdentifier(WriteDataByIdentifier {
-            did,
-            data,
-            _private: (),
-        })
+        UdsRequestType::WriteDataByIdentifier(WriteDataByIdentifier::new(did, data))
     }
 
     pub fn service(&self) -> UdsServiceType {
