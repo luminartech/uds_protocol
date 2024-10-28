@@ -5,6 +5,10 @@ pub use communication_control::CommunicationControl;
 
 mod control_dtc_settings;
 pub use control_dtc_settings::ControlDTCSettings;
+
+mod diagnostic_session_control;
+pub use diagnostic_session_control::DiagnosticSessionControl;
+
 use std::io::{Read, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -15,25 +19,6 @@ use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
     RoutineControlSubFunction, SessionType, SUCCESS,
 };
-
-pub struct DiagnosticsSessionControl {
-    pub session_type: SessionType,
-    _private: (),
-}
-
-impl DiagnosticsSessionControl {
-    fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let session_type = SessionType::from(buffer.read_u8()?);
-        Ok(Self {
-            session_type,
-            _private: (),
-        })
-    }
-    fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.session_type))?;
-        Ok(())
-    }
-}
 
 pub struct EcuReset {
     pub reset_type: EcuResetType,
