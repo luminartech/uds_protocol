@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 
 use crate::Error;
 
+#[non_exhaustive]
 pub struct RequestDownload {
     pub data_format_identifier: u8,
     pub address_and_length_format_identifier: u8,

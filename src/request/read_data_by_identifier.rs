@@ -2,6 +2,7 @@ use crate::Error;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
+#[non_exhaustive]
 pub struct ReadDataByIdentifier {
     pub did: u16,
 }

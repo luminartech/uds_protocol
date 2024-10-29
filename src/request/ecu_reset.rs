@@ -2,6 +2,7 @@ use crate::{EcuResetType, Error};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
+#[non_exhaustive]
 pub struct EcuReset {
     pub reset_type: EcuResetType,
 }

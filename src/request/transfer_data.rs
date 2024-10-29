@@ -3,6 +3,7 @@ use std::io::{Read, Write};
 
 use crate::Error;
 
+#[non_exhaustive]
 pub struct TransferData {
     pub sequence: u8,
     pub data: Vec<u8>,
