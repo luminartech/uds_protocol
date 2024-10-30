@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+byteorder.workspace = true
+thiserror.workspace = true
+# Optional dependencies
 clap = { workspace = true }
 serde = { workspace = true }

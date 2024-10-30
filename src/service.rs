@@ -1,10 +1,6 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-pub trait UdsService {
-    fn get_service_type(&self) -> UdsServiceType;
-}
-
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 // Without the non-exhaustive annotation, adding additional diagnostic commands would be a breaking semver change.
 #[non_exhaustive]
@@ -138,7 +134,7 @@ pub enum UdsServiceType {
 }
 
 impl UdsServiceType {
-    pub fn request_from_byte(value: u8) -> Self {
+    pub fn service_from_request_byte(value: u8) -> Self {
         match value {
             0x10 => Self::DiagnosticSessionControl,
             0x11 => Self::EcuReset,
@@ -171,7 +167,7 @@ impl UdsServiceType {
         }
     }
 
-    pub fn request_to_byte(&self) -> u8 {
+    pub fn request_service_to_byte(&self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x10,
             Self::EcuReset => 0x11,

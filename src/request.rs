@@ -1,266 +1,200 @@
-use serde::{Deserialize, Serialize};
+//! Module for making and handling UDS Requests
+
+mod communication_control;
+pub use communication_control::CommunicationControl;
+
+mod control_dtc_settings;
+pub use control_dtc_settings::ControlDTCSettings;
+
+mod diagnostic_session_control;
+pub use diagnostic_session_control::DiagnosticSessionControl;
+
+mod ecu_reset;
+pub use ecu_reset::EcuReset;
+
+mod read_data_by_identifier;
+pub use read_data_by_identifier::ReadDataByIdentifier;
+
+mod request_download;
+pub use request_download::RequestDownload;
+
+mod routine_control;
+pub use routine_control::RoutineControl;
+
+mod transfer_data;
+pub use transfer_data::TransferData;
+
+mod write_data_by_identifier;
+pub use write_data_by_identifier::WriteDataByIdentifier;
+
+use byteorder::{ReadBytesExt, WriteBytesExt};
+use std::io::{Read, Write};
+
+use crate::Error;
 
 use super::{
-    service::{UdsService, UdsServiceType},
-    CommunicationEnable, CommunicationType, DtcSettings, EcuResetType, RoutineControlSubFunction,
-    SessionType, SUCCESS,
+    service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
+    RoutineControlSubFunction, SessionType,
 };
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct UdsRequest {
-    data: Vec<u8>,
-}
-
-impl UdsRequest {
-    pub fn from_service_type(service_type: UdsRequestType) -> Self {
-        match service_type {
-            UdsRequestType::CommunicationControl(communication_control) => {
-                let suppression_byte = match communication_control.suppress_response {
-                    true => 0x80,
-                    false => 0x00,
-                };
-                let enable_byte: u8 = communication_control.communication_enable.into();
-                Self {
-                    data: vec![
-                        communication_control.get_service_type().request_to_byte(),
-                        enable_byte | suppression_byte,
-                        communication_control.communication_type.into(),
-                    ],
-                }
-            }
-            UdsRequestType::ControlDTCSettings(dtc_settings) => {
-                let suppression_byte = match dtc_settings.suppress_response {
-                    true => 0x80,
-                    false => 0x00,
-                };
-                let dtc_setting_byte: u8 = dtc_settings.setting.into();
-                Self {
-                    data: vec![
-                        dtc_settings.get_service_type().request_to_byte(),
-                        dtc_setting_byte | suppression_byte,
-                    ],
-                }
-            }
-            UdsRequestType::DiagnosticSessionControl(session_control) => Self {
-                data: vec![
-                    session_control.get_service_type().request_to_byte(),
-                    session_control.session_type.into(),
-                ],
-            },
-            UdsRequestType::EcuReset(ecu_reset) => Self {
-                data: vec![
-                    ecu_reset.get_service_type().request_to_byte(),
-                    ecu_reset.reset_type.into(),
-                ],
-            },
-            UdsRequestType::ReadDataByIdentifier(read_data_by_identifier) => {
-                let did_bytes = read_data_by_identifier.did.to_be_bytes();
-                Self {
-                    data: vec![
-                        read_data_by_identifier.get_service_type().request_to_byte(),
-                        did_bytes[0],
-                        did_bytes[1],
-                    ],
-                }
-            }
-            UdsRequestType::RequestDownload(request_download) => {
-                let mut data = vec![
-                    request_download.get_service_type().request_to_byte(),
-                    request_download.data_format_identifier,
-                    request_download.address_and_length_format_identifier,
-                ];
-                data.extend_from_slice(request_download.memory_address.to_be_bytes().as_slice());
-                data.extend_from_slice(request_download.memory_size.to_be_bytes().as_slice());
-                Self { data }
-            }
-            UdsRequestType::RequestTransferExit(_) => Self {
-                data: vec![UdsServiceType::RequestTransferExit.request_to_byte()],
-            },
-            UdsRequestType::RoutineControl(routine_control) => {
-                let mut data = vec![routine_control.get_service_type().request_to_byte()];
-                data.push(routine_control.sub_function.into());
-                data.extend_from_slice(&routine_control.routine_id.to_be_bytes());
-                data.extend_from_slice(routine_control.data.as_slice());
-                Self { data }
-            }
-            UdsRequestType::TesterPresent(tester_present) => Self {
-                data: (vec![tester_present.get_service_type().request_to_byte(), SUCCESS]),
-            },
-            UdsRequestType::TransferData(transfer_data) => {
-                let mut data = vec![transfer_data.get_service_type().request_to_byte()];
-                data.push(transfer_data.sequence);
-                data.extend_from_slice(transfer_data.data.as_slice());
-                Self { data }
-            }
-            UdsRequestType::WriteDataByIdentifier(write_data_by_identifier) => {
-                let mut data = vec![write_data_by_identifier
-                    .get_service_type()
-                    .request_to_byte()];
-                data.extend_from_slice(&write_data_by_identifier.did.to_be_bytes());
-                data.extend_from_slice(write_data_by_identifier.data.as_slice());
-                Self { data }
-            }
-        }
-    }
-
-    pub fn service_type(&self) -> UdsServiceType {
-        UdsServiceType::request_from_byte(self.data[0])
-    }
-
-    pub fn to_request_type(self) -> UdsRequestType {
-        match self.service_type() {
-            UdsServiceType::DiagnosticSessionControl => {
-                let session_type = SessionType::from(self.data[1]);
-                UdsRequestType::DiagnosticSessionControl(DiagnosticsSessionControl { session_type })
-            }
-            UdsServiceType::TesterPresent => UdsRequestType::TesterPresent(TesterPresent),
-            _ => panic!("Unsupported service type"),
-        }
-    }
-    pub fn to_network(&self) -> Vec<u8> {
-        self.data.clone()
-    }
-
-    pub fn expected_response_byte(&self) -> u8 {
-        self.service_type().response_to_byte()
-    }
-}
-
-pub struct CommunicationControl {
-    pub communication_enable: CommunicationEnable,
-    pub communication_type: CommunicationType,
-    pub suppress_response: bool,
-}
-
-impl UdsService for CommunicationControl {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::CommunicationControl
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct ControlDTCSettings {
-    pub setting: DtcSettings,
-    pub suppress_response: bool,
-}
-
-impl UdsService for ControlDTCSettings {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::ControlDTCSettings
-    }
-}
-pub struct DiagnosticsSessionControl {
-    pub session_type: SessionType,
-}
-
-impl UdsService for DiagnosticsSessionControl {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::DiagnosticSessionControl
-    }
-}
-
-pub struct EcuReset {
-    pub reset_type: EcuResetType,
-}
-
-impl UdsService for EcuReset {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::EcuReset
-    }
-}
-pub struct TransferData {
-    pub sequence: u8,
-    pub data: Vec<u8>,
-}
-
-impl UdsService for TransferData {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::TransferData
-    }
-}
-
-pub struct ReadDataByIdentifier {
-    pub did: u16,
-}
-
-impl UdsService for ReadDataByIdentifier {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::ReadDataByIdentifier
-    }
-}
-
-pub struct RequestDownload {
-    pub data_format_identifier: u8,
-    pub address_and_length_format_identifier: u8,
-    pub memory_address: u32,
-    pub memory_size: u32,
-}
-
-impl RequestDownload {
-    pub fn new(memory_address: u32, memory_size: u32) -> Self {
-        Self {
-            data_format_identifier: 0x00,
-            address_and_length_format_identifier: 0x44,
-            memory_address,
-            memory_size,
-        }
-    }
-}
-impl UdsService for RequestDownload {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::RequestDownload
-    }
-}
-
-pub struct RequestTransferExit;
-
-impl UdsService for RequestTransferExit {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::RequestTransferExit
-    }
-}
-
-pub struct RoutineControl {
-    pub sub_function: RoutineControlSubFunction,
-    pub routine_id: u16,
-    pub data: Vec<u8>,
-}
-
-impl UdsService for RoutineControl {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::RoutineControl
-    }
-}
-
-pub struct TesterPresent;
-
-impl UdsService for TesterPresent {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::TesterPresent
-    }
-}
-
-pub struct WriteDataByIdentifier {
-    pub did: u16,
-    pub data: Vec<u8>,
-}
-
-impl UdsService for WriteDataByIdentifier {
-    fn get_service_type(&self) -> UdsServiceType {
-        UdsServiceType::WriteDataByIdentifier
-    }
-}
-
-pub enum UdsRequestType {
+pub enum UdsRequest {
     CommunicationControl(CommunicationControl),
     ControlDTCSettings(ControlDTCSettings),
-    DiagnosticSessionControl(DiagnosticsSessionControl),
+    DiagnosticSessionControl(DiagnosticSessionControl),
     EcuReset(EcuReset),
     ReadDataByIdentifier(ReadDataByIdentifier),
     RequestDownload(RequestDownload),
-    RequestTransferExit(RequestTransferExit),
+    RequestTransferExit,
     RoutineControl(RoutineControl),
-    TesterPresent(TesterPresent),
+    TesterPresent,
     TransferData(TransferData),
     WriteDataByIdentifier(WriteDataByIdentifier),
+}
+
+impl UdsRequest {
+    /// Create a communication control request
+    pub fn communication_control(
+        communication_enable: CommunicationEnable,
+        communication_type: CommunicationType,
+        suppress_response: bool,
+    ) -> Self {
+        UdsRequest::CommunicationControl(CommunicationControl::new(
+            communication_enable,
+            communication_type,
+            suppress_response,
+        ))
+    }
+
+    /// Create a new ControlDTCSettings request
+    pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
+        UdsRequest::ControlDTCSettings(ControlDTCSettings::new(setting, suppress_response))
+    }
+
+    pub fn diagnostic_session_control(session_type: SessionType) -> Self {
+        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControl::new(session_type))
+    }
+
+    pub fn ecu_reset(reset_type: EcuResetType) -> Self {
+        UdsRequest::EcuReset(EcuReset::new(reset_type))
+    }
+
+    pub fn read_data_by_identifier(did: u16) -> Self {
+        UdsRequest::ReadDataByIdentifier(ReadDataByIdentifier::new(did))
+    }
+
+    // TODO:: Figure out if the format and length identifiers should be configurable
+    pub fn request_download(memory_address: u32, memory_size: u32) -> Self {
+        UdsRequest::RequestDownload(RequestDownload::new(
+            0x00,
+            0x44,
+            memory_address,
+            memory_size,
+        ))
+    }
+
+    pub fn request_transfer_exit() -> Self {
+        Self::RequestTransferExit
+    }
+
+    pub fn routine_control(
+        sub_function: RoutineControlSubFunction,
+        routine_id: u16,
+        data: Vec<u8>,
+    ) -> Self {
+        UdsRequest::RoutineControl(RoutineControl::new(sub_function, routine_id, data))
+    }
+
+    pub fn tester_present() -> Self {
+        Self::TesterPresent
+    }
+
+    pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
+        UdsRequest::TransferData(TransferData::new(sequence, data))
+    }
+
+    pub fn write_data_by_identifier(did: u16, data: Vec<u8>) -> Self {
+        UdsRequest::WriteDataByIdentifier(WriteDataByIdentifier::new(did, data))
+    }
+
+    pub fn service(&self) -> UdsServiceType {
+        match self {
+            Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
+            Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings,
+            Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
+            Self::EcuReset(_) => UdsServiceType::EcuReset,
+            Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
+            Self::RequestDownload(_) => UdsServiceType::RequestDownload,
+            Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
+            Self::RoutineControl(_) => UdsServiceType::RoutineControl,
+            Self::TesterPresent => UdsServiceType::TesterPresent,
+            Self::TransferData(_) => UdsServiceType::TransferData,
+            Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
+        }
+    }
+
+    pub fn from_reader<T: Read>(reader: &mut T) -> Result<Self, Error> {
+        let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
+        Ok(match service {
+            UdsServiceType::CommunicationControl => {
+                Self::CommunicationControl(CommunicationControl::read(reader)?)
+            }
+            UdsServiceType::ControlDTCSettings => {
+                Self::ControlDTCSettings(ControlDTCSettings::read(reader)?)
+            }
+            UdsServiceType::DiagnosticSessionControl => {
+                Self::DiagnosticSessionControl(DiagnosticSessionControl::read(reader)?)
+            }
+            UdsServiceType::EcuReset => Self::EcuReset(EcuReset::read(reader)?),
+            UdsServiceType::ReadDataByIdentifier => {
+                Self::ReadDataByIdentifier(ReadDataByIdentifier::read(reader)?)
+            }
+            UdsServiceType::RequestDownload => {
+                Self::RequestDownload(RequestDownload::read(reader)?)
+            }
+            UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
+            UdsServiceType::RoutineControl => Self::RoutineControl(RoutineControl::read(reader)?),
+            UdsServiceType::TesterPresent => Self::TesterPresent,
+            UdsServiceType::TransferData => Self::TransferData(TransferData::read(reader)?),
+            UdsServiceType::WriteDataByIdentifier => {
+                Self::WriteDataByIdentifier(WriteDataByIdentifier::read(reader)?)
+            }
+            UdsServiceType::SecurityAccess => todo!(),
+            UdsServiceType::Authentication => todo!(),
+            UdsServiceType::AccessTimingParameters => todo!(),
+            UdsServiceType::SecuredDataTransmission => todo!(),
+            UdsServiceType::ResponseOnEvent => todo!(),
+            UdsServiceType::LinkControl => todo!(),
+            UdsServiceType::ReadMemoryByAddress => todo!(),
+            UdsServiceType::ReadScalingDataByIdentifier => todo!(),
+            UdsServiceType::ReadDataByIdentifierPeriodic => todo!(),
+            UdsServiceType::DynamicallyDefinedDataIdentifier => todo!(),
+            UdsServiceType::WriteMemoryByAddress => todo!(),
+            UdsServiceType::ClearDiagnosticInfo => todo!(),
+            UdsServiceType::ReadDTCInfo => todo!(),
+            UdsServiceType::InputOutputControlByIdentifier => todo!(),
+            UdsServiceType::RequestUpload => todo!(),
+            UdsServiceType::RequestFileTransfer => todo!(),
+            UdsServiceType::NegativeResponse => todo!(),
+            UdsServiceType::UnsupportedDiagnosticService => todo!(),
+        })
+    }
+
+    pub fn to_writer<T: Write>(&self, writer: &mut T) -> Result<(), Error> {
+        // Write the service byte
+        writer.write_u8(self.service().request_service_to_byte())?;
+        // Write the payload
+        match self {
+            Self::CommunicationControl(cc) => cc.write(writer),
+            Self::ControlDTCSettings(ct) => ct.write(writer),
+            Self::DiagnosticSessionControl(ds) => ds.write(writer),
+            Self::EcuReset(er) => er.write(writer),
+            Self::ReadDataByIdentifier(rd) => rd.write(writer),
+            Self::RequestDownload(rd) => rd.write(writer),
+            Self::RequestTransferExit => Ok(()),
+            Self::RoutineControl(rc) => rc.write(writer),
+            Self::TesterPresent => Ok(()),
+            Self::TransferData(td) => td.write(writer),
+            Self::WriteDataByIdentifier(wd) => wd.write(writer),
+        }
+    }
 }
