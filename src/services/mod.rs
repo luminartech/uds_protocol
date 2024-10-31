@@ -14,7 +14,7 @@ mod read_data_by_identifier;
 pub use read_data_by_identifier::ReadDataByIdentifierRequest;
 
 mod request_download;
-pub use request_download::RequestDownload;
+pub use request_download::RequestDownloadRequest;
 
 mod routine_control;
 pub use routine_control::RoutineControl;

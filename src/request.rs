@@ -2,7 +2,7 @@
 use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownload, RoutineControl,
+        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest, RoutineControl,
         TransferData, WriteDataByIdentifier,
     },
     Error,
@@ -21,7 +21,7 @@ pub enum UdsRequest {
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
     EcuReset(EcuResetRequest),
     ReadDataByIdentifier(ReadDataByIdentifierRequest),
-    RequestDownload(RequestDownload),
+    RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
     RoutineControl(RoutineControl),
     TesterPresent,
@@ -62,7 +62,7 @@ impl UdsRequest {
 
     // TODO:: Figure out if the format and length identifiers should be configurable
     pub fn request_download(memory_address: u32, memory_size: u32) -> Self {
-        UdsRequest::RequestDownload(RequestDownload::new(
+        UdsRequest::RequestDownload(RequestDownloadRequest::new(
             0x00,
             0x44,
             memory_address,
@@ -127,7 +127,7 @@ impl UdsRequest {
                 Self::ReadDataByIdentifier(ReadDataByIdentifierRequest::read(reader)?)
             }
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownload::read(reader)?)
+                Self::RequestDownload(RequestDownloadRequest::read(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => Self::RoutineControl(RoutineControl::read(reader)?),
