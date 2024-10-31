@@ -2,7 +2,7 @@
 use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuReset, ReadDataByIdentifier, RequestDownload, RoutineControl, TransferData,
+        EcuResetRequest, ReadDataByIdentifier, RequestDownload, RoutineControl, TransferData,
         WriteDataByIdentifier,
     },
     Error,
@@ -19,7 +19,7 @@ pub enum UdsRequest {
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
-    EcuReset(EcuReset),
+    EcuReset(EcuResetRequest),
     ReadDataByIdentifier(ReadDataByIdentifier),
     RequestDownload(RequestDownload),
     RequestTransferExit,
@@ -53,7 +53,7 @@ impl UdsRequest {
     }
 
     pub fn ecu_reset(reset_type: EcuResetType) -> Self {
-        UdsRequest::EcuReset(EcuReset::new(reset_type))
+        UdsRequest::EcuReset(EcuResetRequest::new(reset_type))
     }
 
     pub fn read_data_by_identifier(did: u16) -> Self {
@@ -122,7 +122,7 @@ impl UdsRequest {
             UdsServiceType::DiagnosticSessionControl => {
                 Self::DiagnosticSessionControl(DiagnosticSessionControlRequest::read(reader)?)
             }
-            UdsServiceType::EcuReset => Self::EcuReset(EcuReset::read(reader)?),
+            UdsServiceType::EcuReset => Self::EcuReset(EcuResetRequest::read(reader)?),
             UdsServiceType::ReadDataByIdentifier => {
                 Self::ReadDataByIdentifier(ReadDataByIdentifier::read(reader)?)
             }

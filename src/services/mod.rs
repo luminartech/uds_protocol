@@ -8,7 +8,7 @@ mod diagnostic_session_control;
 pub use diagnostic_session_control::DiagnosticSessionControlRequest;
 
 mod ecu_reset;
-pub use ecu_reset::EcuReset;
+pub use ecu_reset::EcuResetRequest;
 
 mod read_data_by_identifier;
 pub use read_data_by_identifier::ReadDataByIdentifier;

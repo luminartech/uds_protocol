@@ -3,11 +3,11 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 #[non_exhaustive]
-pub struct EcuReset {
+pub struct EcuResetRequest {
     pub reset_type: EcuResetType,
 }
 
-impl EcuReset {
+impl EcuResetRequest {
     pub(crate) fn new(reset_type: EcuResetType) -> Self {
         Self { reset_type }
     }
