@@ -9,7 +9,7 @@ mod services;
 pub use services::{
     CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
     ReadDataByIdentifierRequest, RequestDownloadRequest, RoutineControlRequest,
-    TransferDataRequest, WriteDataByIdentifier,
+    TransferDataRequest, WriteDataByIdentifierRequest,
 };
 
 mod response;

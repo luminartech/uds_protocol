@@ -23,4 +23,4 @@ mod transfer_data;
 pub use transfer_data::TransferDataRequest;
 
 mod write_data_by_identifier;
-pub use write_data_by_identifier::WriteDataByIdentifier;
+pub use write_data_by_identifier::WriteDataByIdentifierRequest;
