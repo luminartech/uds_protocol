@@ -1,4 +1,7 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README"))]
+mod common;
+pub use common::SuppressablePositiveResponse;
+
 mod error;
 pub use error::Error;
 
