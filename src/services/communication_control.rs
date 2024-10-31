@@ -3,13 +3,13 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 #[non_exhaustive]
-pub struct CommunicationControl {
+pub struct CommunicationControlRequest {
     pub communication_enable: CommunicationEnable,
     pub communication_type: CommunicationType,
     pub suppress_response: bool,
 }
 
-impl CommunicationControl {
+impl CommunicationControlRequest {
     pub(crate) fn new(
         communication_enable: CommunicationEnable,
         communication_type: CommunicationType,

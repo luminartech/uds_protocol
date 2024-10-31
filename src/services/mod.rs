@@ -1,5 +1,5 @@
 mod communication_control;
-pub use communication_control::CommunicationControl;
+pub use communication_control::CommunicationControlRequest;
 
 mod control_dtc_settings;
 pub use control_dtc_settings::ControlDTCSettings;
