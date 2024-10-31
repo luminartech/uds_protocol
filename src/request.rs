@@ -2,8 +2,8 @@
 use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuResetRequest, ReadDataByIdentifier, RequestDownload, RoutineControl, TransferData,
-        WriteDataByIdentifier,
+        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownload, RoutineControl,
+        TransferData, WriteDataByIdentifier,
     },
     Error,
 };
@@ -20,7 +20,7 @@ pub enum UdsRequest {
     ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
     EcuReset(EcuResetRequest),
-    ReadDataByIdentifier(ReadDataByIdentifier),
+    ReadDataByIdentifier(ReadDataByIdentifierRequest),
     RequestDownload(RequestDownload),
     RequestTransferExit,
     RoutineControl(RoutineControl),
@@ -57,7 +57,7 @@ impl UdsRequest {
     }
 
     pub fn read_data_by_identifier(did: u16) -> Self {
-        UdsRequest::ReadDataByIdentifier(ReadDataByIdentifier::new(did))
+        UdsRequest::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(did))
     }
 
     // TODO:: Figure out if the format and length identifiers should be configurable
@@ -124,7 +124,7 @@ impl UdsRequest {
             }
             UdsServiceType::EcuReset => Self::EcuReset(EcuResetRequest::read(reader)?),
             UdsServiceType::ReadDataByIdentifier => {
-                Self::ReadDataByIdentifier(ReadDataByIdentifier::read(reader)?)
+                Self::ReadDataByIdentifier(ReadDataByIdentifierRequest::read(reader)?)
             }
             UdsServiceType::RequestDownload => {
                 Self::RequestDownload(RequestDownload::read(reader)?)

@@ -11,7 +11,7 @@ mod ecu_reset;
 pub use ecu_reset::EcuResetRequest;
 
 mod read_data_by_identifier;
-pub use read_data_by_identifier::ReadDataByIdentifier;
+pub use read_data_by_identifier::ReadDataByIdentifierRequest;
 
 mod request_download;
 pub use request_download::RequestDownload;

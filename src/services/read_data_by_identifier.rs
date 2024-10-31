@@ -3,11 +3,11 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 #[non_exhaustive]
-pub struct ReadDataByIdentifier {
+pub struct ReadDataByIdentifierRequest {
     pub did: u16,
 }
 
-impl ReadDataByIdentifier {
+impl ReadDataByIdentifierRequest {
     pub(crate) fn new(did: u16) -> Self {
         Self { did }
     }
