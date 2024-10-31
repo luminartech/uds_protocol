@@ -29,6 +29,7 @@ impl ControlDTCSettings {
             suppress_response,
         })
     }
+
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
         let request_byte =
             u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
