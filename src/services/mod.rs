@@ -5,7 +5,7 @@ mod control_dtc_settings;
 pub use control_dtc_settings::ControlDTCSettingsRequest;
 
 mod diagnostic_session_control;
-pub use diagnostic_session_control::DiagnosticSessionControl;
+pub use diagnostic_session_control::DiagnosticSessionControlRequest;
 
 mod ecu_reset;
 pub use ecu_reset::EcuReset;

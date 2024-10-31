@@ -3,11 +3,11 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 #[non_exhaustive]
-pub struct DiagnosticSessionControl {
+pub struct DiagnosticSessionControlRequest {
     pub session_type: SessionType,
 }
 
-impl DiagnosticSessionControl {
+impl DiagnosticSessionControlRequest {
     pub(crate) fn new(session_type: SessionType) -> Self {
         Self { session_type }
     }

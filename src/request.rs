@@ -1,8 +1,9 @@
 //! Module for making and handling UDS Requests
 use crate::{
     services::{
-        CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControl, EcuReset,
-        ReadDataByIdentifier, RequestDownload, RoutineControl, TransferData, WriteDataByIdentifier,
+        CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
+        EcuReset, ReadDataByIdentifier, RequestDownload, RoutineControl, TransferData,
+        WriteDataByIdentifier,
     },
     Error,
 };
@@ -17,7 +18,7 @@ use super::{
 pub enum UdsRequest {
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
-    DiagnosticSessionControl(DiagnosticSessionControl),
+    DiagnosticSessionControl(DiagnosticSessionControlRequest),
     EcuReset(EcuReset),
     ReadDataByIdentifier(ReadDataByIdentifier),
     RequestDownload(RequestDownload),
@@ -48,7 +49,7 @@ impl UdsRequest {
     }
 
     pub fn diagnostic_session_control(session_type: SessionType) -> Self {
-        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControl::new(session_type))
+        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(session_type))
     }
 
     pub fn ecu_reset(reset_type: EcuResetType) -> Self {
@@ -119,7 +120,7 @@ impl UdsRequest {
                 Self::ControlDTCSettings(ControlDTCSettingsRequest::read(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => {
-                Self::DiagnosticSessionControl(DiagnosticSessionControl::read(reader)?)
+                Self::DiagnosticSessionControl(DiagnosticSessionControlRequest::read(reader)?)
             }
             UdsServiceType::EcuReset => Self::EcuReset(EcuReset::read(reader)?),
             UdsServiceType::ReadDataByIdentifier => {
