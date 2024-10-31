@@ -11,8 +11,8 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 use super::{
-    service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
-    RoutineControlSubFunction, SessionType,
+    service::UdsServiceType, CommunicationEnable, CommunicationType, DiagnosticSessionType,
+    DtcSettings, EcuResetType, RoutineControlSubFunction,
 };
 
 pub enum UdsRequest {
@@ -48,7 +48,7 @@ impl UdsRequest {
         UdsRequest::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
-    pub fn diagnostic_session_control(session_type: SessionType) -> Self {
+    pub fn diagnostic_session_control(session_type: DiagnosticSessionType) -> Self {
         UdsRequest::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(session_type))
     }
 

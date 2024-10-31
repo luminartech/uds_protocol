@@ -1,5 +1,5 @@
-mod session_type;
-pub use session_type::SessionType;
+mod diagnostic_session_type;
+pub use diagnostic_session_type::DiagnosticSessionType;
 
 mod suppressable_positive_response;
 pub use suppressable_positive_response::SuppressablePositiveResponse;
