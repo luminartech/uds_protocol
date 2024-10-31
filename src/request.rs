@@ -1,7 +1,7 @@
 //! Module for making and handling UDS Requests
 use crate::{
     services::{
-        CommunicationControlRequest, ControlDTCSettings, DiagnosticSessionControl, EcuReset,
+        CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControl, EcuReset,
         ReadDataByIdentifier, RequestDownload, RoutineControl, TransferData, WriteDataByIdentifier,
     },
     Error,
@@ -16,7 +16,7 @@ use super::{
 
 pub enum UdsRequest {
     CommunicationControl(CommunicationControlRequest),
-    ControlDTCSettings(ControlDTCSettings),
+    ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControl),
     EcuReset(EcuReset),
     ReadDataByIdentifier(ReadDataByIdentifier),
@@ -44,7 +44,7 @@ impl UdsRequest {
 
     /// Create a new ControlDTCSettings request
     pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
-        UdsRequest::ControlDTCSettings(ControlDTCSettings::new(setting, suppress_response))
+        UdsRequest::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
     pub fn diagnostic_session_control(session_type: SessionType) -> Self {
@@ -116,7 +116,7 @@ impl UdsRequest {
                 Self::CommunicationControl(CommunicationControlRequest::read(reader)?)
             }
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettings::read(reader)?)
+                Self::ControlDTCSettings(ControlDTCSettingsRequest::read(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => {
                 Self::DiagnosticSessionControl(DiagnosticSessionControl::read(reader)?)
