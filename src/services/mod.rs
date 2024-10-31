@@ -20,7 +20,7 @@ mod routine_control;
 pub use routine_control::RoutineControlRequest;
 
 mod transfer_data;
-pub use transfer_data::TransferData;
+pub use transfer_data::TransferDataRequest;
 
 mod write_data_by_identifier;
 pub use write_data_by_identifier::WriteDataByIdentifier;
