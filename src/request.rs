@@ -2,8 +2,8 @@
 use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest, RoutineControl,
-        TransferData, WriteDataByIdentifier,
+        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
+        RoutineControlRequest, TransferData, WriteDataByIdentifier,
     },
     Error,
 };
@@ -23,7 +23,7 @@ pub enum UdsRequest {
     ReadDataByIdentifier(ReadDataByIdentifierRequest),
     RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
-    RoutineControl(RoutineControl),
+    RoutineControl(RoutineControlRequest),
     TesterPresent,
     TransferData(TransferData),
     WriteDataByIdentifier(WriteDataByIdentifier),
@@ -79,7 +79,7 @@ impl UdsRequest {
         routine_id: u16,
         data: Vec<u8>,
     ) -> Self {
-        UdsRequest::RoutineControl(RoutineControl::new(sub_function, routine_id, data))
+        UdsRequest::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
 
     pub fn tester_present() -> Self {
@@ -130,7 +130,9 @@ impl UdsRequest {
                 Self::RequestDownload(RequestDownloadRequest::read(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
-            UdsServiceType::RoutineControl => Self::RoutineControl(RoutineControl::read(reader)?),
+            UdsServiceType::RoutineControl => {
+                Self::RoutineControl(RoutineControlRequest::read(reader)?)
+            }
             UdsServiceType::TesterPresent => Self::TesterPresent,
             UdsServiceType::TransferData => Self::TransferData(TransferData::read(reader)?),
             UdsServiceType::WriteDataByIdentifier => {

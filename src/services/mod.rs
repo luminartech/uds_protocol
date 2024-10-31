@@ -17,7 +17,7 @@ mod request_download;
 pub use request_download::RequestDownloadRequest;
 
 mod routine_control;
-pub use routine_control::RoutineControl;
+pub use routine_control::RoutineControlRequest;
 
 mod transfer_data;
 pub use transfer_data::TransferData;

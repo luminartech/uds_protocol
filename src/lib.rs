@@ -8,7 +8,7 @@ pub use request::UdsRequest;
 mod services;
 pub use services::{
     CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-    ReadDataByIdentifierRequest, RequestDownloadRequest, RoutineControl, TransferData,
+    ReadDataByIdentifierRequest, RequestDownloadRequest, RoutineControlRequest, TransferData,
     WriteDataByIdentifier,
 };
 

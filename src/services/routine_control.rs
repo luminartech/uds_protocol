@@ -3,13 +3,13 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 #[non_exhaustive]
-pub struct RoutineControl {
+pub struct RoutineControlRequest {
     pub sub_function: RoutineControlSubFunction,
     pub routine_id: u16,
     pub data: Vec<u8>,
 }
 
-impl RoutineControl {
+impl RoutineControlRequest {
     pub(crate) fn new(
         sub_function: RoutineControlSubFunction,
         routine_id: u16,
