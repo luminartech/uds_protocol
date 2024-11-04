@@ -2,6 +2,8 @@ use clap::ValueEnum;
 
 use serde::{Deserialize, Serialize};
 
+use super::suppressable_positive_response::SPRMIB_VALUE_MASK;
+
 /// `DiagnosticSessionType` is used to specify or describe the session type of the server
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum DiagnosticSessionType {
@@ -46,6 +48,7 @@ impl From<DiagnosticSessionType> for u8 {
 
 impl From<u8> for DiagnosticSessionType {
     fn from(value: u8) -> Self {
+        let value = value & SPRMIB_VALUE_MASK;
         match value {
             0x00 => DiagnosticSessionType::ISOSAEReserved(value),
             0x01 => DiagnosticSessionType::DefaultSession,
