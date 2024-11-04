@@ -48,8 +48,14 @@ impl UdsRequest {
         UdsRequest::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
-    pub fn diagnostic_session_control(session_type: DiagnosticSessionType) -> Self {
-        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(session_type))
+    pub fn diagnostic_session_control(
+        suppress_positive_response: bool,
+        session_type: DiagnosticSessionType,
+    ) -> Self {
+        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(
+            suppress_positive_response,
+            session_type,
+        ))
     }
 
     pub fn ecu_reset(reset_type: EcuResetType) -> Self {
