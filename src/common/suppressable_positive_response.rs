@@ -46,11 +46,11 @@ mod test {
             match i {
                 0x00..=0x7F => {
                     assert_eq!(value.value, i);
-                    assert_eq!(value.suppress_positive_response, false);
+                    assert!(!value.suppress_positive_response);
                 }
                 0x80..=0xFF => {
                     assert_eq!(value.value, i & SPRMIB_VALUE_MASK);
-                    assert_eq!(value.suppress_positive_response, true);
+                    assert!(value.suppress_positive_response);
                 }
             }
         }
