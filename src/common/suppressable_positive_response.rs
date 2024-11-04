@@ -12,12 +12,12 @@ pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 /// This eliminates bit masking logic from a number of subfunction enumerations
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
-pub struct SuppressablePositiveResponse<T: From<u8> + Into<u8>> {
+pub struct SuppressablePositiveResponse<T: From<u8> + Into<u8> + Copy> {
     suppress_positive_response: bool,
     value: T,
 }
 
-impl<T: From<u8> + Into<u8>> SuppressablePositiveResponse<T> {
+impl<T: From<u8> + Into<u8> + Copy> SuppressablePositiveResponse<T> {
     /// Returns a new `SuppressablePositiveResponse` with the given value and suppression flag
     pub const fn new(suppress_positive_response: bool, value: T) -> Self {
         Self {
@@ -27,8 +27,8 @@ impl<T: From<u8> + Into<u8>> SuppressablePositiveResponse<T> {
     }
 
     /// Returns the value of the `SuppressablePositiveResponse`
-    pub const fn value(&self) -> &T {
-        &self.value
+    pub const fn value(&self) -> T {
+        self.value
     }
 
     /// Returns the suppression flag of the `SuppressablePositiveResponse`
@@ -37,7 +37,7 @@ impl<T: From<u8> + Into<u8>> SuppressablePositiveResponse<T> {
     }
 }
 
-impl<T: From<u8> + Into<u8>> From<u8> for SuppressablePositiveResponse<T> {
+impl<T: From<u8> + Into<u8> + Copy> From<u8> for SuppressablePositiveResponse<T> {
     fn from(value: u8) -> Self {
         let suppress_positive_response = value & SPRMIB == SPRMIB;
         let value = T::from(value & SPRMIB_VALUE_MASK);
@@ -48,7 +48,7 @@ impl<T: From<u8> + Into<u8>> From<u8> for SuppressablePositiveResponse<T> {
     }
 }
 
-impl<T: From<u8> + Into<u8>> From<SuppressablePositiveResponse<T>> for u8 {
+impl<T: From<u8> + Into<u8> + Copy> From<SuppressablePositiveResponse<T>> for u8 {
     fn from(value: SuppressablePositiveResponse<T>) -> Self {
         let mut result = value.value.into();
         if value.suppress_positive_response {
