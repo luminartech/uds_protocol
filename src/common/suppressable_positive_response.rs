@@ -1,6 +1,8 @@
 //! UDS uses a bit masking technique called the Suppress Positive Response Message Indication Bit (SPRMIB) to indicate if a positive response message should be suppressed.
 //! This module provides a generic implementation of the Suppress Positive Response Message Indication Bit (SPRMIB) for UDS subfunction enumerations.
 
+use serde::{Deserialize, Serialize};
+
 /// Suppress Positive Response Message Indication Bit
 const SPRMIB: u8 = 0x80;
 /// Mask to recover value in byte with SPRMIB
@@ -8,6 +10,7 @@ pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 
 /// `SuppressablePositiveResponse` is used to encapsulate subfunction enumerations that can also encode the response suppression bit
 /// This eliminates bit masking logic from a number of subfunction enumerations
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct SuppressablePositiveResponse<T: From<u8> + Into<u8>> {
     suppress_positive_response: bool,
