@@ -14,6 +14,26 @@ pub struct SuppressablePositiveResponse<T: From<u8> + Into<u8>> {
     value: T,
 }
 
+impl<T: From<u8> + Into<u8>> SuppressablePositiveResponse<T> {
+    /// Returns a new `SuppressablePositiveResponse` with the given value and suppression flag
+    pub const fn new(suppress_positive_response: bool, value: T) -> Self {
+        Self {
+            suppress_positive_response,
+            value,
+        }
+    }
+
+    /// Returns the value of the `SuppressablePositiveResponse`
+    pub const fn value(&self) -> &T {
+        &self.value
+    }
+
+    /// Returns the suppression flag of the `SuppressablePositiveResponse`
+    pub const fn suppress_positive_response(&self) -> bool {
+        self.suppress_positive_response
+    }
+}
+
 impl<T: From<u8> + Into<u8>> From<u8> for SuppressablePositiveResponse<T> {
     fn from(value: u8) -> Self {
         let suppress_positive_response = value & SPRMIB == SPRMIB;
