@@ -1,5 +1,4 @@
 use clap::ValueEnum;
-
 use serde::{Deserialize, Serialize};
 
 use super::suppressable_positive_response::SPRMIB_VALUE_MASK;
@@ -69,7 +68,7 @@ mod test {
     use super::*;
     /// Check that we properly decode and encode hex bytes
     #[test]
-    fn test_all_u8_values() {
+    fn from_all_u8_values() {
         for i in 0..=u8::MAX {
             let msg_type = DiagnosticSessionType::from(i);
             match i {
@@ -98,5 +97,19 @@ mod test {
                 _ => assert_eq!(msg_type, DiagnosticSessionType::from(i & SPRMIB_VALUE_MASK)),
             }
         }
+    }
+
+    #[test]
+    fn from_all_enum_values() {
+        assert_eq!(u8::from(DiagnosticSessionType::DefaultSession), 0x01);
+        assert_eq!(u8::from(DiagnosticSessionType::ProgrammingSession), 0x02);
+        assert_eq!(
+            u8::from(DiagnosticSessionType::ExtendedDiagnosticSession),
+            0x03
+        );
+        assert_eq!(
+            u8::from(DiagnosticSessionType::SafetySystemDiagnosticSession),
+            0x04
+        );
     }
 }
