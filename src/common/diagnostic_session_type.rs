@@ -59,7 +59,44 @@ impl From<u8> for DiagnosticSessionType {
             0x40..=0x5F => DiagnosticSessionType::VehicleManufacturerSpecificSession(value),
             0x60..=0x7E => DiagnosticSessionType::SystemSupplierSpecificSession(value),
             0x7F => DiagnosticSessionType::ISOSAEReserved(value),
-            _ => unreachable!("The suppress positive response bit has been masked off, this should be unreachable")
+            _ => unreachable!("This code cannot be reached because the SPRMIB has been masked off"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    /// Check that we properly decode and encode hex bytes
+    #[test]
+    fn test_all_u8_values() {
+        for i in 0..=u8::MAX {
+            let msg_type = DiagnosticSessionType::from(i);
+            match i {
+                0x01 => assert_eq!(msg_type, DiagnosticSessionType::DefaultSession),
+                0x02 => assert_eq!(msg_type, DiagnosticSessionType::ProgrammingSession),
+                0x03 => assert_eq!(msg_type, DiagnosticSessionType::ExtendedDiagnosticSession),
+                0x04 => assert_eq!(
+                    msg_type,
+                    DiagnosticSessionType::SafetySystemDiagnosticSession
+                ),
+                0x00 | 0x05..=0x3F | 0x7F => {
+                    assert_eq!(msg_type, DiagnosticSessionType::ISOSAEReserved(i))
+                }
+                0x40..=0x5F => {
+                    assert_eq!(
+                        msg_type,
+                        DiagnosticSessionType::VehicleManufacturerSpecificSession(i)
+                    )
+                }
+                0x60..=0x7E => {
+                    assert_eq!(
+                        msg_type,
+                        DiagnosticSessionType::SystemSupplierSpecificSession(i)
+                    )
+                }
+                _ => assert_eq!(msg_type, DiagnosticSessionType::from(i & SPRMIB_VALUE_MASK)),
+            }
         }
     }
 }
