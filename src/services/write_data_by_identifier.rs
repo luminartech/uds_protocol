@@ -5,12 +5,12 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::Error;
 
 #[non_exhaustive]
-pub struct WriteDataByIdentifier {
+pub struct WriteDataByIdentifierRequest {
     pub did: u16,
     pub data: Vec<u8>,
 }
 
-impl WriteDataByIdentifier {
+impl WriteDataByIdentifierRequest {
     pub(crate) fn new(did: u16, data: Vec<u8>) -> Self {
         Self { did, data }
     }

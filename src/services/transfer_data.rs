@@ -4,12 +4,12 @@ use std::io::{Read, Write};
 use crate::Error;
 
 #[non_exhaustive]
-pub struct TransferData {
+pub struct TransferDataRequest {
     pub sequence: u8,
     pub data: Vec<u8>,
 }
 
-impl TransferData {
+impl TransferDataRequest {
     pub(crate) fn new(sequence: u8, data: Vec<u8>) -> Self {
         Self { sequence, data }
     }

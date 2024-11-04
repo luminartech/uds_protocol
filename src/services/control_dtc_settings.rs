@@ -5,14 +5,14 @@ use std::io::{Read, Write};
 /// The ControlDTCSettings service is used to control the DTC settings of the ECU.
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
-pub struct ControlDTCSettings {
+pub struct ControlDTCSettingsRequest {
     /// The requested DTC logging setting
     pub setting: DtcSettings,
     /// Whether the ECU should suppress a response
     pub suppress_response: bool,
 }
 
-impl ControlDTCSettings {
+impl ControlDTCSettingsRequest {
     pub(crate) fn new(setting: DtcSettings, suppress_response: bool) -> Self {
         Self {
             setting,
@@ -29,6 +29,7 @@ impl ControlDTCSettings {
             suppress_response,
         })
     }
+
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
         let request_byte =
             u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };

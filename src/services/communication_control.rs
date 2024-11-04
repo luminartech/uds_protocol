@@ -3,13 +3,13 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 #[non_exhaustive]
-pub struct CommunicationControl {
+pub struct CommunicationControlRequest {
     pub communication_enable: CommunicationEnable,
     pub communication_type: CommunicationType,
     pub suppress_response: bool,
 }
 
-impl CommunicationControl {
+impl CommunicationControlRequest {
     pub(crate) fn new(
         communication_enable: CommunicationEnable,
         communication_type: CommunicationType,
@@ -21,6 +21,7 @@ impl CommunicationControl {
             suppress_response,
         }
     }
+
     pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
         let enable_byte = buffer.read_u8()?;
         let communication_enable = CommunicationEnable::from(enable_byte & !SUCCESS);
@@ -32,6 +33,7 @@ impl CommunicationControl {
             suppress_response,
         })
     }
+
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
         let communication_enable_byte =
             u8::from(self.communication_enable) | if self.suppress_response { SUCCESS } else { 0 };

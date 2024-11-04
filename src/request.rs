@@ -1,36 +1,14 @@
 //! Module for making and handling UDS Requests
-
-mod communication_control;
-pub use communication_control::CommunicationControl;
-
-mod control_dtc_settings;
-pub use control_dtc_settings::ControlDTCSettings;
-
-mod diagnostic_session_control;
-pub use diagnostic_session_control::DiagnosticSessionControl;
-
-mod ecu_reset;
-pub use ecu_reset::EcuReset;
-
-mod read_data_by_identifier;
-pub use read_data_by_identifier::ReadDataByIdentifier;
-
-mod request_download;
-pub use request_download::RequestDownload;
-
-mod routine_control;
-pub use routine_control::RoutineControl;
-
-mod transfer_data;
-pub use transfer_data::TransferData;
-
-mod write_data_by_identifier;
-pub use write_data_by_identifier::WriteDataByIdentifier;
-
+use crate::{
+    services::{
+        CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
+        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
+        RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
+    },
+    Error,
+};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
-
-use crate::Error;
 
 use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DtcSettings, EcuResetType,
@@ -38,17 +16,17 @@ use super::{
 };
 
 pub enum UdsRequest {
-    CommunicationControl(CommunicationControl),
-    ControlDTCSettings(ControlDTCSettings),
-    DiagnosticSessionControl(DiagnosticSessionControl),
-    EcuReset(EcuReset),
-    ReadDataByIdentifier(ReadDataByIdentifier),
-    RequestDownload(RequestDownload),
+    CommunicationControl(CommunicationControlRequest),
+    ControlDTCSettings(ControlDTCSettingsRequest),
+    DiagnosticSessionControl(DiagnosticSessionControlRequest),
+    EcuReset(EcuResetRequest),
+    ReadDataByIdentifier(ReadDataByIdentifierRequest),
+    RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
-    RoutineControl(RoutineControl),
+    RoutineControl(RoutineControlRequest),
     TesterPresent,
-    TransferData(TransferData),
-    WriteDataByIdentifier(WriteDataByIdentifier),
+    TransferData(TransferDataRequest),
+    WriteDataByIdentifier(WriteDataByIdentifierRequest),
 }
 
 impl UdsRequest {
@@ -58,7 +36,7 @@ impl UdsRequest {
         communication_type: CommunicationType,
         suppress_response: bool,
     ) -> Self {
-        UdsRequest::CommunicationControl(CommunicationControl::new(
+        UdsRequest::CommunicationControl(CommunicationControlRequest::new(
             communication_enable,
             communication_type,
             suppress_response,
@@ -67,24 +45,24 @@ impl UdsRequest {
 
     /// Create a new ControlDTCSettings request
     pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
-        UdsRequest::ControlDTCSettings(ControlDTCSettings::new(setting, suppress_response))
+        UdsRequest::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
     pub fn diagnostic_session_control(session_type: SessionType) -> Self {
-        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControl::new(session_type))
+        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(session_type))
     }
 
     pub fn ecu_reset(reset_type: EcuResetType) -> Self {
-        UdsRequest::EcuReset(EcuReset::new(reset_type))
+        UdsRequest::EcuReset(EcuResetRequest::new(reset_type))
     }
 
     pub fn read_data_by_identifier(did: u16) -> Self {
-        UdsRequest::ReadDataByIdentifier(ReadDataByIdentifier::new(did))
+        UdsRequest::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(did))
     }
 
     // TODO:: Figure out if the format and length identifiers should be configurable
     pub fn request_download(memory_address: u32, memory_size: u32) -> Self {
-        UdsRequest::RequestDownload(RequestDownload::new(
+        UdsRequest::RequestDownload(RequestDownloadRequest::new(
             0x00,
             0x44,
             memory_address,
@@ -101,7 +79,7 @@ impl UdsRequest {
         routine_id: u16,
         data: Vec<u8>,
     ) -> Self {
-        UdsRequest::RoutineControl(RoutineControl::new(sub_function, routine_id, data))
+        UdsRequest::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
 
     pub fn tester_present() -> Self {
@@ -109,11 +87,11 @@ impl UdsRequest {
     }
 
     pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
-        UdsRequest::TransferData(TransferData::new(sequence, data))
+        UdsRequest::TransferData(TransferDataRequest::new(sequence, data))
     }
 
     pub fn write_data_by_identifier(did: u16, data: Vec<u8>) -> Self {
-        UdsRequest::WriteDataByIdentifier(WriteDataByIdentifier::new(did, data))
+        UdsRequest::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(did, data))
     }
 
     pub fn service(&self) -> UdsServiceType {
@@ -136,27 +114,29 @@ impl UdsRequest {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         Ok(match service {
             UdsServiceType::CommunicationControl => {
-                Self::CommunicationControl(CommunicationControl::read(reader)?)
+                Self::CommunicationControl(CommunicationControlRequest::read(reader)?)
             }
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettings::read(reader)?)
+                Self::ControlDTCSettings(ControlDTCSettingsRequest::read(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => {
-                Self::DiagnosticSessionControl(DiagnosticSessionControl::read(reader)?)
+                Self::DiagnosticSessionControl(DiagnosticSessionControlRequest::read(reader)?)
             }
-            UdsServiceType::EcuReset => Self::EcuReset(EcuReset::read(reader)?),
+            UdsServiceType::EcuReset => Self::EcuReset(EcuResetRequest::read(reader)?),
             UdsServiceType::ReadDataByIdentifier => {
-                Self::ReadDataByIdentifier(ReadDataByIdentifier::read(reader)?)
+                Self::ReadDataByIdentifier(ReadDataByIdentifierRequest::read(reader)?)
             }
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownload::read(reader)?)
+                Self::RequestDownload(RequestDownloadRequest::read(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
-            UdsServiceType::RoutineControl => Self::RoutineControl(RoutineControl::read(reader)?),
+            UdsServiceType::RoutineControl => {
+                Self::RoutineControl(RoutineControlRequest::read(reader)?)
+            }
             UdsServiceType::TesterPresent => Self::TesterPresent,
-            UdsServiceType::TransferData => Self::TransferData(TransferData::read(reader)?),
+            UdsServiceType::TransferData => Self::TransferData(TransferDataRequest::read(reader)?),
             UdsServiceType::WriteDataByIdentifier => {
-                Self::WriteDataByIdentifier(WriteDataByIdentifier::read(reader)?)
+                Self::WriteDataByIdentifier(WriteDataByIdentifierRequest::read(reader)?)
             }
             UdsServiceType::SecurityAccess => todo!(),
             UdsServiceType::Authentication => todo!(),

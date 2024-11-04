@@ -4,14 +4,14 @@ use std::io::{Read, Write};
 use crate::Error;
 
 #[non_exhaustive]
-pub struct RequestDownload {
+pub struct RequestDownloadRequest {
     pub data_format_identifier: u8,
     pub address_and_length_format_identifier: u8,
     pub memory_address: u32,
     pub memory_size: u32,
 }
 
-impl RequestDownload {
+impl RequestDownloadRequest {
     pub(crate) fn new(
         data_format_identifier: u8,
         address_and_length_format_identifier: u8,

@@ -3,9 +3,13 @@ mod error;
 pub use error::Error;
 
 mod request;
-pub use request::{
-    CommunicationControl, ControlDTCSettings, DiagnosticSessionControl, ReadDataByIdentifier,
-    RequestDownload, RoutineControl, TransferData, UdsRequest, WriteDataByIdentifier,
+pub use request::UdsRequest;
+
+mod services;
+pub use services::{
+    CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
+    ReadDataByIdentifierRequest, RequestDownloadRequest, RoutineControlRequest,
+    TransferDataRequest, WriteDataByIdentifierRequest,
 };
 
 mod response;
