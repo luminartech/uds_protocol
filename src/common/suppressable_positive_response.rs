@@ -4,7 +4,7 @@
 /// Suppress Positive Response Message Indication Bit
 const SPRMIB: u8 = 0x80;
 /// Mask to recover value in byte with SPRMIB
-const SPRMIB_VALUE_MASK: u8 = 0x7F;
+pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 
 /// `SuppressablePositiveResponse` is used to encapsulate subfunction enumerations that can also encode the response suppression bit
 /// This eliminates bit masking logic from a number of subfunction enumerations
@@ -32,5 +32,27 @@ impl<T: From<u8> + Into<u8>> From<SuppressablePositiveResponse<T>> for u8 {
             result |= SPRMIB;
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    /// Check that we properly decode and encode hex bytes
+    #[test]
+    fn test_all_u8_values() {
+        for i in 0..=u8::MAX {
+            let value = SuppressablePositiveResponse::<u8>::from(i);
+            match i {
+                0x00..=0x7F => {
+                    assert_eq!(value.value, i);
+                    assert_eq!(value.suppress_positive_response, false);
+                }
+                0x80..=0xFF => {
+                    assert_eq!(value.value, i & SPRMIB_VALUE_MASK);
+                    assert_eq!(value.suppress_positive_response, true);
+                }
+            }
+        }
     }
 }
