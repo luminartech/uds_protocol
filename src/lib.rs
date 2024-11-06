@@ -17,7 +17,7 @@ pub use services::{
 };
 
 mod response;
-pub use response::UdsResponse;
+pub use response::{Response, UdsResponse};
 
 mod service;
 pub use service::UdsServiceType;
