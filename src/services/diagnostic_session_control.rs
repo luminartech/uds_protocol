@@ -1,7 +1,24 @@
-use crate::{DiagnosticSessionType, Error, SuppressablePositiveResponse};
+//! The DiagnosticSessionControl service is used to enable different diagnostic sessions in the server.
+//! A diagnostic session enables a specific set of diagnostic services and/or functionality in the server.
+//! This service provides the capability that the server can report data link layer specific parameter
+//! values valid for the enabled diagnostic session (e.g. timing parameter values).
+//! The user of this document shall define the exact set of services and/or functionality enabled in each diagnostic session.
+//! There shall always be exactly one diagnostic session active in a server.
+//! A server shall always start the default diagnostic session when powered up.
+//! If no other diagnostic session is started, then the default diagnostic session shall be running as long as the server is powered.
+//! A server shall be capable of providing diagnostic functionality under normal operating conditions,
+//! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
+
+use crate::{DiagnosticSessionType, Error, NegativeResponseCode, SuppressablePositiveResponse};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
+
+pub const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
+    NegativeResponseCode::SubFunctionNotSupported,
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::ConditionsNotCorrect,
+];
 
 /// Request for the server to change diagnostic session type
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
