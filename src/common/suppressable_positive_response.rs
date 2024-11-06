@@ -68,12 +68,12 @@ mod test {
             let value = SuppressablePositiveResponse::<u8>::from(i);
             match i {
                 0x00..=0x7F => {
-                    assert_eq!(value.value, i);
-                    assert!(!value.suppress_positive_response);
+                    assert_eq!(value.value(), i);
+                    assert!(!value.suppress_positive_response());
                 }
                 0x80..=0xFF => {
-                    assert_eq!(value.value, i & SPRMIB_VALUE_MASK);
-                    assert!(value.suppress_positive_response);
+                    assert_eq!(value.value(), i & SPRMIB_VALUE_MASK);
+                    assert!(value.suppress_positive_response());
                 }
             }
         }
