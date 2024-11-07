@@ -8,6 +8,7 @@ const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
     NegativeResponseCode::SubFunctionNotSupported,
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
     NegativeResponseCode::ConditionsNotCorrect,
+    NegativeResponseCode::SecurityAccessDenied,
 ];
 
 /// UDS defines a number of different types of resets that can be requested
@@ -89,6 +90,7 @@ impl TryFrom<u8> for ResetType {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 /// Request for the server to reset the ECU
 pub struct EcuResetRequest {
     reset_type: SuppressablePositiveResponse<ResetType>,
@@ -126,6 +128,40 @@ impl EcuResetRequest {
     /// Serialization function to write a [`EcuResetRequest`] to a `Writer`
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
         buffer.write_u8(u8::from(self.reset_type))?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[non_exhaustive]
+pub struct EcuResetResponse {
+    pub reset_type: ResetType,
+    pub power_down_time: u8,
+}
+
+impl EcuResetResponse {
+    /// Create a new 'EcuResetResponse'
+    pub(crate) fn new(reset_type: ResetType, power_down_time: u8) -> Self {
+        Self {
+            reset_type,
+            power_down_time,
+        }
+    }
+
+    /// Deserialization function to read a [`EcuResetResponse`] from a `Reader`
+    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+        let reset_type = ResetType::try_from(buffer.read_u8()?)?;
+        let power_down_time = buffer.read_u8()?;
+        Ok(Self {
+            reset_type,
+            power_down_time,
+        })
+    }
+
+    /// Serialization function to write a [`EcuResetResponse`] to a `Writer`
+    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+        buffer.write_u8(u8::from(self.reset_type))?;
+        buffer.write_u8(self.power_down_time)?;
         Ok(())
     }
 }
