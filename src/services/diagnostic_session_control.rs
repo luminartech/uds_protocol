@@ -14,7 +14,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-pub const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
+const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
     NegativeResponseCode::SubFunctionNotSupported,
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
     NegativeResponseCode::ConditionsNotCorrect,
@@ -48,6 +48,11 @@ impl DiagnosticSessionControlRequest {
     /// Getter for the requested session type
     pub fn session_type(&self) -> DiagnosticSessionType {
         self.session_type.value()
+    }
+
+    /// Get the allowed Nack codes for this request
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 
     /// Deserialization function to read a DiagnosticSessionControlRequest from a `Reader`
