@@ -58,8 +58,8 @@ impl Request {
         ))
     }
 
-    pub fn ecu_reset(reset_type: ResetType) -> Self {
-        Request::EcuReset(EcuResetRequest::new(reset_type))
+    pub fn ecu_reset(suppress_positive_response: bool, reset_type: ResetType) -> Self {
+        Request::EcuReset(EcuResetRequest::new(suppress_positive_response, reset_type))
     }
 
     pub fn read_data_by_identifier(did: u16) -> Self {

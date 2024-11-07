@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{Error, SuppressablePositiveResponse};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -36,18 +36,19 @@ impl TryFrom<u8> for ResetType {
     }
 }
 
-#[non_exhaustive]
 pub struct EcuResetRequest {
-    pub reset_type: ResetType,
+    reset_type: SuppressablePositiveResponse<ResetType>,
 }
 
 impl EcuResetRequest {
-    pub(crate) fn new(reset_type: ResetType) -> Self {
-        Self { reset_type }
+    pub(crate) fn new(suppress_positive_response: bool, reset_type: ResetType) -> Self {
+        Self {
+            reset_type: SuppressablePositiveResponse::new(suppress_positive_response, reset_type),
+        }
     }
 
     pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let reset_type = ResetType::try_from(buffer.read_u8()?)?;
+        let reset_type = SuppressablePositiveResponse::try_from(buffer.read_u8()?)?;
         Ok(Self { reset_type })
     }
 
