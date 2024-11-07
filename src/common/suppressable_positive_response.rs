@@ -73,9 +73,9 @@ mod test {
             Ok(Self(value))
         }
     }
-    impl Into<u8> for Testu8 {
-        fn into(self) -> u8 {
-            self.0
+    impl From<Testu8> for u8 {
+        fn from(test: Testu8) -> Self {
+            test.0
         }
     }
     use super::*;
