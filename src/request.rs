@@ -2,7 +2,7 @@
 use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuResetRequest, EcuResetType, ReadDataByIdentifierRequest, RequestDownloadRequest,
+        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest, ResetType,
         RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
     Error, NegativeResponseCode,
@@ -58,7 +58,7 @@ impl Request {
         ))
     }
 
-    pub fn ecu_reset(reset_type: EcuResetType) -> Self {
+    pub fn ecu_reset(reset_type: ResetType) -> Self {
         Request::EcuReset(EcuResetRequest::new(reset_type))
     }
 

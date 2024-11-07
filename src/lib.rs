@@ -12,7 +12,7 @@ pub use request::Request;
 mod services;
 pub use services::{
     CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-    EcuResetRequest, EcuResetType, ReadDataByIdentifierRequest, RequestDownloadRequest,
+    EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest, ResetType,
     RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
 };
 

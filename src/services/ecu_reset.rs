@@ -5,25 +5,25 @@ use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
-pub enum EcuResetType {
+pub enum ResetType {
     ISOSAEReserved,
     HardReset,
     KeyOffOnReset,
     SoftReset,
 }
 
-impl From<EcuResetType> for u8 {
-    fn from(value: EcuResetType) -> Self {
+impl From<ResetType> for u8 {
+    fn from(value: ResetType) -> Self {
         match value {
-            EcuResetType::ISOSAEReserved => 0x00,
-            EcuResetType::HardReset => 0x01,
-            EcuResetType::KeyOffOnReset => 0x02,
-            EcuResetType::SoftReset => 0x03,
+            ResetType::ISOSAEReserved => 0x00,
+            ResetType::HardReset => 0x01,
+            ResetType::KeyOffOnReset => 0x02,
+            ResetType::SoftReset => 0x03,
         }
     }
 }
 
-impl TryFrom<u8> for EcuResetType {
+impl TryFrom<u8> for ResetType {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
@@ -38,16 +38,16 @@ impl TryFrom<u8> for EcuResetType {
 
 #[non_exhaustive]
 pub struct EcuResetRequest {
-    pub reset_type: EcuResetType,
+    pub reset_type: ResetType,
 }
 
 impl EcuResetRequest {
-    pub(crate) fn new(reset_type: EcuResetType) -> Self {
+    pub(crate) fn new(reset_type: ResetType) -> Self {
         Self { reset_type }
     }
 
     pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let reset_type = EcuResetType::try_from(buffer.read_u8()?)?;
+        let reset_type = ResetType::try_from(buffer.read_u8()?)?;
         Ok(Self { reset_type })
     }
 
