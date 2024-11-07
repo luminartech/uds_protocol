@@ -15,7 +15,7 @@ use super::{
     DtcSettings, EcuResetType, RoutineControlSubFunction,
 };
 
-pub enum UdsRequest {
+pub enum Request {
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
@@ -29,14 +29,14 @@ pub enum UdsRequest {
     WriteDataByIdentifier(WriteDataByIdentifierRequest),
 }
 
-impl UdsRequest {
+impl Request {
     /// Create a communication control request
     pub fn communication_control(
         communication_enable: CommunicationEnable,
         communication_type: CommunicationType,
         suppress_response: bool,
     ) -> Self {
-        UdsRequest::CommunicationControl(CommunicationControlRequest::new(
+        Request::CommunicationControl(CommunicationControlRequest::new(
             communication_enable,
             communication_type,
             suppress_response,
@@ -45,30 +45,30 @@ impl UdsRequest {
 
     /// Create a new ControlDTCSettings request
     pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
-        UdsRequest::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
+        Request::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
     pub fn diagnostic_session_control(
         suppress_positive_response: bool,
         session_type: DiagnosticSessionType,
     ) -> Self {
-        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(
+        Request::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(
             suppress_positive_response,
             session_type,
         ))
     }
 
     pub fn ecu_reset(reset_type: EcuResetType) -> Self {
-        UdsRequest::EcuReset(EcuResetRequest::new(reset_type))
+        Request::EcuReset(EcuResetRequest::new(reset_type))
     }
 
     pub fn read_data_by_identifier(did: u16) -> Self {
-        UdsRequest::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(did))
+        Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(did))
     }
 
     // TODO:: Figure out if the format and length identifiers should be configurable
     pub fn request_download(memory_address: u32, memory_size: u32) -> Self {
-        UdsRequest::RequestDownload(RequestDownloadRequest::new(
+        Request::RequestDownload(RequestDownloadRequest::new(
             0x00,
             0x44,
             memory_address,
@@ -85,7 +85,7 @@ impl UdsRequest {
         routine_id: u16,
         data: Vec<u8>,
     ) -> Self {
-        UdsRequest::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
+        Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
 
     pub fn tester_present() -> Self {
@@ -93,11 +93,11 @@ impl UdsRequest {
     }
 
     pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
-        UdsRequest::TransferData(TransferDataRequest::new(sequence, data))
+        Request::TransferData(TransferDataRequest::new(sequence, data))
     }
 
     pub fn write_data_by_identifier(did: u16, data: Vec<u8>) -> Self {
-        UdsRequest::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(did, data))
+        Request::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(did, data))
     }
 
     pub fn service(&self) -> UdsServiceType {

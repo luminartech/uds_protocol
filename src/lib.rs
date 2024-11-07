@@ -7,7 +7,7 @@ mod error;
 pub use error::Error;
 
 mod request;
-pub use request::UdsRequest;
+pub use request::Request;
 
 mod services;
 pub use services::{
