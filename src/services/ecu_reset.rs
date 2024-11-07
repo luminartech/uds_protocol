@@ -56,3 +56,45 @@ impl EcuResetRequest {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    /// Check that we properly decode and encode hex bytes
+    #[test]
+    fn reset_type_from_all_u8_values() {
+        for i in 0..=u8::MAX {
+            let reset_type: Result<ResetType, Error> = ResetType::try_from(i);
+            match i {
+                0x00 => assert!(matches!(
+                    reset_type,
+                    Ok::<ResetType, Error>(ResetType::ISOSAEReserved),
+                )),
+                0x01 => assert!(matches!(
+                    reset_type,
+                    Ok::<ResetType, Error>(ResetType::HardReset),
+                )),
+                0x02 => assert!(matches!(
+                    reset_type,
+                    Ok::<ResetType, Error>(ResetType::KeyOffOnReset),
+                )),
+                0x03 => assert!(matches!(
+                    reset_type,
+                    Ok::<ResetType, Error>(ResetType::SoftReset),
+                )),
+                _ => assert!(matches!(
+                    reset_type,
+                    Err::<ResetType, Error>(Error::InvalidEcuResetType(_)),
+                )),
+            }
+        }
+    }
+
+    #[test]
+    fn reset_type_to_all_u8_values() {
+        assert_eq!(u8::from(ResetType::ISOSAEReserved), 0x00);
+        assert_eq!(u8::from(ResetType::HardReset), 0x01);
+        assert_eq!(u8::from(ResetType::KeyOffOnReset), 0x02);
+        assert_eq!(u8::from(ResetType::SoftReset), 0x03);
+    }
+}
