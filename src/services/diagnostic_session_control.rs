@@ -57,7 +57,7 @@ impl DiagnosticSessionControlRequest {
 
     /// Deserialization function to read a DiagnosticSessionControlRequest from a `Reader`
     pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let session_type = SuppressablePositiveResponse::from(buffer.read_u8()?);
+        let session_type = SuppressablePositiveResponse::try_from(buffer.read_u8()?)?;
         Ok(Self { session_type })
     }
 
@@ -93,7 +93,7 @@ impl DiagnosticSessionControlResponse {
 
     /// Read a DiagnosticSessionControlResponse from a `Reader`
     pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let session_type = DiagnosticSessionType::from(buffer.read_u8()?);
+        let session_type = DiagnosticSessionType::try_from(buffer.read_u8()?)?;
         let p2_server_max = buffer.read_u16::<byteorder::BigEndian>()?;
         let p2_star_server_max = buffer.read_u16::<byteorder::BigEndian>()?;
         Ok(Self {
