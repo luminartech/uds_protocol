@@ -4,4 +4,6 @@ use thiserror::Error;
 pub enum Error {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    #[error("Invalid diagnostic session type: {0}")]
+    InvalidDiagnosticSessionType(u8),
 }
