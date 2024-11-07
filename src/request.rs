@@ -5,7 +5,7 @@ use crate::{
         EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
         RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
-    Error,
+    Error, NegativeResponseCode,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -48,8 +48,14 @@ impl UdsRequest {
         UdsRequest::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
-    pub fn diagnostic_session_control(session_type: DiagnosticSessionType) -> Self {
-        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(session_type))
+    pub fn diagnostic_session_control(
+        suppress_positive_response: bool,
+        session_type: DiagnosticSessionType,
+    ) -> Self {
+        UdsRequest::DiagnosticSessionControl(DiagnosticSessionControlRequest::new(
+            suppress_positive_response,
+            session_type,
+        ))
     }
 
     pub fn ecu_reset(reset_type: EcuResetType) -> Self {
@@ -107,6 +113,15 @@ impl UdsRequest {
             Self::TesterPresent => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
+        }
+    }
+
+    pub fn allowed_nack_codes(&self) -> &'static [NegativeResponseCode] {
+        match self {
+            Self::DiagnosticSessionControl(_) => {
+                DiagnosticSessionControlRequest::allowed_nack_codes()
+            }
+            _ => &[NegativeResponseCode::ServiceNotSupported],
         }
     }
 
