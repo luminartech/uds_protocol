@@ -2,7 +2,7 @@
 use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
+        EcuResetRequest, EcuResetType, ReadDataByIdentifierRequest, RequestDownloadRequest,
         RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
     Error, NegativeResponseCode,
@@ -12,7 +12,7 @@ use std::io::{Read, Write};
 
 use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DiagnosticSessionType,
-    DtcSettings, EcuResetType, RoutineControlSubFunction,
+    DtcSettings, RoutineControlSubFunction,
 };
 
 pub enum Request {
