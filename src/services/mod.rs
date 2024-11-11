@@ -10,7 +10,7 @@ pub use diagnostic_session_control::{
 };
 
 mod ecu_reset;
-pub use ecu_reset::{EcuResetRequest, ResetType};
+pub use ecu_reset::{EcuResetRequest, EcuResetResponse, ResetType};
 
 mod read_data_by_identifier;
 pub use read_data_by_identifier::ReadDataByIdentifierRequest;

@@ -12,8 +12,8 @@ pub use request::Request;
 mod services;
 pub use services::{
     CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-    EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest, ResetType,
-    RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
+    EcuResetRequest, EcuResetResponse, ReadDataByIdentifierRequest, RequestDownloadRequest,
+    ResetType, RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
 };
 
 mod response;
