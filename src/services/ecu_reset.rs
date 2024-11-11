@@ -4,7 +4,7 @@ use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
+const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SubFunctionNotSupported,
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
     NegativeResponseCode::ConditionsNotCorrect,
