@@ -2,7 +2,7 @@
 use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
+        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest, ResetType,
         RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
     Error, NegativeResponseCode,
@@ -12,7 +12,7 @@ use std::io::{Read, Write};
 
 use super::{
     service::UdsServiceType, CommunicationEnable, CommunicationType, DiagnosticSessionType,
-    DtcSettings, EcuResetType, RoutineControlSubFunction,
+    DtcSettings, RoutineControlSubFunction,
 };
 
 pub enum Request {
@@ -58,8 +58,8 @@ impl Request {
         ))
     }
 
-    pub fn ecu_reset(reset_type: EcuResetType) -> Self {
-        Request::EcuReset(EcuResetRequest::new(reset_type))
+    pub fn ecu_reset(suppress_positive_response: bool, reset_type: ResetType) -> Self {
+        Request::EcuReset(EcuResetRequest::new(suppress_positive_response, reset_type))
     }
 
     pub fn read_data_by_identifier(did: u16) -> Self {

@@ -6,4 +6,6 @@ pub enum Error {
     IoError(#[from] std::io::Error),
     #[error("Invalid diagnostic session type: {0}")]
     InvalidDiagnosticSessionType(u8),
+    #[error("Invalid ECU reset type: {0}")]
+    InvalidEcuResetType(u8),
 }

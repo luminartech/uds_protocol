@@ -12,8 +12,8 @@ pub use request::Request;
 mod services;
 pub use services::{
     CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-    ReadDataByIdentifierRequest, RequestDownloadRequest, RoutineControlRequest,
-    TransferDataRequest, WriteDataByIdentifierRequest,
+    EcuResetRequest, EcuResetResponse, ReadDataByIdentifierRequest, RequestDownloadRequest,
+    ResetType, RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
 };
 
 mod response;
@@ -139,27 +139,6 @@ impl From<u8> for DtcSettings {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
-pub enum EcuResetType {
-    HardReset,
-}
-
-impl From<EcuResetType> for u8 {
-    fn from(value: EcuResetType) -> Self {
-        match value {
-            EcuResetType::HardReset => 0x01,
-        }
-    }
-}
-
-impl From<u8> for EcuResetType {
-    fn from(value: u8) -> Self {
-        match value {
-            0x01 => Self::HardReset,
-            _ => panic!("Invalid ECU reset type: {}", value),
-        }
-    }
-}
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 enum SecurityAccessOperation {
     RequestSeed,
