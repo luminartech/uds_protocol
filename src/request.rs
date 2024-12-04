@@ -2,10 +2,10 @@
 use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest, ResetType,
+        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
         RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
-    Error, NegativeResponseCode,
+    Error, NegativeResponseCode, ResetType,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};

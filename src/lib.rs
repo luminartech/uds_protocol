@@ -13,7 +13,7 @@ mod services;
 pub use services::{
     CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
     EcuResetRequest, EcuResetResponse, ReadDataByIdentifierRequest, RequestDownloadRequest,
-    ResetType, RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
+    RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
 };
 
 mod response;
