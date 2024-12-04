@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
-/// Security Access Type allows for multiple different security challenges within an ECU
+/// Security Access Type allows for multiple different security challenges within an ECU.
+///
 /// The Security Access Type is used to determine both the sub function,
 /// as well as ECU specific access type being requested
 ///
