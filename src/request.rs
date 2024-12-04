@@ -3,9 +3,10 @@ use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
         EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
-        RoutineControlRequest, TransferDataRequest, WriteDataByIdentifierRequest,
+        RoutineControlRequest, SecurityAccessRequest, TransferDataRequest,
+        WriteDataByIdentifierRequest,
     },
-    Error, NegativeResponseCode, ResetType,
+    Error, NegativeResponseCode, ResetType, SecurityAccessType,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -15,6 +16,9 @@ use super::{
     DtcSettings, RoutineControlSubFunction,
 };
 
+/// UDS Request types
+/// Each variant corresponds to a request for a different UDS service
+/// The variants contain all request data for each service
 pub enum Request {
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
@@ -24,6 +28,7 @@ pub enum Request {
     RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
     RoutineControl(RoutineControlRequest),
+    SecurityAccess(SecurityAccessRequest),
     TesterPresent,
     TransferData(TransferDataRequest),
     WriteDataByIdentifier(WriteDataByIdentifierRequest),
@@ -88,6 +93,18 @@ impl Request {
         Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
 
+    pub fn security_access(
+        suppress_positive_response: bool,
+        access_type: SecurityAccessType,
+        data_record: Vec<u8>,
+    ) -> Self {
+        Request::SecurityAccess(SecurityAccessRequest::new(
+            suppress_positive_response,
+            access_type,
+            data_record,
+        ))
+    }
+
     pub fn tester_present() -> Self {
         Self::TesterPresent
     }
@@ -110,6 +127,7 @@ impl Request {
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::RoutineControl(_) => UdsServiceType::RoutineControl,
+            Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
@@ -121,10 +139,21 @@ impl Request {
             Self::DiagnosticSessionControl(_) => {
                 DiagnosticSessionControlRequest::allowed_nack_codes()
             }
+            Self::EcuReset(_) => EcuResetRequest::allowed_nack_codes(),
+            Self::SecurityAccess(_) => SecurityAccessRequest::allowed_nack_codes(),
             _ => &[NegativeResponseCode::ServiceNotSupported],
         }
     }
 
+    /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
+    /// This function reads the service byte and then calls the appropriate
+    /// deserialization function for the service in question
+    ///
+    /// *Note*:
+    ///
+    /// Some services allow for custom byte arrays at the end of the request
+    /// It is important that only the request data is passed to this function
+    /// or the deserialization could read unexpected data
     pub fn from_reader<T: Read>(reader: &mut T) -> Result<Self, Error> {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         Ok(match service {
@@ -148,12 +177,14 @@ impl Request {
             UdsServiceType::RoutineControl => {
                 Self::RoutineControl(RoutineControlRequest::read(reader)?)
             }
+            UdsServiceType::SecurityAccess => {
+                Self::SecurityAccess(SecurityAccessRequest::read(reader)?)
+            }
             UdsServiceType::TesterPresent => Self::TesterPresent,
             UdsServiceType::TransferData => Self::TransferData(TransferDataRequest::read(reader)?),
             UdsServiceType::WriteDataByIdentifier => {
                 Self::WriteDataByIdentifier(WriteDataByIdentifierRequest::read(reader)?)
             }
-            UdsServiceType::SecurityAccess => todo!(),
             UdsServiceType::Authentication => todo!(),
             UdsServiceType::AccessTimingParameters => todo!(),
             UdsServiceType::SecuredDataTransmission => todo!(),
@@ -187,6 +218,7 @@ impl Request {
             Self::RequestDownload(rd) => rd.write(writer),
             Self::RequestTransferExit => Ok(()),
             Self::RoutineControl(rc) => rc.write(writer),
+            Self::SecurityAccess(sa) => sa.write(writer),
             Self::TesterPresent => Ok(()),
             Self::TransferData(td) => td.write(writer),
             Self::WriteDataByIdentifier(wd) => wd.write(writer),
