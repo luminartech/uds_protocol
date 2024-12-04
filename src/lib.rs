@@ -51,7 +51,7 @@ impl From<u8> for RoutineControlSubFunction {
             0x01 => RoutineControlSubFunction::StartRoutine,
             0x02 => RoutineControlSubFunction::StopRoutine,
             0x03 => RoutineControlSubFunction::RequestRoutineResults,
-            _ => panic!("Invalid routine control subfunction: {}", value),
+            _ => panic!("Invalid routine control subfunction: {value}"),
         }
     }
 }
@@ -81,7 +81,7 @@ impl From<u8> for CommunicationEnable {
             0x01 => CommunicationEnable::EnableRxAndDisableTx,
             0x02 => CommunicationEnable::DisableRxAndEnableTx,
             0x03 => CommunicationEnable::DisableRxAndTx,
-            _ => panic!("Invalid communication enable: {}", value),
+            _ => panic!("Invalid communication enable: {value}",),
         }
     }
 }
@@ -109,7 +109,7 @@ impl From<u8> for CommunicationType {
             0x01 => Self::Normal,
             0x02 => CommunicationType::NetworkManagement,
             0x03 => CommunicationType::NormalAndNetworkManagement,
-            _ => panic!("Invalid communication type: {}", value),
+            _ => panic!("Invalid communication type: {value}"),
         }
     }
 }
@@ -134,7 +134,7 @@ impl From<u8> for DtcSettings {
         match value {
             0x01 => Self::On,
             0x02 => Self::Off,
-            _ => panic!("Invalid DTC setting: {}", value),
+            _ => panic!("Invalid DTC setting: {value}"),
         }
     }
 }
@@ -159,7 +159,7 @@ impl From<u8> for SecurityAccessOperation {
         match value {
             0x01 => Self::RequestSeed,
             0x02 => Self::SendKey,
-            _ => panic!("Invalid security access operation: {}", value),
+            _ => panic!("Invalid security access operation: {value}"),
         }
     }
 }
