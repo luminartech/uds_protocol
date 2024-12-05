@@ -3,18 +3,40 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
+const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
     NegativeResponseCode::SubFunctionNotSupported,
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
     NegativeResponseCode::ConditionsNotCorrect,
-    NegativeResponseCode::SecurityAccessDenied,
+    NegativeResponseCode::RequestSequenceError,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::InvalidKey,
+    NegativeResponseCode::ExceedNumberOfAttempts,
+    NegativeResponseCode::RequiredTimeDelayNotExpired,
 ];
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-/// Request for the server to reset the ECU
+/// Client request to access a security level
+///
+/// This service supports two primary types of request:
+///
+/// ## Request Seed
+///
+/// When requesting a seed, the request data represents implementation defined
+/// SecurityAccessDataRecord values.
+/// This data is optional, and its use is implementation defined.
+/// Suppressing a positive response to this request does not make sense.
+///
+/// ## Send Key
+///
+/// When sending a key, the request data represents the key to be sent.
+/// After receiving a seed,
+/// the client must calculate the corresponding key and send it to the server.
+/// The server will then validate the key and respond with a positive or negative response.
+/// Successful verification of the key will result in the server unlocking the requested security level.
+/// Suppressing a positive response to this request is allowed.
 pub struct SecurityAccessRequest {
     access_type: SuppressablePositiveResponse<SecurityAccessType>,
-    data_record: Vec<u8>,
+    request_data: Vec<u8>,
 }
 
 impl SecurityAccessRequest {
@@ -22,11 +44,11 @@ impl SecurityAccessRequest {
     pub(crate) fn new(
         suppress_positive_response: bool,
         access_type: SecurityAccessType,
-        data_record: Vec<u8>,
+        request_data: Vec<u8>,
     ) -> Self {
         Self {
             access_type: SuppressablePositiveResponse::new(suppress_positive_response, access_type),
-            data_record,
+            request_data,
         }
     }
 
@@ -48,18 +70,18 @@ impl SecurityAccessRequest {
     /// Deserialization function to read a [`SecurityAccessRequest`] from a `Reader`
     pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
         let access_type = SuppressablePositiveResponse::try_from(buffer.read_u8()?)?;
-        let mut data_record: Vec<u8> = Vec::new();
-        _ = buffer.read_to_end(&mut data_record)?;
+        let mut request_data: Vec<u8> = Vec::new();
+        _ = buffer.read_to_end(&mut request_data)?;
         Ok(Self {
             access_type,
-            data_record,
+            request_data,
         })
     }
 
     /// Serialization function to write a [`SecurityAccessRequest`] to a `Writer`
     pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
         buffer.write_u8(u8::from(self.access_type))?;
-        buffer.write_all(&self.data_record)?;
+        buffer.write_all(&self.request_data)?;
         Ok(())
     }
 }
