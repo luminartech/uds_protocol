@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// The reset type is used to specify the type of reset that the ECU should perform
 /// *Note*:
 /// Conversions from `u8` to `ResetType` are fallible and will return an [`Error`] if the
-/// Suppress Positve Response bit is set.
+/// Suppress Positive Response bit is set.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum ResetType {
     /// This value is reserved
@@ -14,7 +14,7 @@ pub enum ResetType {
     ISOSAEReserved(u8),
     /// This SubFunction identifies a "hard reset" condition which simulates the power-on/start-up sequence
     /// typically performed after a server has been previously disconnected from its power supply (i.e. battery).
-    ///The performed action is implementation specific and not defined by the spec.
+    /// The performed action is implementation specific and not defined by the spec.
     /// It might result in the re-initialization of both volatile memory and non-volatile memory locations to predetermined values.
     HardReset,
     /// This SubFunction identifies a condition similar to the driver turning the ignition key off and back on.
