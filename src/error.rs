@@ -8,4 +8,6 @@ pub enum Error {
     InvalidDiagnosticSessionType(u8),
     #[error("Invalid ECU reset type: {0}")]
     InvalidEcuResetType(u8),
+    #[error("Invalid Security Access Type: {0}")]
+    InvalidSecurityAccessType(u8),
 }

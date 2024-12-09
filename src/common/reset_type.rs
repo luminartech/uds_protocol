@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 
 /// UDS defines a number of different types of resets that can be requested
 /// The reset type is used to specify the type of reset that the ECU should perform
+///
 /// *Note*:
+///
 /// Conversions from `u8` to `ResetType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
