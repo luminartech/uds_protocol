@@ -138,28 +138,3 @@ impl From<u8> for DtcSettings {
         }
     }
 }
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
-enum SecurityAccessOperation {
-    RequestSeed,
-    SendKey,
-}
-
-impl From<SecurityAccessOperation> for u8 {
-    fn from(value: SecurityAccessOperation) -> Self {
-        match value {
-            SecurityAccessOperation::RequestSeed => 0x01,
-            SecurityAccessOperation::SendKey => 0x02,
-        }
-    }
-}
-
-impl From<u8> for SecurityAccessOperation {
-    fn from(value: u8) -> Self {
-        match value {
-            0x01 => Self::RequestSeed,
-            0x02 => Self::SendKey,
-            _ => panic!("Invalid security access operation: {value}"),
-        }
-    }
-}
