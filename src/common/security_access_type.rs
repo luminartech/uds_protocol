@@ -23,7 +23,7 @@ pub enum SecurityAccessType {
     /// activation of on-board pyrotechnic devices
     ISO26021_2Values,
     /// SendKey with different levels of security defined for end of life activation
-    ISO26021_3SendKeyValues,
+    ISO26021_2SendKeyValues,
     /// This range of values is reserved for system supplier specific use
     SystemSupplierSpecific(u8),
 }
@@ -35,7 +35,7 @@ impl From<SecurityAccessType> for u8 {
             SecurityAccessType::RequestSeed(val) => val,
             SecurityAccessType::SendKey(val) => val,
             SecurityAccessType::ISO26021_2Values => 0x5F,
-            SecurityAccessType::ISO26021_3SendKeyValues => 0x60,
+            SecurityAccessType::ISO26021_2SendKeyValues => 0x60,
             SecurityAccessType::SystemSupplierSpecific(val) => val,
         }
     }
@@ -56,7 +56,7 @@ impl TryFrom<u8> for SecurityAccessType {
                 }
             }
             0x5F => Ok(Self::ISO26021_2Values),
-            0x60 => Ok(Self::ISO26021_3SendKeyValues),
+            0x60 => Ok(Self::ISO26021_2SendKeyValues),
             0x61..=0x7E => Ok(Self::SystemSupplierSpecific(value)),
             _ => Err(Error::InvalidSecurityAccessType(value)),
         }
@@ -108,7 +108,7 @@ mod test {
         );
         assert_eq!(
             SecurityAccessType::try_from(0x60).unwrap(),
-            SecurityAccessType::ISO26021_3SendKeyValues
+            SecurityAccessType::ISO26021_2SendKeyValues
         );
         for i in 0x61..=0x7E {
             assert_eq!(
