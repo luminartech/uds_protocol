@@ -8,7 +8,7 @@ use crate::Error;
 /// *Note*:
 ///
 /// Conversions from `u8` to `DiagnosticSessionType` are fallible and will return an [`Error`] if the
-/// Suppress Positve Response bit is set.
+/// Suppress Positive Response bit is set.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum DiagnosticSessionType {
     /// This value is reserved by the ISO 14229-1 Specification

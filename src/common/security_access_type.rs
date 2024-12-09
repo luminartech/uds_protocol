@@ -10,7 +10,7 @@ use crate::Error;
 /// *Note*:
 ///
 /// Conversions from `u8` to `SecurityAccessType` are fallible and will return an [`Error`] if the
-/// Suppress Positve Response bit is set.
+/// Suppress Positive Response bit is set.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum SecurityAccessType {
     /// This value is reserved for future definition
