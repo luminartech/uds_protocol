@@ -1,6 +1,8 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
+use crate::Error;
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum CommunicationControlType {
     EnableRxAndTx,
@@ -34,13 +36,14 @@ impl From<CommunicationControlType> for u8 {
     }
 }
 
-impl From<u8> for CommunicationControlType {
-    fn from(value: u8) -> Self {
+impl TryFrom<u8> for CommunicationControlType {
+    type Error = Error;
+    fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Self::EnableRxAndTx,
-            0x01 => Self::EnableRxAndDisableTx,
-            0x02 => Self::DisableRxAndEnableTx,
-            0x03 => Self::DisableRxAndTx,
+            0x00 => Ok(Self::EnableRxAndTx),
+            0x01 => Ok(Self::EnableRxAndDisableTx),
+            0x02 => Ok(Self::DisableRxAndEnableTx),
+            0x03 => Ok(Self::DisableRxAndTx),
             _ => panic!("Invalid communication enable: {value}",),
         }
     }
