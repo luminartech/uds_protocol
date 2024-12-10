@@ -75,3 +75,75 @@ impl TryFrom<u8> for CommunicationControlType {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    /// Check that we properly decode and encode hex bytes
+    #[test]
+    fn from_all_u8_values() {
+        for i in 0..=u8::MAX {
+            let msg_type = CommunicationControlType::try_from(i);
+            match i {
+                0x00 => assert!(matches!(
+                    msg_type,
+                    Ok(CommunicationControlType::EnableRxAndTx)
+                )),
+                0x01 => assert!(matches!(
+                    msg_type,
+                    Ok(CommunicationControlType::EnableRxAndDisableTx)
+                )),
+                0x02 => assert!(matches!(
+                    msg_type,
+                    Ok(CommunicationControlType::DisableRxAndEnableTx)
+                )),
+                0x03 => assert!(matches!(
+                    msg_type,
+                    Ok(CommunicationControlType::DisableRxAndTx)
+                )),
+                0x04 => assert!(matches!(
+                    msg_type,
+                    Ok(CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo)
+                )),
+                0x05 => assert!(matches!(
+                    msg_type,
+                    Ok(CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo)
+                )),
+                0x06..=0x3F | 0x7F => {
+                    assert!(matches!(
+                        msg_type,
+                        Ok(CommunicationControlType::ISOSAEReserved(_))
+                    ))
+                }
+                0x40..=0x5F => {
+                    assert!(matches!(
+                        msg_type,
+                        Ok(CommunicationControlType::VehicleManufacturerSpecific(_))
+                    ))
+                }
+                0x60..=0x7E => {
+                    assert!(matches!(
+                        msg_type,
+                        Ok(CommunicationControlType::SystemSupplierSpecific(_))
+                    ))
+                }
+                _ => assert!(matches!(
+                    msg_type,
+                    Err(Error::InvalidCommunicationControlType(_))
+                )),
+            }
+        }
+    }
+
+    #[test]
+    fn communication_control_type_round_trip_all_values() {
+        for i in 0..=u8::MAX {
+            let value = CommunicationControlType::try_from(i);
+            match value {
+                Ok(value) => assert_eq!(u8::from(value), i),
+                Err(Error::InvalidCommunicationControlType(value)) => assert_eq!(value, i),
+                _ => panic!("Invalid error type"),
+            }
+        }
+    }
+}
