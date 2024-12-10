@@ -47,7 +47,7 @@ impl TryFrom<u8> for SecurityAccessType {
         match value {
             0x00 | 0x43..=0x5E | 0x7F => Ok(Self::ISOSAEReserved(value)),
             // Security requests alternate, with odd numbers being seed requests,
-            // and even numbers being key requests
+            // and even numbers being send key requests
             0x01..=0x42 => {
                 if value % 2 == 1 {
                     Ok(Self::RequestSeed(value))

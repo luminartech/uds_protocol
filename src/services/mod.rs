@@ -21,6 +21,9 @@ pub use request_download::RequestDownloadRequest;
 mod routine_control;
 pub use routine_control::RoutineControlRequest;
 
+mod security_access;
+pub use security_access::{SecurityAccessRequest, SecurityAccessResponse};
+
 mod transfer_data;
 pub use transfer_data::TransferDataRequest;
 
