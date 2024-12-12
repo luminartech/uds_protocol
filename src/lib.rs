@@ -55,36 +55,6 @@ impl From<u8> for RoutineControlSubFunction {
         }
     }
 }
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
-pub enum CommunicationEnable {
-    EnableRxAndTx,
-    EnableRxAndDisableTx,
-    DisableRxAndEnableTx,
-    DisableRxAndTx,
-}
-
-impl From<CommunicationEnable> for u8 {
-    fn from(value: CommunicationEnable) -> Self {
-        match value {
-            CommunicationEnable::EnableRxAndTx => 0x00,
-            CommunicationEnable::EnableRxAndDisableTx => 0x01,
-            CommunicationEnable::DisableRxAndEnableTx => 0x02,
-            CommunicationEnable::DisableRxAndTx => 0x03,
-        }
-    }
-}
-
-impl From<u8> for CommunicationEnable {
-    fn from(value: u8) -> Self {
-        match value {
-            0x00 => CommunicationEnable::EnableRxAndTx,
-            0x01 => CommunicationEnable::EnableRxAndDisableTx,
-            0x02 => CommunicationEnable::DisableRxAndEnableTx,
-            0x03 => CommunicationEnable::DisableRxAndTx,
-            _ => panic!("Invalid communication enable: {value}",),
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum CommunicationType {

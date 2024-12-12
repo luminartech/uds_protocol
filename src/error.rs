@@ -10,4 +10,6 @@ pub enum Error {
     InvalidEcuResetType(u8),
     #[error("Invalid Security Access Type: {0}")]
     InvalidSecurityAccessType(u8),
+    #[error("Invalid Communication Control Type: {0}")]
+    InvalidCommunicationControlType(u8),
 }

@@ -12,7 +12,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 use super::{
-    service::UdsServiceType, CommunicationEnable, CommunicationType, DiagnosticSessionType,
+    service::UdsServiceType, CommunicationControlType, CommunicationType, DiagnosticSessionType,
     DtcSettings, RoutineControlSubFunction,
 };
 
@@ -37,7 +37,7 @@ pub enum Request {
 impl Request {
     /// Create a communication control request
     pub fn communication_control(
-        communication_enable: CommunicationEnable,
+        communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
         suppress_response: bool,
     ) -> Self {

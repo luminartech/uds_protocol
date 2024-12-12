@@ -1,17 +1,17 @@
-use crate::{CommunicationEnable, CommunicationType, Error, SUCCESS};
+use crate::{CommunicationControlType, CommunicationType, Error, SUCCESS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 #[non_exhaustive]
 pub struct CommunicationControlRequest {
-    pub communication_enable: CommunicationEnable,
+    pub communication_enable: CommunicationControlType,
     pub communication_type: CommunicationType,
     pub suppress_response: bool,
 }
 
 impl CommunicationControlRequest {
     pub(crate) fn new(
-        communication_enable: CommunicationEnable,
+        communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
         suppress_response: bool,
     ) -> Self {
@@ -24,7 +24,7 @@ impl CommunicationControlRequest {
 
     pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
         let enable_byte = buffer.read_u8()?;
-        let communication_enable = CommunicationEnable::from(enable_byte & !SUCCESS);
+        let communication_enable = CommunicationControlType::try_from(enable_byte).unwrap();
         let suppress_response = enable_byte & SUCCESS == SUCCESS;
         let communication_type = CommunicationType::from(buffer.read_u8()?);
         Ok(Self {
