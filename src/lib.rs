@@ -57,34 +57,6 @@ impl From<u8> for RoutineControlSubFunction {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
-pub enum CommunicationType {
-    Normal,
-    NetworkManagement,
-    NormalAndNetworkManagement,
-}
-
-impl From<CommunicationType> for u8 {
-    fn from(value: CommunicationType) -> Self {
-        match value {
-            CommunicationType::Normal => 0x01,
-            CommunicationType::NetworkManagement => 0x02,
-            CommunicationType::NormalAndNetworkManagement => 0x03,
-        }
-    }
-}
-
-impl From<u8> for CommunicationType {
-    fn from(value: u8) -> Self {
-        match value {
-            0x01 => Self::Normal,
-            0x02 => CommunicationType::NetworkManagement,
-            0x03 => CommunicationType::NormalAndNetworkManagement,
-            _ => panic!("Invalid communication type: {value}"),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum DtcSettings {
     On,
     Off,

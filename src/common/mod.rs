@@ -1,6 +1,9 @@
 mod communication_control_type;
 pub use communication_control_type::CommunicationControlType;
 
+mod communication_type;
+pub use communication_type::CommunicationType;
+
 mod diagnostic_session_type;
 pub use diagnostic_session_type::DiagnosticSessionType;
 
