@@ -12,4 +12,6 @@ pub enum Error {
     InvalidSecurityAccessType(u8),
     #[error("Invalid Communication Control Type: {0}")]
     InvalidCommunicationControlType(u8),
+    #[error("Invalid Communication Type: {0}")]
+    InvalidCommunicationType(u8),
 }
