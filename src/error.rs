@@ -4,12 +4,16 @@ use thiserror::Error;
 pub enum Error {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+
     #[error("Invalid diagnostic session type: {0}")]
     InvalidDiagnosticSessionType(u8),
+
     #[error("Invalid ECU reset type: {0}")]
     InvalidEcuResetType(u8),
+
     #[error("Invalid Security Access Type: {0}")]
     InvalidSecurityAccessType(u8),
-    #[error("Invalid Communication Control Type: {0}")]
-    InvalidCommunicationControlType(u8),
+
+    #[error("Invalid Tester Preset Type: {0}")]
+    InvalidTestPresetType(u8),
 }

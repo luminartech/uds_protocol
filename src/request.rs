@@ -105,8 +105,8 @@ impl Request {
         ))
     }
 
-    pub fn tester_present() -> Self {
-        Request::TesterPresent(TesterPresentRequest::new())
+    pub fn tester_present(suppress_positive_response: bool) -> Self {
+        Request::TesterPresent(TesterPresentRequest::new(suppress_positive_response))
     }
 
     pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {

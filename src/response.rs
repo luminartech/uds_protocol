@@ -1,5 +1,5 @@
 use crate::{
-    services::{DiagnosticSessionControlResponse, SecurityAccessResponse},
+    services::{DiagnosticSessionControlResponse, SecurityAccessResponse, TesterPresentResponse},
     DiagnosticSessionType, EcuResetResponse, Error, ResetType, SecurityAccessType, UdsServiceType,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
@@ -15,7 +15,7 @@ pub enum Response {
     EcuReset(EcuResetResponse),
     RequestTransferExit,
     SecurityAccess(SecurityAccessResponse),
-    TesterPresent,
+    TesterPresent(TesterPresentResponse),
 }
 
 impl Response {
@@ -45,7 +45,7 @@ impl Response {
             Self::EcuReset(_) => UdsServiceType::EcuReset,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
-            Self::TesterPresent => UdsServiceType::TesterPresent,
+            Self::TesterPresent(_) => UdsServiceType::TesterPresent,
         }
     }
 
@@ -60,7 +60,7 @@ impl Response {
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(SecurityAccessResponse::read(reader)?)
             }
-            UdsServiceType::TesterPresent => Self::TesterPresent,
+            UdsServiceType::TesterPresent => Self::TesterPresent(TesterPresentResponse::read(reader)?),
             _ => todo!(),
         })
     }
@@ -74,7 +74,7 @@ impl Response {
             Self::EcuReset(reset) => reset.write(writer),
             Self::RequestTransferExit => Ok(()),
             Self::SecurityAccess(sa) => sa.write(writer),
-            Self::TesterPresent => Ok(()),
+            Self::TesterPresent(tp) => tp.write(writer),
         }
     }
 }

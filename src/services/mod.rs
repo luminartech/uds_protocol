@@ -25,7 +25,7 @@ mod security_access;
 pub use security_access::{SecurityAccessRequest, SecurityAccessResponse};
 
 mod tester_present;
-pub use tester_present::TesterPresentRequest;
+pub use tester_present::{TesterPresentRequest, TesterPresentResponse};
 
 mod transfer_data;
 pub use transfer_data::TransferDataRequest;
