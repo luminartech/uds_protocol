@@ -42,6 +42,16 @@ pub enum CommunicationControlType {
     SystemSupplierSpecific(u8),
 }
 
+impl CommunicationControlType {
+    pub const fn is_extended_addres_variant(&self) -> bool {
+        matches!(
+            self,
+            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
+                | CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
+        )
+    }
+}
+
 impl From<CommunicationControlType> for u8 {
     fn from(value: CommunicationControlType) -> Self {
         match value {

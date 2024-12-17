@@ -35,24 +35,50 @@ pub enum Request {
 }
 
 impl Request {
-    /// Create a communication control request
+    /// Create a `CommunicationControlRequest` with standard address information.
+    ///
+    /// # Panics
+    ///
+    ///  Panics if one of the extended address control types is passed.
     pub fn communication_control(
         communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
         suppress_response: bool,
     ) -> Self {
         Request::CommunicationControl(CommunicationControlRequest::new(
+            suppress_response,
             communication_enable,
             communication_type,
-            suppress_response,
         ))
     }
 
-    /// Create a new ControlDTCSettings request
+    /// Create a `CommunicationControl` request with extended address information.
+    /// This is used for the `EnableRxAndDisableTxWithEnhancedAddressInfo` and
+    /// `EnableRxAndTxWithEnhancedAddressInfo` communication control types.
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the standard address control types is passed.
+    pub fn communication_control_with_node_id(
+        communication_enable: CommunicationControlType,
+        communication_type: CommunicationType,
+        node_id: u16,
+        suppress_response: bool,
+    ) -> Self {
+        Request::CommunicationControl(CommunicationControlRequest::new_with_node_id(
+            suppress_response,
+            communication_enable,
+            communication_type,
+            node_id,
+        ))
+    }
+
+    /// Create a new `ControlDTCSettings` request
     pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
         Request::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
+    /// Create a new `DiagnosticSessionControl` request
     pub fn diagnostic_session_control(
         suppress_positive_response: bool,
         session_type: DiagnosticSessionType,
@@ -63,10 +89,12 @@ impl Request {
         ))
     }
 
+    /// Create a new `EcuReset` request
     pub fn ecu_reset(suppress_positive_response: bool, reset_type: ResetType) -> Self {
         Request::EcuReset(EcuResetRequest::new(suppress_positive_response, reset_type))
     }
 
+    /// Create a new `ReadDataByIdentifier` request
     pub fn read_data_by_identifier(did: u16) -> Self {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(did))
     }
@@ -205,6 +233,9 @@ impl Request {
         })
     }
 
+    /// Serialization function to write a [`Request`] to a [`Writer`](std::io::Write)
+    /// This function writes the service byte and then calls the appropriate
+    /// serialization function for the service in question
     pub fn to_writer<T: Write>(&self, writer: &mut T) -> Result<(), Error> {
         // Write the service byte
         writer.write_u8(self.service().request_service_to_byte())?;
