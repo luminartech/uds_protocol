@@ -14,8 +14,11 @@ pub struct UdsResponse {
 pub enum Response {
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
+    /// Response to a [`DiagnosticSessionControlRequest`](crate::DiagnosticSessionControlRequest)
     DiagnosticSessionControl(DiagnosticSessionControlResponse),
+    /// Response to a [`EcuResetRequest`](crate::EcuResetRequest)
     EcuReset(EcuResetResponse),
+    /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     SecurityAccess(SecurityAccessResponse),
     TesterPresent,

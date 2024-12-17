@@ -235,7 +235,7 @@ impl Request {
 
     /// Serialization function to write a [`Request`] to a [`Writer`](std::io::Write)
     /// This function writes the service byte and then calls the appropriate
-    /// serialization function for the service in question
+    /// serialization function for the service represented by self.
     pub fn to_writer<T: Write>(&self, writer: &mut T) -> Result<(), Error> {
         // Write the service byte
         writer.write_u8(self.service().request_service_to_byte())?;
