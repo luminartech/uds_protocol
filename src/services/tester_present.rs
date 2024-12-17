@@ -11,18 +11,24 @@ const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
 
 const NO_SUBFUNCTION_VALUE: u8 = 0x00;
 
+// Subfunction parameter values for the Test Present service.
+// The range of values is only 6 of the 8 bits, with bit 7 being used as the Suppress Positive Response (SPR) Message Indication Bit.
+// Setting the SPR bit is done at service request creation and NOT by specifying ZeroSubFunction::NoSubFunctionSupported(0x80).
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 enum ZeroSubFunction {
+    // Request and response. Indicates that no value beside the (SPR) Message Indication Bit is supported by this service.
     NoSubFunctionSupported(u8),
+
+    // Request only.
     ISOSAEReserved(u8),
 }
 
 impl ZeroSubFunction {
-    pub(crate) fn no_value() -> Self {
+    fn default() -> Self {
         ZeroSubFunction::NoSubFunctionSupported(NO_SUBFUNCTION_VALUE)
     }
 
-    pub(crate) fn iso_sae_reserved(value: u8) -> Result<Self, Error> {
+    fn iso_sae_reserved(value: u8) -> Result<Self, Error> {
         match value {
             0x01..=0x7F => Ok(ZeroSubFunction::ISOSAEReserved(value)),
             _ => Err(Error::InvalidTestPresetType(value)),
@@ -43,7 +49,7 @@ impl TryFrom<u8> for ZeroSubFunction {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(ZeroSubFunction::no_value()),
+            0x00 => Ok(ZeroSubFunction::default()),
             _ => ZeroSubFunction::iso_sae_reserved(value),
         }
     }
@@ -57,10 +63,7 @@ pub struct TesterPresentRequest {
 impl TesterPresentRequest {
     /// Create a new TesterPresentRequest
     pub(crate) fn new(suppress_positive_response: bool) -> Self {
-        Self::with_subfunction(
-            suppress_positive_response,
-            ZeroSubFunction::NoSubFunctionSupported(0),
-        )
+        Self::with_subfunction(suppress_positive_response, ZeroSubFunction::default())
     }
 
     fn with_subfunction(
@@ -106,7 +109,7 @@ pub struct TesterPresentResponse {
 impl TesterPresentResponse {
     pub(crate) fn new() -> Self {
         Self {
-            zero_sub_function: ZeroSubFunction::no_value(),
+            zero_sub_function: ZeroSubFunction::default(),
         }
     }
 
@@ -131,18 +134,14 @@ mod test {
         for i in 0..u8::MAX {
             let result: Result<ZeroSubFunction, Error> = ZeroSubFunction::try_from(i);
             match i {
-                0 => assert_eq!(ZeroSubFunction::no_value(), result.unwrap()),
-                1..=0x7F =>
-                //  match result
-                {
-                    // Ok(response) => {
+                0 => assert_eq!(ZeroSubFunction::default(), result.unwrap()),
+                1..=0x7F => {
                     assert_eq!(
                         ZeroSubFunction::iso_sae_reserved(i).unwrap(),
                         result.unwrap()
                     );
-                    // }
-                    // Err(_) => assert!(false, "Error response unexpected."),
                 }
+                // This should never happen as ZeroSubFunction is defined as 6 bytes
                 0x80..=0xFF => {
                     let error = ZeroSubFunction::iso_sae_reserved(i).unwrap_err();
                     match error {
@@ -165,6 +164,7 @@ mod test {
                     let result = ZeroSubFunction::iso_sae_reserved(i);
                     assert_eq!(u8::from(result.unwrap()), i);
                 }
+                // This should never happen as ZeroSubFunction is defined as 6 bytes
                 0x80..=0xFF => {
                     let result = ZeroSubFunction::iso_sae_reserved(i);
                     let error = result.unwrap_err();

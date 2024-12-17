@@ -39,6 +39,10 @@ impl Response {
         Response::SecurityAccess(SecurityAccessResponse::new(access_type, security_seed))
     }
 
+    pub fn tester_present() -> Self {
+        Response::TesterPresent(TesterPresentResponse::new())
+    }
+
     pub fn service(&self) -> UdsServiceType {
         match self {
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
@@ -60,7 +64,9 @@ impl Response {
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(SecurityAccessResponse::read(reader)?)
             }
-            UdsServiceType::TesterPresent => Self::TesterPresent(TesterPresentResponse::read(reader)?),
+            UdsServiceType::TesterPresent => {
+                Self::TesterPresent(TesterPresentResponse::read(reader)?)
+            }
             _ => todo!(),
         })
     }
