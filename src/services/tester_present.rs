@@ -28,6 +28,13 @@ impl ZeroSubFunction {
         ZeroSubFunction::NoSubFunctionSupported(NO_SUBFUNCTION_VALUE)
     }
 
+    fn no_sub_function_supported(value: u8) -> Result<Self, Error> {
+        match value {
+            0x00 | 0x80 => Ok(ZeroSubFunction::NoSubFunctionSupported(value)),
+            _ => Err(Error::InvalidTestPresetType(value)),
+        }
+    }
+
     fn iso_sae_reserved(value: u8) -> Result<Self, Error> {
         match value {
             0x01..=0x7F => Ok(ZeroSubFunction::ISOSAEReserved(value)),
@@ -39,7 +46,7 @@ impl ZeroSubFunction {
 impl From<ZeroSubFunction> for u8 {
     fn from(sub_function: ZeroSubFunction) -> Self {
         match sub_function {
-            ZeroSubFunction::NoSubFunctionSupported(_) => NO_SUBFUNCTION_VALUE,
+            ZeroSubFunction::NoSubFunctionSupported(value) => value,
             ZeroSubFunction::ISOSAEReserved(value) => value,
         }
     }
@@ -49,7 +56,7 @@ impl TryFrom<u8> for ZeroSubFunction {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(ZeroSubFunction::default()),
+            0x00 | 0x80 => ZeroSubFunction::no_sub_function_supported(value),
             _ => ZeroSubFunction::iso_sae_reserved(value),
         }
     }
@@ -141,12 +148,16 @@ mod test {
                         result.unwrap()
                     );
                 }
+                0x80 => {
+                    let result = ZeroSubFunction::no_sub_function_supported(i);
+                    assert_eq!(ZeroSubFunction::NoSubFunctionSupported(i), result.unwrap())
+                }
                 // This should never happen as ZeroSubFunction is defined as 6 bytes
-                0x80..=0xFF => {
+                0x81..=0xFF => {
                     let error = ZeroSubFunction::iso_sae_reserved(i).unwrap_err();
                     match error {
                         Error::InvalidTestPresetType(value) => assert_eq!(value, i),
-                        _ => assert!(false, "Invalid error, expected InvalidTestPresetType."),
+                        _ => unreachable!("Expected InvalidTestPresetType error. Found {}", error),
                     }
                 }
             }
@@ -158,31 +169,68 @@ mod test {
         for i in 1..u8::MAX {
             match i {
                 0 => {
-                    assert_eq!(u8::from(ZeroSubFunction::NoSubFunctionSupported(i)), i);
+                    assert_eq!(u8::from(ZeroSubFunction::default()), i);
                 }
                 1..=0x7F => {
                     let result = ZeroSubFunction::iso_sae_reserved(i);
                     assert_eq!(u8::from(result.unwrap()), i);
                 }
+                0x80 => {
+                    let result = ZeroSubFunction::no_sub_function_supported(i);
+                    assert_eq!(u8::from(result.unwrap()), i);
+                }
                 // This should never happen as ZeroSubFunction is defined as 6 bytes
-                0x80..=0xFF => {
+                0x81..=0xFF => {
                     let result = ZeroSubFunction::iso_sae_reserved(i);
                     let error = result.unwrap_err();
                     match error {
                         Error::InvalidTestPresetType(value) => assert_eq!(value, i),
-                        _ => assert!(false, "Invalid error, expected InvalidTestPresetType."),
+                        _ => unreachable!("Expected InvalidTestPresetType error. Found {}", error),
                     }
                 }
             }
         }
     }
 
-    #[test]
-    fn read_request_type() {
-        let bytes = vec![0 as u8];
+    fn make_request(byte: u8) -> Result<TesterPresentRequest, Error> {
+        let bytes = vec![byte];
         let mut byte_access = Cursor::new(bytes);
-        let test_type = TesterPresentRequest::read(&mut byte_access).unwrap();
-        assert_eq!(test_type, TesterPresentRequest::new(false));
+        TesterPresentRequest::read(&mut byte_access)
+    }
+
+    #[test]
+    fn read_request_type_no_sub_function_byte() {
+        // Zero subfunction
+        let zero_no_bit = make_request(0x00).unwrap();
+        let zero_no_bit_ctor = TesterPresentRequest::new(false);
+        assert_eq!(zero_no_bit, zero_no_bit_ctor);
+
+        let zero_no_bit = make_request(0x80).unwrap();
+        let zero_no_bit_ctor = TesterPresentRequest::with_subfunction(
+            true,
+            ZeroSubFunction::NoSubFunctionSupported(0x80),
+        );
+        assert_eq!(zero_no_bit, zero_no_bit_ctor);
+    }
+
+    #[test]
+    fn read_request_type_iso_reserved_byte() {
+        for i in 0x01..=0x7F {
+            let iso_type = make_request(i).unwrap();
+            let iso_type_ctor =
+                TesterPresentRequest::with_subfunction(false, ZeroSubFunction::ISOSAEReserved(i));
+            assert_eq!(iso_type, iso_type_ctor);
+        }
+
+        // Anything above 0x7F triggers the suppress positive response bit
+        for i in 0x81..=0xFF {
+            let iso_type = make_request(i).unwrap();
+            let iso_type_ctor = TesterPresentRequest::with_subfunction(
+                true,
+                ZeroSubFunction::ISOSAEReserved(i & 0x7F),
+            );
+            assert_eq!(iso_type, iso_type_ctor);
+        }
     }
 
     #[test]
@@ -197,7 +245,7 @@ mod test {
 
     #[test]
     fn read_response_type() {
-        let bytes = vec![0 as u8];
+        let bytes = vec![0u8];
         let mut byte_access = Cursor::new(bytes);
         let test_type = TesterPresentResponse::read(&mut byte_access).unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());
