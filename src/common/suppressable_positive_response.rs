@@ -14,7 +14,7 @@ pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 /// This eliminates bit masking logic from a number of subfunction enumerations.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
-pub struct SuppressablePositiveResponse<T: TryFrom<u8> + Into<u8> + Copy> {
+pub(crate) struct SuppressablePositiveResponse<T: TryFrom<u8> + Into<u8> + Copy> {
     suppress_positive_response: bool,
     value: T,
 }

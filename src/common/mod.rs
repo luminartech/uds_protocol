@@ -17,4 +17,4 @@ mod security_access_type;
 pub use security_access_type::SecurityAccessType;
 
 mod suppressable_positive_response;
-pub use suppressable_positive_response::SuppressablePositiveResponse;
+pub(crate) use suppressable_positive_response::SuppressablePositiveResponse;
