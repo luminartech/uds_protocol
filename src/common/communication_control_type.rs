@@ -43,7 +43,7 @@ pub enum CommunicationControlType {
 }
 
 impl CommunicationControlType {
-    pub const fn is_extended_addres_variant(&self) -> bool {
+    pub const fn is_extended_address_variant(&self) -> bool {
         matches!(
             self,
             CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
