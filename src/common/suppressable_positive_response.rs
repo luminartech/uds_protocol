@@ -10,11 +10,11 @@ const SPRMIB: u8 = 0x80;
 /// Mask to recover value in byte with SPRMIB
 pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 
-/// `SuppressablePositiveResponse` is used to encapsulate subfunction enumerations that can also encode the response suppression bit
-/// This eliminates bit masking logic from a number of subfunction enumerations
+/// `SuppressablePositiveResponse` is used to encapsulate subfunction enumerations that can also encode the response suppression bit.
+/// This eliminates bit masking logic from a number of subfunction enumerations.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
-pub struct SuppressablePositiveResponse<T: TryFrom<u8> + Into<u8> + Copy> {
+pub(crate) struct SuppressablePositiveResponse<T: TryFrom<u8> + Into<u8> + Copy> {
     suppress_positive_response: bool,
     value: T,
 }

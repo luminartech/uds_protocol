@@ -7,28 +7,28 @@ use crate::Error;
 ///
 /// *Note*:
 ///
-/// Conversions from `u8` to `DiagnosticSessionType` are fallible and will return an [`Error`] if the
+/// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`](crate::Error) if the
 /// Suppress Positive Response bit is set.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum CommunicationControlType {
     /// This value indicates that the reception and transmission of messages
-    /// shall be enabled for the specified [`CommunicationType`]
+    /// shall be enabled for the specified [`CommunicationType`](crate::CommunicationType)
     EnableRxAndTx,
     /// This value indicates that the reception of messages shall be enabled
-    /// and the transmission of messages shall be disabled for the specified [`CommunicationType`]
+    /// and the transmission of messages shall be disabled for the specified [`CommunicationType`](crate::CommunicationType)
     EnableRxAndDisableTx,
     /// This value indicates that the reception of messages shall be disabled
-    /// and the transmission of messages shall be enabled for the specified [`CommunicationType`]
+    /// and the transmission of messages shall be enabled for the specified [`CommunicationType`](crate::CommunicationType)
     DisableRxAndEnableTx,
     /// This value indicates that the reception and transmission of messages
-    /// shall be disabled for the specified [`CommunicationType`]
+    /// shall be disabled for the specified [`CommunicationType`](crate::CommunicationType)
     DisableRxAndTx,
     /// This value indicates that the reception of messages shall be enabled
-    /// and the transmission of messages shall be disabled for the specified [`CommunicationType`]
+    /// and the transmission of messages shall be disabled for the specified [`CommunicationType`](crate::CommunicationType)
     /// Additionally, enhanced address information shall be included in the request
     EnableRxAndDisableTxWithEnhancedAddressInfo,
     /// This value indicates that the reception and transmission of messages
-    /// shall be enabled for the specified [`CommunicationType`]
+    /// shall be enabled for the specified [`CommunicationType`](crate::CommunicationType)
     /// Additionally, enhanced address information shall be included in the request
     EnableRxAndTxWithEnhancedAddressInfo,
     /// These values are reserved by the ISO 14229-1 Specification

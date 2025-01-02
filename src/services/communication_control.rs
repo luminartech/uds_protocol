@@ -26,7 +26,7 @@ impl CommunicationControlRequest {
         let enable_byte = buffer.read_u8()?;
         let communication_enable = CommunicationControlType::try_from(enable_byte).unwrap();
         let suppress_response = enable_byte & SUCCESS == SUCCESS;
-        let communication_type = CommunicationType::from(buffer.read_u8()?);
+        let communication_type = CommunicationType::try_from(buffer.read_u8()?)?;
         Ok(Self {
             communication_enable,
             communication_type,
