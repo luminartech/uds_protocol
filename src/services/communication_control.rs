@@ -50,7 +50,7 @@ impl CommunicationControlRequest {
         communication_type: CommunicationType,
         node_id: u16,
     ) -> Self {
-        assert!(control_type.is_extended_addres_variant());
+        assert!(control_type.is_extended_address_variant());
         Self {
             control_type: SuppressablePositiveResponse::new(
                 suppress_positive_response,
