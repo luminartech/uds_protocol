@@ -1,6 +1,7 @@
 use crate::{
     services::{DiagnosticSessionControlResponse, SecurityAccessResponse},
-    DiagnosticSessionType, EcuResetResponse, Error, ResetType, SecurityAccessType, UdsServiceType,
+    CommunicationControlResponse, CommunicationControlType, DiagnosticSessionType,
+    EcuResetResponse, Error, ResetType, SecurityAccessType, UdsServiceType,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -11,14 +12,22 @@ pub struct UdsResponse {
 }
 
 pub enum Response {
+    /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
+    CommunicationControl(CommunicationControlResponse),
+    /// Response to a [`DiagnosticSessionControlRequest`](crate::DiagnosticSessionControlRequest)
     DiagnosticSessionControl(DiagnosticSessionControlResponse),
+    /// Response to a [`EcuResetRequest`](crate::EcuResetRequest)
     EcuReset(EcuResetResponse),
+    /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     SecurityAccess(SecurityAccessResponse),
     TesterPresent,
 }
 
 impl Response {
+    pub fn communication_control(control_type: CommunicationControlType) -> Self {
+        Response::CommunicationControl(CommunicationControlResponse::new(control_type))
+    }
     pub fn diagnostic_session_control(
         session_type: DiagnosticSessionType,
         p2_max: u16,
@@ -41,6 +50,7 @@ impl Response {
 
     pub fn service(&self) -> UdsServiceType {
         match self {
+            Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
             Self::EcuReset(_) => UdsServiceType::EcuReset,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
@@ -52,6 +62,9 @@ impl Response {
     pub fn from_reader<T: Read>(reader: &mut T) -> Result<Self, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(match service {
+            UdsServiceType::CommunicationControl => {
+                Self::CommunicationControl(CommunicationControlResponse::read(reader)?)
+            }
             UdsServiceType::DiagnosticSessionControl => {
                 Self::DiagnosticSessionControl(DiagnosticSessionControlResponse::read(reader)?)
             }
@@ -70,6 +83,7 @@ impl Response {
         writer.write_u8(self.service().response_to_byte())?;
         // Write the payload
         match self {
+            Self::CommunicationControl(cc) => cc.write(writer),
             Self::DiagnosticSessionControl(ds) => ds.write(writer),
             Self::EcuReset(reset) => reset.write(writer),
             Self::RequestTransferExit => Ok(()),
