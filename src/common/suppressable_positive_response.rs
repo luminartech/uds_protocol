@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::Error;
 
 /// Suppress Positive Response Message Indication Bit
-const SPRMIB: u8 = 0x80;
+pub(crate) const SPRMIB: u8 = 0x80;
 /// Mask to recover value in byte with SPRMIB
 pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 

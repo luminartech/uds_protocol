@@ -3,7 +3,7 @@ use crate::{
     services::{
         CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
         EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
-        RoutineControlRequest, SecurityAccessRequest, TransferDataRequest,
+        RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
         WriteDataByIdentifierRequest,
     },
     Error, NegativeResponseCode, ResetType, SecurityAccessType,
@@ -29,7 +29,7 @@ pub enum Request {
     RequestTransferExit,
     RoutineControl(RoutineControlRequest),
     SecurityAccess(SecurityAccessRequest),
-    TesterPresent,
+    TesterPresent(TesterPresentRequest),
     TransferData(TransferDataRequest),
     WriteDataByIdentifier(WriteDataByIdentifierRequest),
 }
@@ -133,8 +133,8 @@ impl Request {
         ))
     }
 
-    pub fn tester_present() -> Self {
-        Self::TesterPresent
+    pub fn tester_present(suppress_positive_response: bool) -> Self {
+        Request::TesterPresent(TesterPresentRequest::new(suppress_positive_response))
     }
 
     pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
@@ -156,7 +156,7 @@ impl Request {
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::RoutineControl(_) => UdsServiceType::RoutineControl,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
-            Self::TesterPresent => UdsServiceType::TesterPresent,
+            Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
         }
@@ -208,7 +208,9 @@ impl Request {
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(SecurityAccessRequest::read(reader)?)
             }
-            UdsServiceType::TesterPresent => Self::TesterPresent,
+            UdsServiceType::TesterPresent => {
+                Self::TesterPresent(TesterPresentRequest::read(reader)?)
+            }
             UdsServiceType::TransferData => Self::TransferData(TransferDataRequest::read(reader)?),
             UdsServiceType::WriteDataByIdentifier => {
                 Self::WriteDataByIdentifier(WriteDataByIdentifierRequest::read(reader)?)
@@ -250,7 +252,7 @@ impl Request {
             Self::RequestTransferExit => Ok(()),
             Self::RoutineControl(rc) => rc.write(writer),
             Self::SecurityAccess(sa) => sa.write(writer),
-            Self::TesterPresent => Ok(()),
+            Self::TesterPresent(tp) => tp.write(writer),
             Self::TransferData(td) => td.write(writer),
             Self::WriteDataByIdentifier(wd) => wd.write(writer),
         }

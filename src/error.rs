@@ -14,4 +14,6 @@ pub enum Error {
     InvalidCommunicationControlType(u8),
     #[error("Invalid Communication Type: {0}")]
     InvalidCommunicationType(u8),
+    #[error("Invalid Tester Present Type: {0}")]
+    InvalidTesterPresentType(u8),
 }
