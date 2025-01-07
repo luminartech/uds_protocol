@@ -140,7 +140,10 @@ mod test {
                 0x00 => {
                     assert_eq!(try_result.unwrap(), ZeroSubFunction::NoSubFunctionSupported)
                 }
-                0x01..=0xFF => {
+                0x01..=0x7F => {
+                    assert!(matches!(try_result, Ok(ZeroSubFunction::ISOSAEReserved(_))));
+                }
+                _ => {
                     assert!(matches!(
                         try_result,
                         Err(Error::InvalidTesterPresentType(_))
@@ -152,24 +155,11 @@ mod test {
 
     #[test]
     fn from_all_zero_subfunction() {
-        for i in 0..u8::MAX {
-            match i {
-                0x00 => {
-                    assert_eq!(u8::from(ZeroSubFunction::default()), i);
-                }
-                0x01..=0x7F => {
-                    let result = ZeroSubFunction::ISOSAEReserved(i);
-                    assert_eq!(u8::from(result), i);
-                }
-                0x80 => {
-                    let result = ZeroSubFunction::NoSubFunctionSupported;
-                    assert_eq!(u8::from(result), i);
-                }
-                0x81..=0xFF => {
-                    let result = ZeroSubFunction::ISOSAEReserved(i);
-                    assert_eq!(u8::from(result), i);
-                }
-            }
+        assert_eq!(u8::from(ZeroSubFunction::default()), NO_SUBFUNCTION_VALUE);
+
+        for i in 0x01..=0x7F {
+            let result = ZeroSubFunction::ISOSAEReserved(i);
+            assert_eq!(u8::from(result), i);
         }
     }
 
@@ -189,14 +179,24 @@ mod test {
                     assert_eq!(result.unwrap(), expected);
                 }
                 0x01..=0x7F => {
-                    assert!(matches!(result, Err(Error::InvalidTesterPresentType(_))));
+                    let result = result.unwrap();
+                    assert!(!result.suppress_positive_response());
+                    assert!(matches!(
+                        result.zero_sub_function.value(),
+                        ZeroSubFunction::ISOSAEReserved(_)
+                    ));
                 }
                 0x80 => {
                     let expected = TesterPresentRequest::new(true);
                     assert_eq!(result.unwrap(), expected);
                 }
                 0x81..=0xFF => {
-                    assert!(matches!(result, Err(Error::InvalidTesterPresentType(_))));
+                    let result = result.unwrap();
+                    assert!(result.suppress_positive_response());
+                    assert!(matches!(
+                        result.zero_sub_function.value(),
+                        ZeroSubFunction::ISOSAEReserved(_)
+                    ));
                 }
             }
         }
