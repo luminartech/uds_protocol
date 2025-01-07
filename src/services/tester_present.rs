@@ -16,8 +16,7 @@ const NO_SUBFUNCTION_VALUE: u8 = 0x00;
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 enum ZeroSubFunction {
     // Request and response. Indicates that no value beside the (SPR) Message Indication Bit is supported by this service.
-    NoSubFunctionSupported(u8),
-
+    NoSubFunctionSupported,
     // Request only.
     ISOSAEReserved(u8),
 }
@@ -25,20 +24,20 @@ enum ZeroSubFunction {
 impl ZeroSubFunction {
     fn new(value: u8) -> Result<Self, Error> {
         match value {
-            NO_SUBFUNCTION_VALUE => Ok(ZeroSubFunction::NoSubFunctionSupported(value)),
+            NO_SUBFUNCTION_VALUE => Ok(ZeroSubFunction::NoSubFunctionSupported),
             _ => Err(Error::InvalidTesterPresentType(value)),
         }
     }
 
     fn default() -> Self {
-        ZeroSubFunction::NoSubFunctionSupported(NO_SUBFUNCTION_VALUE)
+        ZeroSubFunction::NoSubFunctionSupported
     }
 }
 
 impl From<ZeroSubFunction> for u8 {
     fn from(sub_function: ZeroSubFunction) -> Self {
         match sub_function {
-            ZeroSubFunction::NoSubFunctionSupported(value) => value,
+            ZeroSubFunction::NoSubFunctionSupported => NO_SUBFUNCTION_VALUE,
             ZeroSubFunction::ISOSAEReserved(value) => value,
         }
     }
@@ -134,10 +133,7 @@ mod test {
             let try_result: Result<ZeroSubFunction, Error> = ZeroSubFunction::try_from(i);
             match i {
                 0x00 => {
-                    assert_eq!(
-                        try_result.unwrap(),
-                        ZeroSubFunction::NoSubFunctionSupported(i)
-                    )
+                    assert_eq!(try_result.unwrap(), ZeroSubFunction::NoSubFunctionSupported)
                 }
                 0x01..=0xFF => {
                     assert!(matches!(
@@ -161,7 +157,7 @@ mod test {
                     assert_eq!(u8::from(result), i);
                 }
                 0x80 => {
-                    let result = ZeroSubFunction::NoSubFunctionSupported(i);
+                    let result = ZeroSubFunction::NoSubFunctionSupported;
                     assert_eq!(u8::from(result), i);
                 }
                 0x81..=0xFF => {
