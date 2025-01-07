@@ -1,7 +1,7 @@
 use crate::{
-    services::{DiagnosticSessionControlResponse, SecurityAccessResponse},
+    DiagnosticSessionControlResponse, SecurityAccessResponse,
     CommunicationControlResponse, CommunicationControlType, DiagnosticSessionType,
-    EcuResetResponse, Error, ResetType, SecurityAccessType, UdsServiceType,
+    EcuResetResponse, Error, ResetType, SecurityAccessType, TesterPresentResponse, UdsServiceType,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -21,7 +21,7 @@ pub enum Response {
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     SecurityAccess(SecurityAccessResponse),
-    TesterPresent,
+    TesterPresent(TesterPresentResponse),
 }
 
 impl Response {
@@ -48,6 +48,10 @@ impl Response {
         Response::SecurityAccess(SecurityAccessResponse::new(access_type, security_seed))
     }
 
+    pub fn tester_present() -> Self {
+        Response::TesterPresent(TesterPresentResponse::new())
+    }
+
     pub fn service(&self) -> UdsServiceType {
         match self {
             Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
@@ -55,7 +59,7 @@ impl Response {
             Self::EcuReset(_) => UdsServiceType::EcuReset,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
-            Self::TesterPresent => UdsServiceType::TesterPresent,
+            Self::TesterPresent(_) => UdsServiceType::TesterPresent,
         }
     }
 
@@ -73,7 +77,9 @@ impl Response {
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(SecurityAccessResponse::read(reader)?)
             }
-            UdsServiceType::TesterPresent => Self::TesterPresent,
+            UdsServiceType::TesterPresent => {
+                Self::TesterPresent(TesterPresentResponse::read(reader)?)
+            }
             _ => todo!(),
         })
     }
@@ -88,7 +94,7 @@ impl Response {
             Self::EcuReset(reset) => reset.write(writer),
             Self::RequestTransferExit => Ok(()),
             Self::SecurityAccess(sa) => sa.write(writer),
-            Self::TesterPresent => Ok(()),
+            Self::TesterPresent(tp) => tp.write(writer),
         }
     }
 }
