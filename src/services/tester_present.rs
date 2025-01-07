@@ -63,7 +63,7 @@ pub struct TesterPresentRequest {
 impl TesterPresentRequest {
     /// Create a new TesterPresentRequest
     pub(crate) fn new(suppress_positive_response: bool) -> Self {
-        Self::with_subfunction(suppress_positive_response, ZeroSubFunction::default())
+        Self::with_subfunction(suppress_positive_response, ZeroSubFunction::new())
     }
 
     fn with_subfunction(
@@ -110,7 +110,7 @@ impl TesterPresentResponse {
     /// Create a new TesterPresentResponse
     pub(crate) fn new() -> Self {
         Self {
-            zero_sub_function: ZeroSubFunction::default(),
+            zero_sub_function: ZeroSubFunction::new(),
         }
     }
 
