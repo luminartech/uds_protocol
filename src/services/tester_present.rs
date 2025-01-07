@@ -22,13 +22,14 @@ enum ZeroSubFunction {
 }
 
 impl ZeroSubFunction {
-    fn new(value: u8) -> Result<Self, Error> {
-        match value {
-            NO_SUBFUNCTION_VALUE => Ok(ZeroSubFunction::NoSubFunctionSupported),
-            _ => Err(Error::InvalidTesterPresentType(value)),
-        }
+    #[inline]
+    fn new() -> Self {
+        Self::default()
     }
+}
 
+impl Default for ZeroSubFunction {
+    #[inline]
     fn default() -> Self {
         ZeroSubFunction::NoSubFunctionSupported
     }
@@ -46,7 +47,11 @@ impl From<ZeroSubFunction> for u8 {
 impl TryFrom<u8> for ZeroSubFunction {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
-        ZeroSubFunction::new(value)
+        match value {
+            NO_SUBFUNCTION_VALUE => Ok(ZeroSubFunction::NoSubFunctionSupported),
+            0x01..=0x7F => Ok(ZeroSubFunction::ISOSAEReserved(value)),
+            _ => Err(Error::InvalidTesterPresentType(value)),
+        }
     }
 }
 
