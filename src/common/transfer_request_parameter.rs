@@ -142,13 +142,6 @@ mod tests {
         let transfer_request_parameters = parse_transfer_request_parameters(&bytes);
 
         let my_error = transfer_request_parameters.unwrap_err();
-        let is_unexpected_eof = match my_error {
-            Error::IoError(e) => match e.kind() {
-                ErrorKind::UnexpectedEof => true,
-                _ => false
-            },
-            _ => false
-        };
-        assert!(is_unexpected_eof, "Error was not UnexpectedEof");
+        assert!(matches!(my_error, Error::IoError(e) if e.kind() == ErrorKind::UnexpectedEof), "Error was not UnexpectedEof");
     }
 }
