@@ -1,10 +1,9 @@
 use crate::{
     CommunicationControlType, CommunicationType, Error, NegativeResponseCode,
-    SuppressablePositiveResponse,
+    SuppressablePositiveResponse, WireFormat,
 };
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
 
 const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -75,36 +74,39 @@ impl CommunicationControlRequest {
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
-
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let enable_byte = buffer.read_u8()?;
+}
+impl WireFormat<Error> for CommunicationControlRequest {
+    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let enable_byte = reader.read_u8()?;
         let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
-        let communication_type = CommunicationType::try_from(buffer.read_u8()?)?;
+        let communication_type = CommunicationType::try_from(reader.read_u8()?)?;
         match communication_enable.value() {
             CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
             | CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => {
-                let node_id = Some(buffer.read_u16::<BigEndian>()?);
-                Ok(Self {
+                let node_id = Some(reader.read_u16::<BigEndian>()?);
+                Ok(Some(Self {
                     control_type: communication_enable,
                     communication_type,
                     node_id,
-                })
+                }))
             }
-            _ => Ok(Self {
+            _ => Ok(Some(Self {
                 control_type: communication_enable,
                 communication_type,
                 node_id: None,
-            }),
+            })),
         }
     }
 
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.control_type))?;
-        buffer.write_u8(u8::from(self.communication_type))?;
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.control_type))?;
+        writer.write_u8(u8::from(self.communication_type))?;
         if let Some(id) = self.node_id {
-            buffer.write_u16::<BigEndian>(id)?;
+            writer.write_u16::<BigEndian>(id)?;
+            Ok(4)
+        } else {
+            Ok(2)
         }
-        Ok(())
     }
 }
 
@@ -119,14 +121,16 @@ impl CommunicationControlResponse {
     pub(crate) fn new(control_type: CommunicationControlType) -> Self {
         Self { control_type }
     }
+}
 
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let control_type = CommunicationControlType::try_from(buffer.read_u8()?)?;
-        Ok(Self::new(control_type))
+impl WireFormat<Error> for CommunicationControlResponse {
+    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
+        Ok(Some(Self::new(control_type)))
     }
 
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.control_type))?;
-        Ok(())
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.control_type))?;
+        Ok(1)
     }
 }
