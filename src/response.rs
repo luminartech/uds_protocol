@@ -1,7 +1,7 @@
 use crate::{
-    DiagnosticSessionControlResponse, SecurityAccessResponse,
-    CommunicationControlResponse, CommunicationControlType, DiagnosticSessionType,
-    EcuResetResponse, Error, ResetType, SecurityAccessType, TesterPresentResponse, UdsServiceType,
+    CommunicationControlResponse, CommunicationControlType, DiagnosticSessionControlResponse,
+    DiagnosticSessionType, EcuResetResponse, Error, ResetType, SecurityAccessResponse,
+    SecurityAccessType, TesterPresentResponse, UdsServiceType, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -62,39 +62,47 @@ impl Response {
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
         }
     }
-
-    pub fn from_reader<T: Read>(reader: &mut T) -> Result<Self, Error> {
+}
+impl WireFormat<Error> for Response {
+    fn from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
-        Ok(match service {
-            UdsServiceType::CommunicationControl => {
-                Self::CommunicationControl(CommunicationControlResponse::read(reader)?)
-            }
-            UdsServiceType::DiagnosticSessionControl => {
-                Self::DiagnosticSessionControl(DiagnosticSessionControlResponse::read(reader)?)
-            }
-            UdsServiceType::EcuReset => Self::EcuReset(EcuResetResponse::read(reader)?),
+        Ok(Some(match service {
+            UdsServiceType::CommunicationControl => Self::CommunicationControl(
+                CommunicationControlResponse::from_reader(reader)?
+                    .expect("Communication control response always returns a value or error"),
+            ),
+            UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
+                DiagnosticSessionControlResponse::from_reader(reader)?
+                    .expect("DiagnosticSessionControlResponse always returns a value or an error"),
+            ),
+            UdsServiceType::EcuReset => Self::EcuReset(
+                EcuResetResponse::from_reader(reader)?
+                    .expect("EcuResetResponse always returns a value or an error"),
+            ),
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
-            UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(SecurityAccessResponse::read(reader)?)
-            }
-            UdsServiceType::TesterPresent => {
-                Self::TesterPresent(TesterPresentResponse::read(reader)?)
-            }
+            UdsServiceType::SecurityAccess => Self::SecurityAccess(
+                SecurityAccessResponse::from_reader(reader)?
+                    .expect("SecurityAccessResponse always returns a value or an error"),
+            ),
+            UdsServiceType::TesterPresent => Self::TesterPresent(
+                TesterPresentResponse::from_reader(reader)?
+                    .expect("TesterPresentResponse always returns a value or an error"),
+            ),
             _ => todo!(),
-        })
+        }))
     }
 
-    pub fn to_writer<T: Write>(&self, writer: &mut T) -> Result<(), Error> {
+    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the service byte
         writer.write_u8(self.service().response_to_byte())?;
         // Write the payload
         match self {
-            Self::CommunicationControl(cc) => cc.write(writer),
-            Self::DiagnosticSessionControl(ds) => ds.write(writer),
-            Self::EcuReset(reset) => reset.write(writer),
-            Self::RequestTransferExit => Ok(()),
-            Self::SecurityAccess(sa) => sa.write(writer),
-            Self::TesterPresent(tp) => tp.write(writer),
+            Self::CommunicationControl(cc) => cc.to_writer(writer),
+            Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
+            Self::EcuReset(reset) => reset.to_writer(writer),
+            Self::RequestTransferExit => Ok(0),
+            Self::SecurityAccess(sa) => sa.to_writer(writer),
+            Self::TesterPresent(tp) => tp.to_writer(writer),
         }
     }
 }
