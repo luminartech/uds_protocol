@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum Error {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    #[error("Insufficient data. Expected {0} bytes.")]
+    InsufficientData(usize),    
     #[error("Invalid diagnostic session type: {0}")]
     InvalidDiagnosticSessionType(u8),
     #[error("Invalid ECU reset type: {0}")]

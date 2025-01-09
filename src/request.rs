@@ -96,8 +96,8 @@ impl Request {
     }
 
     /// Create a new `ReadDataByIdentifier` request
-    pub fn read_data_by_identifier(did: u16) -> Self {
-        Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(did))
+    pub fn read_data_by_identifier(dids: Vec<u16>) -> Self {
+        Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 
     /// Create a new `RequestDownload` request

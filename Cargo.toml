@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 byteorder.workspace = true
 thiserror.workspace = true
+num = "0.4.3"
 # Optional dependencies
 clap = { workspace = true }
 serde = { workspace = true }
