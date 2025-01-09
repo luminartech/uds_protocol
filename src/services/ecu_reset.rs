@@ -1,4 +1,4 @@
-use crate::{Error, NegativeResponseCode, ResetType, SuppressablePositiveResponse};
+use crate::{Error, NegativeResponseCode, ResetType, SuppressablePositiveResponse, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -38,17 +38,19 @@ impl EcuResetRequest {
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &ECU_RESET_NEGATIVE_RESPONSE_CODES
     }
+}
 
+impl WireFormat<Error> for EcuResetRequest {
     /// Deserialization function to read a [`EcuResetRequest`] from a `Reader`
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let reset_type = SuppressablePositiveResponse::try_from(buffer.read_u8()?)?;
-        Ok(Self { reset_type })
+    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let reset_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
+        Ok(Some(Self { reset_type }))
     }
 
     /// Serialization function to write a [`EcuResetRequest`] to a `Writer`
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.reset_type))?;
-        Ok(())
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.reset_type))?;
+        Ok(1)
     }
 }
 
@@ -67,21 +69,23 @@ impl EcuResetResponse {
             power_down_time,
         }
     }
+}
 
+impl WireFormat<Error> for EcuResetResponse {
     /// Deserialization function to read a [`EcuResetResponse`] from a `Reader`
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let reset_type = ResetType::try_from(buffer.read_u8()?)?;
-        let power_down_time = buffer.read_u8()?;
-        Ok(Self {
+    fn from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let reset_type = ResetType::try_from(reader.read_u8()?)?;
+        let power_down_time = reader.read_u8()?;
+        Ok(Some(Self {
             reset_type,
             power_down_time,
-        })
+        }))
     }
 
     /// Serialization function to write a [`EcuResetResponse`] to a `Writer`
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+    fn to_writer<T: Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.reset_type))?;
         buffer.write_u8(self.power_down_time)?;
-        Ok(())
+        Ok(2)
     }
 }
