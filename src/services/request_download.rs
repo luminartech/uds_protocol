@@ -1,7 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Write};
 
-use crate::Error;
+use crate::{Error, WireFormat};
 
 #[non_exhaustive]
 pub struct RequestDownloadRequest {
@@ -25,24 +24,25 @@ impl RequestDownloadRequest {
             memory_size,
         }
     }
-
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let data_format_identifier = buffer.read_u8()?;
-        let address_and_length_format_identifier = buffer.read_u8()?;
-        let memory_address = buffer.read_u32::<BigEndian>()?;
-        let memory_size = buffer.read_u32::<BigEndian>()?;
-        Ok(Self {
+}
+impl WireFormat<Error> for RequestDownloadRequest {
+    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let data_format_identifier = reader.read_u8()?;
+        let address_and_length_format_identifier = reader.read_u8()?;
+        let memory_address = reader.read_u32::<BigEndian>()?;
+        let memory_size = reader.read_u32::<BigEndian>()?;
+        Ok(Some(Self {
             data_format_identifier,
             address_and_length_format_identifier,
             memory_address,
             memory_size,
-        })
+        }))
     }
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(self.data_format_identifier)?;
-        buffer.write_u8(self.address_and_length_format_identifier)?;
-        buffer.write_u32::<BigEndian>(self.memory_address)?;
-        buffer.write_u32::<BigEndian>(self.memory_size)?;
-        Ok(())
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.data_format_identifier)?;
+        writer.write_u8(self.address_and_length_format_identifier)?;
+        writer.write_u32::<BigEndian>(self.memory_address)?;
+        writer.write_u32::<BigEndian>(self.memory_size)?;
+        Ok(10)
     }
 }
