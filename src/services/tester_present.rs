@@ -2,7 +2,6 @@ use crate::{Error, NegativeResponseCode, SuppressablePositiveResponse, WireForma
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
 
 const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -118,7 +117,7 @@ impl TesterPresentResponse {
 }
 impl WireFormat<Error> for TesterPresentResponse {
     /// Create a TesterPresentResponse from a sequence of bytes
-    fn from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
     }
