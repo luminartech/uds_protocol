@@ -1,4 +1,6 @@
-use crate::{Error, NegativeResponseCode, SecurityAccessType, SuppressablePositiveResponse};
+use crate::{
+    Error, NegativeResponseCode, SecurityAccessType, SuppressablePositiveResponse, WireFormat,
+};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -72,23 +74,25 @@ impl SecurityAccessRequest {
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES
     }
+}
 
+impl WireFormat<Error> for SecurityAccessRequest {
     /// Deserialization function to read a [`SecurityAccessRequest`] from a `Reader`
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let access_type = SuppressablePositiveResponse::try_from(buffer.read_u8()?)?;
+    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         let mut request_data: Vec<u8> = Vec::new();
-        _ = buffer.read_to_end(&mut request_data)?;
-        Ok(Self {
+        _ = reader.read_to_end(&mut request_data)?;
+        Ok(Some(Self {
             access_type,
             request_data,
-        })
+        }))
     }
 
     /// Serialization function to write a [`SecurityAccessRequest`] to a `Writer`
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.access_type))?;
-        buffer.write_all(&self.request_data)?;
-        Ok(())
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.access_type))?;
+        writer.write_all(&self.request_data)?;
+        Ok(1 + self.request_data.len())
     }
 }
 
@@ -116,22 +120,24 @@ impl SecurityAccessResponse {
             security_seed,
         }
     }
+}
 
+impl WireFormat<Error> for SecurityAccessResponse {
     /// Deserialization function to read a `SecurityAccessResponse` from a [`Reader`](std::io::Read)
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let access_type = SecurityAccessType::try_from(buffer.read_u8()?)?;
+    fn from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
         let mut security_seed = Vec::new();
-        let _ = buffer.read_to_end(&mut security_seed)?;
-        Ok(Self {
+        let _ = reader.read_to_end(&mut security_seed)?;
+        Ok(Some(Self {
             access_type,
             security_seed,
-        })
+        }))
     }
 
     /// Serialization function to write a `SecurityAccessResponse` to a [`Writer`](std::io::Write)
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.access_type))?;
-        buffer.write_all(&self.security_seed)?;
-        Ok(())
+    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.access_type))?;
+        writer.write_all(&self.security_seed)?;
+        Ok(1 + self.security_seed.len())
     }
 }
