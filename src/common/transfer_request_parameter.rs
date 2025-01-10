@@ -30,8 +30,7 @@ impl TransferRequestParameter {
                 }
                 else {
                     // squish memory_address_bytes into a u32
-                    let mut cursor = std::io::Cursor::new(memory_address_bytes);
-                    cursor.read_u24::<BigEndian>()?
+                    memory_address_bytes.as_ref().read_u24::<BigEndian>()?
                 }
             }
             Err(e) => return Err(Error::from(e)),
