@@ -19,7 +19,7 @@ mod services;
 pub use services::*;
 
 mod traits;
-pub use traits::WireFormat;
+pub use traits::{IterableWireFormat, SingleValueWireFormat, WireFormat};
 
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
