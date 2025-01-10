@@ -10,7 +10,8 @@
 //! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
 
 use crate::{
-    DiagnosticSessionType, Error, NegativeResponseCode, SuppressablePositiveResponse, WireFormat,
+    DiagnosticSessionType, Error, NegativeResponseCode, SingleValueWireFormat,
+    SuppressablePositiveResponse, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
@@ -57,9 +58,6 @@ impl DiagnosticSessionControlRequest {
     }
 }
 impl WireFormat<Error> for DiagnosticSessionControlRequest {
-    ///DiagnosticSessionControlRequest is not iterable
-    const ITERABLE: bool = false;
-
     /// Deserialization function to read a DiagnosticSessionControlRequest from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
@@ -72,6 +70,8 @@ impl WireFormat<Error> for DiagnosticSessionControlRequest {
         Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for DiagnosticSessionControlRequest {}
 
 /// Positive response to a DiagnosticSessionControlRequest
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -97,9 +97,6 @@ impl DiagnosticSessionControlResponse {
     }
 }
 impl WireFormat<Error> for DiagnosticSessionControlResponse {
-    /// DiagnosticSessionControlResponse is not iterable
-    const ITERABLE: bool = false;
-
     /// Read a DiagnosticSessionControlResponse from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
@@ -120,3 +117,5 @@ impl WireFormat<Error> for DiagnosticSessionControlResponse {
         Ok(5)
     }
 }
+
+impl SingleValueWireFormat<Error> for DiagnosticSessionControlResponse {}

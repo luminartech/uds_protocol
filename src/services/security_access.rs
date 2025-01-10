@@ -1,5 +1,6 @@
 use crate::{
-    Error, NegativeResponseCode, SecurityAccessType, SuppressablePositiveResponse, WireFormat,
+    Error, NegativeResponseCode, SecurityAccessType, SingleValueWireFormat,
+    SuppressablePositiveResponse, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
@@ -77,8 +78,6 @@ impl SecurityAccessRequest {
 }
 
 impl WireFormat<Error> for SecurityAccessRequest {
-    /// SecurityAccessRequest is not iterable
-    const ITERABLE: bool = false;
     /// Deserialization function to read a [`SecurityAccessRequest`] from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
@@ -97,6 +96,8 @@ impl WireFormat<Error> for SecurityAccessRequest {
         Ok(1 + self.request_data.len())
     }
 }
+
+impl SingleValueWireFormat<Error> for SecurityAccessRequest {}
 
 /// Response to `SecurityAccessRequest`
 ///
@@ -125,8 +126,6 @@ impl SecurityAccessResponse {
 }
 
 impl WireFormat<Error> for SecurityAccessResponse {
-    /// SecurityAccessResponse is not iterable
-    const ITERABLE: bool = false;
     /// Deserialization function to read a `SecurityAccessResponse` from a [`Reader`](std::io::Read)
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
@@ -145,3 +144,5 @@ impl WireFormat<Error> for SecurityAccessResponse {
         Ok(1 + self.security_seed.len())
     }
 }
+
+impl SingleValueWireFormat<Error> for SecurityAccessResponse {}

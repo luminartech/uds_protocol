@@ -1,4 +1,4 @@
-use crate::{DtcSettings, Error, WireFormat, SUCCESS};
+use crate::{DtcSettings, Error, SingleValueWireFormat, WireFormat, SUCCESS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 /// The ControlDTCSettings service is used to control the DTC settings of the ECU.
@@ -21,8 +21,6 @@ impl ControlDTCSettingsRequest {
 }
 
 impl WireFormat<Error> for ControlDTCSettingsRequest {
-    /// ControlDTCSettingsRequest is not iterable
-    const ITERABLE: bool = false;
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let request_byte = reader.read_u8()?;
         let setting = DtcSettings::from(request_byte & !SUCCESS);
@@ -40,3 +38,5 @@ impl WireFormat<Error> for ControlDTCSettingsRequest {
         Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for ControlDTCSettingsRequest {}

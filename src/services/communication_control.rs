@@ -1,6 +1,6 @@
 use crate::{
     CommunicationControlType, CommunicationType, Error, NegativeResponseCode,
-    SuppressablePositiveResponse, WireFormat,
+    SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
 };
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
@@ -76,9 +76,6 @@ impl CommunicationControlRequest {
     }
 }
 impl WireFormat<Error> for CommunicationControlRequest {
-    /// CommunicationControlRequest is not iterable
-    const ITERABLE: bool = false;
-
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let enable_byte = reader.read_u8()?;
         let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
@@ -113,6 +110,8 @@ impl WireFormat<Error> for CommunicationControlRequest {
     }
 }
 
+impl SingleValueWireFormat<Error> for CommunicationControlRequest {}
+
 /// Positive response from the server to change communication behavior
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive] // Prevent direct construction externally
@@ -127,9 +126,6 @@ impl CommunicationControlResponse {
 }
 
 impl WireFormat<Error> for CommunicationControlResponse {
-    /// CommunicationControlResponse is not iterable
-    const ITERABLE: bool = false;
-
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
         Ok(Some(Self::new(control_type)))
@@ -140,3 +136,5 @@ impl WireFormat<Error> for CommunicationControlResponse {
         Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for CommunicationControlResponse {}

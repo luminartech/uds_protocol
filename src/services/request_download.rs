@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::{Error, WireFormat};
+use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[non_exhaustive]
 pub struct RequestDownloadRequest {
@@ -26,9 +26,6 @@ impl RequestDownloadRequest {
     }
 }
 impl WireFormat<Error> for RequestDownloadRequest {
-    /// RequestDownloadRequest is not iterable
-    const ITERABLE: bool = false;
-
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let data_format_identifier = reader.read_u8()?;
         let address_and_length_format_identifier = reader.read_u8()?;
@@ -49,3 +46,5 @@ impl WireFormat<Error> for RequestDownloadRequest {
         Ok(10)
     }
 }
+
+impl SingleValueWireFormat<Error> for RequestDownloadRequest {}

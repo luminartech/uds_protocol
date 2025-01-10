@@ -1,7 +1,7 @@
 use crate::{
     CommunicationControlResponse, CommunicationControlType, DiagnosticSessionControlResponse,
     DiagnosticSessionType, EcuResetResponse, Error, ResetType, SecurityAccessResponse,
-    SecurityAccessType, TesterPresentResponse, UdsServiceType, WireFormat,
+    SecurityAccessType, SingleValueWireFormat, TesterPresentResponse, UdsServiceType, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -63,10 +63,8 @@ impl Response {
         }
     }
 }
-impl WireFormat<Error> for Response {
-    /// Response is not iterable
-    const ITERABLE: bool = false;
 
+impl WireFormat<Error> for Response {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
@@ -102,3 +100,5 @@ impl WireFormat<Error> for Response {
         }
     }
 }
+
+impl SingleValueWireFormat<Error> for Response {}

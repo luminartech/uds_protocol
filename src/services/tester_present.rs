@@ -1,4 +1,6 @@
-use crate::{Error, NegativeResponseCode, SuppressablePositiveResponse, WireFormat};
+use crate::{
+    Error, NegativeResponseCode, SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
+};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
@@ -89,9 +91,6 @@ impl TesterPresentRequest {
 }
 
 impl WireFormat<Error> for TesterPresentRequest {
-    /// TesterPresentRequest is not iterable
-    const ITERABLE: bool = false;
-
     /// Deserialization function to read a TesterPresentRequest from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
@@ -104,6 +103,8 @@ impl WireFormat<Error> for TesterPresentRequest {
         Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for TesterPresentRequest {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TesterPresentResponse {
@@ -118,10 +119,8 @@ impl TesterPresentResponse {
         }
     }
 }
-impl WireFormat<Error> for TesterPresentResponse {
-    /// TesterPresentResponse is not iterable
-    const ITERABLE: bool = false;
 
+impl WireFormat<Error> for TesterPresentResponse {
     /// Create a TesterPresentResponse from a sequence of bytes
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
@@ -134,6 +133,8 @@ impl WireFormat<Error> for TesterPresentResponse {
         Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for TesterPresentResponse {}
 
 #[cfg(test)]
 mod test {

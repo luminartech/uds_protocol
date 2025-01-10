@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::{Error, WireFormat};
+use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[non_exhaustive]
 pub struct WriteDataByIdentifierRequest {
@@ -15,8 +15,6 @@ impl WriteDataByIdentifierRequest {
 }
 
 impl WireFormat<Error> for WriteDataByIdentifierRequest {
-    /// WriteDataByIdentifierRequest is not iterable
-    const ITERABLE: bool = false;
     fn option_from_reader<T: std::io::Read>(buffer: &mut T) -> Result<Option<Self>, Error> {
         let did = buffer.read_u16::<BigEndian>()?;
         let mut data = Vec::new();
@@ -29,3 +27,5 @@ impl WireFormat<Error> for WriteDataByIdentifierRequest {
         Ok(2 + self.data.len())
     }
 }
+
+impl SingleValueWireFormat<Error> for WriteDataByIdentifierRequest {}

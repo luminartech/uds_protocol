@@ -1,4 +1,4 @@
-use crate::{Error, RoutineControlSubFunction, WireFormat};
+use crate::{Error, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
@@ -23,9 +23,6 @@ impl RoutineControlRequest {
     }
 }
 impl WireFormat<Error> for RoutineControlRequest {
-    /// RoutineControlRequest is not iterable
-    const ITERABLE: bool = false;
-
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
         let routine_id = reader.read_u16::<BigEndian>()?;
@@ -45,3 +42,5 @@ impl WireFormat<Error> for RoutineControlRequest {
         Ok(3 + self.data.len())
     }
 }
+
+impl SingleValueWireFormat<Error> for RoutineControlRequest {}

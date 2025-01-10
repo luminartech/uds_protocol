@@ -1,4 +1,4 @@
-use crate::{Error, WireFormat};
+use crate::{Error, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 #[non_exhaustive]
@@ -11,10 +11,8 @@ impl ReadDataByIdentifierRequest {
         Self { did }
     }
 }
-impl WireFormat<Error> for ReadDataByIdentifierRequest {
-    /// ReadDataByIdentifierRequest is not an iterable
-    const ITERABLE: bool = false;
 
+impl WireFormat<Error> for ReadDataByIdentifierRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let did = reader.read_u16::<BigEndian>()?;
         Ok(Some(Self { did }))
@@ -24,3 +22,5 @@ impl WireFormat<Error> for ReadDataByIdentifierRequest {
         Ok(2)
     }
 }
+
+impl SingleValueWireFormat<Error> for ReadDataByIdentifierRequest {}

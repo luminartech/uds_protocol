@@ -6,7 +6,7 @@ use crate::{
         RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
         WriteDataByIdentifierRequest,
     },
-    Error, NegativeResponseCode, ResetType, SecurityAccessType, WireFormat,
+    Error, NegativeResponseCode, ResetType, SecurityAccessType, SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -175,9 +175,6 @@ impl Request {
 }
 
 impl WireFormat<Error> for Request {
-    /// Request is not iterable
-    const ITERABLE: bool = false;
-
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -265,3 +262,5 @@ impl WireFormat<Error> for Request {
         })
     }
 }
+
+impl SingleValueWireFormat<Error> for Request {}

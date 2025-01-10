@@ -1,6 +1,6 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
-use crate::{Error, WireFormat};
+use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[non_exhaustive]
 pub struct TransferDataRequest {
@@ -15,8 +15,6 @@ impl TransferDataRequest {
 }
 
 impl WireFormat<Error> for TransferDataRequest {
-    /// TransferDataRequest is not iterable
-    const ITERABLE: bool = false;
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sequence = reader.read_u8()?;
         let mut data = Vec::new();
@@ -30,3 +28,5 @@ impl WireFormat<Error> for TransferDataRequest {
         Ok(1 + self.data.len())
     }
 }
+
+impl SingleValueWireFormat<Error> for TransferDataRequest {}

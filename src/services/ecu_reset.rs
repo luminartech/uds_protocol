@@ -1,4 +1,7 @@
-use crate::{Error, NegativeResponseCode, ResetType, SuppressablePositiveResponse, WireFormat};
+use crate::{
+    Error, NegativeResponseCode, ResetType, SingleValueWireFormat, SuppressablePositiveResponse,
+    WireFormat,
+};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -41,9 +44,6 @@ impl EcuResetRequest {
 }
 
 impl WireFormat<Error> for EcuResetRequest {
-    /// EcuResetRequest is not iterable
-    const ITERABLE: bool = false;
-
     /// Deserialization function to read a [`EcuResetRequest`] from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
@@ -56,6 +56,8 @@ impl WireFormat<Error> for EcuResetRequest {
         Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for EcuResetRequest {}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
@@ -75,9 +77,6 @@ impl EcuResetResponse {
 }
 
 impl WireFormat<Error> for EcuResetResponse {
-    /// EcuResetResponse is not iterable
-    const ITERABLE: bool = false;
-
     /// Deserialization function to read a [`EcuResetResponse`] from a `Reader`
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = ResetType::try_from(reader.read_u8()?)?;
@@ -95,3 +94,5 @@ impl WireFormat<Error> for EcuResetResponse {
         Ok(2)
     }
 }
+
+impl SingleValueWireFormat<Error> for EcuResetResponse {}
