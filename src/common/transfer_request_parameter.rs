@@ -3,8 +3,8 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 /// Format and length of this parameter(s) are vehicle manufacturer specific
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TransferRequestParameter {
     /// Memory address (start) to deliver data to
     pub memory_address: u32,
