@@ -70,27 +70,20 @@ impl WireFormat<Error> for Response {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
-            UdsServiceType::CommunicationControl => Self::CommunicationControl(
-                CommunicationControlResponse::option_from_reader(reader)?
-                    .expect("Communication control response always returns a value or error"),
-            ),
+            UdsServiceType::CommunicationControl => {
+                Self::CommunicationControl(CommunicationControlResponse::from_reader(reader)?)
+            }
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlResponse::option_from_reader(reader)?
-                    .expect("DiagnosticSessionControlResponse always returns a value or an error"),
+                DiagnosticSessionControlResponse::from_reader(reader)?,
             ),
-            UdsServiceType::EcuReset => Self::EcuReset(
-                EcuResetResponse::option_from_reader(reader)?
-                    .expect("EcuResetResponse always returns a value or an error"),
-            ),
+            UdsServiceType::EcuReset => Self::EcuReset(EcuResetResponse::from_reader(reader)?),
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
-            UdsServiceType::SecurityAccess => Self::SecurityAccess(
-                SecurityAccessResponse::option_from_reader(reader)?
-                    .expect("SecurityAccessResponse always returns a value or an error"),
-            ),
-            UdsServiceType::TesterPresent => Self::TesterPresent(
-                TesterPresentResponse::option_from_reader(reader)?
-                    .expect("TesterPresentResponse always returns a value or an error"),
-            ),
+            UdsServiceType::SecurityAccess => {
+                Self::SecurityAccess(SecurityAccessResponse::from_reader(reader)?)
+            }
+            UdsServiceType::TesterPresent => {
+                Self::TesterPresent(TesterPresentResponse::from_reader(reader)?)
+            }
             _ => todo!(),
         }))
     }
