@@ -1,9 +1,16 @@
-/// A trait for types that can be serialized and deserialized from a byte stream.
-/// Note that the `ITERABLE` constant is used to declare whether the type is iterable.
+/// A trait for types that can be deserialized from a
+/// [`Reader`](https://doc.rust-lang.org/std/io/trait.Read.html) and serialized
+/// to a [`Writer`](https://doc.rust-lang.org/std/io/trait.Write.html).
 ///
-/// If `ITERABLE` is `true`, then the type is expected to be deserialized as a sequence of values.
-/// If `ITERABLE` is `false`, then the type is expected to be deserialized as a single value.
+/// `WireFormat` acts as the base trait for all types that can be serialized and deserialized
+/// as part of the UDS Protocol ecosystem.
 ///
+/// Some types need the ability to be deserialized without knowing the size of the data in advance.
+/// To support this, the `option_from_reader` function returns an `Option<Self>`.
+/// If the reader contains a complete value, it returns `Some(value)`.
+/// If the reader is completely empty, it returns `None`.
+/// Many types will never return `None`, and for these types, the `SingleValueWireFormat`,
+/// trait can be implemented, providing a more ergonomic API.
 pub trait WireFormat<E>: Sized
 where
     E: std::error::Error,
@@ -33,6 +40,8 @@ where
     _phantom2: std::marker::PhantomData<E>,
 }
 
+/// For types that can appear in lists of unknown length, this trait provides an iterator
+/// that can be used to deserialize a stream of values.
 impl<T: WireFormat<E>, E: std::error::Error, R: std::io::Read> Iterator
     for WireFormatIterator<'_, T, E, R>
 where
