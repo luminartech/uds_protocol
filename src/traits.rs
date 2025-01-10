@@ -55,14 +55,14 @@ where
             _phantom2: std::marker::PhantomData,
         }
     }
-    /*
+
     fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Self, E> {
         assert!(
             !Self::ITERABLE,
             "Cannot call from_reader on an iterable type"
         );
         Ok(Self::option_from_reader(reader)?.unwrap())
-    }*/
+    }
 
     /// Serialize a value to a byte stream.
     /// Returns the number of bytes written.

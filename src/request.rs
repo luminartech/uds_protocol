@@ -190,52 +190,38 @@ impl WireFormat<Error> for Request {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         Ok(Some(match service {
-            UdsServiceType::CommunicationControl => Self::CommunicationControl(
-                CommunicationControlRequest::option_from_reader(reader)?
-                    .expect("CommunicationControlRequest should always return Some or an Error"),
-            ),
-            UdsServiceType::ControlDTCSettings => Self::ControlDTCSettings(
-                ControlDTCSettingsRequest::option_from_reader(reader)?
-                    .expect("ControlDtcSettingsRequest should always return Some or an Error"),
-            ),
+            UdsServiceType::CommunicationControl => {
+                Self::CommunicationControl(CommunicationControlRequest::from_reader(reader)?)
+            }
+            UdsServiceType::ControlDTCSettings => {
+                Self::ControlDTCSettings(ControlDTCSettingsRequest::from_reader(reader)?)
+            }
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlRequest::option_from_reader(reader)?.expect(
-                    "DiagnosticSessionControlRequest should always return Some or an Error",
-                ),
+                DiagnosticSessionControlRequest::from_reader(reader)?,
             ),
-            UdsServiceType::EcuReset => Self::EcuReset(
-                EcuResetRequest::option_from_reader(reader)?
-                    .expect("EcuResetRequest should always return Some or an Error"),
-            ),
-            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
-                ReadDataByIdentifierRequest::option_from_reader(reader)?
-                    .expect("ReadDataByIdentifier should always return Some or an Error"),
-            ),
-            UdsServiceType::RequestDownload => Self::RequestDownload(
-                RequestDownloadRequest::option_from_reader(reader)?
-                    .expect("RequestDownloadRequest should always return Some or an Error"),
-            ),
+            UdsServiceType::EcuReset => Self::EcuReset(EcuResetRequest::from_reader(reader)?),
+            UdsServiceType::ReadDataByIdentifier => {
+                Self::ReadDataByIdentifier(ReadDataByIdentifierRequest::from_reader(reader)?)
+            }
+            UdsServiceType::RequestDownload => {
+                Self::RequestDownload(RequestDownloadRequest::from_reader(reader)?)
+            }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
-            UdsServiceType::RoutineControl => Self::RoutineControl(
-                RoutineControlRequest::option_from_reader(reader)?
-                    .expect("RoutineControlRequest should always return Some or an Error"),
-            ),
-            UdsServiceType::SecurityAccess => Self::SecurityAccess(
-                SecurityAccessRequest::option_from_reader(reader)?
-                    .expect("SecurityAccessRequest should always return Some or an Error"),
-            ),
-            UdsServiceType::TesterPresent => Self::TesterPresent(
-                TesterPresentRequest::option_from_reader(reader)?
-                    .expect("TesterPresentRequest should always return Some or an Error"),
-            ),
-            UdsServiceType::TransferData => Self::TransferData(
-                TransferDataRequest::option_from_reader(reader)?
-                    .expect("TransferDataRequest should always return Some or an Error"),
-            ),
-            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
-                WriteDataByIdentifierRequest::option_from_reader(reader)?
-                    .expect("WriteDataByIdentifierRequest should always return Some or an Error"),
-            ),
+            UdsServiceType::RoutineControl => {
+                Self::RoutineControl(RoutineControlRequest::from_reader(reader)?)
+            }
+            UdsServiceType::SecurityAccess => {
+                Self::SecurityAccess(SecurityAccessRequest::from_reader(reader)?)
+            }
+            UdsServiceType::TesterPresent => {
+                Self::TesterPresent(TesterPresentRequest::from_reader(reader)?)
+            }
+            UdsServiceType::TransferData => {
+                Self::TransferData(TransferDataRequest::from_reader(reader)?)
+            }
+            UdsServiceType::WriteDataByIdentifier => {
+                Self::WriteDataByIdentifier(WriteDataByIdentifierRequest::from_reader(reader)?)
+            }
             UdsServiceType::Authentication => todo!(),
             UdsServiceType::AccessTimingParameters => todo!(),
             UdsServiceType::SecuredDataTransmission => todo!(),
