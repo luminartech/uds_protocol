@@ -89,8 +89,11 @@ impl TesterPresentRequest {
 }
 
 impl WireFormat<Error> for TesterPresentRequest {
+    /// TesterPresentRequest is not iterable
+    const ITERABLE: bool = false;
+
     /// Deserialization function to read a TesterPresentRequest from a `Reader`
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
     }
@@ -116,8 +119,11 @@ impl TesterPresentResponse {
     }
 }
 impl WireFormat<Error> for TesterPresentResponse {
+    /// TesterPresentResponse is not iterable
+    const ITERABLE: bool = false;
+
     /// Create a TesterPresentResponse from a sequence of bytes
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
     }
@@ -168,7 +174,7 @@ mod test {
     fn make_request(byte: u8) -> Result<Option<TesterPresentRequest>, Error> {
         let bytes = vec![byte];
         let mut byte_access = Cursor::new(bytes);
-        TesterPresentRequest::from_reader(&mut byte_access)
+        TesterPresentRequest::option_from_reader(&mut byte_access)
     }
 
     #[test]
@@ -218,7 +224,7 @@ mod test {
     fn read_response_type() {
         let bytes = vec![0u8];
         let mut byte_access = Cursor::new(bytes);
-        let test_type = TesterPresentResponse::from_reader(&mut byte_access)
+        let test_type = TesterPresentResponse::option_from_reader(&mut byte_access)
             .unwrap()
             .unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());

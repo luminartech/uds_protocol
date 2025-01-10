@@ -15,7 +15,9 @@ impl TransferDataRequest {
 }
 
 impl WireFormat<Error> for TransferDataRequest {
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    /// TransferDataRequest is not iterable
+    const ITERABLE: bool = false;
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sequence = reader.read_u8()?;
         let mut data = Vec::new();
         reader.read_to_end(&mut data)?;

@@ -76,7 +76,10 @@ impl CommunicationControlRequest {
     }
 }
 impl WireFormat<Error> for CommunicationControlRequest {
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    /// CommunicationControlRequest is not iterable
+    const ITERABLE: bool = false;
+
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let enable_byte = reader.read_u8()?;
         let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
         let communication_type = CommunicationType::try_from(reader.read_u8()?)?;
@@ -124,7 +127,10 @@ impl CommunicationControlResponse {
 }
 
 impl WireFormat<Error> for CommunicationControlResponse {
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    /// CommunicationControlResponse is not iterable
+    const ITERABLE: bool = false;
+
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
         Ok(Some(Self::new(control_type)))
     }

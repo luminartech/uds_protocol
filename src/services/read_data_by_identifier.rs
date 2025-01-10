@@ -12,7 +12,10 @@ impl ReadDataByIdentifierRequest {
     }
 }
 impl WireFormat<Error> for ReadDataByIdentifierRequest {
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    /// ReadDataByIdentifierRequest is not an iterable
+    const ITERABLE: bool = false;
+
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let did = reader.read_u16::<BigEndian>()?;
         Ok(Some(Self { did }))
     }

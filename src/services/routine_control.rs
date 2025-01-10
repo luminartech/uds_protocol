@@ -23,7 +23,10 @@ impl RoutineControlRequest {
     }
 }
 impl WireFormat<Error> for RoutineControlRequest {
-    fn from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    /// RoutineControlRequest is not iterable
+    const ITERABLE: bool = false;
+
+    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
         let routine_id = reader.read_u16::<BigEndian>()?;
         let mut data = Vec::new();

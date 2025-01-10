@@ -41,8 +41,11 @@ impl EcuResetRequest {
 }
 
 impl WireFormat<Error> for EcuResetRequest {
+    /// EcuResetRequest is not iterable
+    const ITERABLE: bool = false;
+
     /// Deserialization function to read a [`EcuResetRequest`] from a `Reader`
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { reset_type }))
     }
@@ -72,8 +75,11 @@ impl EcuResetResponse {
 }
 
 impl WireFormat<Error> for EcuResetResponse {
+    /// EcuResetResponse is not iterable
+    const ITERABLE: bool = false;
+
     /// Deserialization function to read a [`EcuResetResponse`] from a `Reader`
-    fn from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = ResetType::try_from(reader.read_u8()?)?;
         let power_down_time = reader.read_u8()?;
         Ok(Some(Self {

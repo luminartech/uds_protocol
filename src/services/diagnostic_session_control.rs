@@ -57,8 +57,11 @@ impl DiagnosticSessionControlRequest {
     }
 }
 impl WireFormat<Error> for DiagnosticSessionControlRequest {
+    ///DiagnosticSessionControlRequest is not iterable
+    const ITERABLE: bool = false;
+
     /// Deserialization function to read a DiagnosticSessionControlRequest from a `Reader`
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { session_type }))
     }
@@ -94,8 +97,11 @@ impl DiagnosticSessionControlResponse {
     }
 }
 impl WireFormat<Error> for DiagnosticSessionControlResponse {
+    /// DiagnosticSessionControlResponse is not iterable
+    const ITERABLE: bool = false;
+
     /// Read a DiagnosticSessionControlResponse from a `Reader`
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
         let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
         let p2_star_server_max = reader.read_u16::<byteorder::BigEndian>()?;

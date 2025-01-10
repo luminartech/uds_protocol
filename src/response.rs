@@ -64,28 +64,31 @@ impl Response {
     }
 }
 impl WireFormat<Error> for Response {
-    fn from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    /// Response is not iterable
+    const ITERABLE: bool = false;
+
+    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
             UdsServiceType::CommunicationControl => Self::CommunicationControl(
-                CommunicationControlResponse::from_reader(reader)?
+                CommunicationControlResponse::option_from_reader(reader)?
                     .expect("Communication control response always returns a value or error"),
             ),
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlResponse::from_reader(reader)?
+                DiagnosticSessionControlResponse::option_from_reader(reader)?
                     .expect("DiagnosticSessionControlResponse always returns a value or an error"),
             ),
             UdsServiceType::EcuReset => Self::EcuReset(
-                EcuResetResponse::from_reader(reader)?
+                EcuResetResponse::option_from_reader(reader)?
                     .expect("EcuResetResponse always returns a value or an error"),
             ),
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::SecurityAccess => Self::SecurityAccess(
-                SecurityAccessResponse::from_reader(reader)?
+                SecurityAccessResponse::option_from_reader(reader)?
                     .expect("SecurityAccessResponse always returns a value or an error"),
             ),
             UdsServiceType::TesterPresent => Self::TesterPresent(
-                TesterPresentResponse::from_reader(reader)?
+                TesterPresentResponse::option_from_reader(reader)?
                     .expect("TesterPresentResponse always returns a value or an error"),
             ),
             _ => todo!(),

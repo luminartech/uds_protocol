@@ -26,7 +26,10 @@ impl RequestDownloadRequest {
     }
 }
 impl WireFormat<Error> for RequestDownloadRequest {
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    /// RequestDownloadRequest is not iterable
+    const ITERABLE: bool = false;
+
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let data_format_identifier = reader.read_u8()?;
         let address_and_length_format_identifier = reader.read_u8()?;
         let memory_address = reader.read_u32::<BigEndian>()?;

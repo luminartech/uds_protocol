@@ -21,7 +21,9 @@ impl ControlDTCSettingsRequest {
 }
 
 impl WireFormat<Error> for ControlDTCSettingsRequest {
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    /// ControlDTCSettingsRequest is not iterable
+    const ITERABLE: bool = false;
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let request_byte = reader.read_u8()?;
         let setting = DtcSettings::from(request_byte & !SUCCESS);
         let suppress_response = request_byte & SUCCESS != 0;

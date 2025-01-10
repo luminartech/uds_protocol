@@ -15,7 +15,9 @@ impl WriteDataByIdentifierRequest {
 }
 
 impl WireFormat<Error> for WriteDataByIdentifierRequest {
-    fn from_reader<T: std::io::Read>(buffer: &mut T) -> Result<Option<Self>, Error> {
+    /// WriteDataByIdentifierRequest is not iterable
+    const ITERABLE: bool = false;
+    fn option_from_reader<T: std::io::Read>(buffer: &mut T) -> Result<Option<Self>, Error> {
         let did = buffer.read_u16::<BigEndian>()?;
         let mut data = Vec::new();
         buffer.read_to_end(&mut data)?;
