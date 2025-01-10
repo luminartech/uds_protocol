@@ -9,3 +9,4 @@ thiserror.workspace = true
 # Optional dependencies
 clap = { workspace = true }
 serde = { workspace = true }
+static_assertions = "1.1.0"

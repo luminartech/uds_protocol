@@ -1,7 +1,6 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Write};
 
-use crate::Error;
+use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[non_exhaustive]
 pub struct TransferDataRequest {
@@ -13,16 +12,21 @@ impl TransferDataRequest {
     pub(crate) fn new(sequence: u8, data: Vec<u8>) -> Self {
         Self { sequence, data }
     }
+}
 
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let sequence = buffer.read_u8()?;
+impl WireFormat<Error> for TransferDataRequest {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let sequence = reader.read_u8()?;
         let mut data = Vec::new();
-        buffer.read_to_end(&mut data)?;
-        Ok(Self { sequence, data })
+        reader.read_to_end(&mut data)?;
+        Ok(Some(Self { sequence, data }))
     }
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(self.sequence)?;
-        buffer.write_all(&self.data)?;
-        Ok(())
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.sequence)?;
+        writer.write_all(&self.data)?;
+        Ok(1 + self.data.len())
     }
 }
+
+impl SingleValueWireFormat<Error> for TransferDataRequest {}

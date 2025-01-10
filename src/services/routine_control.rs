@@ -1,4 +1,4 @@
-use crate::{Error, RoutineControlSubFunction};
+use crate::{Error, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
@@ -21,22 +21,26 @@ impl RoutineControlRequest {
             data,
         }
     }
-
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let sub_function = RoutineControlSubFunction::from(buffer.read_u8()?);
-        let routine_id = buffer.read_u16::<BigEndian>()?;
+}
+impl WireFormat<Error> for RoutineControlRequest {
+    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
+        let routine_id = reader.read_u16::<BigEndian>()?;
         let mut data = Vec::new();
-        buffer.read_to_end(&mut data)?;
-        Ok(Self {
+        reader.read_to_end(&mut data)?;
+        Ok(Some(Self {
             sub_function,
             routine_id,
             data,
-        })
+        }))
     }
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.sub_function))?;
-        buffer.write_u16::<BigEndian>(self.routine_id)?;
-        buffer.write_all(&self.data)?;
-        Ok(())
+
+    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.sub_function))?;
+        writer.write_u16::<BigEndian>(self.routine_id)?;
+        writer.write_all(&self.data)?;
+        Ok(3 + self.data.len())
     }
 }
+
+impl SingleValueWireFormat<Error> for RoutineControlRequest {}

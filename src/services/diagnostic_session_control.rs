@@ -9,10 +9,12 @@
 //! A server shall be capable of providing diagnostic functionality under normal operating conditions,
 //! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
 
-use crate::{DiagnosticSessionType, Error, NegativeResponseCode, SuppressablePositiveResponse};
+use crate::{
+    DiagnosticSessionType, Error, NegativeResponseCode, SingleValueWireFormat,
+    SuppressablePositiveResponse, WireFormat,
+};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
 
 const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -54,19 +56,22 @@ impl DiagnosticSessionControlRequest {
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
-
+}
+impl WireFormat<Error> for DiagnosticSessionControlRequest {
     /// Deserialization function to read a DiagnosticSessionControlRequest from a `Reader`
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let session_type = SuppressablePositiveResponse::try_from(buffer.read_u8()?)?;
-        Ok(Self { session_type })
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
+        Ok(Some(Self { session_type }))
     }
 
     /// Serialization function to write a DiagnosticSessionControlRequest to a `Writer`
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.session_type))?;
-        Ok(())
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.session_type))?;
+        Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for DiagnosticSessionControlRequest {}
 
 /// Positive response to a DiagnosticSessionControlRequest
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -90,24 +95,27 @@ impl DiagnosticSessionControlResponse {
             p2_star_server_max,
         }
     }
-
+}
+impl WireFormat<Error> for DiagnosticSessionControlResponse {
     /// Read a DiagnosticSessionControlResponse from a `Reader`
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let session_type = DiagnosticSessionType::try_from(buffer.read_u8()?)?;
-        let p2_server_max = buffer.read_u16::<byteorder::BigEndian>()?;
-        let p2_star_server_max = buffer.read_u16::<byteorder::BigEndian>()?;
-        Ok(Self {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
+        let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
+        let p2_star_server_max = reader.read_u16::<byteorder::BigEndian>()?;
+        Ok(Some(Self {
             session_type,
             p2_server_max,
             p2_star_server_max,
-        })
+        }))
     }
 
     /// Write a DiagnosticSessionControlResponse to a `Writer`
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+    fn to_writer<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.session_type))?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_server_max)?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_star_server_max)?;
-        Ok(())
+        Ok(5)
     }
 }
+
+impl SingleValueWireFormat<Error> for DiagnosticSessionControlResponse {}

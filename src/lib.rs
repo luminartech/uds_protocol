@@ -9,14 +9,17 @@ pub use error::Error;
 mod request;
 pub use request::Request;
 
-mod services;
-pub use services::*;
-
 mod response;
 pub use response::{Response, UdsResponse};
 
 mod service;
 pub use service::UdsServiceType;
+
+mod services;
+pub use services::*;
+
+mod traits;
+pub use traits::{IterableWireFormat, SingleValueWireFormat, WireFormat};
 
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};

@@ -1,8 +1,6 @@
-use std::io::{Read, Write};
-
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::Error;
+use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[non_exhaustive]
 pub struct WriteDataByIdentifierRequest {
@@ -14,15 +12,20 @@ impl WriteDataByIdentifierRequest {
     pub(crate) fn new(did: u16, data: Vec<u8>) -> Self {
         Self { did, data }
     }
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
+}
+
+impl WireFormat<Error> for WriteDataByIdentifierRequest {
+    fn option_from_reader<T: std::io::Read>(buffer: &mut T) -> Result<Option<Self>, Error> {
         let did = buffer.read_u16::<BigEndian>()?;
         let mut data = Vec::new();
         buffer.read_to_end(&mut data)?;
-        Ok(Self { did, data })
+        Ok(Some(Self { did, data }))
     }
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+    fn to_writer<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u16::<BigEndian>(self.did)?;
         buffer.write_all(&self.data)?;
-        Ok(())
+        Ok(2 + self.data.len())
     }
 }
+
+impl SingleValueWireFormat<Error> for WriteDataByIdentifierRequest {}

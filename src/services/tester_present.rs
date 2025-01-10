@@ -1,8 +1,9 @@
-use crate::{Error, NegativeResponseCode, SuppressablePositiveResponse};
+use crate::{
+    Error, NegativeResponseCode, SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
+};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
 
 const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -87,19 +88,23 @@ impl TesterPresentRequest {
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &TESTER_PRESENT_NEGATIVE_RESPONSE_CODES
     }
+}
 
+impl WireFormat<Error> for TesterPresentRequest {
     /// Deserialization function to read a TesterPresentRequest from a `Reader`
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let zero_sub_function = SuppressablePositiveResponse::try_from(buffer.read_u8()?)?;
-        Ok(Self { zero_sub_function })
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
+        Ok(Some(Self { zero_sub_function }))
     }
 
     /// Serialization function to write a TesterPresentRequest to a `Writer`
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.zero_sub_function))?;
-        Ok(())
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.zero_sub_function))?;
+        Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for TesterPresentRequest {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TesterPresentResponse {
@@ -113,19 +118,23 @@ impl TesterPresentResponse {
             zero_sub_function: ZeroSubFunction::new(),
         }
     }
+}
 
+impl WireFormat<Error> for TesterPresentResponse {
     /// Create a TesterPresentResponse from a sequence of bytes
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let zero_sub_function = ZeroSubFunction::try_from(buffer.read_u8()?)?;
-        Ok(Self { zero_sub_function })
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
+        Ok(Some(Self { zero_sub_function }))
     }
 
     /// Write the response as a sequence of bytes to a buffer
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
-        buffer.write_u8(u8::from(self.zero_sub_function))?;
-        Ok(())
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.zero_sub_function))?;
+        Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for TesterPresentResponse {}
 
 #[cfg(test)]
 mod test {
@@ -163,10 +172,10 @@ mod test {
         }
     }
 
-    fn make_request(byte: u8) -> Result<TesterPresentRequest, Error> {
+    fn make_request(byte: u8) -> Result<Option<TesterPresentRequest>, Error> {
         let bytes = vec![byte];
         let mut byte_access = Cursor::new(bytes);
-        TesterPresentRequest::read(&mut byte_access)
+        TesterPresentRequest::option_from_reader(&mut byte_access)
     }
 
     #[test]
@@ -176,10 +185,10 @@ mod test {
             match i {
                 0x00 => {
                     let expected = TesterPresentRequest::new(false);
-                    assert_eq!(result.unwrap(), expected);
+                    assert_eq!(result.unwrap().unwrap(), expected);
                 }
                 0x01..=0x7F => {
-                    let result = result.unwrap();
+                    let result = result.unwrap().unwrap();
                     assert!(!result.suppress_positive_response());
                     assert!(matches!(
                         result.zero_sub_function.value(),
@@ -188,10 +197,10 @@ mod test {
                 }
                 0x80 => {
                     let expected = TesterPresentRequest::new(true);
-                    assert_eq!(result.unwrap(), expected);
+                    assert_eq!(result.unwrap().unwrap(), expected);
                 }
                 0x81..=0xFF => {
-                    let result = result.unwrap();
+                    let result = result.unwrap().unwrap();
                     assert!(result.suppress_positive_response());
                     assert!(matches!(
                         result.zero_sub_function.value(),
@@ -206,7 +215,7 @@ mod test {
     fn write_request_type() {
         let test_type = TesterPresentRequest::new(false);
         let mut buffer = Vec::new();
-        test_type.write(&mut buffer).unwrap();
+        test_type.to_writer(&mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
@@ -216,7 +225,9 @@ mod test {
     fn read_response_type() {
         let bytes = vec![0u8];
         let mut byte_access = Cursor::new(bytes);
-        let test_type = TesterPresentResponse::read(&mut byte_access).unwrap();
+        let test_type = TesterPresentResponse::option_from_reader(&mut byte_access)
+            .unwrap()
+            .unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());
     }
 
@@ -224,7 +235,7 @@ mod test {
     fn write_response_type() {
         let test_type = TesterPresentResponse::new();
         let mut buffer = Vec::new();
-        test_type.write(&mut buffer).unwrap();
+        test_type.to_writer(&mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);

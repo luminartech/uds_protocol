@@ -1,6 +1,5 @@
-use crate::{DtcSettings, Error, SUCCESS};
+use crate::{DtcSettings, Error, SingleValueWireFormat, WireFormat, SUCCESS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Write};
 
 /// The ControlDTCSettings service is used to control the DTC settings of the ECU.
 #[derive(Clone, Copy, Debug)]
@@ -19,21 +18,25 @@ impl ControlDTCSettingsRequest {
             suppress_response,
         }
     }
+}
 
-    pub(crate) fn read<T: Read>(buffer: &mut T) -> Result<Self, Error> {
-        let request_byte = buffer.read_u8()?;
+impl WireFormat<Error> for ControlDTCSettingsRequest {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let request_byte = reader.read_u8()?;
         let setting = DtcSettings::from(request_byte & !SUCCESS);
         let suppress_response = request_byte & SUCCESS != 0;
-        Ok(Self {
+        Ok(Some(Self {
             setting,
             suppress_response,
-        })
+        }))
     }
 
-    pub(crate) fn write<T: Write>(&self, buffer: &mut T) -> Result<(), Error> {
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let request_byte =
             u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
-        buffer.write_u8(request_byte)?;
-        Ok(())
+        writer.write_u8(request_byte)?;
+        Ok(1)
     }
 }
+
+impl SingleValueWireFormat<Error> for ControlDTCSettingsRequest {}
