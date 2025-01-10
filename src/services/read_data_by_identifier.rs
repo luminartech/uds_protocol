@@ -80,6 +80,19 @@ mod test {
     use super::*;
     use std::io::Cursor;
 
+    fn make_test_data_sets() -> Vec<Vec<u8>> {
+        vec![
+            vec![],
+            vec![1u8],
+            vec![1u8, 2u8],
+            vec![1u8, 2u8, 3u8],
+            vec![1u8, 2u8, 3u8, 4u8],
+            vec![1u8, 2u8, 3u8, 4u8, 5u8],
+            vec![1u8, 2u8, 3u8, 4u8, 5u8, 6u8],
+            (0u8..=255).collect::<Vec<u8>>(),
+        ]
+    }
+
     // fn make_did_bytes(lower: u8, upper: u8) -> Vec<u8> {
     //     (lower..=upper).collect::<Vec<u8>>()
     // }
@@ -101,30 +114,7 @@ mod test {
 
     #[test]
     fn read_did_request_bytes() {
-        // struct TestData {
-        //     pub test_id: u8,
-        //     pub dids_bytes: Vec<u8>,
-        // }
-
-        // let src_test_bytes = [1u8, 2u8, 3u8, 4u8, 5u8, 6u8];
-        // let mut test_sets: Vec<Vec<u8>> = vec![vec![]];
-
-        // for (i, _) in src_test_bytes.iter().enumerate() {
-        //     test_sets.push(src_test_bytes[0..i].to_vec());
-        // }
-
-        let test_sets = vec![
-            vec![],
-            vec![1u8],
-            vec![1u8, 2u8],
-            vec![1u8, 2u8, 3u8],
-            vec![1u8, 2u8, 3u8, 4u8],
-            vec![1u8, 2u8, 3u8, 4u8, 5u8],
-            vec![1u8, 2u8, 3u8, 4u8, 5u8, 6u8],
-            (0u8..=255).collect::<Vec<u8>>(),
-        ];
-
-        for bytes in test_sets.iter() {
+        for bytes in make_test_data_sets().iter() {
             let len = bytes.len();
             let mut byte_access = Cursor::new(bytes);
             let read_result = ReadDataByIdentifierRequest::option_from_reader(&mut byte_access);
@@ -142,5 +132,21 @@ mod test {
     }
 
     #[test]
-    fn write_did_request_bytes() {}
+    fn write_did_request_bytes() {
+        // for did_bytes in make_test_data_sets().iter() {}
+
+        let requests = vec![
+            ReadDataByIdentifierRequest::new(vec![]),
+            ReadDataByIdentifierRequest::new(vec![0u16]),
+            ReadDataByIdentifierRequest::new(vec![0u16, 1u16]),
+            ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16]),
+            ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16]),
+            ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16, 4u16]),
+            ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16, 4u16, 5u16]),
+            ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16, 4u16, 5u16, 6u16]),
+            ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16, 4u16, 5u16, 6u16, 7u16]),
+            ReadDataByIdentifierRequest::new((0..u16::MAX - 1).collect::<Vec<u16>>()),
+            ReadDataByIdentifierRequest::new((0..u16::MAX).collect::<Vec<u16>>()),
+        ];
+    }
 }
