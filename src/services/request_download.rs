@@ -1,13 +1,21 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, SingleValueWireFormat, WireFormat};
+use crate::{Error, NegativeResponseCode, SingleValueWireFormat, WireFormat};
 
 const MEMORY_SIZE_NIBBLE_MASK:    u8 = 0b1111_0000;
 const MEMORY_ADDRESS_NIBBLE_MASK: u8 = 0b0000_1111;
 
 const BLOCK_LENGTH_NIBBLE_MASK:   u8 = 0b1111_0000;
 
+const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::ConditionsNotCorrect,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::SecurityAccessDenied,
+    NegativeResponseCode::AuthenticationRequired,
+    NegativeResponseCode::UploadDownloadNotAccepted,
+];
 /// Decoded from the `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct
 /// 
 /// See ISO-14229-1:2020, Table H.1 for format information
@@ -71,6 +79,11 @@ impl RequestDownloadRequest {
             memory_address,
             memory_size,
         }
+    }
+
+    /// Get the allowed [`NegativeResponseCode`] variants for this request
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES
     }
 }
 impl WireFormat for RequestDownloadRequest {
