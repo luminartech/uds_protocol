@@ -6,7 +6,9 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 const MEMORY_SIZE_NIBBLE_MASK:    u8 = 0b1111_0000;
 const MEMORY_ADDRESS_NIBBLE_MASK: u8 = 0b0000_1111;
 
-/// Flags byte in the SD protocol.
+/// Decoded from the `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct
+/// 
+/// See ISO-14229-1:2020, Table H.1 for format information
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MemoryFormatIdentifier {
     memory_size: u8,
@@ -14,7 +16,7 @@ pub struct MemoryFormatIdentifier {
 }
 
 impl From<u8> for MemoryFormatIdentifier {
-    /// Only the two most significant bits are used.
+    // NRC::RequestOutOfRange if address_and_length_format_identifier is not valid
     fn from(value: u8) -> Self {
         Self {
             // get the low nibble of address_and_length_format_identifier
@@ -37,6 +39,9 @@ impl From<MemoryFormatIdentifier> for u8 {
 /// A positive response to this request ([`RequestDownloadResponse`]) will happen 
 /// after the server takes all necessary actions to receive the data 
 /// (n.b. not sure if this is AFTER the data is received or just once the server is READY to receive)
+/// 
+/// This is a variable length Request, determined by the `address_and_length_format_identifier` value
+/// See ISO-14229-1:2020, Table H.1 for format information
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct RequestDownloadRequest {
@@ -44,9 +49,10 @@ pub struct RequestDownloadRequest {
     pub data_format_identifier: u8,
     /// 7-4: length (# of bytes) of memory_size param, 3-0: length (# of bytes) of memory_address param
     pub address_and_length_format_identifier: MemoryFormatIdentifier,
-    /// 3 bytes. Starting address of the server memory 
+    /// Starting address of the server memory. Size is determined by `address_and_length_format_identifier`
     pub memory_address: Vec<u8>,
-    /// 3 bytes. 
+    /// Size of the data to be downloaded. Number of bytes sent is determined by `address_and_length_format_identifier`
+    /// Used by the server to validate the data transferred by the [`TransferData`] service
     pub memory_size: Vec<u8>,
 }
 
