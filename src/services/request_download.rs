@@ -165,3 +165,51 @@ impl WireFormat for RequestDownloadResponse {
 }
 
 impl SingleValueWireFormat for RequestDownloadResponse {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn simple_request() {
+        let bytes: [u8; 4] = [
+            0x00, // No compression or encryption
+            0x11, // 1 byte for memory size, 1 byte for memory address
+            0x67, 
+            10
+        ];
+        let request_download_request = 
+            RequestDownloadRequest::option_from_reader(&mut &bytes[..]).unwrap().unwrap();
+        assert_eq!(request_download_request.data_format_identifier, 0);
+        assert_eq!(u8::from(request_download_request.address_and_length_format_identifier), 0x11);
+        assert_eq!(request_download_request.memory_address, vec![0x67]);
+        assert_eq!(request_download_request.memory_size, vec![0x0A]);
+    }
+
+    #[test]
+    fn bad_request() {
+        let bytes: [u8; 3] = [
+            0x00, // No compression or encryption
+            0x11, // 1 byte for memory size, 1 byte for memory address
+            0x67, 
+        ];
+        let request_download_request = RequestDownloadRequest::option_from_reader(&mut &bytes[..]);
+        assert!(matches!(request_download_request, Err(Error::IoError(_))));
+    }
+
+    #[test]
+    fn read_memory_identifier() {
+        let memory_format_identifier = MemoryFormatIdentifier::from(0x23);
+        assert_eq!(memory_format_identifier.memory_size, 2);
+        assert_eq!(memory_format_identifier.memory_address, 3);
+
+        assert_eq!(u8::from(memory_format_identifier), 0x23);
+    }
+
+    #[test]
+    fn read_length_identifier() {
+        let length_format_identifier = LengthFormatIdentifier::from(0xF0);
+        assert_eq!(length_format_identifier.max_number_of_block_length, 15);
+
+        assert_eq!(u8::from(length_format_identifier), 0xF0);
+    }
+}
