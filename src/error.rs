@@ -16,4 +16,6 @@ pub enum Error {
     InvalidCommunicationType(u8),
     #[error("Invalid Tester Present Type: {0}")]
     InvalidTesterPresentType(u8),
+    #[error("Incorrect Message Length Or Invalid Format")]
+    IncorrectMessageLengthOrInvalidFormat,
 }
