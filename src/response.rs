@@ -4,6 +4,7 @@ use crate::{
     SecurityAccessType, SingleValueWireFormat, TesterPresentResponse, UdsServiceType, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
+use serde::Deserialize;
 use std::io::{Read, Write};
 
 pub struct UdsResponse {
@@ -11,6 +12,7 @@ pub struct UdsResponse {
     pub data: Vec<u8>,
 }
 
+#[derive(Clone, Debug, Deserialize)]
 pub enum Response {
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
@@ -64,7 +66,7 @@ impl Response {
     }
 }
 
-impl WireFormat<Error> for Response {
+impl WireFormat<'_, Error> for Response {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
@@ -101,4 +103,4 @@ impl WireFormat<Error> for Response {
     }
 }
 
-impl SingleValueWireFormat<Error> for Response {}
+impl SingleValueWireFormat<'_, Error> for Response {}

@@ -1,8 +1,9 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
+use serde::Deserialize;
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 #[non_exhaustive]
 pub struct TransferDataRequest {
     pub sequence: u8,
@@ -15,7 +16,7 @@ impl TransferDataRequest {
     }
 }
 
-impl WireFormat<Error> for TransferDataRequest {
+impl WireFormat<'_, Error> for TransferDataRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sequence = reader.read_u8()?;
         let mut data = Vec::new();
@@ -30,4 +31,4 @@ impl WireFormat<Error> for TransferDataRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for TransferDataRequest {}
+impl SingleValueWireFormat<'_, Error> for TransferDataRequest {}

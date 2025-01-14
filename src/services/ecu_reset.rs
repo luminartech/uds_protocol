@@ -43,7 +43,7 @@ impl EcuResetRequest {
     }
 }
 
-impl WireFormat<Error> for EcuResetRequest {
+impl WireFormat<'_, Error> for EcuResetRequest {
     /// Deserialization function to read a [`EcuResetRequest`] from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
@@ -57,7 +57,7 @@ impl WireFormat<Error> for EcuResetRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for EcuResetRequest {}
+impl SingleValueWireFormat<'_, Error> for EcuResetRequest {}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
@@ -76,7 +76,7 @@ impl EcuResetResponse {
     }
 }
 
-impl WireFormat<Error> for EcuResetResponse {
+impl WireFormat<'_, Error> for EcuResetResponse {
     /// Deserialization function to read a [`EcuResetResponse`] from a `Reader`
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = ResetType::try_from(reader.read_u8()?)?;
@@ -95,4 +95,4 @@ impl WireFormat<Error> for EcuResetResponse {
     }
 }
 
-impl SingleValueWireFormat<Error> for EcuResetResponse {}
+impl SingleValueWireFormat<'_, Error> for EcuResetResponse {}
