@@ -20,12 +20,15 @@ use super::{
 /// UDS Request types
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
-pub enum Request {
+pub enum Request<DiagnosticIdentifier>
+where
+    DiagnosticIdentifier: SingleValueWireFormat<Error>,
+{
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
     EcuReset(EcuResetRequest),
-    ReadDataByIdentifier(ReadDataByIdentifierRequest),
+    ReadDataByIdentifier(ReadDataByIdentifierRequest<DiagnosticIdentifier>),
     RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
     RoutineControl(RoutineControlRequest),
@@ -35,7 +38,10 @@ pub enum Request {
     WriteDataByIdentifier(WriteDataByIdentifierRequest),
 }
 
-impl Request {
+impl<DiagnosticIdentifier> Request<DiagnosticIdentifier>
+where
+    DiagnosticIdentifier: SingleValueWireFormat<Error>,
+{
     /// Create a `CommunicationControlRequest` with standard address information.
     ///
     /// # Panics
@@ -96,7 +102,7 @@ impl Request {
     }
 
     /// Create a new `ReadDataByIdentifier` request
-    pub fn read_data_by_identifier(dids: Vec<u16>) -> Self {
+    pub fn read_data_by_identifier(dids: Vec<DiagnosticIdentifier>) -> Self {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 

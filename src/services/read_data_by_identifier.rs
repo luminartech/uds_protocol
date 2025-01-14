@@ -1,6 +1,7 @@
-use crate::{Error, NegativeResponseCode, SingleValueWireFormat, WireFormat};
-use byteorder::{BigEndian, ByteOrder, ReadBytesExt, WriteBytesExt};
-use num::Integer;
+use crate::{
+    DataIdentifier, Error, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat,
+    WireFormat,
+};
 use serde::{Deserialize, Serialize};
 use std::io::ErrorKind;
 
@@ -13,13 +14,15 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 ];
 
 #[non_exhaustive]
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ReadDataByIdentifierRequest {
-    pub dids: Vec<u16>,
+pub struct ReadDataByIdentifierRequest<I: SingleValueWireFormat<Error>> {
+    pub dids: Vec<DataIdentifier<I>>,
 }
 
-impl ReadDataByIdentifierRequest {
-    pub(crate) fn new(dids: Vec<u16>) -> Self {
+impl<I> ReadDataByIdentifierRequest<I>
+where
+    I: SingleValueWireFormat<Error>,
+{
+    pub(crate) fn new(dids: Vec<DataIdentifier<I>>) -> Self {
         Self { dids }
     }
 
@@ -32,42 +35,32 @@ impl ReadDataByIdentifierRequest {
 impl WireFormat for ReadDataByIdentifierRequest {
     /// Create a TesterPresentResponse from a sequence of bytes
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut input_data: Vec<u8> = Vec::new();
-        reader.read_to_end(&mut input_data)?;
-
-        let data_length = input_data.len();
-
-        if data_length == 0 {
-            return Err(Error::InsufficientData(2));
-        }
-
-        // Since dids are u16 (two bytes), an odd number of bytes implies a partial did was received which is an error
-        if data_length.is_odd() {
-            return Err(Error::InsufficientData(data_length + 1));
-        }
-
         let mut dids = Vec::new();
-        for chunk in input_data.chunks_exact(2) {
-            let value = BigEndian::read_u16(chunk);
-            dids.push(value);
+        for identifier in DataIdentifier::from_reader_iterable(reader) {
+            match identifier {
+                Ok(id) => {
+                    dids.push(id);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
         }
-
         Ok(Some(Self { dids }))
     }
 
     /// Write the response as a sequence of bytes to a buffer
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let mut count = 0;
-        for did in self.dids.iter() {
-            writer.write_u16::<BigEndian>(*did)?;
+        for did in &self.dids {
+            did.to_writer(writer)?;
             count += 2;
         }
-
         Ok(count)
     }
 }
 
-impl SingleValueWireFormat for ReadDataByIdentifierRequest {}
+impl SingleValueWireFormat<Error> for ReadDataByIdentifierRequest {}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 
