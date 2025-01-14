@@ -1,12 +1,10 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, NegativeResponseCode, SingleValueWireFormat, WireFormat};
-
-const MEMORY_SIZE_NIBBLE_MASK:    u8 = 0b1111_0000;
-const MEMORY_ADDRESS_NIBBLE_MASK: u8 = 0b0000_1111;
-
-const BLOCK_LENGTH_NIBBLE_MASK:   u8 = 0b1111_0000;
+use crate::{
+    DataFormatIdentifier, Error, LengthFormatIdentifier, MemoryFormatIdentifier,
+    NegativeResponseCode, SingleValueWireFormat, WireFormat,
+};
 
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -16,69 +14,60 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::AuthenticationRequired,
     NegativeResponseCode::UploadDownloadNotAccepted,
 ];
-/// Decoded from the `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct
-/// 
-/// See ISO-14229-1:2020, Table H.1 for format information
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct MemoryFormatIdentifier {
-    memory_size: u8,
-    memory_address: u8,
-}
-
-impl From<u8> for MemoryFormatIdentifier {
-    // NRC::RequestOutOfRange if address_and_length_format_identifier is not valid
-    fn from(value: u8) -> Self {
-        Self {
-            // get the low nibble of address_and_length_format_identifier
-            // Memory size length is 1 through 4 bytes (manageable size: 256 bytes to 4GB)
-            memory_size: (value & MEMORY_SIZE_NIBBLE_MASK) >> 4,
-            // get the high nibble of address_and_length_format_identifier
-            // Memory address is 1 through 5 bytes (addressable memory: 256 bytes - 1024GB)
-            memory_address: value & MEMORY_ADDRESS_NIBBLE_MASK,
-        }
-    }
-}
-impl From<MemoryFormatIdentifier> for u8 {
-    fn from(memory_format_identifier: MemoryFormatIdentifier) -> u8 {
-        (memory_format_identifier.memory_size << 4) | memory_format_identifier.memory_address
-    }
-}
 
 /// A request to the server for it to download data from the client
-/// 
-/// A positive response to this request ([`RequestDownloadResponse`]) will happen 
-/// after the server takes all necessary actions to receive the data 
+///
+/// A positive response to this request ([`RequestDownloadResponse`]) will happen
+/// after the server takes all necessary actions to receive the data
 /// (n.b. not sure if this is AFTER the data is received or just once the server is READY to receive)
-/// 
+///
 /// This is a variable length Request, determined by the `address_and_length_format_identifier` value
 /// See ISO-14229-1:2020, Table H.1 for format information
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct RequestDownloadRequest {
     /// compression method (high nibble) and encrypting method (low nibble). 0x00 is no compression or encryption
-    pub data_format_identifier: u8,
+    pub data_format_identifier: DataFormatIdentifier,
     /// 7-4: length (# of bytes) of memory_size param, 3-0: length (# of bytes) of memory_address param
     pub address_and_length_format_identifier: MemoryFormatIdentifier,
     /// Starting address of the server memory. Size is determined by `address_and_length_format_identifier`
-    pub memory_address: Vec<u8>,
+    /// Has a variable number of bytes, max of 5
+    pub memory_address: u64,
     /// Size of the data to be downloaded. Number of bytes sent is determined by `address_and_length_format_identifier`
     /// Used by the server to validate the data transferred by the [`TransferData`] service
-    pub memory_size: Vec<u8>,
+    /// Has a variable number of bytes, max of 4
+    pub memory_size: u32,
 }
 
 impl RequestDownloadRequest {
     pub(crate) fn new(
-        data_format_identifier: u8,
-        address_and_length_format_identifier: u8,
-        memory_address: Vec<u8>,
-        memory_size: Vec<u8>,
+        data_format_identifier: DataFormatIdentifier,
+        address_and_length_format_identifier: MemoryFormatIdentifier,
+        memory_address: u64,
+        memory_size: u32,
     ) -> Self {
         Self {
             data_format_identifier,
-            address_and_length_format_identifier: MemoryFormatIdentifier::from(address_and_length_format_identifier),
+            address_and_length_format_identifier,
             memory_address,
             memory_size,
         }
+    }
+
+    fn get_shortened_memory_address(&self) -> Vec<u8> {
+        self.memory_address.to_be_bytes()
+            .iter()
+            .skip(8 - self.address_and_length_format_identifier.memory_address_length as usize)
+            .copied()
+            .collect()
+    }
+
+    fn get_shortened_memory_size(&self) -> Vec<u8> {
+        self.memory_size.to_be_bytes()
+            .iter()
+            .skip(4 - self.address_and_length_format_identifier.memory_size_length as usize)
+            .copied()
+            .collect()
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
@@ -88,52 +77,44 @@ impl RequestDownloadRequest {
 }
 impl WireFormat for RequestDownloadRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let data_format_identifier = reader.read_u8()?;
-        let address_and_length_format_identifier = MemoryFormatIdentifier::from(reader.read_u8()?);
+        let data_format_identifier = DataFormatIdentifier::from(reader.read_u8()?);
+        let memory_identifier = MemoryFormatIdentifier::from(reader.read_u8()?);
 
-        let mut memory_address: Vec<u8> = vec![0; address_and_length_format_identifier.memory_address as usize];
-        let mut memory_size: Vec<u8> = vec![0; address_and_length_format_identifier.memory_size as usize];
+        let mut memory_address: Vec<u8> = vec![0; memory_identifier.memory_address_length as usize];
+        let mut memory_size: Vec<u8> = vec![0; memory_identifier.memory_size_length as usize];
 
-        // Read u8's until we have the correct number of bytes for memory_address
         reader.read_exact(&mut memory_address)?;
         reader.read_exact(&mut memory_size)?;
 
         Ok(Some(Self {
             data_format_identifier,
-            address_and_length_format_identifier,
-            memory_address,
-            memory_size,
+            address_and_length_format_identifier: memory_identifier,
+            memory_address: u64::from_be_bytes({
+                let mut bytes = [0; 8];
+                bytes[8 - memory_address.len()..].copy_from_slice(&memory_address);
+                bytes
+            }),
+            memory_size: u32::from_be_bytes({
+                let mut bytes = [0; 4];
+                bytes[4 - memory_size.len()..].copy_from_slice(&memory_size);
+                bytes
+            }),
         }))
     }
-    
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.data_format_identifier)?;
+        writer.write_u8(self.data_format_identifier.into())?;
         writer.write_u8(self.address_and_length_format_identifier.into())?;
-        writer.write_all(&self.memory_address)?;
-        writer.write_all(&self.memory_size)?;
-        Ok(2 + self.memory_address.len() + self.memory_size.len())
+
+        writer.write_all(self.get_shortened_memory_address().as_mut_slice())?;
+        writer.write_all(self.get_shortened_memory_size().as_mut_slice())?;
+
+        Ok(2 + self.address_and_length_format_identifier.len())
     }
 }
 
 impl SingleValueWireFormat for RequestDownloadRequest {}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct LengthFormatIdentifier {
-    max_number_of_block_length: u8,
-}
-
-impl From<u8> for LengthFormatIdentifier {
-    fn from(value: u8) -> Self {
-        Self {
-            max_number_of_block_length: (value & BLOCK_LENGTH_NIBBLE_MASK) >> 4,
-        }
-    }
-}
-impl From<LengthFormatIdentifier> for u8 {
-    fn from(length_format_identifier: LengthFormatIdentifier) -> u8 {
-        length_format_identifier.max_number_of_block_length << 4
-    }
-}
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct RequestDownloadResponse {
@@ -146,13 +127,10 @@ pub struct RequestDownloadResponse {
 }
 
 impl RequestDownloadResponse {
-    pub(crate) fn new(
-        length_format_identifier: u8,
-        max_number_of_block_length: Vec<u8>,
-    ) -> Self {
-        Self { 
+    pub(crate) fn new(length_format_identifier: u8, max_number_of_block_length: Vec<u8>) -> Self {
+        Self {
             length_format_identifier: LengthFormatIdentifier::from(length_format_identifier),
-            max_number_of_block_length
+            max_number_of_block_length,
         }
     }
 }
@@ -160,14 +138,15 @@ impl RequestDownloadResponse {
 impl WireFormat for RequestDownloadResponse {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let length_format_identifier = LengthFormatIdentifier::from(reader.read_u8()?);
-        
-        let mut max_number_of_block_length: Vec<u8> = vec![0; length_format_identifier.max_number_of_block_length as usize];
+
+        let mut max_number_of_block_length: Vec<u8> =
+            vec![0; length_format_identifier.max_number_of_block_length as usize];
         reader.read_exact(&mut max_number_of_block_length)?;
 
         Ok(Some(Self {
             length_format_identifier,
-            max_number_of_block_length
-      }))
+            max_number_of_block_length,
+        }))
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
@@ -184,18 +163,26 @@ mod tests {
     use super::*;
     #[test]
     fn simple_request() {
-        let bytes: [u8; 4] = [
+        let bytes: [u8; 7] = [
             0x00, // No compression or encryption
-            0x11, // 1 byte for memory size, 1 byte for memory address
-            0x67, 
-            10
+            0x14, // 1 byte for memory size, 4 bytes for memory address
+            0xF0, 0xFF, 0xFF, 0x67, // memory address
+            0x0A,
         ];
-        let request_download_request = 
-            RequestDownloadRequest::option_from_reader(&mut &bytes[..]).unwrap().unwrap();
-        assert_eq!(request_download_request.data_format_identifier, 0);
-        assert_eq!(u8::from(request_download_request.address_and_length_format_identifier), 0x11);
-        assert_eq!(request_download_request.memory_address, vec![0x67]);
-        assert_eq!(request_download_request.memory_size, vec![0x0A]);
+        let req = RequestDownloadRequest::option_from_reader(&mut &bytes[..])
+            .unwrap()
+            .unwrap();
+        assert_eq!(u8::from(req.data_format_identifier), 0);
+        assert_eq!(u8::from(req.address_and_length_format_identifier), 0x14);
+        assert_eq!(req.address_and_length_format_identifier.memory_size_length, 1);
+        assert_eq!(req.address_and_length_format_identifier.memory_address_length, 4);
+
+        assert_eq!(req.memory_address, 0xF0FFFF67);
+        assert_eq!(req.memory_size, 0x0A);
+
+        assert_eq!(req.get_shortened_memory_address(), vec![0xF0, 0xFF, 0xFF, 0x67]);
+        assert_eq!(req.get_shortened_memory_size(), vec![0x0A]);
+
     }
 
     #[test]
@@ -203,17 +190,17 @@ mod tests {
         let bytes: [u8; 3] = [
             0x00, // No compression or encryption
             0x11, // 1 byte for memory size, 1 byte for memory address
-            0x67, 
+            0x67,
         ];
-        let request_download_request = RequestDownloadRequest::option_from_reader(&mut &bytes[..]);
-        assert!(matches!(request_download_request, Err(Error::IoError(_))));
+        let req = RequestDownloadRequest::option_from_reader(&mut &bytes[..]);
+        assert!(matches!(req, Err(Error::IoError(_))));
     }
 
     #[test]
     fn read_memory_identifier() {
         let memory_format_identifier = MemoryFormatIdentifier::from(0x23);
-        assert_eq!(memory_format_identifier.memory_size, 2);
-        assert_eq!(memory_format_identifier.memory_address, 3);
+        assert_eq!(memory_format_identifier.memory_size_length, 2);
+        assert_eq!(memory_format_identifier.memory_address_length, 3);
 
         assert_eq!(u8::from(memory_format_identifier), 0x23);
     }
