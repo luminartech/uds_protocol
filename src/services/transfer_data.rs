@@ -2,6 +2,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct TransferDataRequest {
     pub sequence: u8,

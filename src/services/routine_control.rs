@@ -2,6 +2,7 @@ use crate::{Error, RoutineControlSubFunction, SingleValueWireFormat, WireFormat}
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct RoutineControlRequest {
     pub sub_function: RoutineControlSubFunction,

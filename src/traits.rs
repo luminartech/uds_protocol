@@ -11,7 +11,7 @@
 /// If the reader is completely empty, it returns `None`.
 /// Many types will never return `None`, and for these types, the `SingleValueWireFormat`,
 /// trait can be implemented, providing a more ergonomic API.
-pub trait WireFormat<E>: Sized
+pub trait WireFormat<E>: Sized + std::fmt::Debug
 where
     E: std::error::Error,
 {
@@ -72,6 +72,8 @@ where
     }
 }
 
+/// A trait for types that will always deserialize to a single value or error.
+/// Types which might return `None` when deserialized should not implement this trait.
 pub trait SingleValueWireFormat<E>: WireFormat<E>
 where
     E: std::error::Error,

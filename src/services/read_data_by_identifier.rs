@@ -1,8 +1,9 @@
 use crate::{Error, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
-pub struct ReadDataByIdentifierRequest {
+pub struct ReadDataByIdentifierRequest<I: SingleValueWireFormat<Error>> {
     pub did: u16,
 }
 
