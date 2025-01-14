@@ -101,6 +101,7 @@ impl WireFormat<Error> for ReadDataByIdentifierResponse {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut dids = Vec::new();
         let mut did_records = Vec::new();
+        let mut first_pass = true;
         let mut have_data = false;
 
         loop {
