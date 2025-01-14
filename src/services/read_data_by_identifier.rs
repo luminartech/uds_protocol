@@ -1,8 +1,8 @@
 use crate::{Error, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct ReadDataByIdentifierRequest {
     pub did: u16,

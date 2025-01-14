@@ -1,9 +1,9 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct TransferDataRequest {
     pub sequence: u8,

@@ -4,7 +4,7 @@ use crate::{
     SecurityAccessType, SingleValueWireFormat, TesterPresentResponse, UdsServiceType, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
 pub struct UdsResponse {
@@ -12,7 +12,7 @@ pub struct UdsResponse {
     pub data: Vec<u8>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Response {
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),

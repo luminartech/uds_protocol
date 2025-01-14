@@ -9,7 +9,7 @@ use crate::{
     Error, NegativeResponseCode, ResetType, SecurityAccessType, SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
 use super::{
@@ -20,7 +20,7 @@ use super::{
 /// UDS Request types
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Request {
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),

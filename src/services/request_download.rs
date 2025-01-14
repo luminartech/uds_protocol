@@ -1,9 +1,9 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct RequestDownloadRequest {
     pub data_format_identifier: u8,

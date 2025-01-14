@@ -1,9 +1,9 @@
 use crate::{Error, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct RoutineControlRequest {
     pub sub_function: RoutineControlSubFunction,

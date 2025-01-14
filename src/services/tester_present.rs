@@ -106,7 +106,7 @@ impl WireFormat<'_, Error> for TesterPresentRequest {
 
 impl SingleValueWireFormat<'_, Error> for TesterPresentRequest {}
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TesterPresentResponse {
     zero_sub_function: ZeroSubFunction,
 }
