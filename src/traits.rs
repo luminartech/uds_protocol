@@ -11,7 +11,8 @@
 /// If the reader is completely empty, it returns `None`.
 /// Many types will never return `None`, and for these types, the `SingleValueWireFormat`,
 /// trait can be implemented, providing a more ergonomic API.
-pub trait WireFormat<E>: Sized
+pub trait WireFormat<'a, E>:
+    Sized + std::fmt::Debug + serde::Deserialize<'a> + PartialEq + serde::Serialize
 where
     E: std::error::Error,
 {
@@ -32,7 +33,7 @@ where
 
 struct WireFormatIterator<'a, T, E, R: std::io::Read>
 where
-    T: WireFormat<E>,
+    T: WireFormat<'a, E>,
     E: std::error::Error,
 {
     reader: &'a mut R,
@@ -42,8 +43,8 @@ where
 
 /// For types that can appear in lists of unknown length, this trait provides an iterator
 /// that can be used to deserialize a stream of values.
-impl<T: WireFormat<E>, E: std::error::Error, R: std::io::Read> Iterator
-    for WireFormatIterator<'_, T, E, R>
+impl<'a, T: WireFormat<'a, E>, E: std::error::Error, R: std::io::Read> Iterator
+    for WireFormatIterator<'a, T, E, R>
 where
     R: std::io::Read,
 {
@@ -57,12 +58,12 @@ where
     }
 }
 
-pub trait IterableWireFormat<E>: WireFormat<E>
+pub trait IterableWireFormat<'a, E>: WireFormat<'a, E>
 where
     E: std::error::Error,
 {
     fn from_reader_iterable<T: std::io::Read>(
-        reader: &mut T,
+        reader: &'a mut T,
     ) -> impl Iterator<Item = Result<Self, E>> {
         WireFormatIterator {
             reader,
@@ -72,7 +73,9 @@ where
     }
 }
 
-pub trait SingleValueWireFormat<E>: WireFormat<E>
+/// A trait for types that will always deserialize to a single value or error.
+/// Types which might return `None` when deserialized should not implement this trait.
+pub trait SingleValueWireFormat<'a, E>: WireFormat<'a, E>
 where
     E: std::error::Error,
 {

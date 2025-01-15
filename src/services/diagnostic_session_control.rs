@@ -57,7 +57,7 @@ impl DiagnosticSessionControlRequest {
         &DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 }
-impl WireFormat<Error> for DiagnosticSessionControlRequest {
+impl WireFormat<'_, Error> for DiagnosticSessionControlRequest {
     /// Deserialization function to read a DiagnosticSessionControlRequest from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
@@ -71,7 +71,7 @@ impl WireFormat<Error> for DiagnosticSessionControlRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for DiagnosticSessionControlRequest {}
+impl SingleValueWireFormat<'_, Error> for DiagnosticSessionControlRequest {}
 
 /// Positive response to a DiagnosticSessionControlRequest
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -96,7 +96,7 @@ impl DiagnosticSessionControlResponse {
         }
     }
 }
-impl WireFormat<Error> for DiagnosticSessionControlResponse {
+impl WireFormat<'_, Error> for DiagnosticSessionControlResponse {
     /// Read a DiagnosticSessionControlResponse from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
@@ -118,4 +118,4 @@ impl WireFormat<Error> for DiagnosticSessionControlResponse {
     }
 }
 
-impl SingleValueWireFormat<Error> for DiagnosticSessionControlResponse {}
+impl SingleValueWireFormat<'_, Error> for DiagnosticSessionControlResponse {}

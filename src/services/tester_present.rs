@@ -90,7 +90,7 @@ impl TesterPresentRequest {
     }
 }
 
-impl WireFormat<Error> for TesterPresentRequest {
+impl WireFormat<'_, Error> for TesterPresentRequest {
     /// Deserialization function to read a TesterPresentRequest from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
@@ -104,9 +104,9 @@ impl WireFormat<Error> for TesterPresentRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for TesterPresentRequest {}
+impl SingleValueWireFormat<'_, Error> for TesterPresentRequest {}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct TesterPresentResponse {
     zero_sub_function: ZeroSubFunction,
 }
@@ -120,7 +120,7 @@ impl TesterPresentResponse {
     }
 }
 
-impl WireFormat<Error> for TesterPresentResponse {
+impl WireFormat<'_, Error> for TesterPresentResponse {
     /// Create a TesterPresentResponse from a sequence of bytes
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
@@ -134,7 +134,7 @@ impl WireFormat<Error> for TesterPresentResponse {
     }
 }
 
-impl SingleValueWireFormat<Error> for TesterPresentResponse {}
+impl SingleValueWireFormat<'_, Error> for TesterPresentResponse {}
 
 #[cfg(test)]
 mod test {
