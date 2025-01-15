@@ -1,11 +1,13 @@
 use crate::{Error, IterableWireFormat, Request, SingleValueWireFormat, WireFormat};
 use byteorder::WriteBytesExt;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct NoCustomDataIdentifiers;
 
-impl WireFormat<Error> for NoCustomDataIdentifiers {
+impl WireFormat for NoCustomDataIdentifiers {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut identifier_data: [u8; 2] = [0; 2];
         match reader.read(&mut identifier_data)? {
@@ -19,7 +21,9 @@ impl WireFormat<Error> for NoCustomDataIdentifiers {
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        unreachable!("NoCustomDataIdentifiers should never be written to a stream");
+        unreachable!(
+            "NoCustomDataIdentifiers cannot be created, and should never be written to a stream"
+        );
     }
 }
 
@@ -62,13 +66,10 @@ impl WireFormat<Error> for LuminarDataIdentifier {
 impl SingleValueWireFormat<Error> for LuminarDataIdentifier {}
 */
 
-impl SingleValueWireFormat<Error> for NoCustomDataIdentifiers {}
+impl SingleValueWireFormat for NoCustomDataIdentifiers {}
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum DataIdentifier<U>
-where
-    U: SingleValueWireFormat<Error> + Debug,
-{
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum DataIdentifier<U> {
     ISOSAEReserved(u16),
     BootSoftwareIdentification,
     ApplicationSoftware,
@@ -85,7 +86,7 @@ where
     UserDefined(U),
 }
 
-impl<U: SingleValueWireFormat<Error>> WireFormat<Error> for DataIdentifier<U> {
+impl<U: SingleValueWireFormat> WireFormat for DataIdentifier<U> {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut identifier_data: [u8; 2] = [0; 2];
         match reader.read(&mut identifier_data)? {
@@ -144,4 +145,4 @@ impl<U: SingleValueWireFormat<Error>> WireFormat<Error> for DataIdentifier<U> {
     }
 }
 
-impl<U: SingleValueWireFormat<Error>> IterableWireFormat<Error> for DataIdentifier<U> {}
+impl<U: SingleValueWireFormat> IterableWireFormat for DataIdentifier<U> {}
