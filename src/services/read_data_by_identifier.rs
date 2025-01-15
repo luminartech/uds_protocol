@@ -13,16 +13,17 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::SecurityAccessDenied,
 ];
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
-pub struct ReadDataByIdentifierRequest<I> {
-    pub dids: Vec<DataIdentifier<I>>,
+pub struct ReadDataByIdentifierRequest<UserId> {
+    pub dids: Vec<DataIdentifier<UserId>>,
 }
 
-impl<I> ReadDataByIdentifierRequest<I>
+impl<UserId> ReadDataByIdentifierRequest<UserId>
 where
-    I: SingleValueWireFormat,
+    UserId: SingleValueWireFormat,
 {
-    pub(crate) fn new(dids: Vec<DataIdentifier<I>>) -> Self {
+    pub(crate) fn new(dids: Vec<DataIdentifier<UserId>>) -> Self {
         Self { dids }
     }
 
@@ -32,9 +33,9 @@ where
     }
 }
 
-impl<I: SingleValueWireFormat> WireFormat for ReadDataByIdentifierRequest<I> {
+impl<UserId: SingleValueWireFormat> WireFormat for ReadDataByIdentifierRequest<UserId> {
     /// Create a TesterPresentResponse from a sequence of bytes
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut dids = Vec::new();
         for identifier in DataIdentifier::from_reader_iterable(reader) {
             match identifier {
@@ -50,7 +51,7 @@ impl<I: SingleValueWireFormat> WireFormat for ReadDataByIdentifierRequest<I> {
     }
 
     /// Write the response as a sequence of bytes to a buffer
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let mut count = 0;
         for did in &self.dids {
             did.to_writer(writer)?;
@@ -62,116 +63,50 @@ impl<I: SingleValueWireFormat> WireFormat for ReadDataByIdentifierRequest<I> {
 
 impl<I: SingleValueWireFormat> SingleValueWireFormat for ReadDataByIdentifierRequest<I> {}
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-
-pub enum TestDID {
-    TestData,
+pub struct ReadDataByIdentifierResponse<UserPayload> {
+    pub data: Vec<UserPayload>,
 }
 
-impl TestDID {
-    // Function to map byte values to enum variants
-    fn from_byte(byte: u16) -> Option<Self> {
-        match byte {
-            0x42 => Some(TestDID::TestData),
-            _ => None, // Handle out-of-range byte values if needed
-        }
+impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
+    pub(crate) fn new(data: Vec<UserPayload>) -> Self {
+        Self { data }
     }
 }
 
-pub struct ReadDataByIdentifierResponse {
-    pub dids: Vec<u16>,
-    pub did_records: Vec<Vec<u8>>,
-}
-
-impl ReadDataByIdentifierResponse {
-    pub(crate) fn new(dids: Vec<u16>, did_records: Vec<Vec<u8>>) -> Self {
-        Self { dids, did_records }
-    }
-}
-
-impl WireFormat for ReadDataByIdentifierResponse {
+impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierResponse<UserPayload> {
     /// Create a TesterPresentResponse from a sequence of bytes
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut dids = Vec::new();
-        let mut did_records = Vec::new();
-        let mut first_pass = true;
-        let mut have_data = false;
-
-        loop {
-            let mut buf = [0u8; 2];
-            let bytes_read = reader.read_exact(&mut buf);
-
-            // Check if there is data left in the reader
-            match bytes_read {
-                Ok(()) => {
-                    let did = u16::from_le_bytes(buf);
-                    // TODO: Check if valid did
-                    dids.push(did);
-                }
-                Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => {
-                    return Err(Error::InsufficientData(4));
+    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+        let mut data = Vec::new();
+        for payload in UserPayload::from_reader_iterable(reader) {
+            match payload {
+                Ok(p) => {
+                    data.push(p);
                 }
                 Err(e) => {
-                    return Err(Error::IoError(e));
+                    return Err(e);
                 }
-            }
-
-            // TODO: Lookup the correct number of bytes for this did
-            let mut record = vec![0u8; 4];
-            let bytes_read = reader.read_exact(&mut record);
-
-            match bytes_read {
-                Ok(()) => {
-                    did_records.push(record);
-                }
-                Err(ref e) if e.kind() == ErrorKind::UnexpectedEof => {
-                    // If we encounter EOF after reading a did, that's an error
-                    // TODO: Report correct error count
-                    return Err(Error::InsufficientData(4));
-                }
-                Err(e) => {
-                    return Err(Error::IoError(e));
-                }
-            }
-
-            // Check if there are more bytes in the reader
-            if reader.bytes().next().is_none() {
-                break; // End of data
             }
         }
-
-        if dids.is_empty() && did_records.is_empty() {
-            Err(Error::InsufficientData(6)) // No data at all
+        if data.is_empty() {
+            Err(Error::InsufficientData(0)) // No data at all
         } else {
-            Ok(Some(ReadDataByIdentifierResponse { dids, did_records }))
+            Ok(Some(Self { data }))
         }
     }
 
     /// Write the response as a sequence of bytes to a buffer
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        if self.dids.is_empty() || self.did_records.is_empty() {
-            return Err(Error::NoData); // No data at all
-        }
-
-        if self.dids.len() != self.did_records.len() {
-            return Err(Error::InconsistentData); // Mismatch between dids and did_records
-        }
-
+    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let mut total_written = 0;
-
-        for (did, record) in self.dids.iter().zip(&self.did_records) {
-            // Write the u16 (did)
-            let did_bytes = did.to_le_bytes();
-            writer.write_all(&did_bytes)?;
-
-            // Write the 4 bytes of data
-            writer.write_all(record)?;
-
-            total_written += did_bytes.len() + record.len();
+        for payload in &self.data {
+            total_written += payload.to_writer(writer)?;
         }
-
         Ok(total_written)
     }
+}
+
+impl<UserPayload: IterableWireFormat> SingleValueWireFormat
+    for ReadDataByIdentifierResponse<UserPayload>
+{
 }
 
 #[cfg(test)]

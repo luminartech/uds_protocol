@@ -7,8 +7,11 @@ pub use communication_type::CommunicationType;
 mod diagnostic_session_type;
 pub use diagnostic_session_type::DiagnosticSessionType;
 
-mod data_identifier;
-pub use data_identifier::DataIdentifier;
+mod diagnostic_identifier;
+pub use diagnostic_identifier::{ProtocolIdentifier, UDSIdentifiers};
+
+mod diagnostic_payload;
+pub use diagnostic_payload::{ProtocolPayload, UDSPayload};
 
 mod negative_response_code;
 pub use negative_response_code::NegativeResponseCode;

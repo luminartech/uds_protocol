@@ -13,7 +13,7 @@ mod ecu_reset;
 pub use ecu_reset::{EcuResetRequest, EcuResetResponse};
 
 mod read_data_by_identifier;
-pub use read_data_by_identifier::ReadDataByIdentifierRequest;
+pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentifierResponse};
 
 mod request_download;
 pub use request_download::{RequestDownloadRequest, RequestDownloadResponse};
