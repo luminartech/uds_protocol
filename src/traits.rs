@@ -36,10 +36,7 @@ struct WireFormatIterator<'a, T, R> {
 
 /// For types that can appear in lists of unknown length, this trait provides an iterator
 /// that can be used to deserialize a stream of values.
-impl<'a, T: WireFormat, R: std::io::Read> Iterator for WireFormatIterator<'a, T, R>
-where
-    R: std::io::Read,
-{
+impl<T: WireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_, T, R> {
     type Item = Result<T, Error>;
     fn next(&mut self) -> Option<Self::Item> {
         match T::option_from_reader(self.reader.by_ref()) {
