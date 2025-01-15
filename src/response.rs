@@ -2,6 +2,7 @@ use crate::{
     CommunicationControlResponse, CommunicationControlType, DiagnosticSessionControlResponse,
     DiagnosticSessionType, EcuResetResponse, Error, ResetType, SecurityAccessResponse,
     SecurityAccessType, SingleValueWireFormat, TesterPresentResponse, UdsServiceType, WireFormat,
+    RequestDownloadResponse,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -18,6 +19,8 @@ pub enum Response {
     DiagnosticSessionControl(DiagnosticSessionControlResponse),
     /// Response to a [`EcuResetRequest`](crate::EcuResetRequest)
     EcuReset(EcuResetResponse),
+    /// Response to a [`RequestDownload`](crate::RequestDownload)
+    RequestDownload(RequestDownloadResponse),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     SecurityAccess(SecurityAccessResponse),
@@ -44,6 +47,13 @@ impl Response {
         Response::EcuReset(EcuResetResponse::new(reset_type, power_down_time))
     }
 
+    pub fn request_download(length_format_identifier: u8, max_number_of_block_length: Vec<u8>) -> Self {
+        Response::RequestDownload(RequestDownloadResponse::new(
+            length_format_identifier,
+            max_number_of_block_length,
+        ))
+    }
+
     pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
         Response::SecurityAccess(SecurityAccessResponse::new(access_type, security_seed))
     }
@@ -57,6 +67,7 @@ impl Response {
             Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
             Self::EcuReset(_) => UdsServiceType::EcuReset,
+            Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
@@ -75,6 +86,9 @@ impl WireFormat for Response {
                 DiagnosticSessionControlResponse::from_reader(reader)?,
             ),
             UdsServiceType::EcuReset => Self::EcuReset(EcuResetResponse::from_reader(reader)?),
+            UdsServiceType::RequestDownload => {
+                Self::RequestDownload(RequestDownloadResponse::from_reader(reader)?)
+            }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(SecurityAccessResponse::from_reader(reader)?)
@@ -94,6 +108,7 @@ impl WireFormat for Response {
             Self::CommunicationControl(cc) => cc.to_writer(writer),
             Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
             Self::EcuReset(reset) => reset.to_writer(writer),
+            Self::RequestDownload(rd) => rd.to_writer(writer),
             Self::RequestTransferExit => Ok(0),
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
