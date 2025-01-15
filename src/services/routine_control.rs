@@ -1,9 +1,7 @@
 use crate::{Error, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct RoutineControlRequest {
     pub sub_function: RoutineControlSubFunction,
@@ -24,7 +22,7 @@ impl RoutineControlRequest {
         }
     }
 }
-impl WireFormat<'_, Error> for RoutineControlRequest {
+impl WireFormat<Error> for RoutineControlRequest {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
         let routine_id = reader.read_u16::<BigEndian>()?;
@@ -45,4 +43,4 @@ impl WireFormat<'_, Error> for RoutineControlRequest {
     }
 }
 
-impl SingleValueWireFormat<'_, Error> for RoutineControlRequest {}
+impl SingleValueWireFormat<Error> for RoutineControlRequest {}

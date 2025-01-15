@@ -1,8 +1,6 @@
 use crate::{Error, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct ReadDataByIdentifierRequest {
     pub did: u16,
@@ -14,7 +12,7 @@ impl ReadDataByIdentifierRequest {
     }
 }
 
-impl WireFormat<'_, Error> for ReadDataByIdentifierRequest {
+impl WireFormat<Error> for ReadDataByIdentifierRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let did = reader.read_u16::<BigEndian>()?;
         Ok(Some(Self { did }))
@@ -25,4 +23,4 @@ impl WireFormat<'_, Error> for ReadDataByIdentifierRequest {
     }
 }
 
-impl SingleValueWireFormat<'_, Error> for ReadDataByIdentifierRequest {}
+impl SingleValueWireFormat<Error> for ReadDataByIdentifierRequest {}

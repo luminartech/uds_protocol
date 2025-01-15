@@ -77,7 +77,7 @@ impl SecurityAccessRequest {
     }
 }
 
-impl WireFormat<'_, Error> for SecurityAccessRequest {
+impl WireFormat<Error> for SecurityAccessRequest {
     /// Deserialization function to read a [`SecurityAccessRequest`] from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
@@ -97,7 +97,7 @@ impl WireFormat<'_, Error> for SecurityAccessRequest {
     }
 }
 
-impl SingleValueWireFormat<'_, Error> for SecurityAccessRequest {}
+impl SingleValueWireFormat<Error> for SecurityAccessRequest {}
 
 /// Response to `SecurityAccessRequest`
 ///
@@ -125,7 +125,7 @@ impl SecurityAccessResponse {
     }
 }
 
-impl WireFormat<'_, Error> for SecurityAccessResponse {
+impl WireFormat<Error> for SecurityAccessResponse {
     /// Deserialization function to read a `SecurityAccessResponse` from a [`Reader`](std::io::Read)
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
@@ -145,4 +145,4 @@ impl WireFormat<'_, Error> for SecurityAccessResponse {
     }
 }
 
-impl SingleValueWireFormat<'_, Error> for SecurityAccessResponse {}
+impl SingleValueWireFormat<Error> for SecurityAccessResponse {}
