@@ -1,6 +1,5 @@
 use crate::{Error, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat};
 use serde::{Deserialize, Serialize};
-use std::io::ErrorKind;
 
 const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -16,7 +15,7 @@ pub struct ReadDataByIdentifierRequest<Identifier> {
     pub dids: Vec<Identifier>,
 }
 
-impl<Identifier> ReadDataByIdentifierRequest<Identifier> {
+impl<Identifier: IterableWireFormat> ReadDataByIdentifierRequest<Identifier> {
     pub(crate) fn new(dids: Vec<Identifier>) -> Self {
         Self { dids }
     }

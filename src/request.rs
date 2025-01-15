@@ -6,7 +6,7 @@ use crate::{
         RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
         WriteDataByIdentifierRequest,
     },
-    DataIdentifier, Error, NegativeResponseCode, ResetType, SecurityAccessType,
+    Error, IterableWireFormat, NegativeResponseCode, ResetType, SecurityAccessType,
     SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
@@ -38,7 +38,7 @@ pub enum Request<DiagnosticIdentifier> {
 
 impl<DiagnosticIdentifier> Request<DiagnosticIdentifier>
 where
-    DiagnosticIdentifier: SingleValueWireFormat,
+    DiagnosticIdentifier: IterableWireFormat,
 {
     /// Create a `CommunicationControlRequest` with standard address information.
     ///
@@ -100,7 +100,7 @@ where
     }
 
     /// Create a new `ReadDataByIdentifier` request
-    pub fn read_data_by_identifier(dids: Vec<DataIdentifier<DiagnosticIdentifier>>) -> Self {
+    pub fn read_data_by_identifier(dids: Vec<DiagnosticIdentifier>) -> Self {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 
@@ -187,7 +187,7 @@ where
     }
 }
 
-impl<DiagnosticIdentifier: SingleValueWireFormat> WireFormat for Request<DiagnosticIdentifier> {
+impl<DiagnosticIdentifier: IterableWireFormat> WireFormat for Request<DiagnosticIdentifier> {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -276,7 +276,7 @@ impl<DiagnosticIdentifier: SingleValueWireFormat> WireFormat for Request<Diagnos
     }
 }
 
-impl<DiagnosticIdentifier: SingleValueWireFormat> SingleValueWireFormat
+impl<DiagnosticIdentifier: IterableWireFormat> IterableWireFormat
     for Request<DiagnosticIdentifier>
 {
 }
