@@ -77,8 +77,8 @@ impl RequestDownloadRequest {
 }
 impl WireFormat for RequestDownloadRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let data_format_identifier = DataFormatIdentifier::from(reader.read_u8()?);
-        let memory_identifier = MemoryFormatIdentifier::from(reader.read_u8()?);
+        let data_format_identifier = DataFormatIdentifier::try_from(reader.read_u8()?)?;
+        let memory_identifier = MemoryFormatIdentifier::try_from(reader.read_u8()?)?;
 
         let mut memory_address: Vec<u8> = vec![0; memory_identifier.memory_address_length as usize];
         let mut memory_size: Vec<u8> = vec![0; memory_identifier.memory_size_length as usize];
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn read_memory_identifier() {
-        let memory_format_identifier = MemoryFormatIdentifier::from(0x23);
+        let memory_format_identifier = MemoryFormatIdentifier::try_from(0x23).unwrap();
         assert_eq!(memory_format_identifier.memory_size_length, 2);
         assert_eq!(memory_format_identifier.memory_address_length, 3);
 

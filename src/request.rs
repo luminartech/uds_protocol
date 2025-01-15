@@ -177,6 +177,7 @@ impl Request {
             }
             Self::EcuReset(_) => EcuResetRequest::allowed_nack_codes(),
             Self::SecurityAccess(_) => SecurityAccessRequest::allowed_nack_codes(),
+            Self::RequestDownload(_) => RequestDownloadRequest::allowed_nack_codes(),
             _ => &[NegativeResponseCode::ServiceNotSupported],
         }
     }
