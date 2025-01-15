@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum UDSIdentifiers {
+pub enum UDSIdentifier {
     ISOSAEReserved(u16),
     BootSoftwareIdentification,
     ApplicationSoftware,
@@ -18,7 +18,7 @@ pub enum UDSIdentifiers {
     VehicleManufacturerECUSoftwareVersionNumber,
 }
 
-impl TryFrom<u16> for UDSIdentifiers {
+impl TryFrom<u16> for UDSIdentifier {
     type Error = Error;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
@@ -39,20 +39,20 @@ impl TryFrom<u16> for UDSIdentifiers {
     }
 }
 
-impl From<UDSIdentifiers> for u16 {
-    fn from(value: UDSIdentifiers) -> Self {
+impl From<UDSIdentifier> for u16 {
+    fn from(value: UDSIdentifier) -> Self {
         match value {
-            UDSIdentifiers::ISOSAEReserved(identifier) => identifier,
-            UDSIdentifiers::BootSoftwareIdentification => 0x0183,
-            UDSIdentifiers::ApplicationSoftware => 0x0184,
-            UDSIdentifiers::ApplicationDataIdentification => 0x0185,
-            UDSIdentifiers::BootSoftwareFingerprint => 0x0186,
-            UDSIdentifiers::ApplicationSoftwareFingerprint => 0x0187,
-            UDSIdentifiers::ApplicationDataFingerprint => 0x0188,
-            UDSIdentifiers::ActiveDiagnosticSession => 0x0189,
-            UDSIdentifiers::VehicleManufacturerSparePartNumber => 0x018A,
-            UDSIdentifiers::VehicleManufacturerECUSoftwareNumber => 0x018B,
-            UDSIdentifiers::VehicleManufacturerECUSoftwareVersionNumber => 0x018C,
+            UDSIdentifier::ISOSAEReserved(identifier) => identifier,
+            UDSIdentifier::BootSoftwareIdentification => 0x0183,
+            UDSIdentifier::ApplicationSoftware => 0x0184,
+            UDSIdentifier::ApplicationDataIdentification => 0x0185,
+            UDSIdentifier::BootSoftwareFingerprint => 0x0186,
+            UDSIdentifier::ApplicationSoftwareFingerprint => 0x0187,
+            UDSIdentifier::ApplicationDataFingerprint => 0x0188,
+            UDSIdentifier::ActiveDiagnosticSession => 0x0189,
+            UDSIdentifier::VehicleManufacturerSparePartNumber => 0x018A,
+            UDSIdentifier::VehicleManufacturerECUSoftwareNumber => 0x018B,
+            UDSIdentifier::VehicleManufacturerECUSoftwareVersionNumber => 0x018C,
         }
     }
 }
@@ -61,7 +61,7 @@ impl From<UDSIdentifiers> for u16 {
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct ProtocolIdentifier {
-    identifier: UDSIdentifiers,
+    identifier: UDSIdentifier,
 }
 
 impl WireFormat for ProtocolIdentifier {
@@ -75,7 +75,7 @@ impl WireFormat for ProtocolIdentifier {
         };
         let identifier = u16::from_be_bytes(identifier_data);
         Ok(Some(Self {
-            identifier: UDSIdentifiers::try_from(identifier)?,
+            identifier: UDSIdentifier::try_from(identifier)?,
         }))
     }
 

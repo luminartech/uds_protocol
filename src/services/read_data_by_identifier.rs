@@ -1,7 +1,4 @@
-use crate::{
-    DataIdentifier, Error, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat,
-    WireFormat,
-};
+use crate::{Error, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat};
 use serde::{Deserialize, Serialize};
 use std::io::ErrorKind;
 
@@ -15,15 +12,12 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
-pub struct ReadDataByIdentifierRequest<UserId> {
-    pub dids: Vec<DataIdentifier<UserId>>,
+pub struct ReadDataByIdentifierRequest<Identifier> {
+    pub dids: Vec<Identifier>,
 }
 
-impl<UserId> ReadDataByIdentifierRequest<UserId>
-where
-    UserId: SingleValueWireFormat,
-{
-    pub(crate) fn new(dids: Vec<DataIdentifier<UserId>>) -> Self {
+impl<Identifier> ReadDataByIdentifierRequest<Identifier> {
+    pub(crate) fn new(dids: Vec<Identifier>) -> Self {
         Self { dids }
     }
 
@@ -33,11 +27,11 @@ where
     }
 }
 
-impl<UserId: SingleValueWireFormat> WireFormat for ReadDataByIdentifierRequest<UserId> {
+impl<Identifier: IterableWireFormat> WireFormat for ReadDataByIdentifierRequest<Identifier> {
     /// Create a TesterPresentResponse from a sequence of bytes
     fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut dids = Vec::new();
-        for identifier in DataIdentifier::from_reader_iterable(reader) {
+        for identifier in Identifier::from_reader_iterable(reader) {
             match identifier {
                 Ok(id) => {
                     dids.push(id);
@@ -47,7 +41,12 @@ impl<UserId: SingleValueWireFormat> WireFormat for ReadDataByIdentifierRequest<U
                 }
             }
         }
-        Ok(Some(Self { dids }))
+        if dids.is_empty() {
+            // TODO: Add more specific error here
+            Err(Error::InsufficientData(0)) // No data at all
+        } else {
+            Ok(Some(Self { dids }))
+        }
     }
 
     /// Write the response as a sequence of bytes to a buffer
@@ -61,7 +60,10 @@ impl<UserId: SingleValueWireFormat> WireFormat for ReadDataByIdentifierRequest<U
     }
 }
 
-impl<I: SingleValueWireFormat> SingleValueWireFormat for ReadDataByIdentifierRequest<I> {}
+impl<Identifier: IterableWireFormat> SingleValueWireFormat
+    for ReadDataByIdentifierRequest<Identifier>
+{
+}
 
 pub struct ReadDataByIdentifierResponse<UserPayload> {
     pub data: Vec<UserPayload>,
@@ -88,6 +90,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
             }
         }
         if data.is_empty() {
+            // TODO: More descriptive error type
             Err(Error::InsufficientData(0)) // No data at all
         } else {
             Ok(Some(Self { data }))

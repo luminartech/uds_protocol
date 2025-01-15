@@ -8,10 +8,7 @@ mod diagnostic_session_type;
 pub use diagnostic_session_type::DiagnosticSessionType;
 
 mod diagnostic_identifier;
-pub use diagnostic_identifier::{ProtocolIdentifier, UDSIdentifiers};
-
-mod diagnostic_payload;
-pub use diagnostic_payload::{ProtocolPayload, UDSPayload};
+pub use diagnostic_identifier::{ProtocolIdentifier, UDSIdentifier};
 
 mod negative_response_code;
 pub use negative_response_code::NegativeResponseCode;
