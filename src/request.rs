@@ -6,7 +6,8 @@ use crate::{
         RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
         WriteDataByIdentifierRequest,
     },
-    Error, NegativeResponseCode, ResetType, SecurityAccessType, SingleValueWireFormat, WireFormat,
+    DataIdentifier, Error, NegativeResponseCode, ResetType, SecurityAccessType,
+    SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -20,10 +21,7 @@ use super::{
 /// UDS Request types
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
-pub enum Request<DiagnosticIdentifier>
-where
-    DiagnosticIdentifier: SingleValueWireFormat<Error>,
-{
+pub enum Request<DiagnosticIdentifier> {
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
@@ -40,7 +38,7 @@ where
 
 impl<DiagnosticIdentifier> Request<DiagnosticIdentifier>
 where
-    DiagnosticIdentifier: SingleValueWireFormat<Error>,
+    DiagnosticIdentifier: SingleValueWireFormat,
 {
     /// Create a `CommunicationControlRequest` with standard address information.
     ///
@@ -102,7 +100,7 @@ where
     }
 
     /// Create a new `ReadDataByIdentifier` request
-    pub fn read_data_by_identifier(dids: Vec<DiagnosticIdentifier>) -> Self {
+    pub fn read_data_by_identifier(dids: Vec<DataIdentifier<DiagnosticIdentifier>>) -> Self {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 
@@ -189,7 +187,7 @@ where
     }
 }
 
-impl WireFormat for Request {
+impl<DiagnosticIdentifier: SingleValueWireFormat> WireFormat for Request<DiagnosticIdentifier> {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -278,4 +276,7 @@ impl WireFormat for Request {
     }
 }
 
-impl SingleValueWireFormat for Request {}
+impl<DiagnosticIdentifier: SingleValueWireFormat> SingleValueWireFormat
+    for Request<DiagnosticIdentifier>
+{
+}
