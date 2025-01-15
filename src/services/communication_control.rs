@@ -75,7 +75,7 @@ impl CommunicationControlRequest {
         &COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 }
-impl WireFormat<Error> for CommunicationControlRequest {
+impl WireFormat for CommunicationControlRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let enable_byte = reader.read_u8()?;
         let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
@@ -110,7 +110,7 @@ impl WireFormat<Error> for CommunicationControlRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for CommunicationControlRequest {}
+impl SingleValueWireFormat for CommunicationControlRequest {}
 
 /// Positive response from the server to change communication behavior
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -125,7 +125,7 @@ impl CommunicationControlResponse {
     }
 }
 
-impl WireFormat<Error> for CommunicationControlResponse {
+impl WireFormat for CommunicationControlResponse {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
         Ok(Some(Self::new(control_type)))
@@ -137,4 +137,4 @@ impl WireFormat<Error> for CommunicationControlResponse {
     }
 }
 
-impl SingleValueWireFormat<Error> for CommunicationControlResponse {}
+impl SingleValueWireFormat for CommunicationControlResponse {}

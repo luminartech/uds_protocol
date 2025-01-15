@@ -174,7 +174,7 @@ impl Request {
     }
 }
 
-impl WireFormat<Error> for Request {
+impl WireFormat for Request {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -263,4 +263,4 @@ impl WireFormat<Error> for Request {
     }
 }
 
-impl SingleValueWireFormat<Error> for Request {}
+impl SingleValueWireFormat for Request {}

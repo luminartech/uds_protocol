@@ -64,7 +64,7 @@ impl Response {
     }
 }
 
-impl WireFormat<Error> for Response {
+impl WireFormat for Response {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
@@ -101,4 +101,4 @@ impl WireFormat<Error> for Response {
     }
 }
 
-impl SingleValueWireFormat<Error> for Response {}
+impl SingleValueWireFormat for Response {}

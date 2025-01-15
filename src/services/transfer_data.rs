@@ -14,7 +14,7 @@ impl TransferDataRequest {
     }
 }
 
-impl WireFormat<Error> for TransferDataRequest {
+impl WireFormat for TransferDataRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sequence = reader.read_u8()?;
         let mut data = Vec::new();
@@ -29,4 +29,4 @@ impl WireFormat<Error> for TransferDataRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for TransferDataRequest {}
+impl SingleValueWireFormat for TransferDataRequest {}

@@ -20,7 +20,7 @@ impl ControlDTCSettingsRequest {
     }
 }
 
-impl WireFormat<Error> for ControlDTCSettingsRequest {
+impl WireFormat for ControlDTCSettingsRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let request_byte = reader.read_u8()?;
         let setting = DtcSettings::from(request_byte & !SUCCESS);
@@ -39,4 +39,4 @@ impl WireFormat<Error> for ControlDTCSettingsRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for ControlDTCSettingsRequest {}
+impl SingleValueWireFormat for ControlDTCSettingsRequest {}
