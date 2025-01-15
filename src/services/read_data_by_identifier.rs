@@ -14,13 +14,13 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 ];
 
 #[non_exhaustive]
-pub struct ReadDataByIdentifierRequest<I: SingleValueWireFormat<Error>> {
+pub struct ReadDataByIdentifierRequest<I> {
     pub dids: Vec<DataIdentifier<I>>,
 }
 
 impl<I> ReadDataByIdentifierRequest<I>
 where
-    I: SingleValueWireFormat<Error>,
+    I: SingleValueWireFormat,
 {
     pub(crate) fn new(dids: Vec<DataIdentifier<I>>) -> Self {
         Self { dids }
@@ -32,7 +32,7 @@ where
     }
 }
 
-impl WireFormat for ReadDataByIdentifierRequest {
+impl<I: SingleValueWireFormat> WireFormat for ReadDataByIdentifierRequest<I> {
     /// Create a TesterPresentResponse from a sequence of bytes
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut dids = Vec::new();
@@ -60,7 +60,7 @@ impl WireFormat for ReadDataByIdentifierRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for ReadDataByIdentifierRequest {}
+impl<I: SingleValueWireFormat> SingleValueWireFormat for ReadDataByIdentifierRequest<I> {}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 
@@ -89,7 +89,7 @@ impl ReadDataByIdentifierResponse {
     }
 }
 
-impl WireFormat<Error> for ReadDataByIdentifierResponse {
+impl WireFormat for ReadDataByIdentifierResponse {
     /// Create a TesterPresentResponse from a sequence of bytes
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut dids = Vec::new();
@@ -146,32 +146,32 @@ impl WireFormat<Error> for ReadDataByIdentifierResponse {
             Ok(Some(ReadDataByIdentifierResponse { dids, did_records }))
         }
     }
-}
 
-/// Write the response as a sequence of bytes to a buffer
-fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-    if self.dids.is_empty() || self.did_records.is_empty() {
-        return Err(Error::NoData); // No data at all
+    /// Write the response as a sequence of bytes to a buffer
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        if self.dids.is_empty() || self.did_records.is_empty() {
+            return Err(Error::NoData); // No data at all
+        }
+
+        if self.dids.len() != self.did_records.len() {
+            return Err(Error::InconsistentData); // Mismatch between dids and did_records
+        }
+
+        let mut total_written = 0;
+
+        for (did, record) in self.dids.iter().zip(&self.did_records) {
+            // Write the u16 (did)
+            let did_bytes = did.to_le_bytes();
+            writer.write_all(&did_bytes)?;
+
+            // Write the 4 bytes of data
+            writer.write_all(record)?;
+
+            total_written += did_bytes.len() + record.len();
+        }
+
+        Ok(total_written)
     }
-
-    if self.dids.len() != self.did_records.len() {
-        return Err(Error::InconsistentData); // Mismatch between dids and did_records
-    }
-
-    let mut total_written = 0;
-
-    for (did, record) in self.dids.iter().zip(&self.did_records) {
-        // Write the u16 (did)
-        let did_bytes = did.to_le_bytes();
-        writer.write_all(&did_bytes)?;
-
-        // Write the 4 bytes of data
-        writer.write_all(record)?;
-
-        total_written += did_bytes.len() + record.len();
-    }
-
-    Ok(total_written)
 }
 
 #[cfg(test)]
