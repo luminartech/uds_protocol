@@ -38,6 +38,7 @@ impl MemoryFormatIdentifier {
     }
     
     /// Get the total length of the memory_size and memory_address fields 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.memory_size_length as usize + self.memory_address_length as usize
     }
