@@ -1,9 +1,8 @@
 use crate::{DtcSettings, Error, SingleValueWireFormat, WireFormat, SUCCESS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 
 /// The ControlDTCSettings service is used to control the DTC settings of the ECU.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsRequest {
     /// The requested DTC logging setting
@@ -21,7 +20,7 @@ impl ControlDTCSettingsRequest {
     }
 }
 
-impl WireFormat<'_, Error> for ControlDTCSettingsRequest {
+impl WireFormat<Error> for ControlDTCSettingsRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let request_byte = reader.read_u8()?;
         let setting = DtcSettings::from(request_byte & !SUCCESS);
@@ -40,4 +39,4 @@ impl WireFormat<'_, Error> for ControlDTCSettingsRequest {
     }
 }
 
-impl SingleValueWireFormat<'_, Error> for ControlDTCSettingsRequest {}
+impl SingleValueWireFormat<Error> for ControlDTCSettingsRequest {}

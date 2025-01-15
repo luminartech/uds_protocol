@@ -9,7 +9,6 @@ use crate::{
     Error, NegativeResponseCode, ResetType, SecurityAccessType, SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
 use super::{
@@ -20,7 +19,6 @@ use super::{
 /// UDS Request types
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum Request {
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
@@ -176,7 +174,7 @@ impl Request {
     }
 }
 
-impl WireFormat<'_, Error> for Request {
+impl WireFormat<Error> for Request {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -265,4 +263,4 @@ impl WireFormat<'_, Error> for Request {
     }
 }
 
-impl SingleValueWireFormat<'_, Error> for Request {}
+impl SingleValueWireFormat<Error> for Request {}
