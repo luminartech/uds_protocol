@@ -103,8 +103,12 @@ impl Request {
     /// Create a new `RequestDownload` request
     ///     encryption_method: vehicle manufacturer specific (0x0 for no encryption)
     ///     compression_method: vehicle manufacturer specific (0x0 for no compression)
-    ///     memory_size: the size of the memory to download (Max 4GB)
     ///     memory_address: the address in memory to start downloading from (Maximum 40 bits - 1024GB)
+    ///     memory_size: the size of the memory to download (Max 4GB)
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the memory address is greater than 40 bits
     pub fn request_download(encryption_method: u8, compression_method: u8, memory_address: u64, memory_size: u32) -> Self {
         let data_format_identifier = DataFormatIdentifier::new(compression_method, encryption_method).unwrap();
         
