@@ -12,7 +12,7 @@ impl ReadDataByIdentifierRequest {
     }
 }
 
-impl WireFormat<Error> for ReadDataByIdentifierRequest {
+impl WireFormat for ReadDataByIdentifierRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let did = reader.read_u16::<BigEndian>()?;
         Ok(Some(Self { did }))
@@ -23,4 +23,4 @@ impl WireFormat<Error> for ReadDataByIdentifierRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for ReadDataByIdentifierRequest {}
+impl SingleValueWireFormat for ReadDataByIdentifierRequest {}

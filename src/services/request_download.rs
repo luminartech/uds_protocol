@@ -1,7 +1,9 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
+#[derive(Clone, Debug, Eq, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct RequestDownloadRequest {
     pub data_format_identifier: u8,
@@ -25,7 +27,7 @@ impl RequestDownloadRequest {
         }
     }
 }
-impl WireFormat<Error> for RequestDownloadRequest {
+impl WireFormat for RequestDownloadRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let data_format_identifier = reader.read_u8()?;
         let address_and_length_format_identifier = reader.read_u8()?;
@@ -47,4 +49,4 @@ impl WireFormat<Error> for RequestDownloadRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for RequestDownloadRequest {}
+impl SingleValueWireFormat for RequestDownloadRequest {}

@@ -14,7 +14,7 @@ impl WriteDataByIdentifierRequest {
     }
 }
 
-impl WireFormat<Error> for WriteDataByIdentifierRequest {
+impl WireFormat for WriteDataByIdentifierRequest {
     fn option_from_reader<T: std::io::Read>(buffer: &mut T) -> Result<Option<Self>, Error> {
         let did = buffer.read_u16::<BigEndian>()?;
         let mut data = Vec::new();
@@ -28,4 +28,4 @@ impl WireFormat<Error> for WriteDataByIdentifierRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for WriteDataByIdentifierRequest {}
+impl SingleValueWireFormat for WriteDataByIdentifierRequest {}

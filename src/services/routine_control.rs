@@ -22,7 +22,7 @@ impl RoutineControlRequest {
         }
     }
 }
-impl WireFormat<Error> for RoutineControlRequest {
+impl WireFormat for RoutineControlRequest {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
         let routine_id = reader.read_u16::<BigEndian>()?;
@@ -43,4 +43,4 @@ impl WireFormat<Error> for RoutineControlRequest {
     }
 }
 
-impl SingleValueWireFormat<Error> for RoutineControlRequest {}
+impl SingleValueWireFormat for RoutineControlRequest {}
