@@ -2,7 +2,7 @@ use crate::{
     CommunicationControlResponse, CommunicationControlType, DiagnosticSessionControlResponse,
     DiagnosticSessionType, EcuResetResponse, Error, ResetType, SecurityAccessResponse,
     SecurityAccessType, SingleValueWireFormat, TesterPresentResponse, UdsServiceType, WireFormat,
-    RequestDownloadResponse,
+    RequestDownloadResponse, TransferDataResponse
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -25,6 +25,7 @@ pub enum Response {
     RequestTransferExit,
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
+    TransferData(TransferDataResponse),
 }
 
 impl Response {
@@ -61,6 +62,10 @@ impl Response {
     pub fn tester_present() -> Self {
         Response::TesterPresent(TesterPresentResponse::new())
     }
+    
+    pub fn transfer_data(block_sequence_counter: u8, data: Vec<u8>) -> Self {
+        Response::TransferData(TransferDataResponse::new(block_sequence_counter, data))
+    }
 
     pub fn service(&self) -> UdsServiceType {
         match self {
@@ -71,6 +76,7 @@ impl Response {
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
+            Self::TransferData(_) => UdsServiceType::TransferData,
         }
     }
 }
@@ -112,6 +118,7 @@ impl WireFormat for Response {
             Self::RequestTransferExit => Ok(0),
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
+            Self::TransferData(td) => td.to_writer(writer),
         }
     }
 }

@@ -67,7 +67,44 @@ pub struct TransferDataResponse {
     /// Vehicle manufacturer specific
     /// 
     /// For download (client to server), this might be a checksum for the client to verify correct transfer
-    ///     This 
+    ///     This should not repeat the data sent from the client
     /// For upload (server to client), this will include the data from the server
     pub data: Vec<u8>,
+}
+
+impl TransferDataResponse {
+    pub(crate) fn new(block_sequence_counter: u8, data: Vec<u8>) -> Self {
+        Self { block_sequence_counter, data }
+    }
+}
+
+impl WireFormat for TransferDataResponse {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let block_sequence_counter = reader.read_u8()?;
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data)?;
+        Ok(Some(Self { block_sequence_counter, data }))
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.block_sequence_counter)?;
+        writer.write_all(&self.data)?;
+        Ok(1 + self.data.len())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transfer_data_request() {
+        let data: [u8; 4] = [0x01, 0x02, 0x03, 0x04];
+        let request = TransferDataRequest::new(0x01, data.to_vec());
+        let bytes = request.data.clone();
+        let expected = vec![0x01, 0x02, 0x03, 0x04];
+        assert_eq!(1, request.block_sequence_counter);
+        assert_eq!(bytes, expected);
+
+    }
 }
