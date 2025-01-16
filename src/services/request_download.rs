@@ -122,8 +122,8 @@ impl SingleValueWireFormat for RequestDownloadRequest {}
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct RequestDownloadResponse {
-    /// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct
-    /// As in it is a nibble with the high nibble being the length of the max_number_of_block_length field
+    /// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct.
+    /// In it is a byte with the high nibble being the length of the max_number_of_block_length field.
     pub length_format_identifier: LengthFormatIdentifier,
     /// Variable length field, length determined by `length_format_identifier`
     /// Client is instructed to send this many bytes per [`TransferDataRequest`] message.

@@ -28,8 +28,8 @@ pub struct MemoryFormatIdentifier {
 impl MemoryFormatIdentifier {
     pub fn new(memory_size: u32, memory_address: u64) -> Self {
 
-        let memory_address_length = ((64 - memory_address.leading_zeros() + 7) / 8) as u8;
-        let memory_size_length = ((32 - memory_size.leading_zeros() + 7) / 8) as u8;
+        let memory_address_length = ((u64::BITS - memory_address.leading_zeros() + 7) / 8) as u8;
+        let memory_size_length = ((u32::BITS - memory_size.leading_zeros() + 7) / 8) as u8;
 
         Self {
             memory_size_length,
@@ -76,10 +76,10 @@ impl From<MemoryFormatIdentifier> for u8 {
     }
 }
 
-/// Decoded from the `length_format_identifier` field of the [`RequestDownloadResponse`] struct
-/// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct
-/// As in it is a nibble with the high nibble being the byte length of the max_number_of_block_length field
-/// I.E. 0x20 means the max_number_of_block_length field is 2 bytes long
+/// Decoded from the `length_format_identifier` field of the [`RequestDownloadResponse`] struct.
+/// The format is similar to the `address_and_length_format_identifier` field in the [`RequestDownloadRequest`] struct.
+/// Specifically, it is a byte where the high nibble represents the byte length of the `max_number_of_block_length` field,
+/// i.e, a value of `0x20` indicates that the `max_number_of_block_length` field is 2 bytes long.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LengthFormatIdentifier {
     pub max_number_of_block_length: u8,
