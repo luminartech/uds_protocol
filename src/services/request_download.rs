@@ -18,8 +18,7 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 /// A request to the server for it to download data from the client
 ///
 /// A positive response to this request ([`RequestDownloadResponse`]) will happen
-/// after the server takes all necessary actions to receive the data
-/// (n.b. not sure if this is AFTER the data is received or just once the server is READY to receive)
+/// after the server takes all necessary actions to receive the data once the server is ready to receive
 ///
 /// This is a variable length Request, determined by the `address_and_length_format_identifier` value
 /// See ISO-14229-1:2020, Table H.1 for format information
@@ -27,9 +26,9 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 #[non_exhaustive]
 pub struct RequestDownloadRequest {
     /// compression method (high nibble) and encrypting method (low nibble). 0x00 is no compression or encryption
-    pub data_format_identifier: DataFormatIdentifier,
+    data_format_identifier: DataFormatIdentifier,
     /// 7-4: length (# of bytes) of memory_size param, 3-0: length (# of bytes) of memory_address param
-    pub address_and_length_format_identifier: MemoryFormatIdentifier,
+    address_and_length_format_identifier: MemoryFormatIdentifier,
     /// Starting address of the server memory. Size is determined by `address_and_length_format_identifier`
     /// Has a variable number of bytes, max of 5
     pub memory_address: u64,
@@ -124,7 +123,7 @@ impl SingleValueWireFormat for RequestDownloadRequest {}
 pub struct RequestDownloadResponse {
     /// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct.
     /// In it is a byte with the high nibble being the length of the max_number_of_block_length field.
-    pub length_format_identifier: LengthFormatIdentifier,
+    length_format_identifier: LengthFormatIdentifier,
     /// Variable length field, length determined by `length_format_identifier`
     /// Client is instructed to send this many bytes per [`TransferDataRequest`] message.
     pub max_number_of_block_length: Vec<u8>,

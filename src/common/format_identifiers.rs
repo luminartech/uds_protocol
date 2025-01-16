@@ -20,7 +20,7 @@ const ENCRYPTION_NIBBLE_MASK:   u8 = LOW_NIBBLE_MASK;
 /// 
 /// See ISO-14229-1:2020, Table H.1 for format information
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct MemoryFormatIdentifier {
+pub(crate) struct MemoryFormatIdentifier {
     pub memory_size_length: u8,
     pub memory_address_length: u8,
 }
@@ -81,7 +81,7 @@ impl From<MemoryFormatIdentifier> for u8 {
 /// Specifically, it is a byte where the high nibble represents the byte length of the `max_number_of_block_length` field,
 /// i.e, a value of `0x20` indicates that the `max_number_of_block_length` field is 2 bytes long.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct LengthFormatIdentifier {
+pub(crate) struct LengthFormatIdentifier {
     pub max_number_of_block_length: u8,
 }
 
@@ -104,7 +104,7 @@ impl From<LengthFormatIdentifier> for u8 {
 /// Decoded from the `data_format_identifier` field of the [`RequestDownloadRequest`] struct
 /// Values other than 0x00 are Vehicle Manufacturer specific according to ISO-14229-1:2020
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct DataFormatIdentifier {
+pub(crate) struct DataFormatIdentifier {
     // low nibble
     pub encryption_method: u8,
     // high nibble
