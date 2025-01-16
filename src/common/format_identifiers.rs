@@ -16,7 +16,7 @@ const COMPRESSION_NIBBLE_MASK:   u8 = HIGH_NIBBLE_MASK;
 const ENCRYPTION_NIBBLE_MASK:   u8 = LOW_NIBBLE_MASK;
 
 
-/// Decoded from the `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct
+/// Decoded from the `address_and_length_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
 /// 
 /// See ISO-14229-1:2020, Table H.1 for format information
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -98,10 +98,10 @@ impl From<LengthFormatIdentifier> for u8 {
     }
 }
 
-/// Used by [`RequestDownloadRequest`] for the compression method (high nibble) and encrypting method (low nibble)
+/// Used by [`crate::RequestDownloadRequest`] for the compression method (high nibble) and encrypting method (low nibble)
 /// - 0x00 is no compression or encryption, which is the default
 /// 
-/// Decoded from the `data_format_identifier` field of the [`RequestDownloadRequest`] struct
+/// Decoded from the `data_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
 /// Values other than 0x00 are Vehicle Manufacturer specific according to ISO-14229-1:2020
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct DataFormatIdentifier {

@@ -19,7 +19,7 @@ pub enum Response {
     DiagnosticSessionControl(DiagnosticSessionControlResponse),
     /// Response to a [`EcuResetRequest`](crate::EcuResetRequest)
     EcuReset(EcuResetResponse),
-    /// Response to a [`RequestDownload`](crate::RequestDownload)
+    /// Response to a [`RequestDownloadRequest`](crate::RequestDownloadRequest)
     RequestDownload(RequestDownloadResponse),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
