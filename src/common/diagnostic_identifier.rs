@@ -58,10 +58,16 @@ impl From<UDSIdentifier> for u16 {
 }
 
 /// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports IDs defined by UDS
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct ProtocolIdentifier {
-    identifier: UDSIdentifier,
+    pub identifier: UDSIdentifier,
+}
+
+impl ProtocolIdentifier {
+    pub fn new(identifier: UDSIdentifier) -> Self {
+        ProtocolIdentifier { identifier }
+    }
 }
 
 impl WireFormat for ProtocolIdentifier {
