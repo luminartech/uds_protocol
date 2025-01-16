@@ -44,17 +44,16 @@ impl RequestDownloadRequest {
         address_and_length_format_identifier: MemoryFormatIdentifier,
         memory_address: u64,
         memory_size: u32,
-    ) -> Self {
-        assert!(
-            memory_address <= 0xFF_FFFF_FFFF,
-            "Memory address is too large (max is 0xFF_FFFF_FFFF): {:#X}", memory_address
-        );
-        Self {
+    ) -> Result<Self, Error> {
+        if memory_address > 0xFF_FFFF_FFFF {
+            return Err(Error::InvalidMemoryAddress(memory_address));
+        }
+        Ok(Self {
             data_format_identifier,
             address_and_length_format_identifier,
             memory_address,
             memory_size,
-        }
+        })
     }
 
     fn get_shortened_memory_address(&self) -> Vec<u8> {
