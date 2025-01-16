@@ -172,17 +172,17 @@ mod tests {
 
     #[test]
     fn data_format_identifier() {
-        let data_format_identifier = DataFormatIdentifier::try_from(0x23).unwrap();
+        let data_format_identifier = DataFormatIdentifier::from(0x23);
         assert_eq!(data_format_identifier.encryption_method, 3);
         assert_eq!(data_format_identifier.compression_method, 2);
 
         assert_eq!(u8::from(data_format_identifier), 0x23);
 
         let data_format_identifier = DataFormatIdentifier::new(0x0F, 0x0F);
-        assert!(matches!(data_format_identifier, Ok(_)));
+        assert!(data_format_identifier.is_ok());
 
         let data_format_identifier = DataFormatIdentifier::new(0x1F, 0x0F);
-        assert!(matches!(data_format_identifier, Err(Error::IncorrectMessageLengthOrInvalidFormat)));
+        assert!(matches!(data_format_identifier, Err(Error::InvalidEncryptionCompressionMethod(0x1F))));
     }
 
 }
