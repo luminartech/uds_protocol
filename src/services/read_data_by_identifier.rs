@@ -120,20 +120,43 @@ mod test {
     use super::*;
     use std::io::Cursor;
 
-    // fn bytes_to_dids(bytes: &Vec<u8>) -> Option<Vec<u16>> {
-    //     if bytes.len().is_odd() {
-    //         return None;
-    //     }
+    struct ReadRequestTestData {
+        pub test_name: String,
+        pub dids_bytes: Vec<u8>,
+    }
 
-    //     let mut dids = vec![];
+    // Holds a byte array of data that will be transformed into a list of dids.
+    impl ReadRequestTestData {
+        fn from_ids(test_name: &str, dids: &[ProtocolIdentifier]) -> Self {
+            let dids_bytes = to_bytes(&dids);
+            Self {
+                test_name: test_name.to_string(),
+                dids_bytes,
+            }
+        }
 
-    //     for chunk in bytes.chunks_exact(2) {
-    //         let value = BigEndian::read_u16(chunk);
-    //         dids.push(value);
-    //     }
+        fn from_bytes(test_name: &str, dids_bytes: Vec<u8>) -> Self {
+            Self {
+                test_name: test_name.to_string(),
+                dids_bytes,
+            }
+        }
+    }
 
-    //     Some(dids)
-    // }
+    // Holds a list of dids that will be transformed into a byte sequence
+    struct WriteRequestTestData {
+        pub test_name: String,
+        pub dids: Vec<ProtocolIdentifier>,
+    }
+
+    impl WriteRequestTestData {
+        fn from_ids(test_name: &str, dids: &[ProtocolIdentifier]) -> Self {
+            Self {
+                test_name: test_name.to_string(),
+                dids: dids.to_vec(),
+            }
+        }
+    }
 
     fn to_bytes(ids: &[ProtocolIdentifier]) -> Vec<u8> {
         ids.iter()
@@ -146,9 +169,8 @@ mod test {
             .collect()
     }
 
-    #[test]
-    fn read_did_request_bytes() {
-        let test_ids: Vec<ProtocolIdentifier> = vec![
+    fn get_test_ids() -> Vec<ProtocolIdentifier> {
+        vec![
             ProtocolIdentifier::new(UDSIdentifier::BootSoftwareIdentification),
             ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftware),
             ProtocolIdentifier::new(UDSIdentifier::ApplicationDataIdentification),
@@ -159,30 +181,36 @@ mod test {
             ProtocolIdentifier::new(UDSIdentifier::VehicleManufacturerSparePartNumber),
             ProtocolIdentifier::new(UDSIdentifier::VehicleManufacturerECUSoftwareNumber),
             ProtocolIdentifier::new(UDSIdentifier::VehicleManufacturerECUSoftwareVersionNumber),
-        ];
+        ]
+    }
 
-        // Create test data sets using the `serialize_ids_to_bytes` function
-        let test_data_sets: Vec<Vec<u8>> = vec![
-            vec![],                    // No ids
-            vec![0x00],                // Invalid byte length
-            vec![0x00, 0x01],          // Invalid id
-            to_bytes(&test_ids[0..1]), // First id
-            to_bytes(&test_ids[0..2]), // First two ids
-            to_bytes(&test_ids[0..3]),
-            to_bytes(&test_ids[0..4]),
-            to_bytes(&test_ids), // All ids
-            to_bytes(
+    #[test]
+    fn read_did_request_bytes() {
+        let test_ids = get_test_ids();
+
+        let test_data_sets: Vec<ReadRequestTestData> = vec![
+            ReadRequestTestData::from_bytes("No ids", vec![]),
+            ReadRequestTestData::from_bytes("Invalid byte length", vec![0x00]),
+            ReadRequestTestData::from_bytes("Invalid id", vec![0x00, 0x01]),
+            ReadRequestTestData::from_ids("1 id", &test_ids[0..1]),
+            ReadRequestTestData::from_ids("2 ids", &test_ids[0..2]),
+            ReadRequestTestData::from_ids("3 ids", &test_ids[0..3]),
+            ReadRequestTestData::from_ids("4 ids", &test_ids[0..4]),
+            ReadRequestTestData::from_ids("All ids", &test_ids),
+            ReadRequestTestData::from_ids(
+                "Repeated ids",
                 &test_ids
+                    .to_vec()
                     .iter()
                     .cycle()
                     .take(100)
                     .cloned()
                     .collect::<Vec<_>>(),
-            ), // Repeated ids, 100 items
+            ),
         ];
 
-        for (test_index, id_bytes) in test_data_sets.iter().enumerate() {
-            let mut byte_access = Cursor::new(id_bytes);
+        for test_data in test_data_sets.iter() {
+            let mut byte_access = Cursor::new(test_data.dids_bytes.to_vec());
             let read_result = ReadDataByIdentifierRequest::<ProtocolIdentifier>::option_from_reader(
                 &mut byte_access,
             );
@@ -191,31 +219,32 @@ mod test {
                 Ok(Some(response)) => {
                     let mut translated_bytes = Vec::new();
                     response.to_writer(&mut translated_bytes).unwrap();
-
-                    // Now, compare `dids_bytes` with `id_bytes` (excluding leading/trailing data if necessary)
                     assert_eq!(
-                        translated_bytes, *id_bytes,
-                        "Ok: Failed on index {}",
-                        test_index
+                        translated_bytes, *test_data.dids_bytes,
+                        "Some: Failed: {}",
+                        test_data.test_name
                     );
                 }
                 Ok(None) => {
                     // No data read
-                    assert!(id_bytes.is_empty(), "None: Failed on index {}", test_index);
+                    assert!(
+                        test_data.dids_bytes.is_empty(),
+                        "None: Failed {}",
+                        test_data.test_name
+                    );
                 }
                 Err(e) => {
-                    if id_bytes.is_empty() {
+                    if test_data.dids_bytes.is_empty() {
                         assert!(
                             matches!(e, Error::InsufficientData(_)),
-                            "InsufficientData: Failed on index {}",
-                            test_index
+                            "InsufficientData: Failed {}",
+                            test_data.test_name
                         );
-                        break;
                     } else {
                         assert!(
                             matches!(e, Error::IncorrectMessageLengthOrInvalidFormat),
-                            "IncorrectMessageLengthOrInvalidFormat: Failed on index {}",
-                            test_index
+                            "IncorrectMessageLengthOrInvalidFormat: Failed {}",
+                            test_data.test_name
                         );
                     }
                 }
@@ -223,36 +252,57 @@ mod test {
         }
     }
 
-    // #[test]
-    // fn write_did_request_bytes() {
-    //     let requests = vec![
-    //         ReadDataByIdentifierRequest::new(vec![]),
-    //         ReadDataByIdentifierRequest::new(vec![0u16]),
-    //         ReadDataByIdentifierRequest::new(vec![0u16, 1u16]),
-    //         ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16]),
-    //         ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16]),
-    //         ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16, 4u16]),
-    //         ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16, 4u16, 5u16]),
-    //         ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16, 4u16, 5u16, 6u16]),
-    //         ReadDataByIdentifierRequest::new(vec![0u16, 1u16, 2u16, 3u16, 4u16, 5u16, 6u16, 7u16]),
-    //         ReadDataByIdentifierRequest::new((0..u16::MAX - 1).collect::<Vec<u16>>()),
-    //         ReadDataByIdentifierRequest::new((0..u16::MAX).collect::<Vec<u16>>()),
-    //     ];
+    #[test]
+    fn write_did_request_bytes() {
+        let test_ids = get_test_ids();
 
-    //     for request in requests {
-    //         let mut buffer = Vec::new();
-    //         let result = request.to_writer(&mut buffer);
+        let test_data_sets: Vec<WriteRequestTestData> = vec![
+            WriteRequestTestData::from_ids("No ids", &Vec::new()),
+            WriteRequestTestData::from_ids("1 id", &test_ids[0..1]),
+            WriteRequestTestData::from_ids("2 ids", &test_ids[0..2]),
+            WriteRequestTestData::from_ids("3 ids", &test_ids[0..3]),
+            WriteRequestTestData::from_ids("4 ids", &test_ids[0..4]),
+            WriteRequestTestData::from_ids("All ids", &test_ids),
+            WriteRequestTestData::from_ids(
+                "Repeated ids",
+                &test_ids
+                    .to_vec()
+                    .iter()
+                    .cycle()
+                    .take(100)
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            ),
+        ];
 
-    //         match result {
-    //             Ok(bytes_read) => {
-    //                 // 1 did is 2 bytes
-    //                 let expected_byte_count = request.dids.len() * 2;
-    //                 assert_eq!(bytes_read, expected_byte_count);
-    //             }
-    //             _ => {
-    //                 assert!(matches!(result.unwrap_err(), Error::InsufficientData(_)));
-    //             }
-    //         }
-    //     }
-    // }
+        for test_data in &test_data_sets {
+            let request = ReadDataByIdentifierRequest::new(test_data.dids.to_vec());
+            let mut buffer = Vec::new();
+            let write_result = request.to_writer(&mut buffer);
+
+            match write_result {
+                Ok(bytes_read) => {
+                    // 1 did is 2 bytes
+                    let expected_byte_count = request.dids.len() * 2;
+                    assert_eq!(bytes_read, expected_byte_count);
+                }
+                Err(e) => {
+                    // if test_data.dids.is_empty() {
+                    assert!(
+                        matches!(e, Error::InsufficientData(_)),
+                        "InsufficientData: Failed {}",
+                        test_data.test_name
+                    );
+                    // }
+                    // else {
+                    //     assert!(
+                    //         matches!(e, Error::IncorrectMessageLengthOrInvalidFormat),
+                    //         "IncorrectMessageLengthOrInvalidFormat: Failed {}",
+                    //         test_data.test_name
+                    //     );
+                    // }
+                }
+            }
+        }
+    }
 }
