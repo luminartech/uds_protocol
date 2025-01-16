@@ -1,14 +1,30 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
+/// A request to the server to transfer data (either upload or download)
+/// 
+/// Step 1: The client sends a RequestDownload or RequestUpload message to the server
+///     34 .. 11  .. 33   .. 60 20 00 .. 00 FF FF << -- Bytes sent by the client
+///    RID .. DFI .. ALFID .. MA_B#   .. UCMS_B#
+/// 
+/// Step 2: The server sends a [`crate::RequestDownloadResponse`] or [`crate::RequestUploadResponse`] message to the client
+///     The client shall send a TransferDataRequest message 
+///     to the server with a max number of bytes equal to MNROB_B# from the RequestDownloadResponse message
+///    74  .. 20   .. 00 81
+///   RSID .. LFID .. MNROB_B#
+/// 
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct TransferDataRequest {
     /// Starts at 0x01 from the server when a RequestDownload or RequestUpload or RequestFileTransfer is received
     /// Increments by 0x01 for each TransferDataRequest message
     /// At 0xFF the counter wraps around to 0x00
     pub block_sequence_counter: u8,
-    /// The data to be transferred
+    /// The data to be transferred, the server sends the amount of data (# of bytes) it can handle in the
+    /// [`crate::RequestDownloadResponse`] message
     pub data: Vec<u8>,
 }
 
@@ -34,3 +50,24 @@ impl WireFormat for TransferDataRequest {
 }
 
 impl SingleValueWireFormat for TransferDataRequest {}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[non_exhaustive]
+pub struct TransferDataResponse {
+    /// Starts at 0x01 from the server when a RequestDownload or RequestUpload or RequestFileTransfer is received
+    /// Increments by 0x01 for each TransferDataRequest message
+    /// At 0xFF the counter wraps around to 0x00
+    /// 
+    /// This is an ECHO of the block_sequence_counter from the [`TransferDataRequest`] message
+    /// Check against the request to ensure the correct block is being acknowledged
+    /// If the block_sequence_counter is not as expected or does not arrive, the client should retransmit the block
+    pub block_sequence_counter: u8,
+
+    /// Contains data required by the client to support the transfer of data.
+    /// Vehicle manufacturer specific
+    /// 
+    /// For download (client to server), this might be a checksum for the client to verify correct transfer
+    ///     This 
+    /// For upload (server to client), this will include the data from the server
+    pub data: Vec<u8>,
+}
