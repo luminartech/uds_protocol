@@ -18,4 +18,6 @@ pub enum Error {
     InvalidTesterPresentType(u8),
     #[error("Incorrect Message Length Or Invalid Format")]
     IncorrectMessageLengthOrInvalidFormat,
+    #[error("Invalid Encryption/Compression Method: {0}")]
+    InvalidEncryptionCompressionMethod(u8),
 }

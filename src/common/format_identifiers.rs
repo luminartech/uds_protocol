@@ -76,7 +76,10 @@ impl From<MemoryFormatIdentifier> for u8 {
     }
 }
 
-
+/// Decoded from the `length_format_identifier` field of the [`RequestDownloadResponse`] struct
+/// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct
+/// As in it is a nibble with the high nibble being the byte length of the max_number_of_block_length field
+/// I.E. 0x20 means the max_number_of_block_length field is 2 bytes long
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LengthFormatIdentifier {
     pub max_number_of_block_length: u8,
@@ -95,7 +98,11 @@ impl From<LengthFormatIdentifier> for u8 {
     }
 }
 
-
+/// Used by [`RequestDownloadRequest`] for the compression method (high nibble) and encrypting method (low nibble)
+/// - 0x00 is no compression or encryption, which is the default
+/// 
+/// Decoded from the `data_format_identifier` field of the [`RequestDownloadRequest`] struct
+/// Values other than 0x00 are Vehicle Manufacturer specific according to ISO-14229-1:2020
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct DataFormatIdentifier {
     // low nibble
@@ -105,34 +112,29 @@ pub struct DataFormatIdentifier {
 }
 
 impl DataFormatIdentifier {
-    pub fn new(encryption_method: u8, compression_method: u8) -> Self {
+    pub fn new(encryption_method: u8, compression_method: u8) -> Result<Self, Error> {
+        Ok(Self {
+            encryption_method: Self::check_value(encryption_method)?,
+            compression_method: Self::check_value(compression_method)?,
+        })
+    }
+    fn check_value(value: u8) -> Result<u8, Error> {
+        match value {
+            0..=15 => Ok(value),
+            _ => Err(Error::InvalidEncryptionCompressionMethod(value)),
+        }
+    }
+}
+impl From<u8> for DataFormatIdentifier {
+    fn from(value: u8) -> Self {
+
+        let encryption_method = value & ENCRYPTION_NIBBLE_MASK;
+        let compression_method = (value & COMPRESSION_NIBBLE_MASK) >> 4;
+        
         Self {
             encryption_method,
             compression_method,
         }
-    }
-}
-impl TryFrom<u8> for DataFormatIdentifier {
-    type Error = Error;
-    fn try_from(value: u8) -> Result<Self, Error> {
-
-        let encryption_method = value & ENCRYPTION_NIBBLE_MASK;
-        let compression_method = (value & COMPRESSION_NIBBLE_MASK) >> 4;
-        // Has to fit within 4 bits
-        match encryption_method {
-            0..15 => (),
-            _ => return Err(Error::IncorrectMessageLengthOrInvalidFormat,),
-        }
-
-        match compression_method {
-            0..15 => (),
-            _ => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
-        }
-        
-        Ok(Self {
-            encryption_method,
-            compression_method,
-        })
     }
 }
 impl From<DataFormatIdentifier> for u8 {
@@ -175,12 +177,12 @@ mod tests {
         assert_eq!(data_format_identifier.compression_method, 2);
 
         assert_eq!(u8::from(data_format_identifier), 0x23);
-    }
 
-    #[test]
-    fn fail_data_format_identifier() {
-        let data_format_identifier = DataFormatIdentifier::try_from(0x0F);
-        println!("{:?}", data_format_identifier);
+        let data_format_identifier = DataFormatIdentifier::new(0x0F, 0x0F);
+        assert!(matches!(data_format_identifier, Ok(_)));
+
+        let data_format_identifier = DataFormatIdentifier::new(0x1F, 0x0F);
         assert!(matches!(data_format_identifier, Err(Error::IncorrectMessageLengthOrInvalidFormat)));
     }
+
 }

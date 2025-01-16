@@ -106,7 +106,7 @@ impl Request {
     ///     memory_size: the size of the memory to download (Max 4GB)
     ///     memory_address: the address in memory to start downloading from (Maximum 40 bits - 1024GB)
     pub fn request_download(encryption_method: u8, compression_method: u8, memory_address: u64, memory_size: u32) -> Self {
-        let data_format_identifier = DataFormatIdentifier::new(compression_method, encryption_method);
+        let data_format_identifier = DataFormatIdentifier::new(compression_method, encryption_method).unwrap();
         
         let address_and_length_format_identifier = MemoryFormatIdentifier::new(memory_size, memory_address);
         Request::RequestDownload(RequestDownloadRequest::new(
