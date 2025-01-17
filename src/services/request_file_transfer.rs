@@ -1,4 +1,5 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
+use std::io::Read;
 use serde::{Deserialize, Serialize};
 
 use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
@@ -70,10 +71,12 @@ impl TryFrom<u8> for FileOperationMode {
 #[non_exhaustive]
 pub struct RequestFileTransferRequest {
     /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
-    pub mode_of_operation: u8,
+    pub mode_of_operation: FileOperationMode,
 
-    pub file_path_and_name_length: [u8; 2],
+    /// Length in bytes of the `file_path_and_name` field
+    pub file_path_and_name_length: u16,
 
+    /// The path and name of the file or directory on the server
     pub file_path_and_name: String,
 
     /// compression method and encrypting method. 0x00 is no compression or encryption
@@ -107,7 +110,58 @@ impl RequestFileTransferRequest {
 
 impl WireFormat for RequestFileTransferRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        todo!();
+        let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
+        let file_path_and_name_length = reader.read_u16::<byteorder::BigEndian>()?;
+
+        // Read # of bytes specified by `file_path_and_name_length`
+        let mut file_path_and_name = String::new();
+        reader.take(file_path_and_name_length as u64)
+            .read_to_string(&mut file_path_and_name)?;
+
+        // If the mode of operation is DeleteFile or ReadDir, the data format identifier is not included
+        // zero it out and don't use read
+        let data_format_identifier = {
+            if mode_of_operation == FileOperationMode::DeleteFile || mode_of_operation == FileOperationMode::ReadDir {
+                DataFormatIdentifier::new(0, 0).unwrap()
+            } else {
+            DataFormatIdentifier::from(reader.read_u8()?)
+            }
+        };
+
+        let mut file_size_parameter_length = 0;
+        let mut file_size_uncompressed = Vec::new();
+        let mut file_size_compressed = Vec::new();
+
+        if mode_of_operation == FileOperationMode::DeleteFile
+            || mode_of_operation == FileOperationMode::ReadFile
+            || mode_of_operation == FileOperationMode::ReadDir
+        {
+            file_size_parameter_length = reader.read_u8()?;
+
+            file_size_uncompressed = vec![0; file_size_parameter_length as usize];
+            file_size_compressed = vec![0; file_size_parameter_length as usize];
+            reader.read_exact(&mut file_size_uncompressed)?;
+            reader.read_exact(&mut file_size_compressed)?;
+        }
+
+
+        Ok(Some(Self {
+            mode_of_operation,
+            file_path_and_name_length,
+            file_path_and_name,
+            data_format_identifier,
+            file_size_parameter_length,
+            file_size_uncompressed: u128::from_be_bytes({
+                let mut bytes = [0; 16];
+                bytes[16 - file_size_parameter_length as usize..].copy_from_slice(&file_size_uncompressed);
+                bytes
+            }),
+            file_size_compressed: u128::from_be_bytes({
+                let mut bytes = [0; 16];
+                bytes[16 - file_size_parameter_length as usize..].copy_from_slice(&file_size_compressed);
+                bytes
+            }),
+        }))
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
