@@ -28,7 +28,7 @@ mod tester_present;
 pub use tester_present::{TesterPresentRequest, TesterPresentResponse};
 
 mod transfer_data;
-pub use transfer_data::TransferDataRequest;
+pub use transfer_data::{TransferDataRequest, TransferDataResponse};
 
 mod write_data_by_identifier;
 pub use write_data_by_identifier::WriteDataByIdentifierRequest;
