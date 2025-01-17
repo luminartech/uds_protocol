@@ -28,4 +28,6 @@ pub enum Error {
     InvalidEncryptionCompressionMethod(u8),
     #[error("Data required but found none")]
     NoDataAvailable,
+    #[error("Invalid FileTransfer modeOfOperation (server will send requestOutOfRange): {0}")]
+    InvalidFileOperationMode(u8),
 }
