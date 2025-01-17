@@ -165,7 +165,46 @@ impl WireFormat for RequestFileTransferRequest {
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        todo!();
+        let mut len = 0;
+
+        // Fixed size: 1 byte
+        writer.write_u8(self.mode_of_operation.into())?;
+        len += 1;
+
+        // Fixed size: 2 bytes
+        writer.write_u16::<byteorder::BigEndian>(self.file_path_and_name_length)?;
+        len += 2;
+
+        // Dependent size: `file_path_and_name_length` bytes
+        writer.write_all(self.file_path_and_name.as_bytes())?;
+        len += self.file_path_and_name_length as usize;
+
+        // If the mode of operation is DeleteFile or ReadDir, the data format identifier is not included
+        // Fixed size: 1 byte
+        if self.mode_of_operation != FileOperationMode::DeleteFile && self.mode_of_operation != FileOperationMode::ReadDir {
+            writer.write_u8(self.data_format_identifier.into())?;
+            len += 1;
+        }
+
+        // If the mode of operation is DeleteFile, ReadFile, or ReadDir, the file size parameters are not included
+        if self.mode_of_operation == FileOperationMode::DeleteFile
+            || self.mode_of_operation == FileOperationMode::ReadFile
+            || self.mode_of_operation == FileOperationMode::ReadDir
+        {
+            // Fixed size: 1 byte
+            writer.write_u8(self.file_size_parameter_length)?;
+            len += 1;
+
+            // Dependent size: `file_size_parameter_length` bytes
+            writer.write_all(&self.file_size_uncompressed.to_be_bytes())?;
+            len += self.file_size_parameter_length as usize;
+
+            // Dependent size: `file_size_parameter_length` bytes
+            writer.write_all(&self.file_size_compressed.to_be_bytes())?;
+            len += self.file_size_parameter_length as usize;
+        }
+
+        Ok(len)
     }
 }
 
