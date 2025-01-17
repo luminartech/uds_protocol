@@ -1,7 +1,4 @@
-use crate::{
-    Error, IterableWireFormat, NegativeResponseCode, ProtocolIdentifier, SingleValueWireFormat,
-    UDSIdentifier, WireFormat,
-};
+use crate::{Error, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat};
 
 use serde::{Deserialize, Serialize};
 
@@ -122,6 +119,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{ProtocolIdentifier, UDSIdentifier};
     use std::io::Cursor;
 
     mod request {
@@ -135,7 +133,7 @@ mod test {
         impl ReadRequestTestData {
             // Creates a Test Read Request from a list of data identifiers
             fn from_ids(test_name: &str, dids: &[ProtocolIdentifier]) -> Self {
-                let dids_bytes = to_bytes(&dids);
+                let dids_bytes = to_bytes(dids);
                 Self {
                     test_name: test_name.to_string(),
                     dids_bytes,
@@ -169,12 +167,11 @@ mod test {
 
         fn to_bytes(ids: &[ProtocolIdentifier]) -> Vec<u8> {
             ids.iter()
-                .map(|id: &ProtocolIdentifier| {
+                .flat_map(|id: &ProtocolIdentifier| {
                     let mut buffer = Vec::new();
                     id.to_writer(&mut buffer).unwrap();
                     buffer
                 })
-                .flatten()
                 .collect()
         }
 
