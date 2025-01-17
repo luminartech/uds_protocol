@@ -44,8 +44,7 @@ impl<Identifier: IterableWireFormat> WireFormat for ReadDataByIdentifierRequest<
             }
         }
         if dids.is_empty() {
-            // TODO: Add more specific error type
-            Err(Error::InsufficientData(0)) // No data at all
+            Err(Error::NoDataAvailable)
         } else {
             Ok(Some(ReadDataByIdentifierRequest::new(dids)))
         }
@@ -94,8 +93,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
             }
         }
         if data.is_empty() {
-            // TODO: More descriptive error type
-            Err(Error::InsufficientData(0)) // No data at all
+            Err(Error::NoDataAvailable)
         } else {
             Ok(Some(ReadDataByIdentifierResponse::new(data)))
         }
@@ -243,8 +241,8 @@ mod test {
                     Err(e) => {
                         if test_data.dids_bytes.is_empty() {
                             assert!(
-                                matches!(e, Error::InsufficientData(_)),
-                                "InsufficientData: Failed {}",
+                                matches!(e, Error::NoDataAvailable),
+                                "NoDataAvailable: Failed {}",
                                 test_data.test_name
                             );
                         } else {

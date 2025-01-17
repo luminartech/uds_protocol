@@ -26,4 +26,6 @@ pub enum Error {
     InvalidMemoryAddress(u64),
     #[error("Invalid Encryption/Compression Method: {0}")]
     InvalidEncryptionCompressionMethod(u8),
+    #[error("Data required but found none")]
+    NoDataAvailable,
 }
