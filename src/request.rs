@@ -13,7 +13,8 @@ use std::io::{Read, Write};
 
 use super::{
     service::UdsServiceType, CommunicationControlType, CommunicationType, DiagnosticSessionType,
-    DtcSettings, RoutineControlSubFunction,
+    DtcSettings, RoutineControlSubFunction, 
+    MemoryFormatIdentifier, DataFormatIdentifier,
 };
 
 /// UDS Request types
@@ -99,14 +100,21 @@ impl Request {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(did))
     }
 
-    // TODO:: Figure out if the format and length identifiers should be configurable
-    pub fn request_download(memory_address: u32, memory_size: u32) -> Self {
-        Request::RequestDownload(RequestDownloadRequest::new(
-            0x00,
-            0x44,
+    /// Create a new `RequestDownload` request
+    ///     encryption_method: vehicle manufacturer specific (0x0 for no encryption)
+    ///     compression_method: vehicle manufacturer specific (0x0 for no compression)
+    ///     memory_address: the address in memory to start downloading from (Maximum 40 bits - 1024GB)
+    ///     memory_size: the size of the memory to download (Max 4GB)
+    pub fn request_download(encryption_method: u8, compression_method: u8, memory_address: u64, memory_size: u32) -> Result<Self, Error> {
+        let data_format_identifier = DataFormatIdentifier::new(compression_method, encryption_method).unwrap();
+        
+        let address_and_length_format_identifier = MemoryFormatIdentifier::new(memory_size, memory_address);
+        Ok(Request::RequestDownload(RequestDownloadRequest::new(
+            data_format_identifier,
+            address_and_length_format_identifier,
             memory_address,
             memory_size,
-        ))
+        )?))
     }
 
     pub fn request_transfer_exit() -> Self {
@@ -169,6 +177,7 @@ impl Request {
             }
             Self::EcuReset(_) => EcuResetRequest::allowed_nack_codes(),
             Self::SecurityAccess(_) => SecurityAccessRequest::allowed_nack_codes(),
+            Self::RequestDownload(_) => RequestDownloadRequest::allowed_nack_codes(),
             _ => &[NegativeResponseCode::ServiceNotSupported],
         }
     }

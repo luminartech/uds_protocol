@@ -50,6 +50,8 @@ pub enum NegativeResponseCode {
     /// Beside the mandatory use of this negative response code as specified in the applicable services within this standard,
     /// this negative response code can also be used for any case where security is required and is not yet granted to perform the required service.
     SecurityAccessDenied,
+    /// This response code indicates that the requested action will not be taken because the client has insufficient rights based on its Authentication state.
+    AuthenticationRequired,
     /// This response code indicates that the server has not given security access because the key sent by the client did not match with the key in the server's memory.
     /// This counts as an attempt to gain security.
     /// The server shall remain locked and increment its internal securityAccessFailed counter.
@@ -161,6 +163,7 @@ impl From<NegativeResponseCode> for u8 {
             NegativeResponseCode::RequestSequenceError => 0x24,
             NegativeResponseCode::RequestOutOfRange => 0x31,
             NegativeResponseCode::SecurityAccessDenied => 0x33,
+            NegativeResponseCode::AuthenticationRequired => 0x34,
             NegativeResponseCode::InvalidKey => 0x35,
             NegativeResponseCode::ExceedNumberOfAttempts => 0x36,
             NegativeResponseCode::RequiredTimeDelayNotExpired => 0x37,
@@ -214,7 +217,7 @@ impl From<u8> for NegativeResponseCode {
             0x31 => Self::RequestOutOfRange,
             0x32 => Self::ISOSAEReserved(value),
             0x33 => Self::SecurityAccessDenied,
-            0x34 => Self::ISOSAEReserved(value),
+            0x34 => Self::AuthenticationRequired,
             0x35 => Self::InvalidKey,
             0x36 => Self::ExceedNumberOfAttempts,
             0x37 => Self::RequiredTimeDelayNotExpired,
