@@ -47,7 +47,7 @@ impl<Identifier: IterableWireFormat> WireFormat for ReadDataByIdentifierRequest<
             // TODO: Add more specific error type
             Err(Error::InsufficientData(0)) // No data at all
         } else {
-            Ok(Some(Self { dids }))
+            Ok(Some(ReadDataByIdentifierRequest::new(dids)))
         }
     }
 
@@ -97,7 +97,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
             // TODO: More descriptive error type
             Err(Error::InsufficientData(0)) // No data at all
         } else {
-            Ok(Some(Self { data }))
+            Ok(Some(ReadDataByIdentifierResponse::new(data)))
         }
     }
 
