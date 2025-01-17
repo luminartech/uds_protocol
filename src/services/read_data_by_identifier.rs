@@ -4,7 +4,6 @@ use crate::{
 };
 
 use serde::{Deserialize, Serialize};
-// use serde_bytes::ByteBuf;
 
 const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -14,6 +13,7 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::SecurityAccessDenied,
 ];
 
+/// See ISO-14229-1:2020, Table 11.2.1 for format information
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct ReadDataByIdentifierRequest<Identifier> {
@@ -21,6 +21,7 @@ pub struct ReadDataByIdentifierRequest<Identifier> {
 }
 
 impl<Identifier: IterableWireFormat> ReadDataByIdentifierRequest<Identifier> {
+    /// Create a new request from a sequence of data identifiers
     pub(crate) fn new(dids: Vec<Identifier>) -> Self {
         Self { dids }
     }
@@ -32,7 +33,7 @@ impl<Identifier: IterableWireFormat> ReadDataByIdentifierRequest<Identifier> {
 }
 
 impl<Identifier: IterableWireFormat> WireFormat for ReadDataByIdentifierRequest<Identifier> {
-    /// Create a TesterPresentResponse from a sequence of bytes
+    /// Create a request from a sequence of bytes
     fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut dids = Vec::new();
         for identifier in Identifier::from_reader_iterable(reader) {
@@ -46,7 +47,7 @@ impl<Identifier: IterableWireFormat> WireFormat for ReadDataByIdentifierRequest<
             }
         }
         if dids.is_empty() {
-            // TODO: Add more specific error here
+            // TODO: Add more specific error type
             Err(Error::InsufficientData(0)) // No data at all
         } else {
             Ok(Some(Self { dids }))
@@ -69,6 +70,7 @@ impl<Identifier: IterableWireFormat> SingleValueWireFormat
 {
 }
 
+/// See ISO-14229-1:2020, Table 11.2.3 for format information
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ReadDataByIdentifierResponse<UserPayload> {
     pub data: Vec<UserPayload>,
@@ -81,7 +83,7 @@ impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierResponse<UserPayload> {
-    /// Create a ReadDataByIdentifierResponse from a sequence of bytes
+    /// Create a response from a sequence of bytes
     fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
         for payload in UserPayload::from_reader_iterable(reader) {
@@ -130,8 +132,8 @@ mod test {
             pub dids_bytes: Vec<u8>,
         }
 
-        // Holds a byte array of data that will be transformed into a list of dids.
         impl ReadRequestTestData {
+            // Creates a Test Read Request from a list of data identifiers
             fn from_ids(test_name: &str, dids: &[ProtocolIdentifier]) -> Self {
                 let dids_bytes = to_bytes(&dids);
                 Self {
@@ -140,6 +142,8 @@ mod test {
                 }
             }
 
+            // Create a Test Read Request from a list of bytes.
+            // Note: These bytes may not properly translate to a list of data identifiers
             fn from_bytes(test_name: &str, dids_bytes: Vec<u8>) -> Self {
                 Self {
                     test_name: test_name.to_string(),
@@ -314,6 +318,7 @@ mod test {
             pub data3: u16,
         }
 
+        // The UDSIdentifiers are vender defined and don't have interesting payloads, so we define our own types for
         #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
         pub enum TestPayload {
             #[serde(with = "serde_bytes")]
@@ -324,21 +329,30 @@ mod test {
             UDSIdentifier(UDSIdentifier),
         }
 
-        impl TryFrom<u16> for TestPayload {
-            type Error = Error;
-
-            fn try_from(value: u16) -> Result<Self, Self::Error> {
-                Ok(match value {
-                    0xFF00 => TestPayload::MeaningOfLife([0u8; 42]),
-                    0xFF01 => TestPayload::Foo(0u32),
-                    0xFF02 => TestPayload::Bar,
-                    0xFF03 => TestPayload::Baz(BazData {
-                        data: [0u8; 16],
-                        data2: 0u64,
-                        data3: 0u16,
-                    }),
-                    _ => TestPayload::UDSIdentifier(UDSIdentifier::try_from(value)?),
-                })
+        impl TestPayload {
+            fn new<R: std::io::Read>(did: u16, reader: &mut R) -> Result<Self, Error> {
+                match did {
+                    0xFF00 => {
+                        let mut data = [0u8; 42];
+                        reader.read_exact(&mut data)?;
+                        Ok(TestPayload::MeaningOfLife(data))
+                    }
+                    0xFF01 => {
+                        let mut data = [0u8; 4];
+                        reader.read_exact(&mut data)?;
+                        let value = u32::from_be_bytes(data);
+                        Ok(TestPayload::Foo(value))
+                    }
+                    0xFF02 => Ok(TestPayload::Bar),
+                    0xFF03 => {
+                        let data = BazData::option_from_reader(reader)?.unwrap();
+                        Ok(TestPayload::Baz(data))
+                    }
+                    _ => {
+                        let identifier = UDSIdentifier::try_from(did)?;
+                        Ok(TestPayload::UDSIdentifier(identifier))
+                    }
+                }
             }
         }
 
@@ -349,10 +363,11 @@ mod test {
                     TestPayload::Foo(_) => 0xFF01,
                     TestPayload::Bar => 0xFF02,
                     TestPayload::Baz(_) => 0xFF03,
-                    TestPayload::UDSIdentifier(uds_id) => u16::from(uds_id), // Convert UDSIdentifier to u16
+                    TestPayload::UDSIdentifier(uds_id) => u16::from(uds_id),
                 }
             }
         }
+
         impl IterableWireFormat for TestPayload {}
 
         impl WireFormat for TestPayload {
@@ -364,32 +379,8 @@ mod test {
                     2 => (),
                     _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
                 };
-
-                let identifier = u16::from_be_bytes(identifier_data);
-                let payload_type = TestPayload::try_from(identifier)?;
-
-                match payload_type {
-                    TestPayload::MeaningOfLife(_) => {
-                        let mut data = [0u8; 42];
-                        reader.read_exact(&mut data)?;
-                        Ok(Some(TestPayload::MeaningOfLife(data)))
-                    }
-                    TestPayload::Foo(_) => {
-                        let mut data = [0u8; 4];
-                        reader.read_exact(&mut data)?;
-                        let value = u32::from_be_bytes(data);
-                        Ok(Some(TestPayload::Foo(value)))
-                    }
-                    TestPayload::Bar => Ok(Some(TestPayload::Bar)),
-                    TestPayload::Baz(_) => {
-                        let data = BazData::option_from_reader(reader)?.unwrap();
-                        Ok(Some(TestPayload::Baz(data)))
-                    }
-                    TestPayload::UDSIdentifier(_) => {
-                        let identifier = UDSIdentifier::try_from(identifier)?;
-                        Ok(Some(TestPayload::UDSIdentifier(identifier)))
-                    }
-                }
+                let did = u16::from_be_bytes(identifier_data);
+                Ok(Some(TestPayload::new(did, reader)?))
             }
 
             fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
@@ -438,9 +429,8 @@ mod test {
             }
         }
 
-        #[test]
-        fn read_did_response_bytes() {
-            let test_data = vec![
+        fn get_test_response_data() -> Vec<TestPayload> {
+            vec![
                 TestPayload::MeaningOfLife([0; 42]),
                 TestPayload::Foo(42),
                 TestPayload::Bar,
@@ -450,9 +440,14 @@ mod test {
                     data3: 54321,
                 }),
                 TestPayload::UDSIdentifier(UDSIdentifier::BootSoftwareIdentification),
-            ];
+            ]
+        }
 
-            let response = ReadDataByIdentifierResponse::new(test_data.clone());
+        #[test]
+        fn read_did_response_bytes() {
+            let test_data = get_test_response_data();
+
+            let response = ReadDataByIdentifierResponse::new(test_data);
             let mut buffer = Vec::new();
             response.to_writer(&mut buffer).unwrap();
 
@@ -463,6 +458,27 @@ mod test {
                     .unwrap();
 
             assert_eq!(response, read_response);
+        }
+
+        #[test]
+        fn write_did_response_bytes() {
+            let test_data = get_test_response_data();
+
+            let response = ReadDataByIdentifierResponse::new(test_data.clone());
+            let mut buffer = Vec::new();
+            let bytes_written = response.to_writer(&mut buffer).unwrap();
+
+            let expected_bytes: Vec<u8> = test_data
+                .iter()
+                .flat_map(|payload| {
+                    let mut buf = Vec::new();
+                    payload.to_writer(&mut buf).unwrap();
+                    buf
+                })
+                .collect();
+
+            assert_eq!(buffer, expected_bytes);
+            assert_eq!(bytes_written, expected_bytes.len());
         }
     }
 }
