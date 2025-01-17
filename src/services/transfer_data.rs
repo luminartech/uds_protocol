@@ -9,13 +9,18 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 ///     34 .. 11  .. 33   .. 60 20 00 .. 00 FF FF << -- Bytes sent by the client
 ///    RID .. DFI .. ALFID .. MA_B#   .. UCMS_B#
 /// 
-/// Step 2: The server sends a [`crate::RequestDownloadResponse`] or [`crate::RequestUploadResponse`] message to the client
-///     The client shall send a TransferDataRequest message 
+/// Step 1 Response: The server sends a [`crate::RequestDownloadResponse`] or [`crate::RequestUploadResponse`] message to the client
+/// 
+/// Step 2: The client shall send many TransferDataRequest messages written in blocks
 ///     to the server with a max number of bytes equal to MNROB_B# from the RequestDownloadResponse message
 ///    74  .. 20   .. 00 81
 ///   RSID .. LFID .. MNROB_B#
 /// 
-
+/// Step 2 Response: The server sends a [`crate::TransferDataResponse`] message confirming the block sequence
+/// 
+/// Step 3: The client sends a [`crate::UdsServiceType::RequestTransferExit`] message to the server (SID 0x37)
+/// 
+/// Step 3 Response: The server sends a [`crate::UdsServiceType::RequestTransferExit`] response message to the client (RID 0x77)
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct TransferDataRequest {
