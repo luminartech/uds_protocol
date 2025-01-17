@@ -97,6 +97,7 @@ impl WireFormat for TransferDataResponse {
         Ok(1 + self.data.len())
     }
 }
+impl SingleValueWireFormat for TransferDataResponse {}
 
 #[cfg(test)]
 mod tests {
