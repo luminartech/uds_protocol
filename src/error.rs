@@ -30,4 +30,6 @@ pub enum Error {
     NoDataAvailable,
     #[error("Invalid FileTransfer modeOfOperation (server will send requestOutOfRange): {0}")]
     InvalidFileOperationMode(u8),
+    #[error("Invalid file size parameter length (valid values = 1,2,3,4,8,16): {0}")]
+    InvalidFileSizeParameterLength(u8)
 }

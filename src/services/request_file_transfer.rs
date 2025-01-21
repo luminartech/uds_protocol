@@ -106,6 +106,48 @@ pub struct RequestFileTransferRequest {
 }
 
 impl RequestFileTransferRequest {
+    fn write_file_sizes<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        let mut len: usize= 0;
+        // file_size_parameter_length should be a power of 2
+
+        // Ensure file_size_parameter_length is a power of 2
+        match self.file_size_parameter_length {
+            1 => {
+                // Dependent size: `file_size_parameter_length` bytes
+                writer.write_u8(1)?;
+                writer.write_u8(self.file_size_uncompressed as u8)?;
+                writer.write_u8(self.file_size_compressed as u8)?;
+                len += 3;
+            }
+            2 => {
+                writer.write_u8(2)?;
+                writer.write_u16::<byteorder::BigEndian>(self.file_size_uncompressed as u16)?;
+                writer.write_u16::<byteorder::BigEndian>(self.file_size_compressed as u16)?;
+                len += 5;
+            }
+            3..=4 => {
+                writer.write_u8(4)?;
+                writer.write_u32::<byteorder::BigEndian>(self.file_size_uncompressed as u32)?;
+                writer.write_u32::<byteorder::BigEndian>(self.file_size_compressed as u32)?;
+                len += 9;
+            }
+            5..=8 => {
+                writer.write_u8(8)?;
+                writer.write_u64::<byteorder::BigEndian>(self.file_size_uncompressed as u64)?;
+                writer.write_u64::<byteorder::BigEndian>(self.file_size_compressed as u64)?;
+                len += 17;
+            }
+            9..=16 => {
+                writer.write_u8(16)?;
+                writer.write_u128::<byteorder::BigEndian>(self.file_size_uncompressed)?;
+                writer.write_u128::<byteorder::BigEndian>(self.file_size_compressed)?;
+                len += 33;
+            }
+            _ => return Err(Error::InvalidFileSizeParameterLength(self.file_size_parameter_length)),
+        };
+
+        Ok(len)
+    }
 }
 
 impl WireFormat for RequestFileTransferRequest {
@@ -133,9 +175,9 @@ impl WireFormat for RequestFileTransferRequest {
         let mut file_size_compressed = Vec::new();
 
         // If the mode of operation is DeleteFile, ReadFile, or ReadDir, the file size parameters are not included
-        if !(mode_of_operation == FileOperationMode::DeleteFile
-            || mode_of_operation == FileOperationMode::ReadFile
-            || mode_of_operation == FileOperationMode::ReadDir)
+        if mode_of_operation != FileOperationMode::DeleteFile
+            && mode_of_operation != FileOperationMode::ReadFile
+            && mode_of_operation != FileOperationMode::ReadDir
         {
             file_size_parameter_length = reader.read_u8()?;
 
@@ -187,22 +229,13 @@ impl WireFormat for RequestFileTransferRequest {
             len += 1;
         }
 
+
         // If the mode of operation is DeleteFile, ReadFile, or ReadDir, the file size parameters are not included
-        if self.mode_of_operation == FileOperationMode::DeleteFile
-            || self.mode_of_operation == FileOperationMode::ReadFile
-            || self.mode_of_operation == FileOperationMode::ReadDir
+        if self.mode_of_operation != FileOperationMode::DeleteFile
+            && self.mode_of_operation != FileOperationMode::ReadFile
+            && self.mode_of_operation != FileOperationMode::ReadDir
         {
-            // Fixed size: 1 byte
-            writer.write_u8(self.file_size_parameter_length)?;
-            len += 1;
-
-            // Dependent size: `file_size_parameter_length` bytes
-            writer.write_all(&self.file_size_uncompressed.to_be_bytes())?;
-            len += self.file_size_parameter_length as usize;
-
-            // Dependent size: `file_size_parameter_length` bytes
-            writer.write_all(&self.file_size_compressed.to_be_bytes())?;
-            len += self.file_size_parameter_length as usize;
+            len += self.write_file_sizes(writer)?;
         }
 
         Ok(len)
@@ -216,24 +249,50 @@ mod tests {
     use super::*;
 
     // helper function to get some bytes to read from
-    fn get_bytes(mode: FileOperationMode, file_name: &str, file_size: u8) -> Vec<u8> {
+    fn get_bytes(mode: FileOperationMode, file_name: &str, file_size: u128) -> Vec<u8> {
 
         let mut bytes: Vec<u8> = Vec::new();
         bytes.push(mode.into()); // AddFile (u8)
         // write file_name len as 2 bytes
         bytes.write_u16::<byteorder::BigEndian>(file_name.len() as u16).unwrap();
-        bytes.extend_from_slice(&file_name.as_bytes());
+        bytes.extend_from_slice(file_name.as_bytes());
 
-        bytes.push(0x00); // No compression or encryption (u8)
-
+        if mode != FileOperationMode::DeleteFile && mode != FileOperationMode::ReadDir {
+            bytes.push(0x00); // No compression or encryption (u8)
+        }
         // only add file size if not DeleteFile, ReadDir, or ReadFile
         if mode != FileOperationMode::DeleteFile 
-            || mode != FileOperationMode::ReadDir 
-            || mode != FileOperationMode::ReadFile {
-            bytes.push(1);
-            bytes.push(file_size);
-            bytes.push(file_size);
-
+            && mode != FileOperationMode::ReadDir 
+            && mode != FileOperationMode::ReadFile {
+            // count the number of bytes occupied by the file size
+            let num = ((u128::BITS - file_size.leading_zeros() + 15 )/ 8) as u8;
+            match num {
+                1 => {
+                    bytes.push(1);
+                    bytes.write_u8(file_size as u8).unwrap();
+                    bytes.write_u8(file_size as u8).unwrap();
+                }
+                2 => {
+                    bytes.push(2);
+                    bytes.write_u16::<byteorder::BigEndian>(file_size as u16).unwrap();
+                    bytes.write_u16::<byteorder::BigEndian>(file_size as u16).unwrap();
+                }
+                3..=4 => {
+                    bytes.push(4);
+                    bytes.write_u32::<byteorder::BigEndian>(file_size as u32).unwrap();
+                    bytes.write_u32::<byteorder::BigEndian>(file_size as u32).unwrap();
+                }
+                5..=8 => {
+                    bytes.push(8);
+                    bytes.write_u64::<byteorder::BigEndian>(file_size as u64).unwrap();
+                    bytes.write_u64::<byteorder::BigEndian>(file_size as u64).unwrap();
+                }
+                _ => {
+                    bytes.push(16);
+                    bytes.write_u128::<byteorder::BigEndian>(file_size).unwrap();
+                    bytes.write_u128::<byteorder::BigEndian>(file_size).unwrap();
+                }
+            }
         }
         bytes
     }
@@ -241,7 +300,7 @@ mod tests {
     #[test]
     fn add_file() {
         let compare_string = "test.txt";
-        let file_size = 8;
+        let file_size: u128 = (u64::MAX as u128) + 1000u128;
         let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
         let req = RequestFileTransferRequest::option_from_reader(&mut &bytes[..])
             .unwrap()
@@ -250,9 +309,9 @@ mod tests {
         assert_eq!(req.file_path_and_name_length, 8);
         assert_eq!(req.file_path_and_name, compare_string);
         assert_eq!(req.data_format_identifier, 0x00);
-        assert_eq!(req.file_size_parameter_length, 1);
-        assert_eq!(req.file_size_uncompressed, file_size.into());
-        assert_eq!(req.file_size_compressed, file_size.into());
+        assert_eq!(req.file_size_parameter_length, 16);
+        assert_eq!(req.file_size_uncompressed, file_size);
+        assert_eq!(req.file_size_compressed, file_size);
     }
 
     #[test]
@@ -267,6 +326,46 @@ mod tests {
         assert_eq!(req.file_path_and_name, compare_string);
         assert_eq!(req.data_format_identifier, 0x00);
         assert_eq!(req.file_size_parameter_length, 0);
+    }
+
+    #[test]
+    fn write_add_file() {
+        let compare_string = "test.txt";
+        let file_size: u128 = (u64::MAX as u128) + 1000u128;
+        let req = RequestFileTransferRequest {
+            mode_of_operation: FileOperationMode::AddFile,
+            file_path_and_name_length: compare_string.len() as u16,
+            file_path_and_name: compare_string.to_string(),
+            data_format_identifier: DataFormatIdentifier::new(0, 0).unwrap(),
+            file_size_parameter_length: 16,
+            file_size_uncompressed: file_size,
+            file_size_compressed: file_size,
+        };
+        let mut bytes = Vec::new();
+        req.to_writer(&mut bytes).unwrap();
+        // Should be equivalent to our helper function
+        let expected_bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
+        assert_eq!(bytes, expected_bytes);
+    }
+
+    #[test]
+    fn write_delete_file() {
+        let compare_string = "/var/tmp/delete_file.bin";
+        let req = RequestFileTransferRequest {
+            mode_of_operation: FileOperationMode::DeleteFile,
+            file_path_and_name_length: compare_string.len() as u16,
+            file_path_and_name: compare_string.to_string(),
+            data_format_identifier: DataFormatIdentifier::new(0, 0).unwrap(),
+            // these shouldn't be used
+            file_size_parameter_length: 0,
+            file_size_uncompressed: 0,
+            file_size_compressed: 0,
+        };
+        let mut bytes = Vec::new();
+        req.to_writer(&mut bytes).unwrap();
+        // Should be equivalent to our helper function
+        let expected_bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
+        assert_eq!(bytes, expected_bytes);
     }
 
     #[test]
