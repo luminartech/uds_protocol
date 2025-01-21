@@ -132,9 +132,10 @@ impl WireFormat for RequestFileTransferRequest {
         let mut file_size_uncompressed = Vec::new();
         let mut file_size_compressed = Vec::new();
 
-        if mode_of_operation == FileOperationMode::DeleteFile
+        // If the mode of operation is DeleteFile, ReadFile, or ReadDir, the file size parameters are not included
+        if !(mode_of_operation == FileOperationMode::DeleteFile
             || mode_of_operation == FileOperationMode::ReadFile
-            || mode_of_operation == FileOperationMode::ReadDir
+            || mode_of_operation == FileOperationMode::ReadDir)
         {
             file_size_parameter_length = reader.read_u8()?;
 
@@ -213,6 +214,60 @@ impl SingleValueWireFormat for RequestFileTransferRequest {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // helper function to get some bytes to read from
+    fn get_bytes(mode: FileOperationMode, file_name: &str, file_size: u8) -> Vec<u8> {
+
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.push(mode.into()); // AddFile (u8)
+        // write file_name len as 2 bytes
+        bytes.write_u16::<byteorder::BigEndian>(file_name.len() as u16).unwrap();
+        bytes.extend_from_slice(&file_name.as_bytes());
+
+        bytes.push(0x00); // No compression or encryption (u8)
+
+        // only add file size if not DeleteFile, ReadDir, or ReadFile
+        if mode != FileOperationMode::DeleteFile 
+            || mode != FileOperationMode::ReadDir 
+            || mode != FileOperationMode::ReadFile {
+            bytes.push(1);
+            bytes.push(file_size);
+            bytes.push(file_size);
+
+        }
+        bytes
+    }
+
+    #[test]
+    fn add_file() {
+        let compare_string = "test.txt";
+        let file_size = 8;
+        let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
+        let req = RequestFileTransferRequest::option_from_reader(&mut &bytes[..])
+            .unwrap()
+            .unwrap();
+        assert_eq!(req.mode_of_operation, FileOperationMode::AddFile);
+        assert_eq!(req.file_path_and_name_length, 8);
+        assert_eq!(req.file_path_and_name, compare_string);
+        assert_eq!(req.data_format_identifier, 0x00);
+        assert_eq!(req.file_size_parameter_length, 1);
+        assert_eq!(req.file_size_uncompressed, file_size.into());
+        assert_eq!(req.file_size_compressed, file_size.into());
+    }
+
+    #[test]
+    fn delete_file() {
+        let compare_string = "/var/tmp/delete_file.bin";
+        let bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
+        let req = RequestFileTransferRequest::option_from_reader(&mut &bytes[..])
+            .unwrap()
+            .unwrap();
+        assert_eq!(req.mode_of_operation, FileOperationMode::DeleteFile);
+        assert_eq!(req.file_path_and_name_length, compare_string.len() as u16);
+        assert_eq!(req.file_path_and_name, compare_string);
+        assert_eq!(req.data_format_identifier, 0x00);
+        assert_eq!(req.file_size_parameter_length, 0);
+    }
 
     #[test]
     fn test_file_operation_mode() {

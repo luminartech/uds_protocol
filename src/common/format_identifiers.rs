@@ -143,6 +143,14 @@ impl From<DataFormatIdentifier> for u8 {
     }
 }
 
+// compare to a u8 value
+impl PartialEq<u8> for DataFormatIdentifier {
+    fn eq(&self, other: &u8) -> bool {
+        let other_data_format_identifier = DataFormatIdentifier::from(*other);
+        self == &other_data_format_identifier
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
