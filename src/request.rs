@@ -20,7 +20,7 @@ use super::{
 /// UDS Request types
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
-pub enum Request<DiagnosticIdentifier> {
+pub enum Request<DiagnosticIdentifier, DiagnosticPayload> {
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
@@ -32,12 +32,11 @@ pub enum Request<DiagnosticIdentifier> {
     SecurityAccess(SecurityAccessRequest),
     TesterPresent(TesterPresentRequest),
     TransferData(TransferDataRequest),
-    WriteDataByIdentifier(WriteDataByIdentifierRequest),
+    WriteDataByIdentifier(WriteDataByIdentifierRequest<DiagnosticPayload>),
 }
 
-impl<DiagnosticIdentifier> Request<DiagnosticIdentifier>
-where
-    DiagnosticIdentifier: IterableWireFormat,
+impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat>
+    Request<DiagnosticIdentifier, DiagnosticPayload>
 {
     /// Create a `CommunicationControlRequest` with standard address information.
     ///
@@ -156,8 +155,8 @@ where
         Request::TransferData(TransferDataRequest::new(sequence, data))
     }
 
-    pub fn write_data_by_identifier(did: u16, data: Vec<u8>) -> Self {
-        Request::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(did, data))
+    pub fn write_data_by_identifier(payload: DiagnosticPayload) -> Self {
+        Request::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(payload))
     }
 
     pub fn service(&self) -> UdsServiceType {
@@ -190,7 +189,9 @@ where
     }
 }
 
-impl<DiagnosticIdentifier: IterableWireFormat> WireFormat for Request<DiagnosticIdentifier> {
+impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat> WireFormat
+    for Request<DiagnosticIdentifier, DiagnosticPayload>
+{
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -296,7 +297,7 @@ impl<DiagnosticIdentifier: IterableWireFormat> WireFormat for Request<Diagnostic
     }
 }
 
-impl<DiagnosticIdentifier: IterableWireFormat> IterableWireFormat
-    for Request<DiagnosticIdentifier>
+impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat>
+    IterableWireFormat for Request<DiagnosticIdentifier, DiagnosticPayload>
 {
 }

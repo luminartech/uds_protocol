@@ -87,7 +87,6 @@ impl WireFormat for ProtocolIdentifier {
             _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
         };
 
-        // This seems wrong or something it doesn't account for
         let identifier = u16::from_be_bytes(identifier_data);
         Ok(Some(Self {
             identifier: UDSIdentifier::try_from(identifier)?,
