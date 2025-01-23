@@ -72,3 +72,5 @@ impl WireFormat for ProtocolPayload {
         )
     }
 }
+
+impl IterableWireFormat for ProtocolPayload {}
