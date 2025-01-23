@@ -1,7 +1,6 @@
-use crate::{Error, IterableWireFormat, WireFormat};
-use byteorder::WriteBytesExt;
+use crate::Error;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, ops::Deref};
+use std::fmt::Debug;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum UDSIdentifier {
