@@ -4,30 +4,31 @@ use serde::{Deserialize, Serialize};
 
 use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 
+#[repr(u8)]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum FileOperationMode {
     // 0x00, 0x07-0xFF Reserved for future definition by ISO
-    ISOSAEReserved,
+    ISOSAEReserved(u8),
     /// Add a file to the server
-    AddFile,
+    AddFile = 0x01,
     /// Delete the specified file from the server
-    DeleteFile,
+    DeleteFile = 0x02,
     /// Replace the specified file on the server, if it does not exist, add it
-    ReplaceFile,
+    ReplaceFile = 0x03,
     /// Read the specified file from the server (upload)
-    ReadFile,
+    ReadFile = 0x04,
     /// Read the directory from the server
     /// Implies that the request does not include a `fileName`
-    ReadDir,
+    ReadDir = 0x05,
     /// Resume a file transfer at the returned `filePosition` indicator
     /// The file must already exist in the ECU's filesystem
-    ResumeFile,
+    ResumeFile = 0x06,
 }
 
 impl From<FileOperationMode> for u8 {
     fn from(value: FileOperationMode) -> Self {
         match value {
-            FileOperationMode::ISOSAEReserved => 0x00,
+            FileOperationMode::ISOSAEReserved(value) => value,
             FileOperationMode::AddFile => 0x01,
             FileOperationMode::DeleteFile => 0x02,
             FileOperationMode::ReplaceFile => 0x03,
@@ -49,7 +50,7 @@ impl TryFrom<u8> for FileOperationMode {
             0x04 => Ok(Self::ReadFile),
             0x05 => Ok(Self::ReadDir),
             0x06 => Ok(Self::ResumeFile),
-            _ => Err(Error::InvalidFileOperationMode(value)),
+            0x00 | 0x07..=0xFF => Ok(Self::ISOSAEReserved(value)),
         }
     }
 }
