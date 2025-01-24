@@ -1,9 +1,10 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use std::io::Read;
 use serde::{Deserialize, Serialize};
+use std::io::Read;
 
 use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 
+///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum FileOperationMode {
@@ -56,22 +57,36 @@ impl TryFrom<u8> for FileOperationMode {
 }
 
 /// Holds the sizes of the file to be transferred (if applicable)
+/// Used for both [RequestFileTransferRequest] and [ResponseFileTransferResponse]
 ///
-/// Not included in the request message if `mode_of_operation` is one of:
-///    * `DeleteFile` (0x02)
-///    * `ReadFile` (0x04)
-///    * `ReadDir` (0x05)
-///    * `ResumeFile` (0x06)
+/// |              | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
+/// |--------------|-----------|--------------|---------------|------------|-----------|--------------|
+/// |**[Request]** | Yes       |              | Yes           |            |           | Yes          |
+/// |**[Response]**|           |              |               | Yes        |           |              |
+///
+/// [AddFile]: FileOperationMode::AddFile
+/// [DeleteFile]: FileOperationMode::DeleteFile
+/// [ReplaceFile]: FileOperationMode::ReplaceFile
+/// [ReadFile]: FileOperationMode::ReadFile
+/// [ReadDir]: FileOperationMode::ReadDir
+/// [ResumeFile]: FileOperationMode::ResumeFile
+/// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
+/// [Response]: ResponseFileTransferResponse (ResponseFileTransferResponse)
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SizePayload {
-    // Length in bytes for both `file_size_uncompressed` and `file_size_compressed`
-    /// Not included in the request message if `mode_of_operation` is one of:
-    ///     * `DeleteFile` (0x02)
-    ///     * `ReadFile` (0x04)
-    ///     * `ReadDir` (0x05)
+    /// Length in bytes for both `file_size_uncompressed` and `file_size_compressed`
+    ///
+    /// Not included in the *Request* message if `mode_of_operation` is one of:
+    ///  * `DeleteFile` (0x02)
+    ///  * `ReadFile` (0x04)
+    ///  * `ReadDir` (0x05)
+    ///
+    /// Not included in the *Response* message if `mode_of_operation` is one of:
+    ///    * `DeleteFile` (0x02)
     pub file_size_parameter_length: u8,
 
     /// Specifies the size of the uncompressed file in bytes.
+    ///
     /// Not included in the request message if `mode_of_operation` is one of:
     ///     * `DeleteFile` (0x02)
     ///     * `ReadFile` (0x04)
@@ -79,6 +94,7 @@ pub struct SizePayload {
     pub file_size_uncompressed: u128,
 
     /// Specifies the size of the compressed file in bytes
+    ///
     /// Not included in the request message if `mode_of_operation` is one of:
     ///     * `DeleteFile` (0x02)
     ///     * `ReadFile` (0x04)
@@ -159,7 +175,20 @@ impl WireFormat for SizePayload {
 }
 impl SingleValueWireFormat for SizePayload {}
 
-/// Payload used for all FileTransfer requests
+/// Payload used for all [RequestFileTransfer requests][RequestFileTransferRequest]
+///
+/// #### ***Request*** Message
+/// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
+/// |---------------|-----------|--------------|---------------|------------|-----------|--------------|
+/// |**[Request]**  | Yes       | Yes          | Yes           | Yes        | Yes       | Yes          |
+///
+/// [AddFile]: FileOperationMode::AddFile
+/// [DeleteFile]: FileOperationMode::DeleteFile
+/// [ReplaceFile]: FileOperationMode::ReplaceFile
+/// [ReadFile]: FileOperationMode::ReadFile
+/// [ReadDir]: FileOperationMode::ReadDir
+/// [ResumeFile]: FileOperationMode::ResumeFile
+/// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct NamePayload {
     /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
