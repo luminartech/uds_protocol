@@ -2,7 +2,9 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 
-use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
+use crate::{
+    DataFormatIdentifier, Error, LengthFormatIdentifier, SingleValueWireFormat, WireFormat,
+};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 #[repr(u8)]
@@ -331,6 +333,64 @@ impl WireFormat for RequestFileTransferRequest {
                 len
             }
         })
+    }
+}
+
+///////////////////////////////////////// - Response - ///////////////////////////////////////////////////
+
+/// Sent by the server to inform the client of the maximum number of bytes to include in each TransferData request message
+///
+/// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
+/// |---------------|-----------|--------------|---------------|------------|-----------|--------------|
+/// |**[Response]** | Yes       |              | Yes           | Yes        | Yes       | Yes          |
+///
+/// [AddFile]: FileOperationMode::AddFile
+/// [DeleteFile]: FileOperationMode::DeleteFile
+/// [ReplaceFile]: FileOperationMode::ReplaceFile
+/// [ReadFile]: FileOperationMode::ReadFile
+/// [ReadDir]: FileOperationMode::ReadDir
+/// [ResumeFile]: FileOperationMode::ResumeFile
+/// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SentDataPayload {
+    length_format_identifier: LengthFormatIdentifier,
+    /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
+    /// data bytes (maxNumberOfBlockLength) to include in each TransferData request message from the client or how
+    /// many data bytes the server will include in a TransferData positive response when uploading data. This length
+    /// reflects the complete message length, including the service identifier and the data parameters present in the
+    /// TransferData request message or positive response message. This parameter allows either the client to adapt to
+    /// the receive buffer size of the server before it starts transferring data to the server or to indicate how many data
+    /// bytes will be included in each TransferData positive response in the event that data is uploaded. A server is
+    /// required to accept transferData requests that are equal in length to its reported maxNumberOfBlockLength. It is
+    /// server specific what transferData request lengths less than maxNumberOfBlockLength are accepted (if any).
+    ///
+    /// NOTE The last transferData request within a given block can be required to be less than
+    /// maxNumberOfBlockLength. It is not allowed for a server to write additional data bytes (i.e. pad bytes) not
+    /// contained within the transferData message (either in a compressed or uncompressed format), as this would
+    /// affect the memory address of where the subsequent transferData request data would be written.
+    /// If the modeOfOperation parameter equals to 0x02 (DeleteFile) this parameter shall be not be included in the
+    /// response message.
+    pub max_number_of_block_length: Vec<u8>,
+}
+
+impl SingleValueWireFormat for SentDataPayload {}
+impl WireFormat for SentDataPayload {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let length_format_identifier = LengthFormatIdentifier::from(reader.read_u8()?);
+
+        let mut max_number_of_block_length: Vec<u8> =
+            vec![0; length_format_identifier.max_number_of_block_length as usize];
+        reader.read_exact(&mut max_number_of_block_length)?;
+        Ok(Some(Self {
+            length_format_identifier,
+            max_number_of_block_length,
+        }))
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.length_format_identifier.into())?;
+        writer.write_all(&self.max_number_of_block_length)?;
+        Ok(1 + self.max_number_of_block_length.len())
     }
 }
 
