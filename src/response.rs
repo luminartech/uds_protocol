@@ -1,7 +1,7 @@
 use crate::{
     CommunicationControlResponse, CommunicationControlType, DiagnosticSessionControlResponse,
     DiagnosticSessionType, EcuResetResponse, Error, IterableWireFormat,
-    ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferRequest, ResetType,
+    ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferResponse, ResetType,
     SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat, TesterPresentResponse,
     TransferDataResponse, UdsServiceType, WireFormat,
 };
@@ -23,7 +23,7 @@ pub enum Response<UserPayload> {
     ReadDataByIdentifier(ReadDataByIdentifierResponse<UserPayload>),
     /// Response to a [`RequestDownload`](crate::RequestDownload)
     RequestDownload(RequestDownloadResponse),
-    RequestFileTransfer(RequestFileTransferRequest),
+    RequestFileTransfer(RequestFileTransferResponse),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     SecurityAccess(SecurityAccessResponse),

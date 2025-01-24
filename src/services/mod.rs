@@ -19,7 +19,9 @@ mod request_download;
 pub use request_download::{RequestDownloadRequest, RequestDownloadResponse};
 
 mod request_file_transfer;
-pub use request_file_transfer::{FileOperationMode, RequestFileTransferRequest};
+pub use request_file_transfer::{
+    FileOperationMode, RequestFileTransferRequest, RequestFileTransferResponse,
+};
 
 mod routine_control;
 pub use routine_control::RoutineControlRequest;

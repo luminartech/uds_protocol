@@ -59,7 +59,7 @@ impl TryFrom<u8> for FileOperationMode {
 }
 
 /// Holds the sizes of the file to be transferred (if applicable)
-/// Used for both [RequestFileTransferRequest] and [ResponseFileTransferResponse]
+/// Used for both [RequestFileTransferRequest] and [RequestFileTransferResponse]
 ///
 /// |              | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
 /// |--------------|-----------|--------------|---------------|------------|-----------|--------------|
@@ -73,7 +73,7 @@ impl TryFrom<u8> for FileOperationMode {
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
-/// [Response]: ResponseFileTransferResponse (ResponseFileTransferResponse)
+/// [Response]: RequestFileTransferResponse (RequestFileTransferResponse)
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SizePayload {
     /// Length in bytes for both `file_size_uncompressed` and `file_size_compressed`
@@ -487,6 +487,117 @@ impl WireFormat for PositionPayload {
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u64::<byteorder::BigEndian>(self.file_position)?;
         Ok(8)
+    }
+}
+
+/// Response to a [`RequestFileTransferRequest`] from the server
+///
+/// The server will respond with a [`RequestFileTransferResponse`] to indicate the status of the request
+/// [DataFormatIdentifier] - Echoes the value of the request
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[non_exhaustive]
+pub enum RequestFileTransferResponse {
+    AddFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
+    DeleteFile(FileOperationMode),
+    ReplaceFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
+    ReadFile(FileOperationMode, SentDataPayload, SizePayload),
+    ReadDir(
+        FileOperationMode,
+        SentDataPayload,
+        DataFormatIdentifier,
+        DirSizePayload,
+    ),
+    ResumeFile(
+        FileOperationMode,
+        SentDataPayload,
+        DataFormatIdentifier,
+        PositionPayload,
+    ),
+}
+
+impl SingleValueWireFormat for RequestFileTransferResponse {}
+impl WireFormat for RequestFileTransferResponse {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        // Read the mode of operation
+        let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
+        Ok(Some(match mode_of_operation {
+            FileOperationMode::AddFile => Self::AddFile(
+                mode_of_operation,
+                SentDataPayload::from_reader(reader)?,
+                DataFormatIdentifier::from_reader(reader)?,
+            ),
+            FileOperationMode::DeleteFile => Self::DeleteFile(mode_of_operation),
+            FileOperationMode::ReplaceFile => Self::ReplaceFile(
+                mode_of_operation,
+                SentDataPayload::from_reader(reader)?,
+                DataFormatIdentifier::from_reader(reader)?,
+            ),
+            FileOperationMode::ReadFile => Self::ReadFile(
+                mode_of_operation,
+                SentDataPayload::from_reader(reader)?,
+                SizePayload::from_reader(reader)?,
+            ),
+            FileOperationMode::ReadDir => Self::ReadDir(
+                mode_of_operation,
+                SentDataPayload::from_reader(reader)?,
+                DataFormatIdentifier::from_reader(reader)?,
+                DirSizePayload::from_reader(reader)?,
+            ),
+            FileOperationMode::ResumeFile => Self::ResumeFile(
+                mode_of_operation,
+                SentDataPayload::from_reader(reader)?,
+                DataFormatIdentifier::from_reader(reader)?,
+                PositionPayload::from_reader(reader)?,
+            ),
+            FileOperationMode::ISOSAEReserved(_) => {
+                return Err(Error::InvalidFileOperationMode(mode_of_operation.into()))
+            }
+        }))
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        // Every variant has a mode of operation
+        let mut len = 1;
+
+        match self {
+            Self::AddFile(mode_of_operation, sent_data_payload, data_format_identifier)
+            | Self::ReplaceFile(mode_of_operation, sent_data_payload, data_format_identifier) => {
+                writer.write_u8((*mode_of_operation).into())?;
+                len += sent_data_payload.to_writer(writer)?;
+                len += data_format_identifier.to_writer(writer)?;
+            }
+            Self::DeleteFile(mode_of_operation) => {
+                writer.write_u8((*mode_of_operation).into())?;
+            }
+            Self::ReadFile(mode_of_operation, sent_data_payload, size_payload) => {
+                writer.write_u8((*mode_of_operation).into())?;
+                len += sent_data_payload.to_writer(writer)?;
+                len += size_payload.to_writer(writer)?;
+            }
+            Self::ReadDir(
+                mode_of_operation,
+                sent_data_payload,
+                data_format_identifier,
+                dir_size_payload,
+            ) => {
+                writer.write_u8((*mode_of_operation).into())?;
+                len += sent_data_payload.to_writer(writer)?;
+                len += data_format_identifier.to_writer(writer)?;
+                len += dir_size_payload.to_writer(writer)?;
+            }
+            Self::ResumeFile(
+                mode_of_operation,
+                sent_data_payload,
+                data_format_identifier,
+                position_payload,
+            ) => {
+                writer.write_u8((*mode_of_operation).into())?;
+                len += sent_data_payload.to_writer(writer)?;
+                len += data_format_identifier.to_writer(writer)?;
+                len += position_payload.to_writer(writer)?;
+            }
+        }
+        Ok(len)
     }
 }
 
