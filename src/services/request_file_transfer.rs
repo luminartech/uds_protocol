@@ -130,47 +130,23 @@ impl WireFormat for SizePayload {
         }))
     }
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        let mut len: usize = 0;
+        // Always write the file size as 8 bytes
+        let mut len: usize = std::mem::size_of_val(&self.file_size_parameter_length);
 
-        // Ensure file_size_parameter_length is a power of 2
-        match self.file_size_parameter_length {
-            1 => {
-                // Dependent size: `file_size_parameter_length` bytes
-                writer.write_u8(1)?;
-                writer.write_u8(self.file_size_uncompressed as u8)?;
-                writer.write_u8(self.file_size_compressed as u8)?;
-                len += 3;
-            }
-            2 => {
-                writer.write_u8(2)?;
-                writer.write_u16::<byteorder::BigEndian>(self.file_size_uncompressed as u16)?;
-                writer.write_u16::<byteorder::BigEndian>(self.file_size_compressed as u16)?;
-                len += 5;
-            }
-            3..=4 => {
-                writer.write_u8(4)?;
-                writer.write_u32::<byteorder::BigEndian>(self.file_size_uncompressed as u32)?;
-                writer.write_u32::<byteorder::BigEndian>(self.file_size_compressed as u32)?;
-                len += 9;
-            }
-            5..=8 => {
-                writer.write_u8(8)?;
-                writer.write_u64::<byteorder::BigEndian>(self.file_size_uncompressed as u64)?;
-                writer.write_u64::<byteorder::BigEndian>(self.file_size_compressed as u64)?;
-                len += 17;
-            }
-            9..=16 => {
-                writer.write_u8(16)?;
-                writer.write_u128::<byteorder::BigEndian>(self.file_size_uncompressed)?;
-                writer.write_u128::<byteorder::BigEndian>(self.file_size_compressed)?;
-                len += 33;
-            }
-            _ => {
-                return Err(Error::InvalidFileSizeParameterLength(
-                    self.file_size_parameter_length,
-                ))
-            }
-        };
+        writer.write_u8(self.file_size_parameter_length)?;
+        // write the file size only as many bytes as needed
+        // Slice off only the number of bytes we need from the end of the file_size bytes
+        let uncompressed = self.file_size_uncompressed.to_be_bytes();
+        let compressed = self.file_size_compressed.to_be_bytes();
+        // file_size_uncompressed
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.extend_from_slice(&uncompressed[16 - self.file_size_parameter_length as usize..]);
+        // file_size_compressed
+        bytes.extend_from_slice(&compressed[16 - self.file_size_parameter_length as usize..]);
+
+        writer.write_all(&bytes)?;
+
+        len += bytes.len();
 
         Ok(len)
     }
@@ -604,6 +580,7 @@ impl WireFormat for RequestFileTransferResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::param_length_u128;
 
     // helper function to get some bytes to read from
     fn get_bytes(mode: FileOperationMode, file_name: &str, file_size: u128) -> Vec<u8> {
@@ -624,46 +601,16 @@ mod tests {
             && mode != FileOperationMode::ReadFile
         {
             // count the number of bytes occupied by the file size
-            let num = ((u128::BITS - file_size.leading_zeros() + 15) / 8) as u8;
-            match num {
-                1 => {
-                    bytes.push(1);
-                    bytes.write_u8(file_size as u8).unwrap();
-                    bytes.write_u8(file_size as u8).unwrap();
-                }
-                2 => {
-                    bytes.push(2);
-                    bytes
-                        .write_u16::<byteorder::BigEndian>(file_size as u16)
-                        .unwrap();
-                    bytes
-                        .write_u16::<byteorder::BigEndian>(file_size as u16)
-                        .unwrap();
-                }
-                3..=4 => {
-                    bytes.push(4);
-                    bytes
-                        .write_u32::<byteorder::BigEndian>(file_size as u32)
-                        .unwrap();
-                    bytes
-                        .write_u32::<byteorder::BigEndian>(file_size as u32)
-                        .unwrap();
-                }
-                5..=8 => {
-                    bytes.push(8);
-                    bytes
-                        .write_u64::<byteorder::BigEndian>(file_size as u64)
-                        .unwrap();
-                    bytes
-                        .write_u64::<byteorder::BigEndian>(file_size as u64)
-                        .unwrap();
-                }
-                _ => {
-                    bytes.push(16);
-                    bytes.write_u128::<byteorder::BigEndian>(file_size).unwrap();
-                    bytes.write_u128::<byteorder::BigEndian>(file_size).unwrap();
-                }
-            }
+            let num = param_length_u128(file_size);
+            // use write exact
+            bytes.write_u8(num).unwrap();
+            // write the file size only as many bytes as needed
+            // Slice off only the number of bytes we need from the end of the file_size bytes
+            let source = file_size.to_be_bytes();
+            // file_size_uncompressed
+            bytes.extend_from_slice(&source[16 - num as usize..]);
+            // file_size_compressed
+            bytes.extend_from_slice(&source[16 - num as usize..]);
         }
         bytes
     }
@@ -684,7 +631,7 @@ mod tests {
                 assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
                 assert_eq!(pl.file_path_and_name, compare_string);
                 assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(file_size_pl.file_size_parameter_length, 16);
+                assert_eq!(file_size_pl.file_size_parameter_length, 9);
                 assert_eq!(file_size_pl.file_size_uncompressed, file_size);
                 assert_eq!(file_size_pl.file_size_compressed, file_size);
             }
