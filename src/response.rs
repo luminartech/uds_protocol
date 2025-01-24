@@ -1,9 +1,9 @@
 use crate::{
     CommunicationControlResponse, CommunicationControlType, DiagnosticSessionControlResponse,
     DiagnosticSessionType, EcuResetResponse, Error, IterableWireFormat,
-    ReadDataByIdentifierResponse, RequestDownloadResponse, ResetType, SecurityAccessResponse,
-    SecurityAccessType, SingleValueWireFormat, TesterPresentResponse, TransferDataResponse,
-    UdsServiceType, WireFormat,
+    ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferRequest, ResetType,
+    SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat, TesterPresentResponse,
+    TransferDataResponse, UdsServiceType, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -23,6 +23,7 @@ pub enum Response<UserPayload> {
     ReadDataByIdentifier(ReadDataByIdentifierResponse<UserPayload>),
     /// Response to a [`RequestDownload`](crate::RequestDownload)
     RequestDownload(RequestDownloadResponse),
+    RequestFileTransfer(RequestFileTransferRequest),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     SecurityAccess(SecurityAccessResponse),
@@ -79,6 +80,7 @@ impl<UserPayload> Response<UserPayload> {
             Self::EcuReset(_) => UdsServiceType::EcuReset,
             Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
+            Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
@@ -125,6 +127,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::EcuReset(reset) => reset.to_writer(writer),
             Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),
             Self::RequestDownload(rd) => rd.to_writer(writer),
+            Self::RequestFileTransfer(rft) => rft.to_writer(writer),
             Self::RequestTransferExit => Ok(0),
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
