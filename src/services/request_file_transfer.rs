@@ -394,6 +394,62 @@ impl WireFormat for SentDataPayload {
     }
 }
 
+/// Used to inform the client of the size of the directory to be transferred
+/// This data functionally overlaps in the ISO 14229-1:2020 standard with the
+/// SizePayload fields for file size (fileSizeOrDirInfoParameterLength, fileSizeUncompressedOrDirInfoLength, fileSizeCompressed)
+///
+/// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
+/// |---------------|-----------|--------------|---------------|------------|-----------|--------------|
+/// |**[Response]** |           |              |               |            | Yes       |              |
+///
+/// [AddFile]: FileOperationMode::AddFile
+/// [DeleteFile]: FileOperationMode::DeleteFile
+/// [ReplaceFile]: FileOperationMode::ReplaceFile
+/// [ReadFile]: FileOperationMode::ReadFile
+/// [ReadDir]: FileOperationMode::ReadDir
+/// [ResumeFile]: FileOperationMode::ResumeFile
+/// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct DirSizePayload {
+    pub dir_info_parameter_length: u16,
+    pub dir_info_length: u128,
+}
+
+impl SingleValueWireFormat for DirSizePayload {}
+impl WireFormat for DirSizePayload {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let dir_info_parameter_length = reader.read_u16::<byteorder::BigEndian>()?;
+        let mut dir_info_length = vec![0; dir_info_parameter_length as usize];
+        reader.read_exact(&mut dir_info_length)?;
+
+        Ok(Some(Self {
+            dir_info_parameter_length,
+            dir_info_length: u128::from_be_bytes({
+                let mut bytes = [0; 16];
+                bytes[16 - dir_info_parameter_length as usize..].copy_from_slice(&dir_info_length);
+                bytes
+            }),
+        }))
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        let mut len = 0;
+        writer.write_u16::<byteorder::BigEndian>(self.dir_info_parameter_length)?;
+        len += 2;
+        // write the file size only as many bytes as needed
+        // Slice off only the number of bytes we need from the end of the file_size bytes
+        let dir_info_length = self.dir_info_length.to_be_bytes();
+        let mut bytes: Vec<u8> = Vec::new();
+
+        bytes.extend_from_slice(&dir_info_length[16 - self.dir_info_parameter_length as usize..]);
+        writer.write_all(&bytes)?;
+
+        len += bytes.len();
+
+        Ok(len)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
