@@ -450,6 +450,46 @@ impl WireFormat for DirSizePayload {
     }
 }
 
+/// Used to inform the client of the byte position within the file at which the Tester will resume downloading after an initial download is suspended
+///
+/// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
+/// |---------------|-----------|--------------|---------------|------------|-----------|--------------|
+/// |**[Response]** |           |              |               |            |           | Yes          |
+///
+/// [AddFile]: FileOperationMode::AddFile
+/// [DeleteFile]: FileOperationMode::DeleteFile
+/// [ReplaceFile]: FileOperationMode::ReplaceFile
+/// [ReadFile]: FileOperationMode::ReadFile
+/// [ReadDir]: FileOperationMode::ReadDir
+/// [ResumeFile]: FileOperationMode::ResumeFile
+/// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PositionPayload {
+    /// Specifies the byte position within the file at which the Tester will resume downloading after an initial download is suspended
+    /// A download is suspended when the ECU stops receiving [`crate::TransferDataRequest`] requests and does not receive the
+    /// [`crate::RequestTransferExitRequest`] request to end the transfer before returning to the default session
+    ///
+    /// Fixed size: 8 bytes
+    ///
+    /// Not included for [AddFile][FileOperationMode::AddFile], [DeleteFile][FileOperationMode::DeleteFile], [ReplaceFile][FileOperationMode::ReplaceFile], [ReadFile][FileOperationMode::ReadFile], or [ReadDir][FileOperationMode::ReadDir]
+    /// Only present if mode_of_operation is [ResumeFile][FileOperationMode::ResumeFile] (for ISO 14229-1:2020)
+    pub file_position: u64,
+}
+
+impl SingleValueWireFormat for PositionPayload {}
+impl WireFormat for PositionPayload {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        Ok(Some(Self {
+            file_position: reader.read_u64::<byteorder::BigEndian>()?,
+        }))
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u64::<byteorder::BigEndian>(self.file_position)?;
+        Ok(8)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
