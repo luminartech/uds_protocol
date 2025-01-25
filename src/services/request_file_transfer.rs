@@ -778,3 +778,152 @@ mod request_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod response_tests {
+
+    use crate::{param_length_u128, param_length_u32};
+
+    use super::*;
+
+    fn get_bytes(
+        mode: FileOperationMode,
+        max_block_len: u32,
+        data_format: u8,
+        file_size: u128,
+        file_position: u64,
+    ) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.push(mode.into());
+
+        // SentDataPayload
+        if mode != FileOperationMode::DeleteFile {
+            let len_max_block_len = param_length_u32(max_block_len);
+            bytes.write_u8(len_max_block_len).unwrap();
+            let source = max_block_len.to_be_bytes();
+            bytes.extend_from_slice(&source[4 - len_max_block_len as usize..]);
+
+            let mut data_format = data_format;
+            if mode == FileOperationMode::ReadDir {
+                data_format = 0x00;
+            }
+            // DataFormatIdentifier
+            bytes.write_u8(data_format).unwrap();
+        }
+
+        // File or dir size
+        let num = param_length_u128(file_size);
+        if mode == FileOperationMode::ReadFile {
+            print!("{:?}", mode);
+
+            bytes.write_u16::<byteorder::BE>(num).unwrap();
+            let source = file_size.to_be_bytes();
+            // Compressed
+            bytes.extend_from_slice(&source[16 - num as usize..]);
+            // Uncompressed
+            bytes.extend_from_slice(&source[16 - num as usize..]);
+        } else if mode == FileOperationMode::ReadDir {
+            bytes.write_u16::<byteorder::BE>(num).unwrap();
+            let source = file_size.to_be_bytes();
+            // Compressed
+            bytes.extend_from_slice(&source[16 - num as usize..]);
+        }
+
+        if mode == FileOperationMode::ResumeFile {
+            bytes.write_u64::<byteorder::BE>(file_position).unwrap();
+        }
+        bytes
+    }
+
+    #[test]
+    fn response_add() {
+        let bytes = get_bytes(FileOperationMode::AddFile, 0x1234, 0x00, 0x1234, 0);
+        let reader = &mut &bytes[..];
+        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        assert!(reader.is_empty());
+
+        match resp {
+            RequestFileTransferResponse::AddFile(mode, sent_data, data_format) => {
+                assert_eq!(mode, FileOperationMode::AddFile);
+                assert_eq!(sent_data.length_format_identifier, 2);
+                assert_eq!(sent_data.max_number_of_block_length, vec![0x12, 0x34]);
+                assert_eq!(data_format, DataFormatIdentifier::new(0, 0).unwrap());
+            }
+            _ => panic!("Expected AddFile"),
+        }
+    }
+
+    #[test]
+    fn delete_file() {
+        let bytes = get_bytes(FileOperationMode::DeleteFile, 0, 0, 0, 0);
+        let reader = &mut &bytes[..];
+        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        assert!(reader.is_empty());
+
+        match resp {
+            RequestFileTransferResponse::DeleteFile(mode) => {
+                assert_eq!(mode, FileOperationMode::DeleteFile);
+            }
+            _ => panic!("Expected DeleteFile"),
+        }
+    }
+
+    #[test]
+    fn replace_file() {
+        let bytes = get_bytes(FileOperationMode::ReplaceFile, 0x1_1234, 0, 0, 0);
+        let reader = &mut &bytes[..];
+        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        assert!(reader.is_empty());
+
+        match resp {
+            RequestFileTransferResponse::ReplaceFile(mode, sent_data, data_format) => {
+                assert_eq!(mode, FileOperationMode::ReplaceFile);
+                assert_eq!(sent_data.length_format_identifier, 3);
+                assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
+                assert_eq!(data_format, DataFormatIdentifier::new(0, 0).unwrap());
+            }
+            _ => panic!("Expected ReplaceFile"),
+        }
+    }
+
+    #[test]
+    fn read_file() {
+        let bytes = get_bytes(FileOperationMode::ReadFile, 0x1, 0x11, 0x11_1111_1111, 0);
+        let reader = &mut &bytes[..];
+        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        assert!(reader.is_empty());
+
+        match resp {
+            RequestFileTransferResponse::ReadFile(mode, sent_data, df, size) => {
+                assert_eq!(mode, FileOperationMode::ReadFile);
+                assert_eq!(sent_data.length_format_identifier, 1);
+                assert_eq!(sent_data.max_number_of_block_length, vec![0x01]);
+                assert_eq!(df, DataFormatIdentifier::new(0x01, 0x01).unwrap());
+                assert_eq!(size.file_size_parameter_length, 5);
+                assert_eq!(size.file_size_uncompressed, 0x11_1111_1111);
+                assert_eq!(size.file_size_compressed, 0x11_1111_1111);
+            }
+            _ => panic!("Expected ReadFile"),
+        }
+    }
+
+    #[test]
+    fn read_dir() {
+        let bytes = get_bytes(FileOperationMode::ReadDir, 0x1_1234, 0, 0x11_1111_1111, 0);
+        let reader = &mut &bytes[..];
+        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        assert!(reader.is_empty());
+
+        match resp {
+            RequestFileTransferResponse::ReadDir(mode, sent_data, df, size) => {
+                assert_eq!(mode, FileOperationMode::ReadDir);
+                assert_eq!(sent_data.length_format_identifier, 3);
+                assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
+                assert_eq!(df, DataFormatIdentifier::new(0, 0).unwrap());
+                assert_eq!(size.dir_info_parameter_length, 5);
+                assert_eq!(size.dir_info_length, 0x11_1111_1111);
+            }
+            _ => panic!("Expected ReadDir"),
+        }
+    }
+}

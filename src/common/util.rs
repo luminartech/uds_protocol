@@ -1,6 +1,6 @@
 //! Compute the number of bytes needed to represent a value using core
-pub fn param_length_u128(value: u128) -> u8 {
-    ((u128::BITS - value.leading_zeros() + 7) / 8) as u8
+pub fn param_length_u128(value: u128) -> u16 {
+    ((u128::BITS - value.leading_zeros() + 7) / 8) as u16
 }
 pub fn param_length_u64(value: u64) -> u8 {
     ((u64::BITS - value.leading_zeros() + 7) / 8) as u8
