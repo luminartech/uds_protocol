@@ -368,9 +368,76 @@ impl WireFormat for SentDataPayload {
     }
 }
 
+/// Used to inform the client of the size of the file to be transferred
+///
+/// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
+/// |---------------|-----------|--------------|---------------|------------|-----------|--------------|
+/// |**[Response]** |           |              |               | Yes        |           |              |
+///
+/// [AddFile]: FileOperationMode::AddFile
+/// [DeleteFile]: FileOperationMode::DeleteFile
+/// [ReplaceFile]: FileOperationMode::ReplaceFile
+/// [ReadFile]: FileOperationMode::ReadFile
+/// [ReadDir]: FileOperationMode::ReadDir
+/// [ResumeFile]: FileOperationMode::ResumeFile
+/// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct FileSizePayload {
+    pub file_size_parameter_length: u16,
+    pub file_size_uncompressed: u128,
+    pub file_size_compressed: u128,
+}
+
+impl WireFormat for FileSizePayload {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let file_size_parameter_length = reader.read_u16::<byteorder::BE>()?;
+        let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
+        let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
+
+        reader.read_exact(&mut file_size_uncompressed)?;
+        reader.read_exact(&mut file_size_compressed)?;
+
+        Ok(Some(Self {
+            file_size_parameter_length,
+            file_size_uncompressed: u128::from_be_bytes({
+                let mut bytes = [0; 16];
+                bytes[16 - file_size_parameter_length as usize..]
+                    .copy_from_slice(&file_size_uncompressed);
+                bytes
+            }),
+            file_size_compressed: u128::from_be_bytes({
+                let mut bytes = [0; 16];
+                bytes[16 - file_size_parameter_length as usize..]
+                    .copy_from_slice(&file_size_compressed);
+                bytes
+            }),
+        }))
+    }
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        // Always write the file size as 8 bytes
+        let mut len: usize = std::mem::size_of_val(&self.file_size_parameter_length);
+
+        writer.write_u16::<byteorder::BE>(self.file_size_parameter_length)?;
+        // write the file size only as many bytes as needed
+        // Slice off only the number of bytes we need from the end of the file_size bytes
+        let uncompressed = self.file_size_uncompressed.to_be_bytes();
+        let compressed = self.file_size_compressed.to_be_bytes();
+        // file_size_uncompressed
+        let mut bytes: Vec<u8> = Vec::new();
+        bytes.extend_from_slice(&uncompressed[16 - self.file_size_parameter_length as usize..]);
+        // file_size_compressed
+        bytes.extend_from_slice(&compressed[16 - self.file_size_parameter_length as usize..]);
+
+        writer.write_all(&bytes)?;
+
+        len += bytes.len();
+
+        Ok(len)
+    }
+}
+impl SingleValueWireFormat for FileSizePayload {}
+
 /// Used to inform the client of the size of the directory to be transferred
-/// This data functionally overlaps in the ISO 14229-1:2020 standard with the
-/// SizePayload fields for file size (fileSizeOrDirInfoParameterLength, fileSizeUncompressedOrDirInfoLength, fileSizeCompressed)
 ///
 /// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
 /// |---------------|-----------|--------------|---------------|------------|-----------|--------------|
@@ -474,7 +541,12 @@ pub enum RequestFileTransferResponse {
     AddFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
     DeleteFile(FileOperationMode),
     ReplaceFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
-    ReadFile(FileOperationMode, SentDataPayload, SizePayload),
+    ReadFile(
+        FileOperationMode,
+        SentDataPayload,
+        DataFormatIdentifier,
+        FileSizePayload,
+    ),
     ReadDir(
         FileOperationMode,
         SentDataPayload,
@@ -509,7 +581,8 @@ impl WireFormat for RequestFileTransferResponse {
             FileOperationMode::ReadFile => Self::ReadFile(
                 mode_of_operation,
                 SentDataPayload::from_reader(reader)?,
-                SizePayload::from_reader(reader)?,
+                DataFormatIdentifier::from_reader(reader)?,
+                FileSizePayload::from_reader(reader)?,
             ),
             FileOperationMode::ReadDir => Self::ReadDir(
                 mode_of_operation,
@@ -543,9 +616,15 @@ impl WireFormat for RequestFileTransferResponse {
             Self::DeleteFile(mode_of_operation) => {
                 writer.write_u8((*mode_of_operation).into())?;
             }
-            Self::ReadFile(mode_of_operation, sent_data_payload, size_payload) => {
+            Self::ReadFile(
+                mode_of_operation,
+                sent_data_payload,
+                data_format_identifier,
+                size_payload,
+            ) => {
                 writer.write_u8((*mode_of_operation).into())?;
                 len += sent_data_payload.to_writer(writer)?;
+                len += data_format_identifier.to_writer(writer)?;
                 len += size_payload.to_writer(writer)?;
             }
             Self::ReadDir(
