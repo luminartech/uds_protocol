@@ -2,9 +2,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 
-use crate::{
-    DataFormatIdentifier, Error, LengthFormatIdentifier, SingleValueWireFormat, WireFormat,
-};
+use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 #[repr(u8)]
@@ -329,7 +327,8 @@ impl WireFormat for RequestFileTransferRequest {
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SentDataPayload {
-    length_format_identifier: LengthFormatIdentifier,
+    /// Not related to RequestDownload
+    length_format_identifier: u8,
     /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
     /// data bytes (maxNumberOfBlockLength) to include in each TransferData request message from the client or how
     /// many data bytes the server will include in a TransferData positive response when uploading data. This length
@@ -352,10 +351,9 @@ pub struct SentDataPayload {
 impl SingleValueWireFormat for SentDataPayload {}
 impl WireFormat for SentDataPayload {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let length_format_identifier = LengthFormatIdentifier::from(reader.read_u8()?);
+        let length_format_identifier = reader.read_u8()?;
 
-        let mut max_number_of_block_length: Vec<u8> =
-            vec![0; length_format_identifier.max_number_of_block_length as usize];
+        let mut max_number_of_block_length: Vec<u8> = vec![0; length_format_identifier as usize];
         reader.read_exact(&mut max_number_of_block_length)?;
         Ok(Some(Self {
             length_format_identifier,
@@ -364,7 +362,7 @@ impl WireFormat for SentDataPayload {
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.length_format_identifier.into())?;
+        writer.write_u8(self.length_format_identifier)?;
         writer.write_all(&self.max_number_of_block_length)?;
         Ok(1 + self.max_number_of_block_length.len())
     }
@@ -578,7 +576,7 @@ impl WireFormat for RequestFileTransferResponse {
 }
 
 #[cfg(test)]
-mod tests {
+mod request_tests {
     use super::*;
     use crate::param_length_u128;
 
@@ -601,7 +599,7 @@ mod tests {
             && mode != FileOperationMode::ReadFile
         {
             // count the number of bytes occupied by the file size
-            let num = param_length_u128(file_size);
+            let num = param_length_u128(file_size) as u8;
             // use write exact
             bytes.write_u8(num).unwrap();
             // write the file size only as many bytes as needed
