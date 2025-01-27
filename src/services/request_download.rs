@@ -57,15 +57,21 @@ impl RequestDownloadRequest {
     }
 
     fn get_shortened_memory_address(&self) -> Vec<u8> {
-        self.memory_address.to_be_bytes()
+        self.memory_address
+            .to_be_bytes()
             .iter()
-            .skip(8 - self.address_and_length_format_identifier.memory_address_length as usize)
+            .skip(
+                8 - self
+                    .address_and_length_format_identifier
+                    .memory_address_length as usize,
+            )
             .copied()
             .collect()
     }
 
     fn get_shortened_memory_size(&self) -> Vec<u8> {
-        self.memory_size.to_be_bytes()
+        self.memory_size
+            .to_be_bytes()
             .iter()
             .skip(4 - self.address_and_length_format_identifier.memory_size_length as usize)
             .copied()
@@ -104,6 +110,10 @@ impl WireFormat for RequestDownloadRequest {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        2 + self.address_and_length_format_identifier.len()
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.data_format_identifier.into())?;
         writer.write_u8(self.address_and_length_format_identifier.into())?;
@@ -111,7 +121,7 @@ impl WireFormat for RequestDownloadRequest {
         writer.write_all(self.get_shortened_memory_address().as_mut_slice())?;
         writer.write_all(self.get_shortened_memory_size().as_mut_slice())?;
 
-        Ok(2 + self.address_and_length_format_identifier.len())
+        Ok(self.required_size())
     }
 }
 
@@ -151,10 +161,14 @@ impl WireFormat for RequestDownloadResponse {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        1 + self.max_number_of_block_length.len()
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.length_format_identifier.into())?;
         writer.write_all(&self.max_number_of_block_length)?;
-        Ok(1 + self.max_number_of_block_length.len())
+        Ok(self.required_size())
     }
 }
 
@@ -176,15 +190,24 @@ mod tests {
             .unwrap();
         assert_eq!(u8::from(req.data_format_identifier), 0);
         assert_eq!(u8::from(req.address_and_length_format_identifier), 0x14);
-        assert_eq!(req.address_and_length_format_identifier.memory_size_length, 1);
-        assert_eq!(req.address_and_length_format_identifier.memory_address_length, 4);
+        assert_eq!(
+            req.address_and_length_format_identifier.memory_size_length,
+            1
+        );
+        assert_eq!(
+            req.address_and_length_format_identifier
+                .memory_address_length,
+            4
+        );
 
         assert_eq!(req.memory_address, 0xF0FFFF67);
         assert_eq!(req.memory_size, 0x0A);
 
-        assert_eq!(req.get_shortened_memory_address(), vec![0xF0, 0xFF, 0xFF, 0x67]);
+        assert_eq!(
+            req.get_shortened_memory_address(),
+            vec![0xF0, 0xFF, 0xFF, 0x67]
+        );
         assert_eq!(req.get_shortened_memory_size(), vec![0x0A]);
-
     }
 
     #[test]

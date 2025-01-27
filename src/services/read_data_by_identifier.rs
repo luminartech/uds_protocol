@@ -50,6 +50,10 @@ impl<Identifier: IterableWireFormat> WireFormat for ReadDataByIdentifierRequest<
         }
     }
 
+    fn required_size(&self) -> usize {
+        self.dids.len() * 2
+    }
+
     /// Write the response as a sequence of bytes to a buffer
     fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let mut count = 0;
@@ -97,6 +101,10 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
         } else {
             Ok(Some(ReadDataByIdentifierResponse::new(data)))
         }
+    }
+
+    fn required_size(&self) -> usize {
+        self.data.iter().map(|d| d.required_size()).sum()
     }
 
     /// Write the response as a sequence of bytes to a buffer
@@ -378,6 +386,16 @@ mod test {
                 Ok(Some(TestPayload::new(did, reader)?))
             }
 
+            fn required_size(&self) -> usize {
+                match self {
+                    TestPayload::MeaningOfLife(_) => 42,
+                    TestPayload::Foo(_) => 4,
+                    TestPayload::Bar => 0,
+                    TestPayload::Baz(_) => 26,
+                    TestPayload::UDSIdentifier(_) => 0,
+                }
+            }
+
             fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
                 let id_bytes = u16::from(self.clone()).to_be_bytes();
                 let did_len = writer.write(&id_bytes)?;
@@ -412,6 +430,10 @@ mod test {
                 let data3 = u16::from_be_bytes(data3_bytes);
 
                 Ok(Some(BazData { data, data2, data3 }))
+            }
+
+            fn required_size(&self) -> usize {
+                26
             }
 
             fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {

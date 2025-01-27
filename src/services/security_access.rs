@@ -89,11 +89,15 @@ impl WireFormat for SecurityAccessRequest {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        1 + self.request_data().len()
+    }
+
     /// Serialization function to write a [`SecurityAccessRequest`] to a `Writer`
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.access_type))?;
         writer.write_all(&self.request_data)?;
-        Ok(1 + self.request_data.len())
+        Ok(self.required_size())
     }
 }
 
@@ -137,11 +141,15 @@ impl WireFormat for SecurityAccessResponse {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        1 + self.security_seed.len()
+    }
+
     /// Serialization function to write a `SecurityAccessResponse` to a [`Writer`](std::io::Write)
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.access_type))?;
         writer.write_all(&self.security_seed)?;
-        Ok(1 + self.security_seed.len())
+        Ok(self.required_size())
     }
 }
 

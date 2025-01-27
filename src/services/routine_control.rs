@@ -35,11 +35,15 @@ impl WireFormat for RoutineControlRequest {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        3 + self.data.len()
+    }
+
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.sub_function))?;
         writer.write_u16::<BigEndian>(self.routine_id)?;
         writer.write_all(&self.data)?;
-        Ok(3 + self.data.len())
+        Ok(self.required_size())
     }
 }
 

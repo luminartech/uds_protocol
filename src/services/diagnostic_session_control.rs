@@ -64,6 +64,10 @@ impl WireFormat for DiagnosticSessionControlRequest {
         Ok(Some(Self { session_type }))
     }
 
+    fn required_size(&self) -> usize {
+        1
+    }
+
     /// Serialization function to write a DiagnosticSessionControlRequest to a `Writer`
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.session_type))?;
@@ -107,6 +111,10 @@ impl WireFormat for DiagnosticSessionControlResponse {
             p2_server_max,
             p2_star_server_max,
         }))
+    }
+
+    fn required_size(&self) -> usize {
+        5
     }
 
     /// Write a DiagnosticSessionControlResponse to a `Writer`

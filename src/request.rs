@@ -13,9 +13,8 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 use super::{
-    service::UdsServiceType, CommunicationControlType, CommunicationType, DiagnosticSessionType,
-    DtcSettings, RoutineControlSubFunction, 
-    MemoryFormatIdentifier, DataFormatIdentifier,
+    service::UdsServiceType, CommunicationControlType, CommunicationType, DataFormatIdentifier,
+    DiagnosticSessionType, DtcSettings, MemoryFormatIdentifier, RoutineControlSubFunction,
 };
 
 /// UDS Request types
@@ -109,10 +108,17 @@ where
     ///     compression_method: vehicle manufacturer specific (0x0 for no compression)
     ///     memory_address: the address in memory to start downloading from (Maximum 40 bits - 1024GB)
     ///     memory_size: the size of the memory to download (Max 4GB)
-    pub fn request_download(encryption_method: u8, compression_method: u8, memory_address: u64, memory_size: u32) -> Result<Self, Error> {
-        let data_format_identifier = DataFormatIdentifier::new(compression_method, encryption_method).unwrap();
-        
-        let address_and_length_format_identifier = MemoryFormatIdentifier::new(memory_size, memory_address);
+    pub fn request_download(
+        encryption_method: u8,
+        compression_method: u8,
+        memory_address: u64,
+        memory_size: u32,
+    ) -> Result<Self, Error> {
+        let data_format_identifier =
+            DataFormatIdentifier::new(compression_method, encryption_method).unwrap();
+
+        let address_and_length_format_identifier =
+            MemoryFormatIdentifier::new(memory_size, memory_address);
         Ok(Request::RequestDownload(RequestDownloadRequest::new(
             data_format_identifier,
             address_and_length_format_identifier,
@@ -252,6 +258,23 @@ impl<DiagnosticIdentifier: IterableWireFormat> WireFormat for Request<Diagnostic
         }))
     }
 
+    fn required_size(&self) -> usize {
+        1 + match self {
+            Self::CommunicationControl(cc) => cc.required_size(),
+            Self::ControlDTCSettings(ct) => ct.required_size(),
+            Self::DiagnosticSessionControl(ds) => ds.required_size(),
+            Self::EcuReset(er) => er.required_size(),
+            Self::ReadDataByIdentifier(rd) => rd.required_size(),
+            Self::RequestDownload(rd) => rd.required_size(),
+            Self::RequestTransferExit => 0,
+            Self::RoutineControl(rc) => rc.required_size(),
+            Self::SecurityAccess(sa) => sa.required_size(),
+            Self::TesterPresent(tp) => tp.required_size(),
+            Self::TransferData(td) => td.required_size(),
+            Self::WriteDataByIdentifier(wd) => wd.required_size(),
+        }
+    }
+
     /// Serialization function to write a [`Request`] to a [`Writer`](std::io::Write)
     /// This function writes the service byte and then calls the appropriate
     /// serialization function for the service represented by self.
@@ -260,19 +283,19 @@ impl<DiagnosticIdentifier: IterableWireFormat> WireFormat for Request<Diagnostic
         writer.write_u8(self.service().request_service_to_byte())?;
         // Write the payload
         Ok(1 + match self {
-            Self::CommunicationControl(cc) => cc.to_writer(writer)?,
-            Self::ControlDTCSettings(ct) => ct.to_writer(writer)?,
-            Self::DiagnosticSessionControl(ds) => ds.to_writer(writer)?,
-            Self::EcuReset(er) => er.to_writer(writer)?,
-            Self::ReadDataByIdentifier(rd) => rd.to_writer(writer)?,
-            Self::RequestDownload(rd) => rd.to_writer(writer)?,
-            Self::RequestTransferExit => 0,
-            Self::RoutineControl(rc) => rc.to_writer(writer)?,
-            Self::SecurityAccess(sa) => sa.to_writer(writer)?,
-            Self::TesterPresent(tp) => tp.to_writer(writer)?,
-            Self::TransferData(td) => td.to_writer(writer)?,
-            Self::WriteDataByIdentifier(wd) => wd.to_writer(writer)?,
-        })
+            Self::CommunicationControl(cc) => cc.to_writer(writer),
+            Self::ControlDTCSettings(ct) => ct.to_writer(writer),
+            Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
+            Self::EcuReset(er) => er.to_writer(writer),
+            Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),
+            Self::RequestDownload(rd) => rd.to_writer(writer),
+            Self::RequestTransferExit => Ok(0),
+            Self::RoutineControl(rc) => rc.to_writer(writer),
+            Self::SecurityAccess(sa) => sa.to_writer(writer),
+            Self::TesterPresent(tp) => tp.to_writer(writer),
+            Self::TransferData(td) => td.to_writer(writer),
+            Self::WriteDataByIdentifier(wd) => wd.to_writer(writer),
+        }?)
     }
 }
 

@@ -50,6 +50,10 @@ impl WireFormat for EcuResetRequest {
         Ok(Some(Self { reset_type }))
     }
 
+    fn required_size(&self) -> usize {
+        1
+    }
+
     /// Serialization function to write a [`EcuResetRequest`] to a `Writer`
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.reset_type))?;
@@ -85,6 +89,10 @@ impl WireFormat for EcuResetResponse {
             reset_type,
             power_down_time,
         }))
+    }
+
+    fn required_size(&self) -> usize {
+        2
     }
 
     /// Serialization function to write a [`EcuResetResponse`] to a `Writer`

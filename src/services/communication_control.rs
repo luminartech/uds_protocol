@@ -98,6 +98,14 @@ impl WireFormat for CommunicationControlRequest {
         }
     }
 
+    fn required_size(&self) -> usize {
+        if self.node_id.is_some() {
+            4
+        } else {
+            2
+        }
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.control_type))?;
         writer.write_u8(u8::from(self.communication_type))?;
@@ -129,6 +137,10 @@ impl WireFormat for CommunicationControlResponse {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
         Ok(Some(Self::new(control_type)))
+    }
+
+    fn required_size(&self) -> usize {
+        1
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {

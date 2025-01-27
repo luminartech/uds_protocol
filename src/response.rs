@@ -128,11 +128,25 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        1 + match self {
+            Self::CommunicationControl(cc) => cc.required_size(),
+            Self::DiagnosticSessionControl(ds) => ds.required_size(),
+            Self::EcuReset(reset) => reset.required_size(),
+            Self::ReadDataByIdentifier(rd) => rd.required_size(),
+            Self::RequestDownload(rd) => rd.required_size(),
+            Self::RequestTransferExit => 0,
+            Self::SecurityAccess(sa) => sa.required_size(),
+            Self::TesterPresent(tp) => tp.required_size(),
+            Self::TransferData(td) => td.required_size(),
+        }
+    }
+
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the service byte
         writer.write_u8(self.service().response_to_byte())?;
         // Write the payload
-        match self {
+        Ok(1 + match self {
             Self::CommunicationControl(cc) => cc.to_writer(writer),
             Self::ControlDTCSettings(dtc) => dtc.to_writer(writer),
             Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
@@ -144,7 +158,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
             Self::TransferData(td) => td.to_writer(writer),
-        }
+        }?)
     }
 }
 

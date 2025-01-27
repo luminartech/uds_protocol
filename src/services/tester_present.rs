@@ -97,6 +97,10 @@ impl WireFormat for TesterPresentRequest {
         Ok(Some(Self { zero_sub_function }))
     }
 
+    fn required_size(&self) -> usize {
+        1
+    }
+
     /// Serialization function to write a TesterPresentRequest to a `Writer`
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.zero_sub_function))?;
@@ -125,6 +129,10 @@ impl WireFormat for TesterPresentResponse {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
+    }
+
+    fn required_size(&self) -> usize {
+        1
     }
 
     /// Write the response as a sequence of bytes to a buffer

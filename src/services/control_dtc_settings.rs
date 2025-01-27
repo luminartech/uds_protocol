@@ -31,6 +31,10 @@ impl WireFormat for ControlDTCSettingsRequest {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        1
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let request_byte =
             u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
