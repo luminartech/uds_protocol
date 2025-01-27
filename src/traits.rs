@@ -22,6 +22,9 @@ pub trait WireFormat: Sized {
     /// - if the stream contains partial data
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
 
+    /// Returns the number of bytes required to serialize this value.
+    fn required_size(&self) -> usize;
+
     /// Serialize a value to a byte stream.
     /// Returns the number of bytes written.
     /// # Errors
