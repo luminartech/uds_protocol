@@ -18,6 +18,9 @@ pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentif
 mod request_download;
 pub use request_download::{RequestDownloadRequest, RequestDownloadResponse};
 
+mod request_file_transfer;
+pub use request_file_transfer::{FileOperationMode, RequestFileTransferRequest};
+
 mod routine_control;
 pub use routine_control::RoutineControlRequest;
 

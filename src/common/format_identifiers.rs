@@ -1,5 +1,6 @@
-use crate::Error;
+use crate::{Error, SingleValueWireFormat, WireFormat};
 use serde::{Deserialize, Serialize};
+use byteorder::{ReadBytesExt, WriteBytesExt};
 
 const LOW_NIBBLE_MASK:  u8 = 0b0000_1111;
 const HIGH_NIBBLE_MASK: u8 = 0b1111_0000;
@@ -104,11 +105,11 @@ impl From<LengthFormatIdentifier> for u8 {
 /// Decoded from the `data_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
 /// Values other than 0x00 are Vehicle Manufacturer specific according to ISO-14229-1:2020
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct DataFormatIdentifier {
+pub struct DataFormatIdentifier {
     // low nibble
-    pub encryption_method: u8,
+    encryption_method: u8,
     // high nibble
-    pub compression_method: u8,
+    compression_method: u8,
 }
 
 impl DataFormatIdentifier {
@@ -143,6 +144,26 @@ impl From<DataFormatIdentifier> for u8 {
     }
 }
 
+// compare to a u8 value
+impl PartialEq<u8> for DataFormatIdentifier {
+    fn eq(&self, other: &u8) -> bool {
+        let other_data_format_identifier = DataFormatIdentifier::from(*other);
+        self == &other_data_format_identifier
+    }
+}
+
+impl WireFormat for DataFormatIdentifier {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let value = reader.read_u8()?;
+        Ok(Some(DataFormatIdentifier::from(value)))
+    }
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(*self))?;
+        Ok(1)
+    }
+}
+
+impl SingleValueWireFormat for DataFormatIdentifier {}
 
 #[cfg(test)]
 mod tests {
