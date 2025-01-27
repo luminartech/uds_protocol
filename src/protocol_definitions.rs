@@ -39,6 +39,10 @@ impl WireFormat for ProtocolIdentifier {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        2
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u16::<byteorder::BigEndian>(u16::from(self.identifier))?;
         Ok(2)
@@ -64,6 +68,10 @@ impl WireFormat for ProtocolPayload {
         Err(Error::InvalidDiagnosticIdentifier(u16::from_be_bytes(
             identifier_data,
         )))
+    }
+
+    fn required_size(&self) -> usize {
+        0
     }
 
     fn to_writer<T: std::io::Write>(&self, _: &mut T) -> Result<usize, Error> {
