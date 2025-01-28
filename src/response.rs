@@ -68,6 +68,10 @@ impl<UserPayload> Response<UserPayload> {
         ))
     }
 
+    pub fn request_file_transfer() -> Self {
+        todo!()
+    }
+
     pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
         Response::SecurityAccess(SecurityAccessResponse::new(access_type, security_seed))
     }
@@ -117,6 +121,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             UdsServiceType::RequestDownload => {
                 Self::RequestDownload(RequestDownloadResponse::from_reader(reader)?)
             }
+            UdsServiceType::RequestFileTransfer => {
+                Self::RequestFileTransfer(RequestFileTransferResponse::from_reader(reader)?)
+            }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(SecurityAccessResponse::from_reader(reader)?)
@@ -135,6 +142,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::EcuReset(reset) => reset.required_size(),
             Self::ReadDataByIdentifier(rd) => rd.required_size(),
             Self::RequestDownload(rd) => rd.required_size(),
+            Self::RequestFileTransfer(rft) => rft.required_size(),
             Self::RequestTransferExit => 0,
             Self::SecurityAccess(sa) => sa.required_size(),
             Self::TesterPresent(tp) => tp.required_size(),

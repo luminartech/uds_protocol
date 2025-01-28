@@ -1,6 +1,6 @@
 use crate::{Error, SingleValueWireFormat, WireFormat};
-use serde::{Deserialize, Serialize};
 use byteorder::{ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 
 const LOW_NIBBLE_MASK: u8 = 0b0000_1111;
 const HIGH_NIBBLE_MASK: u8 = 0b1111_0000;
@@ -160,6 +160,11 @@ impl WireFormat for DataFormatIdentifier {
         let value = reader.read_u8()?;
         Ok(Some(DataFormatIdentifier::from(value)))
     }
+
+    fn required_size(&self) -> usize {
+        1
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(*self))?;
         Ok(1)

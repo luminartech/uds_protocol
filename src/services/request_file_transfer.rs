@@ -127,10 +127,13 @@ impl WireFormat for SizePayload {
             }),
         }))
     }
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Always write the file size as 8 bytes
-        let mut len: usize = std::mem::size_of_val(&self.file_size_parameter_length);
 
+    fn required_size(&self) -> usize {
+        1 + (2 * self.file_size_parameter_length as usize)
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        // Always write the file size as 1 byte
         writer.write_u8(self.file_size_parameter_length)?;
         // write the file size only as many bytes as needed
         // Slice off only the number of bytes we need from the end of the file_size bytes
@@ -144,9 +147,7 @@ impl WireFormat for SizePayload {
 
         writer.write_all(&bytes)?;
 
-        len += bytes.len();
-
-        Ok(len)
+        Ok(self.required_size())
     }
 }
 impl SingleValueWireFormat for SizePayload {}
@@ -197,18 +198,18 @@ impl WireFormat for NamePayload {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        1 + 2 + self.file_path_and_name.len()
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        let mut len = 0;
         // Write the mode of operation
         writer.write_u8((self.mode_of_operation).into())?;
-        len += 1;
         // Write the file path and name length
         writer.write_u16::<byteorder::BigEndian>(self.file_path_and_name_length)?;
-        len += 2;
         // Write the file path and name
         writer.write_all(self.file_path_and_name.as_bytes())?;
-        len += self.file_path_and_name.len();
-        Ok(len)
+        Ok(self.required_size())
     }
 }
 impl SingleValueWireFormat for NamePayload {}
@@ -286,6 +287,24 @@ impl WireFormat for RequestFileTransferRequest {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        match self {
+            Self::AddFile(name_payload, data_format_identifier, file_size_payload)
+            | Self::ReplaceFile(name_payload, data_format_identifier, file_size_payload)
+            | Self::ResumeFile(name_payload, data_format_identifier, file_size_payload) => {
+                name_payload.required_size()
+                    + data_format_identifier.required_size()
+                    + file_size_payload.required_size()
+            }
+            Self::ReadFile(name_payload, data_format_identifier) => {
+                name_payload.required_size() + data_format_identifier.required_size()
+            }
+            Self::DeleteFile(name_payload) | Self::ReadDir(name_payload) => {
+                name_payload.required_size()
+            }
+        }
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let mut len = 0;
         Ok(match self {
@@ -361,10 +380,14 @@ impl WireFormat for SentDataPayload {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        1 + self.max_number_of_block_length.len()
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.length_format_identifier)?;
         writer.write_all(&self.max_number_of_block_length)?;
-        Ok(1 + self.max_number_of_block_length.len())
+        Ok(self.required_size())
     }
 }
 
@@ -413,9 +436,13 @@ impl WireFormat for FileSizePayload {
             }),
         }))
     }
+
+    fn required_size(&self) -> usize {
+        2 + (2 * self.file_size_parameter_length as usize)
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Always write the file size as 8 bytes
-        let mut len: usize = std::mem::size_of_val(&self.file_size_parameter_length);
+        // Always write the file size as 1 byte
 
         writer.write_u16::<byteorder::BE>(self.file_size_parameter_length)?;
         // write the file size only as many bytes as needed
@@ -430,9 +457,7 @@ impl WireFormat for FileSizePayload {
 
         writer.write_all(&bytes)?;
 
-        len += bytes.len();
-
-        Ok(len)
+        Ok(self.required_size())
     }
 }
 impl SingleValueWireFormat for FileSizePayload {}
@@ -471,6 +496,10 @@ impl WireFormat for DirSizePayload {
                 bytes
             }),
         }))
+    }
+
+    fn required_size(&self) -> usize {
+        2 + self.dir_info_parameter_length as usize
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
@@ -523,6 +552,10 @@ impl WireFormat for PositionPayload {
         Ok(Some(Self {
             file_position: reader.read_u64::<byteorder::BigEndian>()?,
         }))
+    }
+    // For PositionPayload
+    fn required_size(&self) -> usize {
+        8
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
@@ -602,6 +635,31 @@ impl WireFormat for RequestFileTransferResponse {
         }))
     }
 
+    // For RequestFileTransferResponse
+    fn required_size(&self) -> usize {
+        match self {
+            Self::AddFile(_, sent_data, data_format)
+            | Self::ReplaceFile(_, sent_data, data_format) => {
+                1 + sent_data.required_size() + data_format.required_size()
+            }
+            Self::DeleteFile(_) => 1,
+            Self::ReadFile(_, sent_data, data_format, file_size) => {
+                1 + sent_data.required_size()
+                    + data_format.required_size()
+                    + file_size.required_size()
+            }
+            Self::ReadDir(_, sent_data, data_format, dir_size) => {
+                1 + sent_data.required_size()
+                    + data_format.required_size()
+                    + dir_size.required_size()
+            }
+            Self::ResumeFile(_, sent_data, data_format, position) => {
+                1 + sent_data.required_size()
+                    + data_format.required_size()
+                    + position.required_size()
+            }
+        }
+    }
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Every variant has a mode of operation
         let mut len = 1;
