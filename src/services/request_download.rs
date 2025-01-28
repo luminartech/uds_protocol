@@ -41,13 +41,14 @@ pub struct RequestDownloadRequest {
 impl RequestDownloadRequest {
     pub(crate) fn new(
         data_format_identifier: DataFormatIdentifier,
-        address_and_length_format_identifier: MemoryFormatIdentifier,
         memory_address: u64,
         memory_size: u32,
     ) -> Result<Self, Error> {
         if memory_address > 0xFF_FFFF_FFFF {
             return Err(Error::InvalidMemoryAddress(memory_address));
         }
+        let address_and_length_format_identifier =
+            MemoryFormatIdentifier::from_values(memory_size, memory_address);
         Ok(Self {
             data_format_identifier,
             address_and_length_format_identifier,
@@ -188,6 +189,7 @@ mod tests {
         let req = RequestDownloadRequest::option_from_reader(&mut &bytes[..])
             .unwrap()
             .unwrap();
+
         assert_eq!(u8::from(req.data_format_identifier), 0);
         assert_eq!(u8::from(req.address_and_length_format_identifier), 0x14);
         assert_eq!(
@@ -236,5 +238,15 @@ mod tests {
         assert_eq!(length_format_identifier.max_number_of_block_length, 15);
 
         assert_eq!(u8::from(length_format_identifier), 0xF0);
+    }
+
+    #[test]
+    fn check_message_size() {
+        let req = RequestDownloadRequest::new(0x00.into(), 0xF0_FF_FF_67, 0x0A).unwrap();
+
+        let mut vec = vec![];
+        req.to_writer(&mut vec).unwrap();
+
+        assert_eq!(vec.len(), req.required_size());
     }
 }

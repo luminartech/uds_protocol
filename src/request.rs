@@ -14,7 +14,7 @@ use std::io::{Read, Write};
 
 use super::{
     service::UdsServiceType, CommunicationControlType, CommunicationType, DataFormatIdentifier,
-    DiagnosticSessionType, DtcSettings, MemoryFormatIdentifier, RoutineControlSubFunction,
+    DiagnosticSessionType, DtcSettings, RoutineControlSubFunction,
 };
 
 /// UDS Request types
@@ -117,11 +117,8 @@ where
         let data_format_identifier =
             DataFormatIdentifier::new(compression_method, encryption_method).unwrap();
 
-        let address_and_length_format_identifier =
-            MemoryFormatIdentifier::new(memory_size, memory_address);
         Ok(Request::RequestDownload(RequestDownloadRequest::new(
             data_format_identifier,
-            address_and_length_format_identifier,
             memory_address,
             memory_size,
         )?))
