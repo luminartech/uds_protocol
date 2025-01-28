@@ -32,7 +32,7 @@ pub enum Request<DiagnosticIdentifier, DiagnosticPayload> {
     SecurityAccess(SecurityAccessRequest),
     TesterPresent(TesterPresentRequest),
     TransferData(TransferDataRequest),
-    WriteDataByIdentifier(WriteDataByIdentifierRequest<DiagnosticIdentifier, DiagnosticPayload>),
+    WriteDataByIdentifier(WriteDataByIdentifierRequest<DiagnosticPayload>),
 }
 
 impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat>
@@ -156,10 +156,9 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
     }
 
     pub fn write_data_by_identifier(
-        identifier: DiagnosticIdentifier,
         payload: DiagnosticPayload,
     ) -> Self {
-        Request::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(identifier, payload))
+        Request::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(payload))
     }
 
     pub fn service(&self) -> UdsServiceType {
