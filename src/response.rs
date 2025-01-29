@@ -138,6 +138,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
     fn required_size(&self) -> usize {
         1 + match self {
             Self::CommunicationControl(cc) => cc.required_size(),
+            Self::ControlDTCSettings(dtc) => dtc.required_size(),
             Self::DiagnosticSessionControl(ds) => ds.required_size(),
             Self::EcuReset(reset) => reset.required_size(),
             Self::ReadDataByIdentifier(rd) => rd.required_size(),

@@ -120,16 +120,43 @@ impl WireFormat for TransferDataResponse {
 impl SingleValueWireFormat for TransferDataResponse {}
 
 #[cfg(test)]
-mod tests {
+mod request {
     use super::*;
 
     #[test]
     fn test_transfer_data_request() {
-        let data: [u8; 4] = [0x01, 0x02, 0x03, 0x04];
-        let request = TransferDataRequest::new(0x01, data.to_vec());
-        let bytes = request.data.clone();
+        let bytes = [0x01, 0x02, 0x03, 0x04];
+        let req = TransferDataRequest::new(0x01, bytes.to_vec());
+        let bytes = req.data.clone();
         let expected = vec![0x01, 0x02, 0x03, 0x04];
-        assert_eq!(1, request.block_sequence_counter);
+        assert_eq!(1, req.block_sequence_counter);
         assert_eq!(bytes, expected);
+    }
+
+    #[test]
+    fn read_request() {
+        let bytes = [0x01, 0x02, 0x03, 0x04];
+        let req = TransferDataRequest::from_reader(&mut &bytes[..]).unwrap();
+
+        let mut written_bytes = Vec::new();
+        let written = req.to_writer(&mut written_bytes).unwrap();
+        assert_eq!(written, written_bytes.len());
+        assert_eq!(written, req.required_size());
+    }
+}
+
+#[cfg(test)]
+mod response {
+    use super::*;
+
+    #[test]
+    fn simple_response() {
+        let bytes = [0x01, 0x02, 0x03, 0x04];
+        let resp = TransferDataResponse::from_reader(&mut &bytes[..]).unwrap();
+
+        let mut written_bytes = Vec::new();
+        let written = resp.to_writer(&mut written_bytes).unwrap();
+        assert_eq!(written, written_bytes.len());
+        assert_eq!(written, resp.required_size());
     }
 }

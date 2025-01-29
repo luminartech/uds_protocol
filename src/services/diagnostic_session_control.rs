@@ -122,8 +122,53 @@ impl WireFormat for DiagnosticSessionControlResponse {
         buffer.write_u8(u8::from(self.session_type))?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_server_max)?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_star_server_max)?;
+
         Ok(5)
     }
 }
 
 impl SingleValueWireFormat for DiagnosticSessionControlResponse {}
+
+#[cfg(test)]
+mod request {
+    use super::*;
+    use crate::DiagnosticSessionType;
+
+    #[test]
+    fn test_diagnostic_session_control_request() {
+        let bytes: [u8; 1] = [0x02];
+        let req: DiagnosticSessionControlRequest =
+            DiagnosticSessionControlRequest::from_reader(&mut &bytes[..]).unwrap();
+        assert_eq!(req.suppress_positive_response(), false);
+        assert_eq!(
+            req.session_type(),
+            DiagnosticSessionType::ProgrammingSession
+        );
+
+        let mut buffer = Vec::new();
+        req.to_writer(&mut buffer).unwrap();
+        assert_eq!(buffer, bytes);
+        assert_eq!(req.required_size(), 1);
+    }
+}
+
+#[cfg(test)]
+mod response {
+    use super::*;
+    use crate::DiagnosticSessionType;
+
+    #[test]
+    fn test_diagnostic_session_control_response() {
+        let bytes = [0x02, 0x00, 0x00, 0x00, 0x00];
+        let resp: DiagnosticSessionControlResponse =
+            DiagnosticSessionControlResponse::from_reader(&mut &bytes[..]).unwrap();
+        assert_eq!(resp.session_type, DiagnosticSessionType::ProgrammingSession);
+        assert_eq!(resp.p2_server_max, 0);
+        assert_eq!(resp.p2_star_server_max, 0);
+
+        let mut buffer = Vec::new();
+        resp.to_writer(&mut buffer).unwrap();
+        assert_eq!(buffer, bytes);
+        assert_eq!(resp.required_size(), 5);
+    }
+}

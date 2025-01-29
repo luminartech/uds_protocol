@@ -150,3 +150,85 @@ impl WireFormat for CommunicationControlResponse {
 }
 
 impl SingleValueWireFormat for CommunicationControlResponse {}
+
+#[cfg(test)]
+mod request {
+    use super::*;
+
+    #[test]
+    fn simple_request() {
+        let bytes: [u8; 3] = [0x01, 0x02, 0x03];
+        let req = CommunicationControlRequest::from_reader(&mut &bytes[..]).unwrap();
+        assert_eq!(
+            req.control_type(),
+            CommunicationControlType::EnableRxAndDisableTx
+        );
+        assert_eq!(req.communication_type, CommunicationType::NetworkManagement);
+        assert_eq!(req.node_id, None);
+
+        let mut buffer = Vec::new();
+        let written = req.to_writer(&mut buffer).unwrap();
+        assert_eq!(written, req.required_size());
+        assert_eq!(buffer.len(), req.required_size());
+    }
+
+    #[test]
+    fn node_id() {
+        let bytes: [u8; 4] = [0x05, 0x02, 0x01, 0x02];
+        let req = CommunicationControlRequest::from_reader(&mut &bytes[..]).unwrap();
+        assert_eq!(
+            req.control_type(),
+            CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
+        );
+        assert_eq!(req.communication_type, CommunicationType::NetworkManagement);
+        assert_eq!(req.node_id, Some(258));
+
+        let mut buffer = Vec::new();
+        let written = req.to_writer(&mut buffer).unwrap();
+        assert_eq!(written, req.required_size());
+        assert_eq!(buffer.len(), req.required_size());
+    }
+
+    #[test]
+    fn new_with_node_id() {
+        let req = CommunicationControlRequest::new_with_node_id(
+            true,
+            CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo,
+            CommunicationType::NetworkManagement,
+            258,
+        );
+        assert_eq!(req.node_id, Some(258));
+        assert_eq!(req.suppress_positive_response(), true);
+    }
+    #[test]
+    fn new_extra() {
+        let req = CommunicationControlRequest::new(
+            false,
+            CommunicationControlType::EnableRxAndDisableTx,
+            CommunicationType::NetworkManagement,
+        );
+        assert_eq!(req.suppress_positive_response(), false);
+
+        assert_eq!(CommunicationControlRequest::allowed_nack_codes().len(), 4);
+    }
+}
+
+#[cfg(test)]
+mod response {
+    use super::*;
+
+    #[test]
+    fn simple_response() {
+        let bytes: [u8; 1] = [0x01];
+        let res = CommunicationControlResponse::from_reader(&mut &bytes[..]).unwrap();
+        assert_eq!(
+            res.control_type,
+            CommunicationControlType::EnableRxAndDisableTx
+        );
+
+        let mut buffer = Vec::new();
+        let written = res.to_writer(&mut buffer).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buffer.len(), written);
+    }
+}
