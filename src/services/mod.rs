@@ -2,7 +2,7 @@ mod communication_control;
 pub use communication_control::{CommunicationControlRequest, CommunicationControlResponse};
 
 mod control_dtc_settings;
-pub use control_dtc_settings::ControlDTCSettingsRequest;
+pub use control_dtc_settings::{ControlDTCSettingsRequest, ControlDTCSettingsResponse};
 
 mod diagnostic_session_control;
 pub use diagnostic_session_control::{
