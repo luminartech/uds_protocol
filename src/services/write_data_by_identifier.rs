@@ -30,9 +30,10 @@ impl<Payload: IterableWireFormat> WriteDataByIdentifierRequest<Payload> {
 impl<Payload: IterableWireFormat> SingleValueWireFormat for WriteDataByIdentifierRequest<Payload> {}
 
 impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Payload> {
-    /// Create an WriteDataByIdentifierRequest from a stream of bytes, i.e. deserialization
+    /// Create an WriteDataByIdentifierRequest from a stream of bytes, i.e. deserialization.
+    ///
     /// Note: The first two bytes in the reader must represent the data identifier, immediately followed by the
-    /// corresponding payload for that identifier.    
+    /// corresponding payload for that identifier.
     fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let payload = Payload::option_from_reader(reader)?.unwrap();
         Ok(Some(Self { payload }))
@@ -44,10 +45,82 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
     }
 
     /// Serialize an WriteDataByIdentifierRequest instance.
+    ///
     /// Note: The first two bytes of the writer will be the data identifier, immediately followed by the corresponding
     /// payload for that identifier.
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Payload must implement the extra bytes, because option_from_reader needs to know how to interpret payload message
-        Ok(self.payload.to_writer(writer)?)
+        self.payload.to_writer(writer)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use byteorder::WriteBytesExt;
+    use std::io::Cursor;
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    pub enum TestIdentifier {
+        Abracadabra = 0xBEEF,
+    }
+
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    enum TestPayload {
+        Abracadabra(u8),
+    }
+
+    impl WireFormat for TestPayload {
+        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let mut buf = [0u8; 2];
+            reader.read_exact(&mut buf)?;
+
+            let value = u16::from_be_bytes(buf);
+
+            if value == TestIdentifier::Abracadabra as u16 {
+                let mut byte = [0u8; 1];
+                reader.read_exact(&mut byte)?;
+                Ok(Some(TestPayload::Abracadabra(byte[0])))
+            } else {
+                Err(Error::NoDataAvailable)
+            }
+        }
+
+        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+            let id_bytes: u16 = match self {
+                TestPayload::Abracadabra(_) => 0xBEEF,
+            };
+
+            writer.write(&id_bytes.to_be_bytes())?;
+
+            match self {
+                TestPayload::Abracadabra(value) => {
+                    writer.write_u8(*value)?;
+                    Ok(3)
+                }
+            }
+        }
+    }
+
+    impl IterableWireFormat for TestPayload {}
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    #[test]
+    fn test_write_data_by_identifier_request() {
+        let request = WriteDataByIdentifierRequest::new(TestPayload::Abracadabra(42));
+
+        let mut bytes = Vec::new();
+        let len = request.to_writer(&mut bytes).unwrap();
+        assert_eq!(len, 3);
+        assert_eq!(bytes.len(), len);
+
+        let mut cursor = Cursor::new(bytes);
+        let request2 = WriteDataByIdentifierRequest::<TestPayload>::option_from_reader(&mut cursor)
+            .unwrap()
+            .unwrap();
+        assert_eq!(request, request2);
     }
 }
