@@ -207,7 +207,7 @@ mod request {
             CommunicationControlType::EnableRxAndDisableTx,
             CommunicationType::NetworkManagement,
         );
-        assert!(req.suppress_positive_response());
+        assert!(!req.suppress_positive_response());
 
         assert_eq!(CommunicationControlRequest::allowed_nack_codes().len(), 4);
     }
