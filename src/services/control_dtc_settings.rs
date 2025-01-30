@@ -91,7 +91,7 @@ mod request {
 
         let parsed = ControlDTCSettingsRequest::from_reader(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
-        assert_eq!(parsed.suppress_response, true);
+        assert!(parsed.suppress_response);
     }
 }
 
