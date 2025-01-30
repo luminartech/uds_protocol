@@ -1,9 +1,9 @@
 use crate::{
-    CommunicationControlResponse, CommunicationControlType, DiagnosticSessionControlResponse,
-    DiagnosticSessionType, EcuResetResponse, Error, IterableWireFormat,
-    ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferResponse, ResetType,
-    SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat, TesterPresentResponse,
-    TransferDataResponse, UdsServiceType, WireFormat,
+    CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse,
+    DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings, EcuResetResponse, Error,
+    IterableWireFormat, ReadDataByIdentifierResponse, RequestDownloadResponse,
+    RequestFileTransferResponse, ResetType, SecurityAccessResponse, SecurityAccessType,
+    SingleValueWireFormat, TesterPresentResponse, TransferDataResponse, UdsServiceType, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -16,6 +16,8 @@ pub struct UdsResponse {
 pub enum Response<UserPayload> {
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
+    /// Response to a [`ControlDTCSettingsRequest`](crate::ControlDTCSettingsRequest)
+    ControlDTCSettings(ControlDTCSettingsResponse),
     /// Response to a [`DiagnosticSessionControlRequest`](crate::DiagnosticSessionControlRequest)
     DiagnosticSessionControl(DiagnosticSessionControlResponse),
     /// Response to a [`EcuResetRequest`](crate::EcuResetRequest)
@@ -35,6 +37,11 @@ impl<UserPayload> Response<UserPayload> {
     pub fn communication_control(control_type: CommunicationControlType) -> Self {
         Response::CommunicationControl(CommunicationControlResponse::new(control_type))
     }
+
+    pub fn control_dtc_settings(setting: DtcSettings) -> Self {
+        Response::ControlDTCSettings(ControlDTCSettingsResponse::new(setting))
+    }
+
     pub fn diagnostic_session_control(
         session_type: DiagnosticSessionType,
         p2_max: u16,
@@ -76,6 +83,7 @@ impl<UserPayload> Response<UserPayload> {
     pub fn service(&self) -> UdsServiceType {
         match self {
             Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
+            Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings,
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
             Self::EcuReset(_) => UdsServiceType::EcuReset,
             Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
@@ -95,6 +103,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
         Ok(Some(match service {
             UdsServiceType::CommunicationControl => {
                 Self::CommunicationControl(CommunicationControlResponse::from_reader(reader)?)
+            }
+            UdsServiceType::ControlDTCSettings => {
+                Self::ControlDTCSettings(ControlDTCSettingsResponse::from_reader(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
                 DiagnosticSessionControlResponse::from_reader(reader)?,
@@ -123,6 +134,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
         // Write the payload
         match self {
             Self::CommunicationControl(cc) => cc.to_writer(writer),
+            Self::ControlDTCSettings(dtc) => dtc.to_writer(writer),
             Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
             Self::EcuReset(reset) => reset.to_writer(writer),
             Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),

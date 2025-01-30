@@ -40,3 +40,76 @@ impl WireFormat for ControlDTCSettingsRequest {
 }
 
 impl SingleValueWireFormat for ControlDTCSettingsRequest {}
+
+/// Positive response to a ControlDTCSettingsRequest
+///
+/// The ECU will respond with a ControlDTCSettingsResponse if the request was successful.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub struct ControlDTCSettingsResponse {
+    /// The DTC logging setting that was set in the request
+    pub setting: DtcSettings,
+}
+
+impl ControlDTCSettingsResponse {
+    pub(crate) fn new(setting: DtcSettings) -> Self {
+        Self { setting }
+    }
+}
+
+impl WireFormat for ControlDTCSettingsResponse {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let setting = DtcSettings::from(reader.read_u8()?);
+        Ok(Some(Self { setting }))
+    }
+
+    // fn required_size(&self) -> usize {
+    //     1
+    // }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(u8::from(self.setting))?;
+        Ok(1)
+    }
+}
+
+impl SingleValueWireFormat for ControlDTCSettingsResponse {}
+
+#[cfg(test)]
+mod request {
+    use super::*;
+    use crate::DtcSettings;
+
+    #[test]
+    fn simple_request() {
+        let req = ControlDTCSettingsRequest::new(DtcSettings::On, true);
+        let mut buffer = Vec::new();
+        let written = req.to_writer(&mut buffer).unwrap();
+        assert_eq!(buffer, vec![0x81]);
+        assert_eq!(written, buffer.len());
+        // assert_eq!(req.required_size(), buffer.len());
+
+        let parsed = ControlDTCSettingsRequest::from_reader(&mut buffer.as_slice()).unwrap();
+        assert_eq!(parsed.setting, DtcSettings::On);
+        assert!(parsed.suppress_response);
+    }
+}
+
+#[cfg(test)]
+mod response {
+    use super::*;
+    use crate::DtcSettings;
+
+    #[test]
+    fn simple_response() {
+        let req = ControlDTCSettingsResponse::new(DtcSettings::On);
+        let mut buffer = Vec::new();
+        let written = req.to_writer(&mut buffer).unwrap();
+        assert_eq!(buffer, vec![0x01]);
+        assert_eq!(written, buffer.len());
+        // assert_eq!(req.required_size(), buffer.len());
+
+        let parsed = ControlDTCSettingsResponse::from_reader(&mut buffer.as_slice()).unwrap();
+        assert_eq!(parsed.setting, DtcSettings::On);
+    }
+}
