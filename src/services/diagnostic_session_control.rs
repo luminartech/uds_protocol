@@ -139,7 +139,7 @@ mod request {
         let bytes: [u8; 1] = [0x02];
         let req: DiagnosticSessionControlRequest =
             DiagnosticSessionControlRequest::from_reader(&mut &bytes[..]).unwrap();
-        assert_eq!(req.suppress_positive_response(), false);
+        assert!(req.suppress_positive_response());
         assert_eq!(
             req.session_type(),
             DiagnosticSessionType::ProgrammingSession

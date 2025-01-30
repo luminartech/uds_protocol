@@ -50,7 +50,7 @@ impl WireFormat for RoutineControlRequest {
 impl SingleValueWireFormat for RoutineControlRequest {}
 
 #[cfg(test)]
-mod routine_control {
+mod request {
     use super::*;
 
     #[test]

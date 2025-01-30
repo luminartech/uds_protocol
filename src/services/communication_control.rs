@@ -198,7 +198,7 @@ mod request {
             258,
         );
         assert_eq!(req.node_id, Some(258));
-        assert_eq!(req.suppress_positive_response(), true);
+        assert!(req.suppress_positive_response());
     }
     #[test]
     fn new_extra() {
@@ -207,7 +207,7 @@ mod request {
             CommunicationControlType::EnableRxAndDisableTx,
             CommunicationType::NetworkManagement,
         );
-        assert_eq!(req.suppress_positive_response(), false);
+        assert!(req.suppress_positive_response());
 
         assert_eq!(CommunicationControlRequest::allowed_nack_codes().len(), 4);
     }
