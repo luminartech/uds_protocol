@@ -756,7 +756,7 @@ mod request_tests {
         let file_size: u128 = (u64::MAX as u128) + 1000u128;
         let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
         let req: crate::RequestFileTransferRequest =
-            RequestFileTransferRequest::option_from_reader(&mut &bytes[..])
+            RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
                 .unwrap()
                 .unwrap();
 
@@ -783,7 +783,7 @@ mod request_tests {
     fn delete_file() {
         let compare_string = "/var/tmp/delete_file.bin";
         let bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
-        let req = RequestFileTransferRequest::option_from_reader(&mut &bytes[..])
+        let req = RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
 
@@ -807,7 +807,7 @@ mod request_tests {
         let compare_string = "test.txt";
         let file_size: u128 = 0x1234;
         let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::option_from_reader(&mut &bytes[..])
+        let req = RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
 
@@ -843,7 +843,7 @@ mod request_tests {
         let compare_string = "/opt/testing/replace_file.bin";
         let file_size: u128 = 0x1234;
         let bytes = get_bytes(FileOperationMode::ReplaceFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut &bytes[..]).unwrap();
+        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
         let written = req.to_writer(&mut written_bytes).unwrap();
@@ -869,7 +869,7 @@ mod request_tests {
         let compare_string = "/opt/testing/just_reading_stuff.txt";
         let file_size: u128 = 0x0;
         let bytes = get_bytes(FileOperationMode::ReadFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut &bytes[..]).unwrap();
+        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
         let written = req.to_writer(&mut written_bytes).unwrap();
@@ -892,7 +892,7 @@ mod request_tests {
         let compare_string = "/var/tmp/resume_file.bin";
         let file_size = 0x1234;
         let bytes = get_bytes(FileOperationMode::ResumeFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut &bytes[..]).unwrap();
+        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
         let mut written_bytes = Vec::new();
         let written = req.to_writer(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());

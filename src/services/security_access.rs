@@ -165,7 +165,7 @@ mod request {
             0x01, // aka SecurityAccessType::RequestSeed(0x01)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let req = SecurityAccessRequest::from_reader(&mut &bytes[..]).unwrap();
+        let req = SecurityAccessRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(
             req.access_type,
@@ -189,7 +189,7 @@ mod response {
             0x02, // aka SecurityAccessType::SendKey(0x02)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let resp = SecurityAccessResponse::from_reader(&mut &bytes[..]).unwrap();
+        let resp = SecurityAccessResponse::from_reader(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(resp.access_type, SecurityAccessType::SendKey(0x02));
         assert_eq!(resp.security_seed, vec![0x00, 0x01, 0x02, 0x03, 0x04]);

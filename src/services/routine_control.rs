@@ -56,7 +56,7 @@ mod request {
     #[test]
     fn simple_request() {
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
-        let req = RoutineControlRequest::from_reader(&mut &bytes[..]).unwrap();
+        let req = RoutineControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.sub_function), 0x01);
         assert_eq!(req.routine_id, 0x0001);

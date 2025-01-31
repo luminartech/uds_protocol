@@ -158,7 +158,7 @@ mod request {
     #[test]
     fn simple_request() {
         let bytes: [u8; 3] = [0x01, 0x02, 0x03];
-        let req = CommunicationControlRequest::from_reader(&mut &bytes[..]).unwrap();
+        let req = CommunicationControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndDisableTx
@@ -175,7 +175,7 @@ mod request {
     #[test]
     fn node_id() {
         let bytes: [u8; 4] = [0x05, 0x02, 0x01, 0x02];
-        let req = CommunicationControlRequest::from_reader(&mut &bytes[..]).unwrap();
+        let req = CommunicationControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
@@ -220,7 +220,7 @@ mod response {
     #[test]
     fn simple_response() {
         let bytes: [u8; 1] = [0x01];
-        let res = CommunicationControlResponse::from_reader(&mut &bytes[..]).unwrap();
+        let res = CommunicationControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             res.control_type,
             CommunicationControlType::EnableRxAndDisableTx

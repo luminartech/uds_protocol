@@ -186,7 +186,7 @@ mod tests {
             0xF0, 0xFF, 0xFF, 0x67, // memory address
             0x0A,
         ];
-        let req = RequestDownloadRequest::option_from_reader(&mut &bytes[..])
+        let req = RequestDownloadRequest::option_from_reader(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
 
@@ -219,7 +219,7 @@ mod tests {
             0x11, // 1 byte for memory size, 1 byte for memory address
             0x67,
         ];
-        let req = RequestDownloadRequest::option_from_reader(&mut &bytes[..]);
+        let req = RequestDownloadRequest::option_from_reader(&mut bytes.as_slice());
         assert!(matches!(req, Err(Error::IoError(_))));
     }
 
