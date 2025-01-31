@@ -126,7 +126,6 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 mod test {
     use super::*;
     use crate::{ProtocolIdentifier, UDSIdentifier};
-    use std::io::Cursor;
 
     mod request {
         use super::*;
@@ -222,10 +221,9 @@ mod test {
             ];
 
             for test_data in test_data_sets.iter() {
-                let mut byte_access = Cursor::new(test_data.dids_bytes.to_vec());
                 let read_result =
                     ReadDataByIdentifierRequest::<ProtocolIdentifier>::option_from_reader(
-                        &mut byte_access,
+                        &mut test_data.dids_bytes.as_slice(),
                     );
 
                 match read_result {
@@ -468,11 +466,12 @@ mod test {
             let mut buffer = Vec::new();
             response.to_writer(&mut buffer).unwrap();
 
-            let mut cursor = Cursor::new(buffer);
             let read_response: ReadDataByIdentifierResponse<TestPayload> =
-                ReadDataByIdentifierResponse::<TestPayload>::option_from_reader(&mut cursor)
-                    .unwrap()
-                    .unwrap();
+                ReadDataByIdentifierResponse::<TestPayload>::option_from_reader(
+                    &mut buffer.as_slice(),
+                )
+                .unwrap()
+                .unwrap();
 
             assert_eq!(response, read_response);
         }
