@@ -92,7 +92,7 @@ mod test {
                 TestPayload::Abracadabra(_) => 0xBEEF,
             };
 
-            writer.write(&id_bytes.to_be_bytes())?;
+            writer.write_all(&id_bytes.to_be_bytes())?;
 
             match self {
                 TestPayload::Abracadabra(value) => {
