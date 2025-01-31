@@ -40,8 +40,7 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
     }
 
     fn required_size(&self) -> usize {
-        // MJB TODO
-        2 + self.data.len()
+        self.payload.required_size()
     }
 
     /// Serialize an WriteDataByIdentifierRequest instance.
@@ -98,9 +97,13 @@ mod test {
             match self {
                 TestPayload::Abracadabra(value) => {
                     writer.write_u8(*value)?;
-                    Ok(3)
+                    Ok(self.required_size())
                 }
             }
+        }
+
+        fn required_size(&self) -> usize {
+            3
         }
     }
 
@@ -114,7 +117,7 @@ mod test {
 
         let mut bytes = Vec::new();
         let len = request.to_writer(&mut bytes).unwrap();
-        assert_eq!(len, 3);
+        assert_eq!(request.required_size(), len);
         assert_eq!(bytes.len(), len);
 
         let mut cursor = Cursor::new(bytes);
