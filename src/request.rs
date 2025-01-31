@@ -155,9 +155,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
         Request::TransferData(TransferDataRequest::new(sequence, data))
     }
 
-    pub fn write_data_by_identifier(
-        payload: DiagnosticPayload,
-    ) -> Self {
+    pub fn write_data_by_identifier(payload: DiagnosticPayload) -> Self {
         Request::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(payload))
     }
 
