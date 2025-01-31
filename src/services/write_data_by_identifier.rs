@@ -11,6 +11,7 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 
 /// See ISO-14229-1:2020, Section 11.7.2.1
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[non_exhaustive]
 pub struct WriteDataByIdentifierRequest<Payload> {
     pub payload: Payload,
 }
@@ -56,6 +57,7 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
 
 /// See ISO-14229-1:2020, Section 11.7.3.1
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[non_exhaustive]
 pub struct WriteDataByIdentifierResponse<Identifier> {
     pub identifier: Identifier,
 }
