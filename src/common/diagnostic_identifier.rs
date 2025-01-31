@@ -1,7 +1,7 @@
 use crate::{Error, IterableWireFormat, WireFormat};
 use byteorder::WriteBytesExt;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, ops::Deref};  
+use std::{fmt::Debug, ops::Deref};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum UDSIdentifier {
@@ -70,12 +70,12 @@ impl ProtocolIdentifier {
     }
 }
 
-impl Deref for ProtocolIdentifier {  
-    type Target = UDSIdentifier;  
-    fn deref(&self) -> &UDSIdentifier {  
-        &self.identifier  
-    }  
-}  
+impl Deref for ProtocolIdentifier {
+    type Target = UDSIdentifier;
+    fn deref(&self) -> &UDSIdentifier {
+        &self.identifier
+    }
+}
 
 impl WireFormat for ProtocolIdentifier {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
@@ -92,6 +92,10 @@ impl WireFormat for ProtocolIdentifier {
         Ok(Some(Self {
             identifier: UDSIdentifier::try_from(identifier)?,
         }))
+    }
+
+    fn required_size(&self) -> usize {
+        2
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {

@@ -1,24 +1,26 @@
 use crate::{Error, SingleValueWireFormat, WireFormat};
-use serde::{Deserialize, Serialize};
 use byteorder::{ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 
-const LOW_NIBBLE_MASK:  u8 = 0b0000_1111;
+const LOW_NIBBLE_MASK: u8 = 0b0000_1111;
 const HIGH_NIBBLE_MASK: u8 = 0b1111_0000;
 
 /// Address and length format identifier
-const MEMORY_SIZE_NIBBLE_MASK:    u8 = HIGH_NIBBLE_MASK;
+const MEMORY_SIZE_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
 const MEMORY_ADDRESS_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
 
 /// Length format identifier
-const BLOCK_LENGTH_NIBBLE_MASK:   u8 = HIGH_NIBBLE_MASK;
+const BLOCK_LENGTH_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
 
 /// Data format identifier
-const COMPRESSION_NIBBLE_MASK:   u8 = HIGH_NIBBLE_MASK;
-const ENCRYPTION_NIBBLE_MASK:   u8 = LOW_NIBBLE_MASK;
+const COMPRESSION_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
+const ENCRYPTION_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
 
-
+/// Takes in the actual memory address to be used and the size of the memory to be used
+/// and computes how many bytes are needed to represent them
+///
 /// Decoded from the `address_and_length_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
-/// 
+///
 /// See ISO-14229-1:2020, Table H.1 for format information
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct MemoryFormatIdentifier {
@@ -27,8 +29,9 @@ pub(crate) struct MemoryFormatIdentifier {
 }
 
 impl MemoryFormatIdentifier {
-    pub fn new(memory_size: u32, memory_address: u64) -> Self {
-
+    /// Takes in the actual memory address to be used and the size of the memory to be used
+    /// and computes how many bytes are needed to represent them
+    pub fn from_values(memory_size: u32, memory_address: u64) -> Self {
         let memory_address_length = ((u64::BITS - memory_address.leading_zeros() + 7) / 8) as u8;
         let memory_size_length = ((u32::BITS - memory_size.leading_zeros() + 7) / 8) as u8;
 
@@ -37,8 +40,8 @@ impl MemoryFormatIdentifier {
             memory_address_length,
         }
     }
-    
-    /// Get the total length of the memory_size and memory_address fields 
+
+    /// Get the total length of the memory_size and memory_address fields
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.memory_size_length as usize + self.memory_address_length as usize
@@ -73,7 +76,8 @@ impl TryFrom<u8> for MemoryFormatIdentifier {
 
 impl From<MemoryFormatIdentifier> for u8 {
     fn from(memory_format_identifier: MemoryFormatIdentifier) -> u8 {
-        (memory_format_identifier.memory_size_length << 4) | memory_format_identifier.memory_address_length
+        (memory_format_identifier.memory_size_length << 4)
+            | memory_format_identifier.memory_address_length
     }
 }
 
@@ -101,7 +105,7 @@ impl From<LengthFormatIdentifier> for u8 {
 
 /// Used by [`crate::RequestDownloadRequest`] for the compression method (high nibble) and encrypting method (low nibble)
 /// - 0x00 is no compression or encryption, which is the default
-/// 
+///
 /// Decoded from the `data_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
 /// Values other than 0x00 are Vehicle Manufacturer specific according to ISO-14229-1:2020
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -128,10 +132,9 @@ impl DataFormatIdentifier {
 }
 impl From<u8> for DataFormatIdentifier {
     fn from(value: u8) -> Self {
-
         let encryption_method = value & ENCRYPTION_NIBBLE_MASK;
         let compression_method = (value & COMPRESSION_NIBBLE_MASK) >> 4;
-        
+
         Self {
             encryption_method,
             compression_method,
@@ -157,6 +160,11 @@ impl WireFormat for DataFormatIdentifier {
         let value = reader.read_u8()?;
         Ok(Some(DataFormatIdentifier::from(value)))
     }
+
+    fn required_size(&self) -> usize {
+        1
+    }
+
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(*self))?;
         Ok(1)
@@ -180,7 +188,10 @@ mod tests {
     #[test]
     fn failed_memory_format_identifier() {
         let memory_format_identifier = MemoryFormatIdentifier::try_from(0x00);
-        assert!(matches!(memory_format_identifier, Err(Error::IncorrectMessageLengthOrInvalidFormat)));
+        assert!(matches!(
+            memory_format_identifier,
+            Err(Error::IncorrectMessageLengthOrInvalidFormat)
+        ));
     }
 
     #[test]
@@ -203,7 +214,9 @@ mod tests {
         assert!(data_format_identifier.is_ok());
 
         let data_format_identifier = DataFormatIdentifier::new(0x1F, 0x0F);
-        assert!(matches!(data_format_identifier, Err(Error::InvalidEncryptionCompressionMethod(0x1F))));
+        assert!(matches!(
+            data_format_identifier,
+            Err(Error::InvalidEncryptionCompressionMethod(0x1F))
+        ));
     }
-
 }

@@ -64,6 +64,10 @@ impl WireFormat for DiagnosticSessionControlRequest {
         Ok(Some(Self { session_type }))
     }
 
+    fn required_size(&self) -> usize {
+        1
+    }
+
     /// Serialization function to write a DiagnosticSessionControlRequest to a `Writer`
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.session_type))?;
@@ -109,13 +113,62 @@ impl WireFormat for DiagnosticSessionControlResponse {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        5
+    }
+
     /// Write a DiagnosticSessionControlResponse to a `Writer`
     fn to_writer<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.session_type))?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_server_max)?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_star_server_max)?;
+
         Ok(5)
     }
 }
 
 impl SingleValueWireFormat for DiagnosticSessionControlResponse {}
+
+#[cfg(test)]
+mod request {
+    use super::*;
+    use crate::DiagnosticSessionType;
+
+    #[test]
+    fn test_diagnostic_session_control_request() {
+        let bytes: [u8; 1] = [0x02];
+        let req: DiagnosticSessionControlRequest =
+            DiagnosticSessionControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        assert!(!req.suppress_positive_response());
+        assert_eq!(
+            req.session_type(),
+            DiagnosticSessionType::ProgrammingSession
+        );
+
+        let mut buffer = Vec::new();
+        req.to_writer(&mut buffer).unwrap();
+        assert_eq!(buffer, bytes);
+        assert_eq!(req.required_size(), 1);
+    }
+}
+
+#[cfg(test)]
+mod response {
+    use super::*;
+    use crate::DiagnosticSessionType;
+
+    #[test]
+    fn test_diagnostic_session_control_response() {
+        let bytes = [0x02, 0x11, 0x22, 0x33, 0x44];
+        let resp: DiagnosticSessionControlResponse =
+            DiagnosticSessionControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
+        assert_eq!(resp.session_type, DiagnosticSessionType::ProgrammingSession);
+        assert_eq!(resp.p2_server_max, 0x1122);
+        assert_eq!(resp.p2_star_server_max, 0x3344);
+
+        let mut buffer = Vec::new();
+        resp.to_writer(&mut buffer).unwrap();
+        assert_eq!(buffer, bytes);
+        assert_eq!(resp.required_size(), 5);
+    }
+}

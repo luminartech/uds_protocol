@@ -21,10 +21,15 @@ impl WireFormat for WriteDataByIdentifierRequest {
         buffer.read_to_end(&mut data)?;
         Ok(Some(Self { did, data }))
     }
+
+    fn required_size(&self) -> usize {
+        2 + self.data.len()
+    }
+
     fn to_writer<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u16::<BigEndian>(self.did)?;
         buffer.write_all(&self.data)?;
-        Ok(2 + self.data.len())
+        Ok(self.required_size())
     }
 }
 

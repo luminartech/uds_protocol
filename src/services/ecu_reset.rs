@@ -50,6 +50,10 @@ impl WireFormat for EcuResetRequest {
         Ok(Some(Self { reset_type }))
     }
 
+    fn required_size(&self) -> usize {
+        1
+    }
+
     /// Serialization function to write a [`EcuResetRequest`] to a `Writer`
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.reset_type))?;
@@ -87,6 +91,10 @@ impl WireFormat for EcuResetResponse {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        2
+    }
+
     /// Serialization function to write a [`EcuResetResponse`] to a `Writer`
     fn to_writer<T: Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.reset_type))?;
@@ -96,3 +104,39 @@ impl WireFormat for EcuResetResponse {
 }
 
 impl SingleValueWireFormat for EcuResetResponse {}
+
+#[cfg(test)]
+mod request {
+    use super::*;
+
+    #[test]
+    fn ecu_reset_request() {
+        let bytes: [u8; 2] = [0x81, 0x00];
+        let req = EcuResetRequest::new(true, ResetType::HardReset);
+        let mut buffer = Vec::new();
+        let written = req.to_writer(&mut buffer).unwrap();
+        let result = EcuResetRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        assert_eq!(result, req);
+
+        assert_eq!(written, 1);
+        assert_eq!(written, req.required_size());
+    }
+}
+
+#[cfg(test)]
+mod response {
+    use super::*;
+
+    #[test]
+    fn ecu_reset_response() {
+        let bytes: [u8; 2] = [0x01, 0x20];
+        let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
+        let mut buffer = Vec::new();
+        let written = resp.to_writer(&mut buffer).unwrap();
+        let result = EcuResetResponse::from_reader(&mut bytes.as_slice()).unwrap();
+        assert_eq!(result, resp);
+
+        assert_eq!(written, 2);
+        assert_eq!(written, resp.required_size());
+    }
+}

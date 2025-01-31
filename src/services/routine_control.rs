@@ -35,12 +35,42 @@ impl WireFormat for RoutineControlRequest {
         }))
     }
 
+    fn required_size(&self) -> usize {
+        3 + self.data.len()
+    }
+
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.sub_function))?;
         writer.write_u16::<BigEndian>(self.routine_id)?;
         writer.write_all(&self.data)?;
-        Ok(3 + self.data.len())
+        Ok(self.required_size())
     }
 }
 
 impl SingleValueWireFormat for RoutineControlRequest {}
+
+#[cfg(test)]
+mod request {
+    use super::*;
+
+    #[test]
+    fn simple_request() {
+        let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
+        let req = RoutineControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
+
+        assert_eq!(u8::from(req.sub_function), 0x01);
+        assert_eq!(req.routine_id, 0x0001);
+        assert_eq!(req.data, vec![0x02, 0x03, 0x04]);
+
+        let mut buf = Vec::new();
+        let written = req.to_writer(&mut buf).unwrap();
+        assert_eq!(written, bytes.len());
+        assert_eq!(written, req.required_size());
+
+        let new_req: RoutineControlRequest =
+            RoutineControlRequest::new(RoutineControlSubFunction::StopRoutine, 0x0002, vec![]);
+
+        assert_eq!(new_req.sub_function, RoutineControlSubFunction::StopRoutine);
+        assert_eq!(new_req.routine_id, 0x0002);
+    }
+}
