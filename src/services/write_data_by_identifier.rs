@@ -114,7 +114,7 @@ mod test {
             let mut buf = [0u8; 2];
             reader.read_exact(&mut buf)?;
 
-            let id: u16 = u16::from_be_bytes(buf);
+            let id = u16::from_be_bytes(buf);
             if TestIdentifier::Abracadabra == id {
                 Ok(Some(TestIdentifier::Abracadabra))
             } else {
@@ -181,39 +181,29 @@ mod test {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    mod request {
-        use super::*;
+    #[test]
+    fn test_write_request() {
+        let request = WriteDataByIdentifierRequest::new(TestPayload::Abracadabra(42));
 
-        #[test]
-        fn test_write_request() {
-            let request = WriteDataByIdentifierRequest::new(TestPayload::Abracadabra(42));
+        let mut written_bytes = Vec::new();
+        let written = request.to_writer(&mut written_bytes).unwrap();
+        assert_eq!(written, request.required_size());
+        assert_eq!(written, written_bytes.len());
 
-            let mut written_bytes = Vec::new();
-            let written = request.to_writer(&mut written_bytes).unwrap();
-            assert_eq!(written, request.required_size());
-            assert_eq!(written, written_bytes.len());
-
-            let mut cursor = Cursor::new(written_bytes);
-            let request2 =
-                WriteDataByIdentifierRequest::<TestPayload>::option_from_reader(&mut cursor)
-                    .unwrap()
-                    .unwrap();
-            assert_eq!(request, request2);
-        }
+        let mut cursor = Cursor::new(written_bytes);
+        let request2 = WriteDataByIdentifierRequest::<TestPayload>::option_from_reader(&mut cursor)
+            .unwrap()
+            .unwrap();
+        assert_eq!(request, request2);
     }
 
-    #[cfg(test)]
-    mod response {
-        use super::*;
+    #[test]
+    fn test_write_response() {
+        let response = WriteDataByIdentifierResponse::new(TestIdentifier::Abracadabra);
 
-        #[test]
-        fn test_write_response() {
-            let response = WriteDataByIdentifierResponse::new(TestIdentifier::Abracadabra);
-
-            let mut written_bytes = Vec::new();
-            let written = response.to_writer(&mut written_bytes).unwrap();
-            assert_eq!(written, written_bytes.len());
-            assert_eq!(written, response.required_size());
-        }
+        let mut written_bytes = Vec::new();
+        let written = response.to_writer(&mut written_bytes).unwrap();
+        assert_eq!(written, written_bytes.len());
+        assert_eq!(written, response.required_size());
     }
 }
