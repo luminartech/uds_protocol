@@ -298,6 +298,6 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
 }
 
 impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat>
-    IterableWireFormat for Request<DiagnosticIdentifier, DiagnosticPayload>
+    SingleValueWireFormat for Request<DiagnosticIdentifier, DiagnosticPayload>
 {
 }

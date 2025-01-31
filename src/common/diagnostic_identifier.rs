@@ -1,7 +1,6 @@
-use crate::{Error, IterableWireFormat, WireFormat};
-use byteorder::WriteBytesExt;
+use crate::Error;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, ops::Deref};
+use std::fmt::Debug;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum UDSIdentifier {
@@ -56,51 +55,3 @@ impl From<UDSIdentifier> for u16 {
         }
     }
 }
-
-/// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports IDs defined by UDS
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[non_exhaustive]
-pub struct ProtocolIdentifier {
-    pub identifier: UDSIdentifier,
-}
-
-impl ProtocolIdentifier {
-    pub fn new(identifier: UDSIdentifier) -> Self {
-        ProtocolIdentifier { identifier }
-    }
-}
-
-impl Deref for ProtocolIdentifier {
-    type Target = UDSIdentifier;
-    fn deref(&self) -> &UDSIdentifier {
-        &self.identifier
-    }
-}
-
-impl WireFormat for ProtocolIdentifier {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut identifier_data: [u8; 2] = [0; 2];
-        match reader.read(&mut identifier_data)? {
-            0 => return Ok(None),
-            1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
-            2 => (),
-            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-        };
-
-        let identifier = u16::from_be_bytes(identifier_data);
-        Ok(Some(Self {
-            identifier: UDSIdentifier::try_from(identifier)?,
-        }))
-    }
-
-    fn required_size(&self) -> usize {
-        2
-    }
-
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u16::<byteorder::BigEndian>(u16::from(self.identifier))?;
-        Ok(2)
-    }
-}
-
-impl IterableWireFormat for ProtocolIdentifier {}

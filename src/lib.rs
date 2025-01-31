@@ -6,6 +6,9 @@ pub use common::*;
 mod error;
 pub use error::Error;
 
+mod protocol_definitions;
+pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayload};
+
 mod request;
 pub use request::Request;
 
@@ -26,6 +29,12 @@ use serde::{Deserialize, Serialize};
 
 pub const SUCCESS: u8 = 0x80;
 pub const PENDING: u8 = 0x78;
+
+/// Type alias for a UDS Request type that only implements the messages explicitly defined by the UDS specification.
+pub type ProtocolRequest = Request<ProtocolIdentifier, ProtocolPayload>;
+
+/// Type alias for a UDS Response type that only implements the messages explicitly defined by the UDS specification.
+pub type ProtocolResponse = Response<ProtocolPayload>;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum RoutineControlSubFunction {
