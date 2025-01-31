@@ -94,7 +94,6 @@ impl<Identifier: IterableWireFormat> WireFormat for WriteDataByIdentifierRespons
 mod test {
     use super::*;
     use byteorder::{BigEndian, WriteBytesExt};
-    use std::io::Cursor;
 
     #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
     pub enum TestIdentifier {
@@ -190,10 +189,11 @@ mod test {
         assert_eq!(written, request.required_size());
         assert_eq!(written, written_bytes.len());
 
-        let mut cursor = Cursor::new(written_bytes);
-        let request2 = WriteDataByIdentifierRequest::<TestPayload>::option_from_reader(&mut cursor)
-            .unwrap()
-            .unwrap();
+        let request2 = WriteDataByIdentifierRequest::<TestPayload>::option_from_reader(
+            &mut written_bytes.as_slice(),
+        )
+        .unwrap()
+        .unwrap();
         assert_eq!(request, request2);
     }
 
