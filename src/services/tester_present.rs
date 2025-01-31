@@ -147,7 +147,6 @@ impl SingleValueWireFormat for TesterPresentResponse {}
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::io::Cursor;
 
     #[test]
     fn try_from_all_zero_subfunction() {
@@ -182,8 +181,7 @@ mod test {
 
     fn make_request(byte: u8) -> Result<Option<TesterPresentRequest>, Error> {
         let bytes = vec![byte];
-        let mut byte_access = Cursor::new(bytes);
-        TesterPresentRequest::option_from_reader(&mut byte_access)
+        TesterPresentRequest::option_from_reader(&mut bytes.as_slice())
     }
 
     #[test]
@@ -232,8 +230,7 @@ mod test {
     #[test]
     fn read_response_type() {
         let bytes = vec![0u8];
-        let mut byte_access = Cursor::new(bytes);
-        let test_type = TesterPresentResponse::option_from_reader(&mut byte_access)
+        let test_type = TesterPresentResponse::option_from_reader(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());
