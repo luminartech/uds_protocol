@@ -82,13 +82,13 @@ impl From<u8> for DTCStatusMask {
     fn from(value: u8) -> Self {
         match value {
             0b0000_0000 => Self::TestFailed,
-            0b0000_0001 => Self::TestFailedThisOperationCycle,
-            0b0000_0010 => Self::PendingDTC,
-            0b0000_0011 => Self::ConfirmedDTC,
-            0b0000_0100 => Self::TestNotCompletedSinceLastClear,
-            0b0000_0101 => Self::TestFailedSinceLastClear,
-            0b0000_0110 => Self::TestNotCompletedThisOperationCycle,
-            0b0000_0111 => Self::WarningIndicatorRequested,
+            0b0000_0010 => Self::TestFailedThisOperationCycle,
+            0b0000_0100 => Self::PendingDTC,
+            0b0000_1000 => Self::ConfirmedDTC,
+            0b0001_0000 => Self::TestNotCompletedSinceLastClear,
+            0b0010_0000 => Self::TestFailedSinceLastClear,
+            0b0100_0000 => Self::TestNotCompletedThisOperationCycle,
+            0b1000_0000 => Self::WarningIndicatorRequested,
             _ => panic!("Invalid DTCStatus value: {value}"),
         }
     }
