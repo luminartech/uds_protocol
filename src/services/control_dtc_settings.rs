@@ -2,7 +2,7 @@ use crate::{DtcSettings, Error, SingleValueWireFormat, WireFormat, SUCCESS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 /// The ControlDTCSettings service is used to control the DTC settings of the ECU.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsRequest {
     /// The requested DTC logging setting
