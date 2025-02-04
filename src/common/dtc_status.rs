@@ -1,4 +1,4 @@
-// use bitmask_enum::bitmask;
+use bitmask_enum::bitmask;
 use serde::{Deserialize, Serialize};
 
 use crate::{SingleValueWireFormat, WireFormat};
@@ -25,7 +25,8 @@ use crate::{SingleValueWireFormat, WireFormat};
 /// | 5 | [`TestFailedSinceLastClear`](DTCStatusMask::TestFailedSinceLastClear)           | **0** |
 /// | 6 | [`TestNotCompletedThisOperationCycle`](DTCStatusMask::TestNotCompletedThisOperationCycle) | **1** |
 /// | 7 | [`WarningIndicatorRequested`](DTCStatusMask::WarningIndicatorRequested)          | **0** |
-#[derive(Debug, Clone, Eq, Serialize, Deserialize, PartialEq)]
+#[bitmask(u8)]
+#[derive(Serialize, Deserialize)]
 pub enum DTCStatusMask {
     /// Status of the most recently performed test.
     ///
@@ -56,42 +57,6 @@ pub enum DTCStatusMask {
     TestFailedSinceLastClear,
     TestNotCompletedThisOperationCycle,
     WarningIndicatorRequested,
-}
-impl DTCStatusMask {
-    pub fn value(&self) -> u8 {
-        match self {
-            Self::TestFailed => 0b0000_0001,
-            Self::TestFailedThisOperationCycle => 0b0000_0010,
-            Self::PendingDTC => 0b0000_0100,
-            Self::ConfirmedDTC => 0b0000_1000,
-            Self::TestNotCompletedSinceLastClear => 0b0001_0000,
-            Self::TestFailedSinceLastClear => 0b0010_0000,
-            Self::TestNotCompletedThisOperationCycle => 0b0100_0000,
-            Self::WarningIndicatorRequested => 0b1000_0000,
-        }
-    }
-}
-
-impl From<DTCStatusMask> for u8 {
-    fn from(value: DTCStatusMask) -> Self {
-        value.value()
-    }
-}
-
-impl From<u8> for DTCStatusMask {
-    fn from(value: u8) -> Self {
-        match value {
-            0b0000_0000 => Self::TestFailed,
-            0b0000_0010 => Self::TestFailedThisOperationCycle,
-            0b0000_0100 => Self::PendingDTC,
-            0b0000_1000 => Self::ConfirmedDTC,
-            0b0001_0000 => Self::TestNotCompletedSinceLastClear,
-            0b0010_0000 => Self::TestFailedSinceLastClear,
-            0b0100_0000 => Self::TestNotCompletedThisOperationCycle,
-            0b1000_0000 => Self::WarningIndicatorRequested,
-            _ => panic!("Invalid DTCStatus value: {value}"),
-        }
-    }
 }
 
 #[allow(non_camel_case_types)]
@@ -224,7 +189,8 @@ pub enum DTCFaultDetectionCounter {}
 /// DTCCLASS_
 // #[bitmask(u8)]
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[bitmask(u8)]
+#[derive(Serialize, Deserialize)]
 pub enum DTCSeverityMask {
     // GtrDtcClassInfo
     /// Unclassified
@@ -259,19 +225,40 @@ pub enum DTCSeverityMask {
     CheckImmediately = 0b1000_0000, // bit 7
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+impl DTCSeverityMask {
+    // Validate that at least one of the DTCClass bits is set
+    // Multiple Class bits may be set to get info for multiple DTC classes
+    pub fn is_valid(&self) -> bool {
+        self.intersects(
+            Self::DTCClass_0
+                | Self::DTCClass_1
+                | Self::DTCClass_2
+                | Self::DTCClass_3
+                | Self::DTCClass_4,
+        )
+    }
+}
 
-//     #[test]
-//     fn test_gtr_dtc_class_info() {
-//         let dtc_class = DTCSeverityMask::DTCClass_1 | DTCSeverityMask::MaintenanceOnly;
-//         assert_eq!(dtc_class.bits(), 0b0010_0010);
-//     }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn test_dtc_severity_info() {
-//         let dtc_severity = DTCSeverityMask::CheckImmediately;
-//         assert_eq!(dtc_severity.bits(), 0b1000_0000);
-//     }
-// }
+    #[test]
+    fn status_mask() {
+        let status_mask = DTCStatusMask::TestFailed | DTCStatusMask::PendingDTC;
+        assert_eq!(status_mask.bits(), 0b0000_0101);
+    }
+
+    #[test]
+    fn test_gtr_dtc_class_info() {
+        let dtc_class = DTCSeverityMask::DTCClass_1 | DTCSeverityMask::MaintenanceOnly;
+        assert_eq!(dtc_class.bits(), 0b0010_0010);
+        assert!(dtc_class.is_valid());
+    }
+
+    #[test]
+    fn test_dtc_severity_info() {
+        let dtc_severity = DTCSeverityMask::CheckImmediately;
+        assert_eq!(dtc_severity.bits(), 0b1000_0000);
+    }
+}
