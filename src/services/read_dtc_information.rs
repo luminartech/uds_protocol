@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{DTCMaskRecord, DTCSeverityMask, DTCStatusMask, FunctionalGroupIdentifier};
-use crate::{SingleValueWireFormat, WireFormat};
+use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
@@ -12,7 +12,7 @@ pub struct ReadDtcInformationRequest {
 }
 
 impl WireFormat for ReadDtcInformationRequest {
-    fn option_from_reader<T: std::io::Read>(_reader: &mut T) -> Result<Option<Self>, crate::Error> {
+    fn option_from_reader<T: std::io::Read>(_reader: &mut T) -> Result<Option<Self>, Error> {
         todo!()
     }
 
@@ -20,7 +20,7 @@ impl WireFormat for ReadDtcInformationRequest {
         todo!()
     }
 
-    fn to_writer<T: std::io::Write>(&self, _writer: &mut T) -> Result<usize, crate::Error> {
+    fn to_writer<T: std::io::Write>(&self, _writer: &mut T) -> Result<usize, Error> {
         todo!()
     }
 }
