@@ -48,7 +48,7 @@ impl SingleValueWireFormat for ControlDTCSettingsRequest {}
 /// Positive response to a ControlDTCSettingsRequest
 ///
 /// The ECU will respond with a ControlDTCSettingsResponse if the request was successful.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsResponse {
     /// The DTC logging setting that was set in the request
