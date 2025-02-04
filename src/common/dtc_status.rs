@@ -1,4 +1,5 @@
 use bitmask_enum::bitmask;
+use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{SingleValueWireFormat, WireFormat};
@@ -58,6 +59,24 @@ pub enum DTCStatusMask {
     TestNotCompletedThisOperationCycle,
     WarningIndicatorRequested,
 }
+
+impl WireFormat for DTCStatusMask {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
+        let status_byte = reader.read_u8()?;
+        Ok(Some(Self::from(status_byte)))
+    }
+
+    fn required_size(&self) -> usize {
+        1
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
+        writer.write_u8(self.bits())?;
+        Ok(1)
+    }
+}
+
+impl SingleValueWireFormat for DTCStatusMask {}
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
