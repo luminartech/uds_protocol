@@ -2,7 +2,7 @@ use bitmask_enum::bitmask;
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{SingleValueWireFormat, WireFormat};
+use crate::{Error, SingleValueWireFormat, WireFormat};
 
 /// DTCStatusMask (1 byte)
 /// 8 DTC status bits. Refer to D.2
@@ -257,6 +257,134 @@ impl DTCSeverityMask {
         )
     }
 }
+
+/// Indicates the number of the specific DTCSnapshot data record requested
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub struct UserDefDTCSnapshotRecordNumber(u8);
+
+impl WireFormat for UserDefDTCSnapshotRecordNumber {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let value = reader.read_u8()?;
+        match value {
+            // Reserved for Legislative purposes
+            0x00 | 0xF0 => {
+                return Err(Error::ReservedForLegislativeUse(
+                    "UserDefDTCSnapshotRecordNumber".to_string(),
+                    value,
+                ))
+            }
+            // Requests that the server report all DTCSnapshot data records at once
+            0xFF => {}
+            _ => {}
+        }
+        Ok(Some(Self(value)))
+    }
+
+    fn required_size(&self) -> usize {
+        1
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.0)?;
+        Ok(1)
+    }
+}
+
+impl SingleValueWireFormat for UserDefDTCSnapshotRecordNumber {}
+
+impl From<u8> for UserDefDTCSnapshotRecordNumber {
+    fn from(value: u8) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub struct DTCSnapshotRecordNumber(u8);
+impl WireFormat for DTCSnapshotRecordNumber {
+    fn option_from_reader<T: std::io::Read>(_reader: &mut T) -> Result<Option<Self>, Error> {
+        todo!();
+        // let value = reader.read_u8()?;
+        // match value {
+        //     _ => todo!(),
+        // }
+        // Ok(Some(Self(value)))
+    }
+
+    fn required_size(&self) -> usize {
+        1
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.0)?;
+        Ok(1)
+    }
+}
+impl SingleValueWireFormat for DTCSnapshotRecordNumber {}
+
+/// Indicates the number of the specific DTCSnapshot data record requested
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub struct DTCStoredDataRecordNumber(u8);
+
+impl WireFormat for DTCStoredDataRecordNumber {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let value = reader.read_u8()?;
+        match value {
+            // Reserved for Legislative purposes
+            0x00 => {
+                return Err(Error::ReservedForLegislativeUse(
+                    "DTCStoredDataRecordNumber".to_string(),
+                    value,
+                ))
+            }
+            // Requests that the server report all DTCStoredData records at once
+            0xFF => {}
+            _ => {}
+        }
+        Ok(Some(Self(value)))
+    }
+
+    fn required_size(&self) -> usize {
+        1
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.0)?;
+        Ok(1)
+    }
+}
+
+impl SingleValueWireFormat for DTCStoredDataRecordNumber {}
+
+impl From<u8> for DTCStoredDataRecordNumber {
+    fn from(value: u8) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+pub struct DTCExtDataRecordNumber(u8);
+
+impl WireFormat for DTCExtDataRecordNumber {
+    fn option_from_reader<T: std::io::Read>(_reader: &mut T) -> Result<Option<Self>, Error> {
+        todo!();
+        // let value = reader.read_u8()?;
+        // match value {
+        //     _ => todo!(),
+        // }
+        // Ok(Some(Self(value)))
+    }
+
+    fn required_size(&self) -> usize {
+        1
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.0)?;
+        Ok(1)
+    }
+}
+
+impl SingleValueWireFormat for DTCExtDataRecordNumber {}
 
 #[cfg(test)]
 mod tests {

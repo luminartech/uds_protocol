@@ -11,7 +11,7 @@ mod diagnostic_identifier;
 pub use diagnostic_identifier::UDSIdentifier;
 
 mod dtc_status;
-pub use dtc_status::{DTCMaskRecord, DTCSeverityMask, DTCStatusMask, FunctionalGroupIdentifier};
+pub use dtc_status::*;
 
 mod negative_response_code;
 pub use negative_response_code::NegativeResponseCode;

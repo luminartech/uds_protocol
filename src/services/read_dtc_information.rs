@@ -2,7 +2,10 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{DTCMaskRecord, DTCSeverityMask, DTCStatusMask, FunctionalGroupIdentifier};
+use crate::{
+    DTCExtDataRecordNumber, DTCMaskRecord, DTCSeverityMask, DTCSnapshotRecordNumber, DTCStatusMask,
+    DTCStoredDataRecordNumber, FunctionalGroupIdentifier, UserDefDTCSnapshotRecordNumber,
+};
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -43,12 +46,10 @@ impl SingleValueWireFormat for ReadDtcInformationRequest {}
 // initializationFlag_TNCTOC = TestNotCompletedThisOperationCycle
 // initializationFlag_WIR = WarningIndicatorRequested
 
-// Add these type definitions
-type DTCSnapshotRecordNumber = u8;
-type DTCStoredDataRecordNumber = u8;
-type DTCExtDataRecordNumber = u8;
-type UserDefDTCSnapshotRecordNumber = u8;
+/// Used to address the respective user-defined DTC memory when retrieving DTCs
 type MemorySelection = u8;
+/// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [FunctionalGroupIdentifier]s
+/// This RGID depends on the functional group
 type DTCReadinessGroupIdentifier = u8;
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -92,6 +93,7 @@ pub enum ReadDTCInformationSubFunction {
     ReportDTC_BySeverityMaskRecord(DTCSeverityMask, DTCStatusMask),
 
     /// Parameter: DTCMaskRecord (3 bytes)
+    ///
     /// 0x09
     ReportSeverityInfoOfDTC(DTCMaskRecord),
 
@@ -215,12 +217,14 @@ impl WireFormat for ReadDTCInformationSubFunction {
             0x03 => Self::ReportDTCSnapshotIdentification,
             0x04 => Self::ReportDTCSnapshotRecord_ByDTCNumber(
                 DTCMaskRecord::from_reader(reader)?,
-                reader.read_u8()?,
+                DTCSnapshotRecordNumber::from_reader(reader)?,
             ),
-            0x05 => Self::ReportDTCStoredData_ByRecordNumber(reader.read_u8()?),
+            0x05 => Self::ReportDTCStoredData_ByRecordNumber(
+                DTCStoredDataRecordNumber::from_reader(reader)?,
+            ),
             0x06 => Self::ReportDTCExtDataRecord_ByDTCNumber(
                 DTCMaskRecord::from_reader(reader)?,
-                reader.read_u8()?,
+                DTCExtDataRecordNumber::from_reader(reader)?,
             ),
             0x07 => Self::ReportNumberOfDTC_BySeverityMaskRecord(
                 DTCSeverityMask::from(reader.read_u8()?),
@@ -238,21 +242,25 @@ impl WireFormat for ReadDTCInformationSubFunction {
             0x0E => Self::ReportMostRecentConfirmedDTC,
             0x14 => Self::ReportDTCFaultDetectionCounter,
             0x15 => Self::ReportDTCWithPermanentStatus,
-            0x16 => Self::ReportDTCExtDataRecord_ByRecordNumber(reader.read_u8()?),
+            0x16 => Self::ReportDTCExtDataRecord_ByRecordNumber(
+                DTCExtDataRecordNumber::from_reader(reader)?,
+            ),
             0x17 => {
                 Self::ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask::from(reader.read_u8()?))
             }
             0x18 => Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
                 DTCMaskRecord::from_reader(reader)?,
-                reader.read_u8()?,
+                UserDefDTCSnapshotRecordNumber::from_reader(reader)?,
                 reader.read_u8()?,
             ),
             0x19 => Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
                 DTCMaskRecord::from_reader(reader)?,
-                reader.read_u8()?,
+                DTCExtDataRecordNumber::from_reader(reader)?,
                 reader.read_u8()?,
             ),
-            0x1A => Self::ReportSupportedDTCExtDataRecord(0),
+            0x1A => {
+                Self::ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber::from_reader(reader)?)
+            }
             0x42 => Self::ReportWWHOBDDTC_ByMaskRecord(
                 FunctionalGroupIdentifier::EmissionsSystemGroup,
                 DTCStatusMask::TestFailed,
@@ -272,6 +280,8 @@ impl WireFormat for ReadDTCInformationSubFunction {
         Ok(Some(subfunction))
     }
 
+    /// Each subfunction has a different size
+    /// The first byte is always the subfunction report type
     fn required_size(&self) -> usize {
         1 + match self {
             Self::ReportNumberOfDTC_ByStatusMask(_) => 1,
@@ -314,16 +324,16 @@ impl WireFormat for ReadDTCInformationSubFunction {
                 mask.to_writer(writer)?;
             }
             Self::ReportDTCSnapshotIdentification => {}
-            Self::ReportDTCSnapshotRecord_ByDTCNumber(mask, number) => {
+            Self::ReportDTCSnapshotRecord_ByDTCNumber(mask, record_number) => {
                 mask.to_writer(writer)?;
-                writer.write_u8(*number)?;
+                record_number.to_writer(writer)?;
             }
-            Self::ReportDTCStoredData_ByRecordNumber(number) => {
-                writer.write_u8(*number)?;
+            Self::ReportDTCStoredData_ByRecordNumber(record_number) => {
+                record_number.to_writer(writer)?;
             }
-            Self::ReportDTCExtDataRecord_ByDTCNumber(mask, number) => {
+            Self::ReportDTCExtDataRecord_ByDTCNumber(mask, record_number) => {
                 mask.to_writer(writer)?;
-                writer.write_u8(*number)?;
+                record_number.to_writer(writer)?;
             }
             Self::ReportNumberOfDTC_BySeverityMaskRecord(severity, status) => {
                 writer.write_u8(severity.bits())?;
@@ -343,24 +353,24 @@ impl WireFormat for ReadDTCInformationSubFunction {
             Self::ReportMostRecentConfirmedDTC => {}
             Self::ReportDTCFaultDetectionCounter => {}
             Self::ReportDTCWithPermanentStatus => {}
-            Self::ReportDTCExtDataRecord_ByRecordNumber(number) => {
-                writer.write_u8(*number)?;
+            Self::ReportDTCExtDataRecord_ByRecordNumber(record_number) => {
+                record_number.to_writer(writer)?;
             }
             Self::ReportUserDefMemoryDTC_ByStatusMask(mask) => {
                 mask.to_writer(writer)?;
             }
             Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(mask, number, selection) => {
                 mask.to_writer(writer)?;
-                writer.write_u8(*number)?;
+                number.to_writer(writer)?;
                 writer.write_u8(*selection)?;
             }
             Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(mask, number, selection) => {
                 mask.to_writer(writer)?;
-                writer.write_u8(*number)?;
+                number.to_writer(writer)?;
                 writer.write_u8(*selection)?;
             }
             Self::ReportSupportedDTCExtDataRecord(number) => {
-                writer.write_u8(*number)?;
+                number.to_writer(writer)?;
             }
             Self::ReportWWHOBDDTC_ByMaskRecord(group, status, severity) => {
                 writer.write_u8(group.value())?;
