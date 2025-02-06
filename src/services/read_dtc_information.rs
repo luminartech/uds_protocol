@@ -10,50 +10,43 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
-pub struct ReadDtcInformationRequest {
-    pub dtc_subfunction: ReadDTCInformationSubFunction,
+pub struct ReadDTCInfoRequest {
+    pub dtc_subfunction: ReadDTCInfoSubFunction,
+}
+impl ReadDTCInfoRequest {
+    pub(crate) fn new(dtc_subfunction: ReadDTCInfoSubFunction) -> Self {
+        Self { dtc_subfunction }
+    }
 }
 
-impl WireFormat for ReadDtcInformationRequest {
+impl WireFormat for ReadDTCInfoRequest {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let dtc_subfunction = ReadDTCInformationSubFunction::option_from_reader(reader)?.unwrap();
+        let dtc_subfunction = ReadDTCInfoSubFunction::from_reader(reader)?;
 
         Ok(Some(Self { dtc_subfunction }))
     }
 
     fn required_size(&self) -> usize {
-        todo!()
+        self.dtc_subfunction.required_size()
     }
 
-    fn to_writer<T: std::io::Write>(&self, _writer: &mut T) -> Result<usize, Error> {
-        todo!()
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.dtc_subfunction.to_writer(writer)
     }
 }
 
-impl SingleValueWireFormat for ReadDtcInformationRequest {}
-
-// turn off warning
-// Initialization bits for the ECU DTC statuses
-// Expected to be false prior to first power-up of ECU
-// shall remain at true until ECU is reset or vehicle manufacturer specific reset is performed
-// These might be ECU specific, and not given over the wire
-// initializationFlag_TF = TestFailed
-// initializationFlag_TFTOC = TestFailedThisOperationCycle
-// initializationFlag_PDTC = PendingDTC
-// initializationFlag_CDTC = ConfirmedDTC
-// initializationFlag_TNCSLC = TestNotCompletedSinceLastClear
-// initializationFlag_TFSLC = TestFailedSinceLastClear
-// initializationFlag_TNCTOC = TestNotCompletedThisOperationCycle
-// initializationFlag_WIR = WarningIndicatorRequested
+impl SingleValueWireFormat for ReadDTCInfoRequest {}
 
 /// Used to address the respective user-defined DTC memory when retrieving DTCs
 type MemorySelection = u8;
 /// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [FunctionalGroupIdentifier]s
 /// This RGID depends on the functional group
 type DTCReadinessGroupIdentifier = u8;
+
+/// Subfunctions for the ReadDTCInformation service
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum ReadDTCInformationSubFunction {
+pub enum ReadDTCInfoSubFunction {
     /// Parameter: DTCStatusMask
     ///
     /// 0x01
@@ -131,7 +124,7 @@ pub enum ReadDTCInformationSubFunction {
     ),
 
     /// Parameter: DTCMaskRecord (3 bytes)
-    /// Parameter: DTCExtDataRecordNumber(1)
+    /// Parameter: DTCExtDataRecordNumber(1) (0xFF for all records)
     /// Parameter: MemorySelection(1)
     ///
     /// 0x19
@@ -139,7 +132,7 @@ pub enum ReadDTCInformationSubFunction {
         DTCMaskRecord,
         DTCExtDataRecordNumber,
         MemorySelection,
-    ), // 0x19
+    ),
 
     /// Parameter: DTCExtDataRecordNumber(1)
     ///
@@ -169,8 +162,8 @@ pub enum ReadDTCInformationSubFunction {
     ISOSAEReserved(u8),
 }
 
-impl ReadDTCInformationSubFunction {
-    fn value(&self) -> u8 {
+impl ReadDTCInfoSubFunction {
+    pub fn value(&self) -> u8 {
         match self {
             Self::ReportNumberOfDTC_ByStatusMask(_) => 0x01,
             Self::ReportDTC_ByStatusMask(_) => 0x02,
@@ -201,7 +194,7 @@ impl ReadDTCInformationSubFunction {
     }
 }
 
-impl WireFormat for ReadDTCInformationSubFunction {
+impl WireFormat for ReadDTCInfoSubFunction {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let report_type = reader.read_u8()?;
 
@@ -222,6 +215,7 @@ impl WireFormat for ReadDTCInformationSubFunction {
             0x05 => Self::ReportDTCStoredData_ByRecordNumber(
                 DTCStoredDataRecordNumber::from_reader(reader)?,
             ),
+            // 0xFF for all records, 0xFE for all OBD records
             0x06 => Self::ReportDTCExtDataRecord_ByDTCNumber(
                 DTCMaskRecord::from_reader(reader)?,
                 DTCExtDataRecordNumber::from_reader(reader)?,
@@ -248,6 +242,7 @@ impl WireFormat for ReadDTCInformationSubFunction {
             0x17 => {
                 Self::ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask::from(reader.read_u8()?))
             }
+            // 0xFF for all records
             0x18 => Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
                 DTCMaskRecord::from_reader(reader)?,
                 UserDefDTCSnapshotRecordNumber::from_reader(reader)?,
@@ -392,7 +387,7 @@ impl WireFormat for ReadDTCInformationSubFunction {
     }
 }
 
-impl SingleValueWireFormat for ReadDTCInformationSubFunction {}
+impl SingleValueWireFormat for ReadDTCInfoSubFunction {}
 
 #[cfg(test)]
 mod tests {
@@ -403,13 +398,19 @@ mod tests {
     fn test_read_dtc_information_request() {
         let bytes = [0x01, 0x01];
         let mut reader = &bytes[..];
-        let request = ReadDtcInformationRequest::option_from_reader(&mut reader)
+        let mut writer = Vec::new();
+        ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTCStoredData_ByRecordNumber(
+            DTCStoredDataRecordNumber(5),
+        ))
+        .to_writer(&mut writer)
+        .unwrap();
+        let request = ReadDTCInfoRequest::option_from_reader(&mut reader)
             .unwrap()
             .unwrap();
         assert_eq!(
             request,
-            ReadDtcInformationRequest {
-                dtc_subfunction: ReadDTCInformationSubFunction::ReportNumberOfDTC_ByStatusMask(
+            ReadDTCInfoRequest {
+                dtc_subfunction: ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask(
                     DTCStatusMask::TestFailed
                 )
             }

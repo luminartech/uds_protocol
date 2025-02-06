@@ -6,15 +6,15 @@ use crate::{
         RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
         WriteDataByIdentifierRequest,
     },
-    Error, IterableWireFormat, NegativeResponseCode, ResetType, SecurityAccessType,
-    SingleValueWireFormat, WireFormat,
+    Error, IterableWireFormat, NegativeResponseCode, ReadDTCInfoRequest, ResetType,
+    SecurityAccessType, SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 use super::{
     service::UdsServiceType, CommunicationControlType, CommunicationType, DataFormatIdentifier,
-    DiagnosticSessionType, DtcSettings, RoutineControlSubFunction,
+    DiagnosticSessionType, DtcSettings, ReadDTCInfoSubFunction, RoutineControlSubFunction,
 };
 
 /// UDS Request types
@@ -27,6 +27,7 @@ pub enum Request<DiagnosticIdentifier, DiagnosticPayload> {
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
     EcuReset(EcuResetRequest),
     ReadDataByIdentifier(ReadDataByIdentifierRequest<DiagnosticIdentifier>),
+    ReadDTCInfo(ReadDTCInfoRequest),
     RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
     RoutineControl(RoutineControlRequest),
@@ -103,6 +104,10 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 
+    pub fn read_dtc_information(sub_function: ReadDTCInfoSubFunction) -> Self {
+        Request::ReadDTCInfo(ReadDTCInfoRequest::new(sub_function))
+    }
+
     /// Create a new `RequestDownload` request
     ///     encryption_method: vehicle manufacturer specific (0x0 for no encryption)
     ///     compression_method: vehicle manufacturer specific (0x0 for no compression)
@@ -167,6 +172,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
             Self::EcuReset(_) => UdsServiceType::EcuReset,
             Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
+            Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo,
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::RoutineControl(_) => UdsServiceType::RoutineControl,
@@ -218,6 +224,9 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
             UdsServiceType::ReadDataByIdentifier => {
                 Self::ReadDataByIdentifier(ReadDataByIdentifierRequest::from_reader(reader)?)
             }
+            UdsServiceType::ReadDTCInfo => {
+                Self::ReadDTCInfo(ReadDTCInfoRequest::from_reader(reader)?)
+            }
             UdsServiceType::RequestDownload => {
                 Self::RequestDownload(RequestDownloadRequest::from_reader(reader)?)
             }
@@ -248,7 +257,6 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
             UdsServiceType::DynamicallyDefinedDataIdentifier => todo!(),
             UdsServiceType::WriteMemoryByAddress => todo!(),
             UdsServiceType::ClearDiagnosticInfo => todo!(),
-            UdsServiceType::ReadDTCInfo => todo!(),
             UdsServiceType::InputOutputControlByIdentifier => todo!(),
             UdsServiceType::RequestUpload => todo!(),
             UdsServiceType::RequestFileTransfer => todo!(),
@@ -264,6 +272,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
             Self::DiagnosticSessionControl(ds) => ds.required_size(),
             Self::EcuReset(er) => er.required_size(),
             Self::ReadDataByIdentifier(rd) => rd.required_size(),
+            Self::ReadDTCInfo(rd) => rd.required_size(),
             Self::RequestDownload(rd) => rd.required_size(),
             Self::RequestTransferExit => 0,
             Self::RoutineControl(rc) => rc.required_size(),
@@ -287,6 +296,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
             Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
             Self::EcuReset(er) => er.to_writer(writer),
             Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),
+            Self::ReadDTCInfo(rd) => rd.to_writer(writer),
             Self::RequestDownload(rd) => rd.to_writer(writer),
             Self::RequestTransferExit => Ok(0),
             Self::RoutineControl(rc) => rc.to_writer(writer),

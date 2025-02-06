@@ -301,13 +301,10 @@ impl From<u8> for UserDefDTCSnapshotRecordNumber {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DTCSnapshotRecordNumber(u8);
 impl WireFormat for DTCSnapshotRecordNumber {
-    fn option_from_reader<T: std::io::Read>(_reader: &mut T) -> Result<Option<Self>, Error> {
-        todo!();
-        // let value = reader.read_u8()?;
-        // match value {
-        //     _ => todo!(),
-        // }
-        // Ok(Some(Self(value)))
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let value = reader.read_u8()?;
+
+        Ok(Some(Self(value)))
     }
 
     fn required_size(&self) -> usize {
@@ -322,8 +319,9 @@ impl WireFormat for DTCSnapshotRecordNumber {
 impl SingleValueWireFormat for DTCSnapshotRecordNumber {}
 
 /// Indicates the number of the specific DTCSnapshot data record requested
+/// Setting to 0xFF will return all DTCStoredDataRecords at once
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct DTCStoredDataRecordNumber(u8);
+pub struct DTCStoredDataRecordNumber(pub u8);
 
 impl WireFormat for DTCStoredDataRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
@@ -361,17 +359,14 @@ impl From<u8> for DTCStoredDataRecordNumber {
     }
 }
 
+/// For subfunctions 0x06 (ReportDTCExtDataRecord_ByDTCNumber), 0x19 (ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DTCExtDataRecordNumber(u8);
 
 impl WireFormat for DTCExtDataRecordNumber {
-    fn option_from_reader<T: std::io::Read>(_reader: &mut T) -> Result<Option<Self>, Error> {
-        todo!();
-        // let value = reader.read_u8()?;
-        // match value {
-        //     _ => todo!(),
-        // }
-        // Ok(Some(Self(value)))
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let value = reader.read_u8()?;
+        Ok(Some(Self(value)))
     }
 
     fn required_size(&self) -> usize {
@@ -387,25 +382,48 @@ impl WireFormat for DTCExtDataRecordNumber {
 impl SingleValueWireFormat for DTCExtDataRecordNumber {}
 
 #[cfg(test)]
-mod tests {
+mod dtc_status_tests {
     use super::*;
 
     #[test]
     fn status_mask() {
         let status_mask = DTCStatusMask::TestFailed | DTCStatusMask::PendingDTC;
         assert_eq!(status_mask.bits(), 0b0000_0101);
+
+        let status_mask = DTCStatusMask::TestFailedThisOperationCycle
+            | DTCStatusMask::TestNotCompletedSinceLastClear;
+
+        assert_eq!(status_mask.bits(), 0b0001_0010);
     }
 
     #[test]
-    fn test_gtr_dtc_class_info() {
+    fn gtr_dtc_class_info() {
         let dtc_class = DTCSeverityMask::DTCClass_1 | DTCSeverityMask::MaintenanceOnly;
         assert_eq!(dtc_class.bits(), 0b0010_0010);
         assert!(dtc_class.is_valid());
     }
 
     #[test]
-    fn test_dtc_severity_info() {
+    fn dtc_severity_info() {
         let dtc_severity = DTCSeverityMask::CheckImmediately;
         assert_eq!(dtc_severity.bits(), 0b1000_0000);
+    }
+
+    #[test]
+    fn snapshot_record() {
+        let record = DTCSnapshotRecordNumber(0x01);
+        let mut writer = Vec::new();
+        let written_number = record.to_writer(&mut writer).unwrap();
+        assert_eq!(record.required_size(), 1);
+        assert_eq!(written_number, 1);
+    }
+
+    #[test]
+    fn dtc_mask_record() {
+        let record = DTCMaskRecord::new(0x01, 0x02, 0x03);
+        let mut writer = Vec::new();
+        let written_number = record.to_writer(&mut writer).unwrap();
+        assert_eq!(record.required_size(), 3);
+        assert_eq!(written_number, 3);
     }
 }
