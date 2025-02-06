@@ -300,6 +300,20 @@ impl From<u8> for UserDefDTCSnapshotRecordNumber {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DTCSnapshotRecordNumber(u8);
+
+// create a constructor for DTCSnapshotRecordNumber
+impl DTCSnapshotRecordNumber {
+    pub fn new(record_number: u8) -> Result<Self, Error> {
+        if record_number == 0 || record_number == 0xF0 {
+            return Err(Error::ReservedForLegislativeUse(
+                "DTCSnapshotRecordNumber".to_string(),
+                record_number,
+            ));
+        }
+        Ok(Self(record_number))
+    }
+}
+
 impl WireFormat for DTCSnapshotRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let value = reader.read_u8()?;
@@ -321,8 +335,20 @@ impl SingleValueWireFormat for DTCSnapshotRecordNumber {}
 /// Indicates the number of the specific DTCSnapshot data record requested
 /// Setting to 0xFF will return all DTCStoredDataRecords at once
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct DTCStoredDataRecordNumber(pub u8);
+pub struct DTCStoredDataRecordNumber(u8);
 
+// create a constructor for DTCStoredDataRecordNumber
+impl DTCStoredDataRecordNumber {
+    pub fn new(record_number: u8) -> Result<Self, Error> {
+        if record_number == 0 || record_number == 0xF0 {
+            return Err(Error::ReservedForLegislativeUse(
+                "DTCStoredDataRecordNumber".to_string(),
+                record_number,
+            ));
+        }
+        Ok(Self(record_number))
+    }
+}
 impl WireFormat for DTCStoredDataRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let value = reader.read_u8()?;
@@ -361,7 +387,7 @@ impl From<u8> for DTCStoredDataRecordNumber {
 
 /// For subfunctions 0x06 (ReportDTCExtDataRecord_ByDTCNumber), 0x19 (ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct DTCExtDataRecordNumber(u8);
+pub struct DTCExtDataRecordNumber(pub u8);
 
 impl WireFormat for DTCExtDataRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {

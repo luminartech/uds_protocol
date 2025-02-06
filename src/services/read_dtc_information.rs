@@ -400,7 +400,7 @@ mod tests {
         let mut reader = &bytes[..];
         let mut writer = Vec::new();
         ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTCStoredData_ByRecordNumber(
-            DTCStoredDataRecordNumber(5),
+            DTCStoredDataRecordNumber::new(5).unwrap(),
         ))
         .to_writer(&mut writer)
         .unwrap();
@@ -415,5 +415,45 @@ mod tests {
                 )
             }
         );
+    }
+
+    #[test]
+    fn test_read_dtc_information_subfunction() {
+        let mut writer = Vec::new();
+        let b = ReadDTCInfoSubFunction::ReportDTCWithPermanentStatus;
+        b.to_writer(&mut writer).unwrap();
+
+        assert_eq!(writer, vec![0x15]);
+
+        for id in 0x01..=0x07 {
+            let mut writer = Vec::new();
+            let func = match id {
+                0x01 => ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask(
+                    DTCStatusMask::TestFailed,
+                ),
+                0x02 => ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(
+                    DTCStatusMask::WarningIndicatorRequested,
+                ),
+                0x03 => ReadDTCInfoSubFunction::ReportDTCSnapshotIdentification,
+                0x04 => ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber(
+                    DTCMaskRecord::new(0x01, 0x02, 0x03),
+                    DTCSnapshotRecordNumber::new(0x04).unwrap(),
+                ),
+                0x05 => ReadDTCInfoSubFunction::ReportDTCStoredData_ByRecordNumber(
+                    DTCStoredDataRecordNumber::new(0x20).unwrap(),
+                ),
+                0x06 => ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber(
+                    DTCMaskRecord::new(0x01, 0x02, 0x03),
+                    DTCExtDataRecordNumber(0x04),
+                ),
+                0x07 => ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord(
+                    DTCSeverityMask::DTCClass_4,
+                    DTCStatusMask::TestFailed,
+                ),
+                _ => unreachable!("Invalid loop value"),
+            };
+            let written = func.to_writer(&mut writer).unwrap();
+            assert_eq!(written, func.required_size());
+        }
     }
 }
