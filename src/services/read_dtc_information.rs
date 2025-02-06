@@ -13,6 +13,7 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 pub struct ReadDTCInfoRequest {
     pub dtc_subfunction: ReadDTCInfoSubFunction,
 }
+
 impl ReadDTCInfoRequest {
     pub(crate) fn new(dtc_subfunction: ReadDTCInfoSubFunction) -> Self {
         Self { dtc_subfunction }
@@ -41,7 +42,7 @@ impl SingleValueWireFormat for ReadDTCInfoRequest {}
 type MemorySelection = u8;
 /// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [FunctionalGroupIdentifier]s
 /// This RGID depends on the functional group
-type DTCReadinessGroupIdentifier = u8;
+type DTCReadinessGroupIdentifier = u8; // RGID
 
 /// Subfunctions for the ReadDTCInformation service
 #[allow(non_camel_case_types)]
@@ -137,7 +138,7 @@ pub enum ReadDTCInfoSubFunction {
     /// Parameter: DTCExtDataRecordNumber(1)
     ///
     /// 0x1A
-    ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber), // 0x1A
+    ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber),
 
     /// Parameter: FunctionalGroupIdentifier(1)
     /// Parameter: DTCStatusMask
@@ -159,6 +160,7 @@ pub enum ReadDTCInfoSubFunction {
         FunctionalGroupIdentifier,
         DTCReadinessGroupIdentifier,
     ),
+    /// 0x42-0x54, 0x57-0x7F
     ISOSAEReserved(u8),
 }
 

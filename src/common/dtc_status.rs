@@ -206,7 +206,6 @@ pub enum DTCFaultDetectionCounter {}
 /// Bits 4-0 of the [DTCSeverityMask]/[DTCSeverity] parameters contain class information (mandatory)
 ///
 /// DTCCLASS_
-// #[bitmask(u8)]
 #[allow(non_camel_case_types)]
 #[bitmask(u8)]
 #[derive(Serialize, Deserialize)]
@@ -216,7 +215,7 @@ pub enum DTCSeverityMask {
     DTCClass_0,
 
     /// Matches GTR module B Class A definition
-    /// Malfunction is Class A when OBD threshold limits (OTL) are assumed to be exceeded
+    /// Malfunction is Class A when On-Board Diagnostic (OBD) threshold limits (OTL) are assumed to be exceeded
     /// It is accepted that the emissions may not be above the OTLs when this class of malfunction occurs
     DTCClass_1,
 
