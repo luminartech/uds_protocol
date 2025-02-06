@@ -27,7 +27,7 @@ pub use request_file_transfer::{
 };
 
 mod routine_control;
-pub use routine_control::RoutineControlRequest;
+pub use routine_control::{RoutineControlRequest, RoutineControlResponse};
 
 mod security_access;
 pub use security_access::{SecurityAccessRequest, SecurityAccessResponse};

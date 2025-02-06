@@ -50,6 +50,36 @@ impl WireFormat for RoutineControlRequest {
 
 impl SingleValueWireFormat for RoutineControlRequest {}
 
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct RoutineControlResponse {
+    pub data: Vec<u8>,
+}
+
+impl RoutineControlResponse {
+    pub(crate) fn new(data: Vec<u8>) -> Self {
+        Self { data }
+    }
+}
+impl WireFormat for RoutineControlResponse {
+    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data)?;
+        Ok(Some(Self { data }))
+    }
+
+    fn required_size(&self) -> usize {
+        self.data.len()
+    }
+
+    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_all(&self.data)?;
+        Ok(self.required_size())
+    }
+}
+
+impl SingleValueWireFormat for RoutineControlResponse {}
+
 #[cfg(test)]
 mod request {
     use super::*;

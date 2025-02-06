@@ -2,9 +2,9 @@ use crate::{
     CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse,
     DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings, EcuResetResponse, Error,
     IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDataByIdentifierResponse,
-    RequestDownloadResponse, RequestFileTransferResponse, ResetType, SecurityAccessResponse,
-    SecurityAccessType, SingleValueWireFormat, TesterPresentResponse, TransferDataResponse,
-    UdsServiceType, WireFormat,
+    RequestDownloadResponse, RequestFileTransferResponse, ResetType, RoutineControlResponse,
+    SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat, TesterPresentResponse,
+    TransferDataResponse, UdsServiceType, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -32,6 +32,8 @@ pub enum Response<UserPayload> {
     RequestFileTransfer(RequestFileTransferResponse),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
+    /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
+    RoutineControl(RoutineControlResponse),
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
     TransferData(TransferDataResponse),
@@ -80,6 +82,10 @@ impl<UserPayload> Response<UserPayload> {
         todo!()
     }
 
+    pub fn routine_control(data: Vec<u8>) -> Self {
+        Response::RoutineControl(RoutineControlResponse::new(data))
+    }
+
     pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
         Response::SecurityAccess(SecurityAccessResponse::new(access_type, security_seed))
     }
@@ -103,6 +109,7 @@ impl<UserPayload> Response<UserPayload> {
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
+            Self::RoutineControl(_) => UdsServiceType::RoutineControl,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
@@ -134,6 +141,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
                 Self::RequestFileTransfer(RequestFileTransferResponse::from_reader(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
+            UdsServiceType::RoutineControl => {
+                Self::RoutineControl(RoutineControlResponse::from_reader(reader)?)
+            }
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(SecurityAccessResponse::from_reader(reader)?)
             }
@@ -155,6 +165,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::RequestDownload(rd) => rd.required_size(),
             Self::RequestFileTransfer(rft) => rft.required_size(),
             Self::RequestTransferExit => 0,
+            Self::RoutineControl(rc) => rc.required_size(),
             Self::SecurityAccess(sa) => sa.required_size(),
             Self::TesterPresent(tp) => tp.required_size(),
             Self::TransferData(td) => td.required_size(),
@@ -175,6 +186,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::RequestDownload(rd) => rd.to_writer(writer),
             Self::RequestFileTransfer(rft) => rft.to_writer(writer),
             Self::RequestTransferExit => Ok(0),
+            Self::RoutineControl(rc) => rc.to_writer(writer),
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
             Self::TransferData(td) => td.to_writer(writer),
