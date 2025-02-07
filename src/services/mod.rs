@@ -12,6 +12,9 @@ pub use diagnostic_session_control::{
 mod ecu_reset;
 pub use ecu_reset::{EcuResetRequest, EcuResetResponse};
 
+mod negative_response;
+pub use negative_response::NegativeResponse;
+
 mod read_data_by_identifier;
 pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentifierResponse};
 
@@ -24,7 +27,7 @@ pub use request_file_transfer::{
 };
 
 mod routine_control;
-pub use routine_control::RoutineControlRequest;
+pub use routine_control::{RoutineControlRequest, RoutineControlResponse};
 
 mod security_access;
 pub use security_access::{SecurityAccessRequest, SecurityAccessResponse};

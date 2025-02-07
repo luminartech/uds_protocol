@@ -1,9 +1,10 @@
 use crate::{
     CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse,
     DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings, EcuResetResponse, Error,
-    IterableWireFormat, ReadDataByIdentifierResponse, RequestDownloadResponse,
-    RequestFileTransferResponse, ResetType, SecurityAccessResponse, SecurityAccessType,
-    SingleValueWireFormat, TesterPresentResponse, TransferDataResponse, UdsServiceType, WireFormat,
+    IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDataByIdentifierResponse,
+    RequestDownloadResponse, RequestFileTransferResponse, ResetType, RoutineControlResponse,
+    SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat, TesterPresentResponse,
+    TransferDataResponse, UdsServiceType, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -13,6 +14,7 @@ pub struct UdsResponse {
     pub data: Vec<u8>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Response<UserPayload> {
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
@@ -22,12 +24,16 @@ pub enum Response<UserPayload> {
     DiagnosticSessionControl(DiagnosticSessionControlResponse),
     /// Response to a [`EcuResetRequest`](crate::EcuResetRequest)
     EcuReset(EcuResetResponse),
+    /// Negative response to any request
+    NegativeResponse(NegativeResponse),
     ReadDataByIdentifier(ReadDataByIdentifierResponse<UserPayload>),
     /// Response to a [`RequestDownload`](crate::RequestDownload)
     RequestDownload(RequestDownloadResponse),
     RequestFileTransfer(RequestFileTransferResponse),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
+    /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
+    RoutineControl(RoutineControlResponse),
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
     TransferData(TransferDataResponse),
@@ -58,6 +64,10 @@ impl<UserPayload> Response<UserPayload> {
         Response::EcuReset(EcuResetResponse::new(reset_type, power_down_time))
     }
 
+    pub fn negative_response(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
+        Response::NegativeResponse(NegativeResponse::new(request_service, nrc))
+    }
+
     pub fn request_download(
         length_format_identifier: u8,
         max_number_of_block_length: Vec<u8>,
@@ -70,6 +80,10 @@ impl<UserPayload> Response<UserPayload> {
 
     pub fn request_file_transfer() -> Self {
         todo!()
+    }
+
+    pub fn routine_control(data: Vec<u8>) -> Self {
+        Response::RoutineControl(RoutineControlResponse::new(data))
     }
 
     pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
@@ -90,10 +104,12 @@ impl<UserPayload> Response<UserPayload> {
             Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings,
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
             Self::EcuReset(_) => UdsServiceType::EcuReset,
+            Self::NegativeResponse(_) => UdsServiceType::NegativeResponse,
             Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
+            Self::RoutineControl(_) => UdsServiceType::RoutineControl,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
@@ -125,6 +141,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
                 Self::RequestFileTransfer(RequestFileTransferResponse::from_reader(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
+            UdsServiceType::RoutineControl => {
+                Self::RoutineControl(RoutineControlResponse::from_reader(reader)?)
+            }
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(SecurityAccessResponse::from_reader(reader)?)
             }
@@ -141,10 +160,12 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::ControlDTCSettings(dtc) => dtc.required_size(),
             Self::DiagnosticSessionControl(ds) => ds.required_size(),
             Self::EcuReset(reset) => reset.required_size(),
+            Self::NegativeResponse(nr) => nr.required_size(),
             Self::ReadDataByIdentifier(rd) => rd.required_size(),
             Self::RequestDownload(rd) => rd.required_size(),
             Self::RequestFileTransfer(rft) => rft.required_size(),
             Self::RequestTransferExit => 0,
+            Self::RoutineControl(rc) => rc.required_size(),
             Self::SecurityAccess(sa) => sa.required_size(),
             Self::TesterPresent(tp) => tp.required_size(),
             Self::TransferData(td) => td.required_size(),
@@ -160,10 +181,12 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::ControlDTCSettings(dtc) => dtc.to_writer(writer),
             Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
             Self::EcuReset(reset) => reset.to_writer(writer),
+            Self::NegativeResponse(nr) => nr.to_writer(writer),
             Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),
             Self::RequestDownload(rd) => rd.to_writer(writer),
             Self::RequestFileTransfer(rft) => rft.to_writer(writer),
             Self::RequestTransferExit => Ok(0),
+            Self::RoutineControl(rc) => rc.to_writer(writer),
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
             Self::TransferData(td) => td.to_writer(writer),
