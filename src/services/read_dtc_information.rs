@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     DTCExtDataRecordNumber, DTCMaskRecord, DTCSeverityMask, DTCSnapshotRecordNumber, DTCStatusMask,
-    DTCStoredDataRecordNumber, FunctionalGroupIdentifier, UserDefDTCSnapshotRecordNumber,
+    DTCStoredDataRecordNumber, Error, FunctionalGroupIdentifier, SingleValueWireFormat,
+    UserDefDTCSnapshotRecordNumber, WireFormat,
 };
-use crate::{Error, SingleValueWireFormat, WireFormat};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]

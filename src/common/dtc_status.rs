@@ -104,6 +104,7 @@ pub struct DTCMaskRecord {
     middle_byte: u8,
     low_byte: u8,
 }
+
 impl DTCMaskRecord {
     pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
         Self {
@@ -113,6 +114,7 @@ impl DTCMaskRecord {
         }
     }
 }
+
 impl WireFormat for DTCMaskRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
         let mut buffer = [0; 3];
@@ -149,7 +151,7 @@ pub enum FunctionalGroupIdentifier {
     /// 0x34 to 0xCF
     /// 0xE0 to 0xFD
     /// 0xFF
-    ISOSAEReserved,
+    ISOSAEReserved(u8),
     /// 0x33
     EmissionsSystemGroup,
     /// 0xD0
@@ -157,7 +159,7 @@ pub enum FunctionalGroupIdentifier {
 
     /// 0xD1 to 0xDF
     /// For future use
-    LegislativeSystemGroup,
+    LegislativeSystemGroup(u8),
 
     /// 0xFE
     VODBSystem,
@@ -169,10 +171,18 @@ impl FunctionalGroupIdentifier {
             FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
             FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,
             FunctionalGroupIdentifier::VODBSystem => 0xFE,
-            FunctionalGroupIdentifier::LegislativeSystemGroup => {
-                todo!("FunctionalGroupIdentifiers::LegislativeSystemGroup is not a valid value")
+            FunctionalGroupIdentifier::LegislativeSystemGroup(value) => {
+                todo!(
+                    "FunctionalGroupIdentifiers::LegislativeSystemGroup is not a valid value {}",
+                    value
+                )
             }
-            _ => todo!("FunctionalGroupIdentifiers::ISOSAEReserved is not a valid value"),
+            FunctionalGroupIdentifier::ISOSAEReserved(value) => {
+                todo!(
+                    "FunctionalGroupIdentifiers::ISOSAEReserved is not a valid value {}",
+                    value
+                )
+            }
         }
     }
 }
@@ -183,8 +193,8 @@ impl From<u8> for FunctionalGroupIdentifier {
             0x33 => FunctionalGroupIdentifier::EmissionsSystemGroup,
             0xD0 => FunctionalGroupIdentifier::SafetySystemGroup,
             0xFE => FunctionalGroupIdentifier::VODBSystem,
-            0xD1..=0xDF => FunctionalGroupIdentifier::LegislativeSystemGroup,
-            _ => FunctionalGroupIdentifier::ISOSAEReserved,
+            0xD1..=0xDF => FunctionalGroupIdentifier::LegislativeSystemGroup(value),
+            _ => FunctionalGroupIdentifier::ISOSAEReserved(value),
         }
     }
 }
@@ -300,8 +310,8 @@ impl From<u8> for UserDefDTCSnapshotRecordNumber {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DTCSnapshotRecordNumber(u8);
 
-// create a constructor for DTCSnapshotRecordNumber
 impl DTCSnapshotRecordNumber {
+    /// Create a new DTCSnapshotRecordNumber validating that it is in the range we expect
     pub fn new(record_number: u8) -> Result<Self, Error> {
         if record_number == 0 || record_number == 0xF0 {
             return Err(Error::ReservedForLegislativeUse(
@@ -329,6 +339,7 @@ impl WireFormat for DTCSnapshotRecordNumber {
         Ok(1)
     }
 }
+
 impl SingleValueWireFormat for DTCSnapshotRecordNumber {}
 
 /// Indicates the number of the specific DTCSnapshot data record requested
@@ -348,6 +359,7 @@ impl DTCStoredDataRecordNumber {
         Ok(Self(record_number))
     }
 }
+
 impl WireFormat for DTCStoredDataRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let value = reader.read_u8()?;
