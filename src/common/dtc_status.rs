@@ -82,15 +82,19 @@ impl SingleValueWireFormat for DTCStatusMask {}
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub enum DTCFormatIdentifier {
-    /// SAE J2012 DA DTC Format
+    /// Defined in [SAE J2012-DA](https://www.sae.org/standards/content/j2012da_202403/) DTC Format
     SAE_J2012_DA_DTCFormat_00 = 0x00,
+
     /// reported for DTCAndStatusRecord
     ISO_14229_1_DTCFormat = 0x01,
-    /// Defined in SAE J1939-73
+
+    /// Defined in [SAE J1939-73](https://www.sae.org/standards/content/j1939/73_202208/)
     SAE_J1939_73_DTCFormat = 0x02,
 
+    /// Defined in [ISO-11992](https://www.iso.org/standard/33992.html)
     ISO_11992_4_DTCFormat = 0x03,
 
+    /// Defined in SAE J2012-DA](https://www.sae.org/standards/content/j2012da_202403/)
     SAE_J2012_DA_DTCFormat_04 = 0x04,
 
     /// Reserved for future usage
