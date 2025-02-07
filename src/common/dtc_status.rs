@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
+/// Bit-packed DTC status information used by the ReadDTCInformation service
+///
 /// DTCStatusMask (1 byte)
 /// 8 DTC status bits. Refer to D.2
 /// A DTC status matches the mask if any one of the DTCs actual status bits is set to `1`
@@ -13,6 +15,13 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 /// Server note:
 ///     If the mask uses bits that the server does not support,
 ///     the server shall process the bits it does support and ignore the rest
+///
+/// ```
+/// use uds_protocol::{DTCStatusMask, ReadDTCInfoSubFunction};
+/// // Get DTCs with TestFailed and PendingDTC statuses
+/// let dtc_status = DTCStatusMask::TestFailed | DTCStatusMask::PendingDTC;
+/// let dtc_subfunction = ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask(dtc_status);
+/// ```
 ///
 /// Per DTC statuses
 ///
@@ -32,31 +41,69 @@ pub enum DTCStatusMask {
     /// Status of the most recently performed test.
     ///
     /// Bit state definition:
-    ///     * 0 shall indicate the last test passed
-    ///     * 1 shall indicate the last matured test failed
+    /// * 0 shall indicate the last test passed
+    /// * 1 shall indicate the last matured test **failed**
     ///
     /// Will be 0 after a successful [`ClearDiagnosticInformation`](crate::services::ClearDiagnosticInformation) service
     TestFailed,
-    /// Whether or not a diagnostic test has reported a test failed result during the current operation cycle, or that it's been reported during this operation and after [`ClearDiagnosticInformation`]
+    /// Whether or not a diagnostic test has reported a test failed result during the current operation cycle,
+    /// or that it's been reported during this operation and after ClearDiagnosticInformation
     ///
     /// Bit state definition:
-    ///     * 0 shall indicate that no test failed during the current operation cycle or after a ClearDiagnosticInformation
-    ///    * 1 shall indicate that a test failed during the current operation cycle or after a ClearDiagnosticInformation
+    /// * 0 shall indicate that **no test failed** during the current operation cycle or after a ClearDiagnosticInformation
+    /// * 1 shall indicate that a test failed during the current operation cycle or after a ClearDiagnosticInformation
     ///
     /// Shall remain a 1 until a new operation cycle is started
     TestFailedThisOperationCycle,
 
-    /// Similar to [TestFailedThisOperationCycle], but will only clear after
+    /// Similar to [Self::TestFailedThisOperationCycle], but will only clear after
     /// a cycle is finished and there is a passed test w/ no failure
     ///
     /// Bit state definition:
-    ///    * 0 -  Test passed with no failure after completing a cycle
-    ///    * 1 -  Test failed during the current operation cycle
+    /// * 0 -  Test passed **with no failure** after completing a cycle
+    /// * 1 -  Test failed during the current operation cycle
     PendingDTC,
+
+    /// Indicates whether a malfunction was detected enough times to warrant the DTC being stored
+    /// in long term memory. This doesn't mean that the DTC failure is present at the time of the request.
+    /// Aging threshold for clearing itself depends on the vehicle manufacturer or OBD regulations
+    ///
+    /// Bit state definition:
+    /// * 0 - DTC has **never been confirmed** since last ClearDiagnosticInformation, or after aging criteria have been met
+    /// * 1 - DTC has been confirmed at least once
     ConfirmedDTC,
+
+    /// Indicates whether a test has run and completed since last ClearDiagnosticInformation
+    /// Will not reset to 1 by any method other than calling ClearDiagnosticInformation
+    ///
+    /// Bit state definition:
+    /// * 0 - Test has returned passed or failed at least once since last ClearDiagnosticInformation
+    /// * 1 - Test has **not** run to completion
     TestNotCompletedSinceLastClear,
+
+    /// Indicates whether a test has failed since the last ClearDiagnosticInformation
+    /// This is a latched [Self::TestFailedThisOperationCycle]
+    /// Vehicle manufacturer is in charge of clearing this bit if there is an aging threshold is fulfilled
+    ///
+    /// Bit state definition:
+    /// * 0 - Test has **not** failed since last ClearDiagnosticInformation
+    /// * 1 - Test has failed at least once since last ClearDiagnosticInformation
     TestFailedSinceLastClear,
+
+    /// Indicates whether a test has run and completed during the current operation cycle,
+    ///     or whether is has run and completed after the last ClearDiagnosticInformation during the current operation cycle
+    ///
+    /// Bit state definition:
+    /// * 0 - Test has run and completed during the current operation cycle
+    /// * 1 - Test has **not** run to completion during the current operation cycle
     TestNotCompletedThisOperationCycle,
+
+    /// Shall report the status of any warning indicators associated with a certain DTC. Warning outputs may consist
+    /// of indicator lamp(s), displayed text information, etc.
+    ///
+    /// Bit state definition:
+    /// * 0 - Server is **not** requesting a warningIndicator to be active
+    /// * 1 - Server is requesting a warningIndicator to be active
     WarningIndicatorRequested,
 }
 
@@ -78,23 +125,26 @@ impl WireFormat for DTCStatusMask {
 
 impl SingleValueWireFormat for DTCStatusMask {}
 
+/// Specifies the format of the DTC reported by the server.
+///
+/// A given server shall only support one DTCFormatIdentifier.
 #[allow(non_camel_case_types)]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub enum DTCFormatIdentifier {
-    /// Defined in [SAE J2012-DA](https://www.sae.org/standards/content/j2012da_202403/) DTC Format
+    /// Defined in [SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>) DTC Format
     SAE_J2012_DA_DTCFormat_00 = 0x00,
 
     /// reported for DTCAndStatusRecord
     ISO_14229_1_DTCFormat = 0x01,
 
-    /// Defined in [SAE J1939-73](https://www.sae.org/standards/content/j1939/73_202208/)
+    /// Defined in [SAE J1939-73](<https://www.sae.org/standards/content/j1939/73_202208/>)
     SAE_J1939_73_DTCFormat = 0x02,
 
-    /// Defined in [ISO-11992](https://www.iso.org/standard/33992.html)
+    /// Defined in [ISO-11992](<https://www.iso.org/standard/33992.html>)
     ISO_11992_4_DTCFormat = 0x03,
 
-    /// Defined in SAE J2012-DA](https://www.sae.org/standards/content/j2012da_202403/)
+    /// Defined in SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>)
     SAE_J2012_DA_DTCFormat_04 = 0x04,
 
     /// Reserved for future usage
@@ -216,8 +266,8 @@ pub enum DTCFaultDetectionCounter {}
 
 /// GTR DTC Class Information
 ///
-/// Bits 7-5 of the [DTCSeverityMask]/[DTCSeverity] parameters contain severity information (optional)
-/// Bits 4-0 of the [DTCSeverityMask]/[DTCSeverity] parameters contain class information (mandatory)
+/// Bits 7-5 of the DTCSeverityMask/DTCSeverity parameters contain severity information (optional)
+/// Bits 4-0 of the DTCSeverityMask/DTCSeverity parameters contain class information (mandatory)
 ///
 /// DTCCLASS_
 #[allow(non_camel_case_types)]
