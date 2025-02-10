@@ -171,12 +171,16 @@ impl DTCMaskRecord {
 
 impl WireFormat for DTCMaskRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
-        let mut buffer = [0; 3];
-        reader.read_exact(&mut buffer)?;
+        let high_byte = match reader.read_u8() {
+            Ok(byte) => byte,
+            Err(_) => return Ok(None),
+        };
+        let middle_byte = reader.read_u8()?;
+        let low_byte = reader.read_u8()?;
         Ok(Some(Self {
-            high_byte: buffer[0],
-            middle_byte: buffer[1],
-            low_byte: buffer[2],
+            high_byte,
+            middle_byte,
+            low_byte,
         }))
     }
 
