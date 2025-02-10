@@ -471,6 +471,19 @@ impl WireFormat for ReadDTCInfoResponse {
 
                 Ok(Some(Self::DTCList(subfunction_id, status, dtcs)))
             }
+            0x03 => {
+                let mut dtcs: Vec<(DTCMaskRecord, DTCSnapshotRecordNumber)> = Vec::new();
+
+                // Loop until we're done with the reader and fill the DTC list
+                while let Some(record) = DTCMaskRecord::option_from_reader(reader)? {
+                    match DTCSnapshotRecordNumber::option_from_reader(reader)? {
+                        Some(number) => dtcs.push((record, number)),
+                        None => break,
+                    }
+                }
+
+                Ok(Some(Self::DTCSnapshotList(dtcs)))
+            }
             _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
@@ -499,7 +512,13 @@ impl WireFormat for ReadDTCInfoResponse {
                     status.to_writer(writer)?;
                 }
             }
-            _ => todo!(),
+            Self::DTCSnapshotList(list) => {
+                writer.write_u8(0x03)?;
+                for (record, number) in list {
+                    record.to_writer(writer)?;
+                    number.to_writer(writer)?;
+                }
+            }
         }
         Ok(self.required_size())
     }

@@ -383,7 +383,10 @@ impl DTCSnapshotRecordNumber {
 
 impl WireFormat for DTCSnapshotRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let value = reader.read_u8()?;
+        let value = match reader.read_u8() {
+            Ok(byte) => byte,
+            Err(_) => return Ok(None),
+        };
 
         Ok(Some(Self(value)))
     }
