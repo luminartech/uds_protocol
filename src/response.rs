@@ -15,7 +15,7 @@ pub struct UdsResponse {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Response<UserPayload> {
+pub enum Response<UserIdentifier, UserPayload> {
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
     /// Response to a [`ControlDTCSettingsRequest`](crate::ControlDTCSettingsRequest)
@@ -37,10 +37,10 @@ pub enum Response<UserPayload> {
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
     TransferData(TransferDataResponse),
-    WriteDataByIdentifier(WriteDataByIdentifierResponse<UserPayload>),
+    WriteDataByIdentifier(WriteDataByIdentifierResponse<UserIdentifier>),
 }
 
-impl<UserPayload> Response<UserPayload> {
+impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
     pub fn communication_control(control_type: CommunicationControlType) -> Self {
         Response::CommunicationControl(CommunicationControlResponse::new(control_type))
     }
@@ -119,7 +119,9 @@ impl<UserPayload> Response<UserPayload> {
     }
 }
 
-impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
+impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFormat
+    for Response<UserIdentifier, UserPayload>
+{
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
@@ -172,7 +174,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             UdsServiceType::ReadDTCInfo => todo!(),
             UdsServiceType::InputOutputControlByIdentifier => todo!(),
             UdsServiceType::RequestUpload => todo!(),
-            UdsServiceType::TransferData => todo!(),
+            UdsServiceType::TransferData => {
+                Self::TransferData(TransferDataResponse::from_reader(reader)?)
+            }
             UdsServiceType::UnsupportedDiagnosticService => todo!(),
         }))
     }
@@ -219,4 +223,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
     }
 }
 
-impl<UserPayload: IterableWireFormat> SingleValueWireFormat for Response<UserPayload> {}
+impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> SingleValueWireFormat
+    for Response<UserIdentifier, UserPayload>
+{
+}
