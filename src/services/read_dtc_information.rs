@@ -8,7 +8,7 @@ use crate::{
     UserDefDTCSnapshotRecordNumber, WireFormat,
 };
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub struct ReadDTCInfoRequest {
     pub dtc_subfunction: ReadDTCInfoSubFunction,
