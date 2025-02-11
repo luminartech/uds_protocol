@@ -32,4 +32,8 @@ pub enum Error {
     InvalidFileOperationMode(u8),
     #[error("Invalid file size parameter length (valid values = 1,2,3,4,8,16): {0}")]
     InvalidFileSizeParameterLength(u8),
+    #[error("Invalid DTC Subfunction Type: {0}")]
+    InvalidDtcSubfunctionType(u8),
+    #[error("Reserved for legislative use: {0} ({1})")]
+    ReservedForLegislativeUse(String, u8),
 }
