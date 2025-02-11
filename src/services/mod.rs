@@ -42,4 +42,4 @@ mod transfer_data;
 pub use transfer_data::{TransferDataRequest, TransferDataResponse};
 
 mod write_data_by_identifier;
-pub use write_data_by_identifier::WriteDataByIdentifierRequest;
+pub use write_data_by_identifier::{WriteDataByIdentifierRequest, WriteDataByIdentifierResponse};

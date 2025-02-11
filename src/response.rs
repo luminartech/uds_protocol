@@ -4,7 +4,7 @@ use crate::{
     IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDataByIdentifierResponse,
     RequestDownloadResponse, RequestFileTransferResponse, ResetType, RoutineControlResponse,
     SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat, TesterPresentResponse,
-    TransferDataResponse, UdsServiceType, WireFormat,
+    TransferDataResponse, UdsServiceType, WireFormat, WriteDataByIdentifierResponse,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -37,6 +37,7 @@ pub enum Response<UserPayload> {
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
     TransferData(TransferDataResponse),
+    WriteDataByIdentifier(WriteDataByIdentifierResponse<UserPayload>),
 }
 
 impl<UserPayload> Response<UserPayload> {
@@ -113,6 +114,7 @@ impl<UserPayload> Response<UserPayload> {
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
+            Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
         }
     }
 }
@@ -150,7 +152,28 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             UdsServiceType::TesterPresent => {
                 Self::TesterPresent(TesterPresentResponse::from_reader(reader)?)
             }
-            _ => todo!(),
+            UdsServiceType::NegativeResponse => {
+                Self::NegativeResponse(NegativeResponse::from_reader(reader)?)
+            }
+            UdsServiceType::WriteDataByIdentifier => {
+                Self::WriteDataByIdentifier(WriteDataByIdentifierResponse::from_reader(reader)?)
+            }
+            UdsServiceType::Authentication => todo!(),
+            UdsServiceType::AccessTimingParameters => todo!(),
+            UdsServiceType::SecuredDataTransmission => todo!(),
+            UdsServiceType::ResponseOnEvent => todo!(),
+            UdsServiceType::LinkControl => todo!(),
+            UdsServiceType::ReadMemoryByAddress => todo!(),
+            UdsServiceType::ReadScalingDataByIdentifier => todo!(),
+            UdsServiceType::ReadDataByIdentifierPeriodic => todo!(),
+            UdsServiceType::DynamicallyDefinedDataIdentifier => todo!(),
+            UdsServiceType::WriteMemoryByAddress => todo!(),
+            UdsServiceType::ClearDiagnosticInfo => todo!(),
+            UdsServiceType::ReadDTCInfo => todo!(),
+            UdsServiceType::InputOutputControlByIdentifier => todo!(),
+            UdsServiceType::RequestUpload => todo!(),
+            UdsServiceType::TransferData => todo!(),
+            UdsServiceType::UnsupportedDiagnosticService => todo!(),
         }))
     }
 
@@ -169,6 +192,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::SecurityAccess(sa) => sa.required_size(),
             Self::TesterPresent(tp) => tp.required_size(),
             Self::TransferData(td) => td.required_size(),
+            Self::WriteDataByIdentifier(wdbi) => wdbi.required_size(),
         }
     }
 
@@ -190,6 +214,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
             Self::TransferData(td) => td.to_writer(writer),
+            Self::WriteDataByIdentifier(wdbi) => wdbi.to_writer(writer),
         }?)
     }
 }
