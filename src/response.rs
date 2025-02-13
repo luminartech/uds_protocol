@@ -4,7 +4,7 @@ use crate::{
     IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDataByIdentifierResponse,
     RequestDownloadResponse, RequestFileTransferResponse, ResetType, RoutineControlResponse,
     SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat, TesterPresentResponse,
-    TransferDataResponse, UdsServiceType, WireFormat,
+    TransferDataResponse, UdsServiceType, WireFormat, WriteDataByIdentifierResponse,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -15,7 +15,7 @@ pub struct UdsResponse {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Response<UserPayload> {
+pub enum Response<UserIdentifier, UserPayload> {
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
     /// Response to a [`ControlDTCSettingsRequest`](crate::ControlDTCSettingsRequest)
@@ -37,9 +37,10 @@ pub enum Response<UserPayload> {
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
     TransferData(TransferDataResponse),
+    WriteDataByIdentifier(WriteDataByIdentifierResponse<UserIdentifier>),
 }
 
-impl<UserPayload> Response<UserPayload> {
+impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
     pub fn communication_control(control_type: CommunicationControlType) -> Self {
         Response::CommunicationControl(CommunicationControlResponse::new(control_type))
     }
@@ -113,11 +114,14 @@ impl<UserPayload> Response<UserPayload> {
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
+            Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
         }
     }
 }
 
-impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
+impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFormat
+    for Response<UserIdentifier, UserPayload>
+{
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
@@ -150,7 +154,30 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             UdsServiceType::TesterPresent => {
                 Self::TesterPresent(TesterPresentResponse::from_reader(reader)?)
             }
-            _ => todo!(),
+            UdsServiceType::NegativeResponse => {
+                Self::NegativeResponse(NegativeResponse::from_reader(reader)?)
+            }
+            UdsServiceType::WriteDataByIdentifier => {
+                Self::WriteDataByIdentifier(WriteDataByIdentifierResponse::from_reader(reader)?)
+            }
+            UdsServiceType::Authentication => todo!(),
+            UdsServiceType::AccessTimingParameters => todo!(),
+            UdsServiceType::SecuredDataTransmission => todo!(),
+            UdsServiceType::ResponseOnEvent => todo!(),
+            UdsServiceType::LinkControl => todo!(),
+            UdsServiceType::ReadMemoryByAddress => todo!(),
+            UdsServiceType::ReadScalingDataByIdentifier => todo!(),
+            UdsServiceType::ReadDataByIdentifierPeriodic => todo!(),
+            UdsServiceType::DynamicallyDefinedDataIdentifier => todo!(),
+            UdsServiceType::WriteMemoryByAddress => todo!(),
+            UdsServiceType::ClearDiagnosticInfo => todo!(),
+            UdsServiceType::ReadDTCInfo => todo!(),
+            UdsServiceType::InputOutputControlByIdentifier => todo!(),
+            UdsServiceType::RequestUpload => todo!(),
+            UdsServiceType::TransferData => {
+                Self::TransferData(TransferDataResponse::from_reader(reader)?)
+            }
+            UdsServiceType::UnsupportedDiagnosticService => todo!(),
         }))
     }
 
@@ -169,6 +196,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::SecurityAccess(sa) => sa.required_size(),
             Self::TesterPresent(tp) => tp.required_size(),
             Self::TransferData(td) => td.required_size(),
+            Self::WriteDataByIdentifier(wdbi) => wdbi.required_size(),
         }
     }
 
@@ -190,8 +218,12 @@ impl<UserPayload: IterableWireFormat> WireFormat for Response<UserPayload> {
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
             Self::TransferData(td) => td.to_writer(writer),
+            Self::WriteDataByIdentifier(wdbi) => wdbi.to_writer(writer),
         }?)
     }
 }
 
-impl<UserPayload: IterableWireFormat> SingleValueWireFormat for Response<UserPayload> {}
+impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> SingleValueWireFormat
+    for Response<UserIdentifier, UserPayload>
+{
+}
