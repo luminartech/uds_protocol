@@ -724,7 +724,7 @@ mod request {
                 0x03 => ReadDTCInfoSubFunction::ReportDTCSnapshotIdentification,
                 0x04 => ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber(
                     DTCMaskRecord::new(0x01, 0x02, 0x03),
-                    DTCSnapshotRecordNumber::new(0x04).unwrap(),
+                    DTCSnapshotRecordNumber::new(0x04),
                 ),
                 0x05 => ReadDTCInfoSubFunction::ReportDTCStoredData_ByRecordNumber(
                     DTCStoredDataRecordNumber::new(0x20).unwrap(),
