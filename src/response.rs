@@ -177,7 +177,6 @@ impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFo
             UdsServiceType::DynamicallyDefinedDataIdentifier => todo!(),
             UdsServiceType::WriteMemoryByAddress => todo!(),
             UdsServiceType::ClearDiagnosticInfo => todo!(),
-            UdsServiceType::ReadDTCInfo => todo!(),
             UdsServiceType::InputOutputControlByIdentifier => todo!(),
             UdsServiceType::RequestUpload => todo!(),
             UdsServiceType::TransferData => {
