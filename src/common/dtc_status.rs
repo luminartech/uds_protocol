@@ -168,15 +168,28 @@ impl DTCMaskRecord {
         }
     }
 }
+impl From<u32> for DTCMaskRecord {
+    fn from(value: u32) -> Self {
+        Self {
+            high_byte: ((value >> 16) & 0xFF) as u8,
+            middle_byte: ((value >> 8) & 0xFF) as u8,
+            low_byte: (value & 0xFF) as u8,
+        }
+    }
+}
 
 impl WireFormat for DTCMaskRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
-        let mut buffer = [0; 3];
-        reader.read_exact(&mut buffer)?;
+        let high_byte = match reader.read_u8() {
+            Ok(byte) => byte,
+            Err(_) => return Ok(None),
+        };
+        let middle_byte = reader.read_u8()?;
+        let low_byte = reader.read_u8()?;
         Ok(Some(Self {
-            high_byte: buffer[0],
-            middle_byte: buffer[1],
-            low_byte: buffer[2],
+            high_byte,
+            middle_byte,
+            low_byte,
         }))
     }
 
@@ -322,81 +335,6 @@ impl DTCSeverityMask {
 }
 
 /// Indicates the number of the specific DTCSnapshot data record requested
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct UserDefDTCSnapshotRecordNumber(u8);
-
-impl WireFormat for UserDefDTCSnapshotRecordNumber {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let value = reader.read_u8()?;
-        match value {
-            // Reserved for Legislative purposes
-            0x00 | 0xF0 => {
-                return Err(Error::ReservedForLegislativeUse(
-                    "UserDefDTCSnapshotRecordNumber".to_string(),
-                    value,
-                ))
-            }
-            // Requests that the server report all DTCSnapshot data records at once
-            0xFF => {}
-            _ => {}
-        }
-        Ok(Some(Self(value)))
-    }
-
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.0)?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for UserDefDTCSnapshotRecordNumber {}
-
-impl From<u8> for UserDefDTCSnapshotRecordNumber {
-    fn from(value: u8) -> Self {
-        Self(value)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct DTCSnapshotRecordNumber(u8);
-
-impl DTCSnapshotRecordNumber {
-    /// Create a new DTCSnapshotRecordNumber validating that it is in the range we expect
-    pub fn new(record_number: u8) -> Result<Self, Error> {
-        if record_number == 0 || record_number == 0xF0 {
-            return Err(Error::ReservedForLegislativeUse(
-                "DTCSnapshotRecordNumber".to_string(),
-                record_number,
-            ));
-        }
-        Ok(Self(record_number))
-    }
-}
-
-impl WireFormat for DTCSnapshotRecordNumber {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let value = reader.read_u8()?;
-
-        Ok(Some(Self(value)))
-    }
-
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.0)?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for DTCSnapshotRecordNumber {}
-
-/// Indicates the number of the specific DTCSnapshot data record requested
 /// Setting to 0xFF will return all DTCStoredDataRecords at once
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 pub struct DTCStoredDataRecordNumber(u8);
@@ -498,15 +436,6 @@ mod dtc_status_tests {
     fn dtc_severity_info() {
         let dtc_severity = DTCSeverityMask::CheckImmediately;
         assert_eq!(dtc_severity.bits(), 0b1000_0000);
-    }
-
-    #[test]
-    fn snapshot_record() {
-        let record = DTCSnapshotRecordNumber(0x01);
-        let mut writer = Vec::new();
-        let written_number = record.to_writer(&mut writer).unwrap();
-        assert_eq!(record.required_size(), 1);
-        assert_eq!(written_number, 1);
     }
 
     #[test]

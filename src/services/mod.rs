@@ -19,7 +19,7 @@ mod read_data_by_identifier;
 pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentifierResponse};
 
 mod read_dtc_information;
-pub use read_dtc_information::{ReadDTCInfoRequest, ReadDTCInfoSubFunction};
+pub use read_dtc_information::{ReadDTCInfoRequest, ReadDTCInfoResponse, ReadDTCInfoSubFunction};
 
 mod request_download;
 pub use request_download::{RequestDownloadRequest, RequestDownloadResponse};
