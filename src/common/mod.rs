@@ -13,6 +13,9 @@ pub use diagnostic_identifier::UDSIdentifier;
 mod dtc_status;
 pub use dtc_status::*;
 
+mod dtc_snapshot;
+pub use dtc_snapshot::*;
+
 mod negative_response_code;
 pub use negative_response_code::NegativeResponseCode;
 

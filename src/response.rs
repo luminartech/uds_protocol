@@ -1,10 +1,11 @@
 use crate::{
     CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse,
     DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings, EcuResetResponse, Error,
-    IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDataByIdentifierResponse,
-    RequestDownloadResponse, RequestFileTransferResponse, ResetType, RoutineControlResponse,
-    SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat, TesterPresentResponse,
-    TransferDataResponse, UdsServiceType, WireFormat, WriteDataByIdentifierResponse,
+    IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDTCInfoResponse,
+    ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferResponse, ResetType,
+    RoutineControlResponse, SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat,
+    TesterPresentResponse, TransferDataResponse, UdsServiceType, WireFormat,
+    WriteDataByIdentifierResponse,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -27,6 +28,7 @@ pub enum Response<UserIdentifier, UserPayload> {
     /// Negative response to any request
     NegativeResponse(NegativeResponse),
     ReadDataByIdentifier(ReadDataByIdentifierResponse<UserPayload>),
+    ReadDTCInfo(ReadDTCInfoResponse<UserPayload>),
     /// Response to a [`RequestDownload`](crate::RequestDownload)
     RequestDownload(RequestDownloadResponse),
     RequestFileTransfer(RequestFileTransferResponse),
@@ -107,6 +109,7 @@ impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
             Self::EcuReset(_) => UdsServiceType::EcuReset,
             Self::NegativeResponse(_) => UdsServiceType::NegativeResponse,
             Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
+            Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo,
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
@@ -137,6 +140,9 @@ impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFo
             UdsServiceType::EcuReset => Self::EcuReset(EcuResetResponse::from_reader(reader)?),
             UdsServiceType::ReadDataByIdentifier => {
                 Self::ReadDataByIdentifier(ReadDataByIdentifierResponse::from_reader(reader)?)
+            }
+            UdsServiceType::ReadDTCInfo => {
+                Self::ReadDTCInfo(ReadDTCInfoResponse::from_reader(reader)?)
             }
             UdsServiceType::RequestDownload => {
                 Self::RequestDownload(RequestDownloadResponse::from_reader(reader)?)
@@ -189,6 +195,7 @@ impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFo
             Self::EcuReset(reset) => reset.required_size(),
             Self::NegativeResponse(nr) => nr.required_size(),
             Self::ReadDataByIdentifier(rd) => rd.required_size(),
+            Self::ReadDTCInfo(rd) => rd.required_size(),
             Self::RequestDownload(rd) => rd.required_size(),
             Self::RequestFileTransfer(rft) => rft.required_size(),
             Self::RequestTransferExit => 0,
@@ -211,6 +218,7 @@ impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFo
             Self::EcuReset(reset) => reset.to_writer(writer),
             Self::NegativeResponse(nr) => nr.to_writer(writer),
             Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),
+            Self::ReadDTCInfo(rd) => rd.to_writer(writer),
             Self::RequestDownload(rd) => rd.to_writer(writer),
             Self::RequestFileTransfer(rft) => rft.to_writer(writer),
             Self::RequestTransferExit => Ok(0),

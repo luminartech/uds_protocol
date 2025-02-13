@@ -3,8 +3,9 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DTCExtDataRecordNumber, DTCMaskRecord, DTCSeverityMask, DTCSnapshotRecordNumber, DTCStatusMask,
-    DTCStoredDataRecordNumber, Error, FunctionalGroupIdentifier, SingleValueWireFormat,
+    DTCExtDataRecordNumber, DTCMaskRecord, DTCSeverityMask, DTCSnapshotRecordList,
+    DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Error,
+    FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
     UserDefDTCSnapshotRecordNumber, WireFormat,
 };
 
@@ -403,9 +404,9 @@ type SubFunctionID = u8;
 /// Response payloads can be shared among multiple request subfunctions
 /// For example, subfunction 0x01 and 0x07 both return the number of DTCs
 /// and have the same response format
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
-pub enum ReadDTCInfoResponse {
+pub enum ReadDTCInfoResponse<UserPayload> {
     /// Parameter: DTCStatusAvailabilityMask(1)
     /// Parameter: NumberOfDTCs(2)
     ///
@@ -436,7 +437,7 @@ pub enum ReadDTCInfoResponse {
         Vec<(DTCMaskRecord, DTCStatusMask)>,
     ),
 
-    /// Snapshot identification
+    /// Snapshot identification - aka "Freeze Frame"
     ///
     /// Parameter: Vec<(DTCMaskRecord, DTCSnapshotRecordNumber> (4 * n)
     ///
@@ -445,9 +446,26 @@ pub enum ReadDTCInfoResponse {
     /// For subfunction 0x03
     ///     * 0x03: [ReadDTCInfoSubFunction::ReportDTCSnapshotIdentification]
     DTCSnapshotList(Vec<(DTCMaskRecord, DTCSnapshotRecordNumber)>),
+
+    /// Get the DTC status and snapshot number and information w/ corresponding Data Identifier (DID)
+    ///
+    /// DTC, Status, snapshot number, # of identifiers, DID (times # of identifiers), Snapshot info
+    /// If all records are requested, it can be a theoretically large amount of data.
+    ///
+    /// Parameter: DTCMaskRecord (3 bytes) - Echo of the request
+    /// Parameter: DTCStatusMask (1) - status of the requested DTC
+    /// C2/C4: There are multiple dataIdentifier/snapshotData combinations allowed to be present in a single DTCSnapshotRecord.
+    /// This can, for example be the case for the situation where a single dataIdentifier only references an integral part of data. When
+    /// the dataIdentifier references a block of data then a single dataIdentifier/snapshotData combination can be used.
+    ///
+    /// Note: See example 12.3.5.6.2 in ISO 14229-1:2020 for more information
+    ///
+    /// For subfunction 0x04
+    ///     * 0x04: [ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber]
+    DTCSnapshotRecordList(DTCSnapshotRecordList<UserPayload>),
 }
 
-impl WireFormat for ReadDTCInfoResponse {
+impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let subfunction_id = reader.read_u8()?;
 
@@ -494,6 +512,7 @@ impl WireFormat for ReadDTCInfoResponse {
             Self::NumberOfDTCs(_, _, _) => 3,
             Self::DTCList(_, _, list) => 1 + list.len() * 4,
             Self::DTCSnapshotList(list) => 1 + list.len() * 4,
+            Self::DTCSnapshotRecordList(list) => list.required_size(),
         }
     }
 
@@ -519,14 +538,102 @@ impl WireFormat for ReadDTCInfoResponse {
                     number.to_writer(writer)?;
                 }
             }
+            Self::DTCSnapshotRecordList(list) => {
+                list.to_writer(writer)?;
+            }
         }
         Ok(self.required_size())
     }
 }
 
+impl<UserPayload: IterableWireFormat> SingleValueWireFormat for ReadDTCInfoResponse<UserPayload> {}
+
 #[cfg(test)]
 mod response {
     use super::*;
+
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    pub enum TestIdentifier {
+        Abracadabra = 0xBEEF,
+    }
+
+    impl PartialEq<u16> for TestIdentifier {
+        fn eq(&self, other: &u16) -> bool {
+            match self {
+                TestIdentifier::Abracadabra => *other == 0xBEEF,
+            }
+        }
+    }
+
+    impl WireFormat for TestIdentifier {
+        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let mut buf = [0u8; 2];
+            reader.read_exact(&mut buf)?;
+
+            let id = u16::from_be_bytes(buf);
+            if TestIdentifier::Abracadabra == id {
+                Ok(Some(TestIdentifier::Abracadabra))
+            } else {
+                Err(Error::NoDataAvailable)
+            }
+        }
+
+        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+            writer.write_u16::<byteorder::BigEndian>(*self as u16)?;
+            Ok(self.required_size())
+        }
+
+        fn required_size(&self) -> usize {
+            2
+        }
+    }
+
+    impl IterableWireFormat for TestIdentifier {}
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    enum TestPayload {
+        Abracadabra(u8),
+    }
+
+    impl WireFormat for TestPayload {
+        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let mut buf = [0u8; 2];
+            reader.read_exact(&mut buf)?;
+
+            let value = u16::from_be_bytes(buf);
+
+            if value == TestIdentifier::Abracadabra as u16 {
+                let mut byte = [0u8; 1];
+                reader.read_exact(&mut byte)?;
+                Ok(Some(TestPayload::Abracadabra(byte[0])))
+            } else {
+                Err(Error::NoDataAvailable)
+            }
+        }
+
+        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+            let id_bytes: u16 = match self {
+                TestPayload::Abracadabra(_) => 0xBEEF,
+            };
+
+            writer.write_all(&id_bytes.to_be_bytes())?;
+
+            match self {
+                TestPayload::Abracadabra(value) => {
+                    writer.write_u8(*value)?;
+                    Ok(self.required_size())
+                }
+            }
+        }
+
+        fn required_size(&self) -> usize {
+            3
+        }
+    }
+
+    impl IterableWireFormat for TestPayload {}
 
     #[test]
     fn dtc_list() {
@@ -536,14 +643,13 @@ mod response {
             0x02, // subfunction
             0x01, // Availability mask
             // First DTC record
-            0x01, 0x02, 0x03, 0x04,
+            0x01, 0x02, 0x03, (DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed).into(),
             // Second DTC record
-            0x17, 0x04, 0x03, DTCStatusMask::TestNotCompletedThisOperationCycle.bits(),
+            0x17, 0x04, 0x03, DTCStatusMask::TestNotCompletedThisOperationCycle.into(),
         ];
         let mut reader = &bytes[..];
-        let response = ReadDTCInfoResponse::option_from_reader(&mut reader)
-            .unwrap()
-            .unwrap();
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
         assert_eq!(
             response,
             ReadDTCInfoResponse::DTCList(
@@ -552,7 +658,7 @@ mod response {
                 vec![
                     (
                         DTCMaskRecord::new(0x01, 0x02, 0x03),
-                        DTCStatusMask::from(0x04)
+                        DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed
                     ),
                     (
                         DTCMaskRecord::new(0x17, 0x04, 0x03),
