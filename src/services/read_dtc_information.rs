@@ -731,7 +731,7 @@ mod request {
                 ),
                 0x06 => ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber(
                     DTCRecord::new(0x01, 0x02, 0x03),
-                    DTCExtDataRecordNumber(0x04),
+                    DTCExtDataRecordNumber::new(0x04),
                 ),
                 0x07 => ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord(
                     DTCSeverityMask::DTCClass_4,

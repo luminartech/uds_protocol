@@ -10,6 +10,9 @@ pub use diagnostic_session_type::DiagnosticSessionType;
 mod diagnostic_identifier;
 pub use diagnostic_identifier::UDSIdentifier;
 
+mod dtc_ext_data;
+pub use dtc_ext_data::*;
+
 mod dtc_status;
 pub use dtc_status::*;
 

@@ -402,28 +402,6 @@ impl From<u8> for DTCStoredDataRecordNumber {
     }
 }
 
-/// For subfunctions 0x06 (ReportDTCExtDataRecord_ByDTCNumber), 0x19 (ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-pub struct DTCExtDataRecordNumber(pub u8);
-
-impl WireFormat for DTCExtDataRecordNumber {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let value = reader.read_u8()?;
-        Ok(Some(Self(value)))
-    }
-
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.0)?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for DTCExtDataRecordNumber {}
-
 #[cfg(test)]
 mod dtc_status_tests {
     use super::*;
