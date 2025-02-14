@@ -3,9 +3,9 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask, DTCSnapshotRecordList,
-    DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Error,
-    FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
+    DTCExtDataRecordList, DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask,
+    DTCSnapshotRecordList, DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber,
+    Error, FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
     UserDefDTCSnapshotRecordNumber, WireFormat,
 };
 
@@ -463,6 +463,17 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// For subfunction 0x04
     ///     * 0x04: [ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber]
     DTCSnapshotRecordList(DTCSnapshotRecordList<UserPayload>),
+
+    /// List of [crate::DTCExtDataRecord]s for a given DTC
+    /// UserPayload is so the data can be read according to a specific format
+    /// defined by the supplier/vehicle manufacturer
+    ///
+    /// Parameter: DTCMaskRecord (3 bytes) - Echo of the request
+    /// Parameter: DTCStatusMask (1) - status of the requested DTC
+    ///
+    /// For subfunction 0x06
+    ///     * 0x06: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
+    DTCExtDataRecordList(DTCExtDataRecordList<UserPayload>),
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
@@ -502,6 +513,14 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
 
                 Ok(Some(Self::DTCSnapshotList(dtcs)))
             }
+            0x04 => {
+                let snapshot_list = DTCSnapshotRecordList::option_from_reader(reader)?.unwrap();
+                Ok(Some(Self::DTCSnapshotRecordList(snapshot_list)))
+            }
+            0x06 => {
+                let ext_data_list = DTCExtDataRecordList::option_from_reader(reader)?.unwrap();
+                Ok(Some(Self::DTCExtDataRecordList(ext_data_list)))
+            }
             _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
@@ -513,6 +532,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCList(_, _, list) => 1 + list.len() * 4,
             Self::DTCSnapshotList(list) => 1 + list.len() * 4,
             Self::DTCSnapshotRecordList(list) => list.required_size(),
+            Self::DTCExtDataRecordList(list) => list.required_size(),
         }
     }
 
@@ -539,6 +559,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 }
             }
             Self::DTCSnapshotRecordList(list) => {
+                writer.write_u8(0x04)?;
+                list.to_writer(writer)?;
+            }
+            Self::DTCExtDataRecordList(list) => {
+                writer.write_u8(0x06)?;
                 list.to_writer(writer)?;
             }
         }
@@ -675,7 +700,36 @@ mod response {
         assert_eq!(written, bytes.len());
         assert_eq!(written, response.required_size());
     }
+
+    #[test]
+    fn ext_data_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x06, // subfunction
+            // First DTC record
+            0x12, 0x34, 0x56, // DTC Mask
+            0x24, //Status
+            0x04, // Ext data record number
+            //Ext data
+            0xBE, 0xEF, 0x06,
+            0x05, // Ext data record number
+            0xBE, 0xEF, 0x10,
+
+        ];
+        let mut reader = &bytes[..];
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
 }
+
 #[cfg(test)]
 mod request {
     use super::*;
