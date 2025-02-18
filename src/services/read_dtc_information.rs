@@ -700,6 +700,87 @@ mod response {
         assert_eq!(written, bytes.len());
         assert_eq!(written, response.required_size());
     }
+}
+
+#[cfg(test)]
+mod ext_data {
+    use super::*;
+
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    pub enum TestDTCExtDataRecordNumber {
+        // DTC records
+        WarmUpCycleCount = 0x04,
+        FaultDetectionCounter = 0x05,
+    }
+
+    impl WireFormat for TestDTCExtDataRecordNumber {
+        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let id = reader.read_u8();
+            match id {
+                Ok(0x04) => Ok(Some(TestDTCExtDataRecordNumber::WarmUpCycleCount)),
+                Ok(0x05) => Ok(Some(TestDTCExtDataRecordNumber::FaultDetectionCounter)),
+                Err(_) => Ok(None),
+                _ => Err(Error::NoDataAvailable),
+            }
+        }
+
+        fn required_size(&self) -> usize {
+            1
+        }
+
+        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+            writer.write_u8(*self as u8)?;
+            Ok(self.required_size())
+        }
+    }
+
+    impl IterableWireFormat for TestDTCExtDataRecordNumber {}
+
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    enum TestDTCExtData {
+        WarmUpCycleCount(u16),
+        FaultDetectionCounter(u8),
+    }
+
+    impl WireFormat for TestDTCExtData {
+        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let id = TestDTCExtDataRecordNumber::option_from_reader(reader)?;
+            match id {
+                Some(TestDTCExtDataRecordNumber::WarmUpCycleCount) => {
+                    let count = reader.read_u16::<byteorder::BigEndian>()?;
+                    Ok(Some(TestDTCExtData::WarmUpCycleCount(count)))
+                }
+                Some(TestDTCExtDataRecordNumber::FaultDetectionCounter) => {
+                    let count = reader.read_u8()?;
+                    Ok(Some(TestDTCExtData::FaultDetectionCounter(count)))
+                }
+                None => Ok(None),
+            }
+        }
+
+        fn required_size(&self) -> usize {
+            match self {
+                TestDTCExtData::WarmUpCycleCount(_) => 3,
+                TestDTCExtData::FaultDetectionCounter(_) => 2,
+            }
+        }
+
+        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+            match self {
+                TestDTCExtData::WarmUpCycleCount(count) => {
+                    writer.write_u8(TestDTCExtDataRecordNumber::WarmUpCycleCount as u8)?;
+                    writer.write_u16::<byteorder::BigEndian>(*count)?;
+                }
+                TestDTCExtData::FaultDetectionCounter(count) => {
+                    writer.write_u8(TestDTCExtDataRecordNumber::FaultDetectionCounter as u8)?;
+                    writer.write_u8(*count)?;
+                }
+            }
+            Ok(self.required_size())
+        }
+    }
+
+    impl IterableWireFormat for TestDTCExtData {}
 
     #[test]
     fn ext_data_list() {
@@ -710,21 +791,21 @@ mod response {
             // First DTC record
             0x12, 0x34, 0x56, // DTC Mask
             0x24, //Status
-            0x04, // Ext data record number
+            0x04, // "WarmUpCycleCount"
             //Ext data
-            0xBE, 0xEF, 0x06,
-            0x05, // Ext data record number
-            0xBE, 0xEF, 0x10,
+            0xBE, 0xEF,
+            0x05, // "FaultDetectionCounter"
+            0x10,
 
         ];
         let mut reader = &bytes[..];
-        let response: ReadDTCInfoResponse<TestPayload> =
+        let response: ReadDTCInfoResponse<TestDTCExtData> =
             ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
 
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
         assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
         assert_eq!(written, response.required_size());
     }

@@ -84,43 +84,30 @@ impl SingleValueWireFormat for DTCExtDataRecordNumber {}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DTCExtDataRecord<UserPayload> {
-    /// Either the echo of the DTCExtDataRecordNumber parameter specified by the client in the
-    /// reportDTCExtDataRecordByDTCNumber, reportDTCExtendedDataRecordIdentification or
-    /// reportDTCExtDataRecordByRecordNumber request, or the actual DTCExtDataRecordNumber of a stored DTCExtendedData record.
-    pub record_number: DTCExtDataRecordNumber,
-
     pub data: Vec<UserPayload>,
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayload> {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let record_number = reader.read_u8();
-        if record_number.is_err() {
-            return Ok(None);
-        }
-
-        // DTCExtData record number
-        let record_number = DTCExtDataRecordNumber::new(record_number.unwrap());
-
         let mut data = Vec::new();
-        while let Ok(Some(payload)) = UserPayload::option_from_reader(reader) {
-            data.push(payload);
+        for payload in UserPayload::from_reader_iterable(reader) {
+            match payload {
+                Err(_) => return Ok(None),
+                Ok(payload) => {
+                    data.push(payload);
+                }
+            }
         }
 
-        Ok(Some(Self {
-            record_number,
-            data,
-        }))
+        Ok(Some(Self { data }))
     }
 
     fn required_size(&self) -> usize {
-        // 1 byte for record number
         // n bytes of data per UserPayload
-        1 + self.data.iter().map(|d| d.required_size()).sum::<usize>()
+        self.data.iter().map(|d| d.required_size()).sum::<usize>()
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.record_number.value())?;
         for d in &self.data {
             d.to_writer(writer)?;
         }
@@ -128,7 +115,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayloa
     }
 }
 
-impl<UserPayload: IterableWireFormat> IterableWireFormat for DTCExtDataRecord<UserPayload> {}
+impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCExtDataRecord<UserPayload> {}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DTCExtDataRecordList<UserPayload> {
@@ -142,11 +129,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPa
         let mask_record = DTCRecord::from_reader(reader)?;
         let status_mask = DTCStatusMask::from_reader(reader)?;
         let mut record_data = Vec::new();
-        for result in DTCExtDataRecord::from_reader_iterable(reader) {
-            match result {
-                Ok(record) => record_data.push(record),
-                Err(e) => return Err(e),
-            }
+        // Read the record number, and then the payload
+        if let Some(record) = DTCExtDataRecord::option_from_reader(reader)? {
+            record_data.push(record);
         }
         Ok(Some(Self {
             mask_record,
