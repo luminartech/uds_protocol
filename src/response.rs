@@ -17,6 +17,7 @@ pub struct UdsResponse {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Response<UserIdentifier, UserPayload> {
+    ClearDiagnosticInfo,
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
     /// Response to a [`ControlDTCSettingsRequest`](crate::ControlDTCSettingsRequest)
@@ -43,6 +44,9 @@ pub enum Response<UserIdentifier, UserPayload> {
 }
 
 impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
+    pub fn clear_diagnostic_info() -> Self {
+        todo!()
+    }
     pub fn communication_control(control_type: CommunicationControlType) -> Self {
         Response::CommunicationControl(CommunicationControlResponse::new(control_type))
     }
@@ -103,6 +107,7 @@ impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
 
     pub fn service(&self) -> UdsServiceType {
         match self {
+            Self::ClearDiagnosticInfo => UdsServiceType::ClearDiagnosticInfo,
             Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
             Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings,
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
@@ -188,6 +193,7 @@ impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFo
 
     fn required_size(&self) -> usize {
         1 + match self {
+            Self::ClearDiagnosticInfo => 0,
             Self::CommunicationControl(cc) => cc.required_size(),
             Self::ControlDTCSettings(dtc) => dtc.required_size(),
             Self::DiagnosticSessionControl(ds) => ds.required_size(),
@@ -211,6 +217,7 @@ impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFo
         writer.write_u8(self.service().response_to_byte())?;
         // Write the payload
         Ok(1 + match self {
+            Self::ClearDiagnosticInfo => Ok(0),
             Self::CommunicationControl(cc) => cc.to_writer(writer),
             Self::ControlDTCSettings(dtc) => dtc.to_writer(writer),
             Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
