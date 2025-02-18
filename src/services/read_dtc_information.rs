@@ -49,11 +49,11 @@ type DTCReadinessGroupIdentifier = u8; // RGID
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ReadDTCInfoSubFunction {
-    /// Parameter: DTCStatusMask
+    /// * Parameter: DTCStatusMask
     ///
     /// 0x01
     ReportNumberOfDTC_ByStatusMask(DTCStatusMask),
-    /// Parameter: DTCStatusMask
+    /// * Parameter: DTCStatusMask
     ///
     /// 0x02
     ReportDTC_ByStatusMask(DTCStatusMask),
@@ -67,7 +67,7 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x04
     ReportDTCSnapshotRecord_ByDTCNumber(DTCRecord, DTCSnapshotRecordNumber),
 
-    /// Parameter: DTCStoredDataRecordNumber(1)
+    /// * Parameter: DTCStoredDataRecordNumber(1)
     ///
     /// 0x05
     ReportDTCStoredData_ByRecordNumber(DTCStoredDataRecordNumber),
@@ -78,7 +78,7 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x06
     ReportDTCExtDataRecord_ByDTCNumber(DTCRecord, DTCExtDataRecordNumber),
 
-    /// Parameter: DTCSeverityMaskRecord(2)
+    /// * Parameter: DTCSeverityMaskRecord(2)
     ///     * DTCSeverityMask
     ///     * DTCStatusMask
     ///
@@ -107,12 +107,12 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x15
     ReportDTCWithPermanentStatus,
 
-    /// Parameter: DTCExtDataRecordNumber(1)
+    /// * Parameter: DTCExtDataRecordNumber(1)
     ///
     /// 0x16
     ReportDTCExtDataRecord_ByRecordNumber(DTCExtDataRecordNumber),
 
-    /// Parameter: DTCStatusMask
+    /// * Parameter: DTCStatusMask
     ///
     /// 0x17
     ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask),
@@ -136,25 +136,25 @@ pub enum ReadDTCInfoSubFunction {
         MemorySelection,
     ),
 
-    /// Parameter: DTCExtDataRecordNumber(1)
+    /// * Parameter: DTCExtDataRecordNumber(1)
     ///
     /// 0x1A
     ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber),
 
-    /// Parameter: FunctionalGroupIdentifier(1)
-    /// Parameter: DTCStatusMask
-    /// Parameter: DTCSeverityMask
+    /// * Parameter: FunctionalGroupIdentifier(1)
+    /// * Parameter: DTCStatusMask
+    /// * Parameter: DTCSeverityMask
     ///
     /// 0x42
     ReportWWHOBDDTC_ByMaskRecord(FunctionalGroupIdentifier, DTCStatusMask, DTCSeverityMask),
 
-    /// Parameter: FunctionalGroupIdentifier(1)
+    /// * Parameter: FunctionalGroupIdentifier(1)
     ///
     /// 0x55
     ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier),
 
-    /// Parameter: FunctionalGroupIdentifier(1)
-    /// Parameter: DTCReadinessGroupIdentifier(1)
+    /// * Parameter: FunctionalGroupIdentifier(1)
+    /// * Parameter: DTCReadinessGroupIdentifier(1)
     ///
     /// 0x56
     ReportDTCInformation_ByDTCReadinessGroupIdentifier(
@@ -402,35 +402,36 @@ type DTCStatusAvailabilityMask = DTCStatusMask;
 type SubFunctionID = u8;
 
 /// Response payloads can be shared among multiple request subfunctions
+///
 /// For example, subfunction 0x01 and 0x07 both return the number of DTCs
 /// and have the same response format
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub enum ReadDTCInfoResponse<UserPayload> {
-    /// Parameter: DTCStatusAvailabilityMask(1)
-    /// Parameter: NumberOfDTCs(2)
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
+    /// * Parameter: `NumberOfDTCs`(2)
     ///
     /// For subfunctions 0x01, 0x07
-    ///     * 0x01: [ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask]
-    ///     * 0x07: [ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord]
+    ///   * 0x01: [ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask]
+    ///   * 0x07: [ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord]
     NumberOfDTCs(SubFunctionID, DTCStatusAvailabilityMask, NumberOfDTCs),
 
     /// A list of DTCs matching the subfunction request
     ///
-    /// Parameter: DTCStatusAvailabilityMask(1)
-    /// Parameter: Vec<DTCAndStatusRecord> (4 * n)
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
+    /// * Parameter: `Vec<DTCAndStatusRecord>` (4 * n)
     ///
     /// Note: DTC list can be empty if there are none to report,
     ///       but the response will still be sent
     ///
     /// For subfunctions 0x02, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x15
-    ///     * 0x02: [ReadDTCInfoSubFunction::ReportDTC_ByStatusMask]
-    ///     * 0x0A: [ReadDTCInfoSubFunction::ReportSupportedDTC]
-    ///     * 0x0B: [ReadDTCInfoSubFunction::ReportFirstTestFailedDTC]
-    ///     * 0x0C: [ReadDTCInfoSubFunction::ReportFirstConfirmedDTC]
-    ///     * 0x0D: [ReadDTCInfoSubFunction::ReportMostRecentTestFailedDTC]
-    ///     * 0x0E: [ReadDTCInfoSubFunction::ReportMostRecentConfirmedDTC]
-    ///     * 0x15: [ReadDTCInfoSubFunction::ReportDTCWithPermanentStatus]
+    ///   * 0x02: [ReadDTCInfoSubFunction::ReportDTC_ByStatusMask]
+    ///   * 0x0A: [ReadDTCInfoSubFunction::ReportSupportedDTC]
+    ///   * 0x0B: [ReadDTCInfoSubFunction::ReportFirstTestFailedDTC]
+    ///   * 0x0C: [ReadDTCInfoSubFunction::ReportFirstConfirmedDTC]
+    ///   * 0x0D: [ReadDTCInfoSubFunction::ReportMostRecentTestFailedDTC]
+    ///   * 0x0E: [ReadDTCInfoSubFunction::ReportMostRecentConfirmedDTC]
+    ///   * 0x15: [ReadDTCInfoSubFunction::ReportDTCWithPermanentStatus]
     DTCList(
         SubFunctionID,
         DTCStatusAvailabilityMask,
@@ -449,7 +450,8 @@ pub enum ReadDTCInfoResponse<UserPayload> {
 
     /// Get the DTC status and snapshot number and information w/ corresponding Data Identifier (DID)
     ///
-    /// DTC, Status, snapshot number, # of identifiers, DID (times # of identifiers), Snapshot info
+    /// DTC, Status, snapshot number, # of identifiers, DID (times # of identifiers), Snapshot info.
+    ///
     /// If all records are requested, it can be a theoretically large amount of data.
     ///
     /// Parameter: DTCRecord (3 bytes) - Echo of the request
@@ -461,18 +463,20 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// Note: See example 12.3.5.6.2 in ISO 14229-1:2020 for more information
     ///
     /// For subfunction 0x04
-    ///     * 0x04: [ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber]
+    ///   * 0x04: [ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber]
     DTCSnapshotRecordList(DTCSnapshotRecordList<UserPayload>),
 
-    /// List of [crate::DTCExtDataRecord]s for a given DTC
+    /// List of [crate::DTCExtDataRecord]s for a given DTC.
+    ///
     /// UserPayload is so the data can be read according to a specific format
     /// defined by the supplier/vehicle manufacturer
     ///
-    /// Parameter: DTCMaskRecord (3 bytes) - Echo of the request
-    /// Parameter: DTCStatusMask (1) - status of the requested DTC
+    /// * Parameter: [`DTCMaskRecord`] (3 bytes) - Echo of the request
+    /// * Parameter: [`DTCStatusMask`] (1) - status of the requested DTC
+    /// * Parameter: [`crate::DTCExtDataRecord`] (n)
     ///
     /// For subfunction 0x06
-    ///     * 0x06: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
+    ///   * 0x06: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
     DTCExtDataRecordList(DTCExtDataRecordList<UserPayload>),
 }
 
