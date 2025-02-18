@@ -67,3 +67,29 @@ impl WireFormat for ClearDiagnosticInfoRequest {
 }
 
 impl SingleValueWireFormat for ClearDiagnosticInfoRequest {}
+
+/// test
+#[cfg(test)]
+mod request {
+    use super::*;
+
+    #[test]
+    fn decode_clear_dtc_info_request() {
+        let bytes = [0xFF, 0xFF, 0xFF, 0x00];
+        let compare = ClearDiagnosticInfoRequest::new(CLEAR_ALL_DTCS, 0);
+        let req = ClearDiagnosticInfoRequest::from_reader(&mut &bytes[..]).unwrap();
+        assert_eq!(req, compare);
+
+        let mut bytes = vec![];
+        let written = req.to_writer(&mut bytes).unwrap();
+        assert_eq!(bytes, [0xFF, 0xFF, 0xFF, 0x00]);
+        assert_eq!(req.required_size(), written);
+    }
+
+    #[test]
+    fn clear_all() {
+        let all = ClearDiagnosticInfoRequest::clear_all(0);
+        let compare = ClearDiagnosticInfoRequest::new(CLEAR_ALL_DTCS, 0);
+        assert_eq!(all, compare);
+    }
+}
