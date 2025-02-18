@@ -1,4 +1,4 @@
-use crate::{DTCRecord, SingleValueWireFormat, WireFormat};
+use crate::{DTCRecord, SingleValueWireFormat, WireFormat, CLEAR_ALL_DTCS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct ClearDiagnosticInfoRequest {
     /// Can be either a DTC group (such as chassis/powertrain) or a single DTC
     pub group_of_dtc: DTCRecord,
+    /// Used to address a specific memory location of user-defined DTC memory
     pub memory_selection: u8,
 }
 
@@ -13,6 +14,13 @@ impl ClearDiagnosticInfoRequest {
     pub fn new(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
         Self {
             group_of_dtc,
+            memory_selection,
+        }
+    }
+
+    pub fn clear_all(memory_selection: u8) -> Self {
+        Self {
+            group_of_dtc: CLEAR_ALL_DTCS,
             memory_selection,
         }
     }

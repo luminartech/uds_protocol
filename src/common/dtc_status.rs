@@ -152,6 +152,13 @@ pub enum DTCFormatIdentifier {
     ISOSAEReserved,
 }
 
+/// Use to clear all DTCs in a [crate::ClearDiagnosticInfoRequest]
+pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
+    high_byte: 0xFF,
+    middle_byte: 0xFF,
+    low_byte: 0xFF,
+};
+
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy)]
 pub struct DTCRecord {
     high_byte: u8,

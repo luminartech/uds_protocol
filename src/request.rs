@@ -50,6 +50,10 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
         ))
     }
 
+    pub fn clear_all_dtc_info(memory_selection: u8) -> Self {
+        Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::clear_all(memory_selection))
+    }
+
     /// Create a `CommunicationControlRequest` with standard address information.
     ///
     /// # Panics
