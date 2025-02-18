@@ -1,6 +1,14 @@
-use crate::{DTCRecord, SingleValueWireFormat, WireFormat, CLEAR_ALL_DTCS};
+use crate::{DTCRecord, NegativeResponseCode, SingleValueWireFormat, WireFormat, CLEAR_ALL_DTCS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
+
+/// Negative response codes
+const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::ConditionsNotCorrect,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::GeneralProgrammingFailure,
+];
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ClearDiagnosticInfoRequest {
@@ -23,6 +31,11 @@ impl ClearDiagnosticInfoRequest {
             group_of_dtc: CLEAR_ALL_DTCS,
             memory_selection,
         }
+    }
+
+    /// Get the allowed Nack codes for this request
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES
     }
 }
 

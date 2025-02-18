@@ -200,6 +200,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
 
     pub fn allowed_nack_codes(&self) -> &'static [NegativeResponseCode] {
         match self {
+            Self::ClearDiagnosticInfo(_) => ClearDiagnosticInfoRequest::allowed_nack_codes(),
             Self::DiagnosticSessionControl(_) => {
                 DiagnosticSessionControlRequest::allowed_nack_codes()
             }
