@@ -1,3 +1,6 @@
+mod clear_dtc_information;
+pub use clear_dtc_information::ClearDiagnosticInfoRequest;
+
 mod communication_control;
 pub use communication_control::{CommunicationControlRequest, CommunicationControlResponse};
 

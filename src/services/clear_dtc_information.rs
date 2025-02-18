@@ -1,0 +1,48 @@
+use crate::{DTCRecord, SingleValueWireFormat, WireFormat};
+use byteorder::{ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ClearDiagnosticInfoRequest {
+    /// Can be either a DTC group (such as chassis/powertrain) or a single DTC
+    pub group_of_dtc: DTCRecord,
+    pub memory_selection: u8,
+}
+
+impl ClearDiagnosticInfoRequest {
+    pub fn new(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
+        Self {
+            group_of_dtc,
+            memory_selection,
+        }
+    }
+}
+
+impl WireFormat for ClearDiagnosticInfoRequest {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
+        let group_of_dtc = DTCRecord::option_from_reader(reader)?;
+        if group_of_dtc.is_none() {
+            return Ok(None);
+        }
+        let memory_selection = reader.read_u8()?;
+
+        Ok(Some(Self {
+            group_of_dtc: group_of_dtc.unwrap(),
+            memory_selection,
+        }))
+    }
+
+    fn required_size(&self) -> usize {
+        self.group_of_dtc.required_size() + 1
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
+        let mut size = 0;
+        size += self.group_of_dtc.to_writer(writer)?;
+        writer.write_u8(self.memory_selection)?;
+        size += 1;
+        Ok(size)
+    }
+}
+
+impl SingleValueWireFormat for ClearDiagnosticInfoRequest {}
