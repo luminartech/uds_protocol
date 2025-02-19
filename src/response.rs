@@ -45,7 +45,7 @@ pub enum Response<UserIdentifier, UserPayload> {
 
 impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
     pub fn clear_diagnostic_info() -> Self {
-        todo!()
+        Response::ClearDiagnosticInfo
     }
     pub fn communication_control(control_type: CommunicationControlType) -> Self {
         Response::CommunicationControl(CommunicationControlResponse::new(control_type))
