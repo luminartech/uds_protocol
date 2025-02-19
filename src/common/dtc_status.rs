@@ -152,14 +152,21 @@ pub enum DTCFormatIdentifier {
     ISOSAEReserved,
 }
 
+/// Use to clear all DTCs in a [crate::ClearDiagnosticInfoRequest]
+pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
+    high_byte: 0xFF,
+    middle_byte: 0xFF,
+    low_byte: 0xFF,
+};
+
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy)]
-pub struct DTCMaskRecord {
+pub struct DTCRecord {
     high_byte: u8,
     middle_byte: u8,
     low_byte: u8,
 }
 
-impl DTCMaskRecord {
+impl DTCRecord {
     pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
         Self {
             high_byte,
@@ -168,7 +175,8 @@ impl DTCMaskRecord {
         }
     }
 }
-impl From<u32> for DTCMaskRecord {
+
+impl From<u32> for DTCRecord {
     fn from(value: u32) -> Self {
         Self {
             high_byte: ((value >> 16) & 0xFF) as u8,
@@ -178,7 +186,13 @@ impl From<u32> for DTCMaskRecord {
     }
 }
 
-impl WireFormat for DTCMaskRecord {
+impl From<DTCRecord> for u32 {
+    fn from(value: DTCRecord) -> Self {
+        ((value.high_byte as u32) << 16) | ((value.middle_byte as u32) << 8) | value.low_byte as u32
+    }
+}
+
+impl WireFormat for DTCRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
         let high_byte = match reader.read_u8() {
             Ok(byte) => byte,
@@ -203,7 +217,7 @@ impl WireFormat for DTCMaskRecord {
     }
 }
 
-impl SingleValueWireFormat for DTCMaskRecord {}
+impl SingleValueWireFormat for DTCRecord {}
 
 /// Used to distinguish commands sent by the test equipment between different functional system groups
 /// within an electrical architecture which consists of many different servers.
@@ -439,8 +453,8 @@ mod dtc_status_tests {
     }
 
     #[test]
-    fn dtc_mask_record() {
-        let record = DTCMaskRecord::new(0x01, 0x02, 0x03);
+    fn dtc_record() {
+        let record = DTCRecord::new(0x01, 0x02, 0x03);
         let mut writer = Vec::new();
         let written_number = record.to_writer(&mut writer).unwrap();
         assert_eq!(record.required_size(), 3);

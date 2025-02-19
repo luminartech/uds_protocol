@@ -5,12 +5,12 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DTCMaskRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
+    DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DTCSnapshotRecordList<UserPayload> {
-    pub mask_record: DTCMaskRecord,
+    pub dtc_record: DTCRecord,
     pub status_mask: DTCStatusMask,
     /// The number of the specific DTCSnapshot data record requested
     pub snapshot_data: Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>,
@@ -18,8 +18,8 @@ pub struct DTCSnapshotRecordList<UserPayload> {
 
 impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identifier> {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mask_record = DTCMaskRecord::option_from_reader(reader)?;
-        if mask_record.is_none() {
+        let dtc_record = DTCRecord::option_from_reader(reader)?;
+        if dtc_record.is_none() {
             return Ok(None);
         }
         let status_mask = DTCStatusMask::option_from_reader(reader)?;
@@ -43,14 +43,14 @@ impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identi
         }
 
         Ok(Some(Self {
-            mask_record: mask_record.unwrap(),
+            dtc_record: dtc_record.unwrap(),
             status_mask: status_mask.unwrap(),
             snapshot_data,
         }))
     }
 
     fn required_size(&self) -> usize {
-        self.mask_record.required_size()
+        self.dtc_record.required_size()
             + self.status_mask.required_size()
             + self
                 .snapshot_data
@@ -61,7 +61,7 @@ impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identi
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.mask_record.to_writer(writer)?;
+        self.dtc_record.to_writer(writer)?;
         self.status_mask.to_writer(writer)?;
         for (record_number, record) in &self.snapshot_data {
             record_number.to_writer(writer)?;
@@ -352,7 +352,7 @@ mod snapshot {
 
         let resp = DTCSnapshotRecordList::from_reader(&mut bytes.as_slice()).unwrap();
 
-        assert_eq!(resp.mask_record, DTCMaskRecord::from(0x123456));
+        assert_eq!(resp.dtc_record, DTCRecord::from(0x123456));
         let mut number: u8 = 1;
 
         resp.snapshot_data

@@ -3,7 +3,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DTCExtDataRecordNumber, DTCMaskRecord, DTCSeverityMask, DTCSnapshotRecordList,
+    DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask, DTCSnapshotRecordList,
     DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Error,
     FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
     UserDefDTCSnapshotRecordNumber, WireFormat,
@@ -61,22 +61,22 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x03
     ReportDTCSnapshotIdentification,
 
-    /// Parameter: DTCMaskRecord (3 bytes)
+    /// Parameter: DTCRecord (3 bytes)
     /// Parameter DTCSnapshotRecordNumber(1)
     ///
     /// 0x04
-    ReportDTCSnapshotRecord_ByDTCNumber(DTCMaskRecord, DTCSnapshotRecordNumber),
+    ReportDTCSnapshotRecord_ByDTCNumber(DTCRecord, DTCSnapshotRecordNumber),
 
     /// Parameter: DTCStoredDataRecordNumber(1)
     ///
     /// 0x05
     ReportDTCStoredData_ByRecordNumber(DTCStoredDataRecordNumber),
 
-    /// Parameter: DTCMaskRecord (3 bytes)
+    /// Parameter: DTCRecord (3 bytes)
     /// Parameter: DTCExtDataRecordNumber(1)
     ///
     /// 0x06
-    ReportDTCExtDataRecord_ByDTCNumber(DTCMaskRecord, DTCExtDataRecordNumber),
+    ReportDTCExtDataRecord_ByDTCNumber(DTCRecord, DTCExtDataRecordNumber),
 
     /// Parameter: DTCSeverityMaskRecord(2)
     ///     * DTCSeverityMask
@@ -87,10 +87,10 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x08
     ReportDTC_BySeverityMaskRecord(DTCSeverityMask, DTCStatusMask),
 
-    /// Parameter: DTCMaskRecord (3 bytes)
+    /// Parameter: DTCRecord (3 bytes)
     ///
     /// 0x09
-    ReportSeverityInfoOfDTC(DTCMaskRecord),
+    ReportSeverityInfoOfDTC(DTCRecord),
 
     /// 0x0A
     ReportSupportedDTC,
@@ -120,18 +120,18 @@ pub enum ReadDTCInfoSubFunction {
     // TODO: UserDef and MemorySelection might just need to be u8
     /// 0x18
     ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
-        DTCMaskRecord,
+        DTCRecord,
         UserDefDTCSnapshotRecordNumber,
         MemorySelection,
     ),
 
-    /// Parameter: DTCMaskRecord (3 bytes)
+    /// Parameter: DTCRecord (3 bytes)
     /// Parameter: DTCExtDataRecordNumber(1) (0xFF for all records)
     /// Parameter: MemorySelection(1)
     ///
     /// 0x19
     ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
-        DTCMaskRecord,
+        DTCRecord,
         DTCExtDataRecordNumber,
         MemorySelection,
     ),
@@ -212,7 +212,7 @@ impl WireFormat for ReadDTCInfoSubFunction {
             }
             0x03 => Self::ReportDTCSnapshotIdentification,
             0x04 => Self::ReportDTCSnapshotRecord_ByDTCNumber(
-                DTCMaskRecord::from_reader(reader)?,
+                DTCRecord::from_reader(reader)?,
                 DTCSnapshotRecordNumber::from_reader(reader)?,
             ),
             0x05 => Self::ReportDTCStoredData_ByRecordNumber(
@@ -220,7 +220,7 @@ impl WireFormat for ReadDTCInfoSubFunction {
             ),
             // 0xFF for all records, 0xFE for all OBD records
             0x06 => Self::ReportDTCExtDataRecord_ByDTCNumber(
-                DTCMaskRecord::from_reader(reader)?,
+                DTCRecord::from_reader(reader)?,
                 DTCExtDataRecordNumber::from_reader(reader)?,
             ),
             0x07 => Self::ReportNumberOfDTC_BySeverityMaskRecord(
@@ -231,7 +231,7 @@ impl WireFormat for ReadDTCInfoSubFunction {
                 DTCSeverityMask::from(reader.read_u8()?),
                 DTCStatusMask::from(reader.read_u8()?),
             ),
-            0x09 => Self::ReportSeverityInfoOfDTC(DTCMaskRecord::from_reader(reader)?),
+            0x09 => Self::ReportSeverityInfoOfDTC(DTCRecord::from_reader(reader)?),
             0x0A => Self::ReportSupportedDTC,
             0x0B => Self::ReportFirstTestFailedDTC,
             0x0C => Self::ReportFirstConfirmedDTC,
@@ -247,12 +247,12 @@ impl WireFormat for ReadDTCInfoSubFunction {
             }
             // 0xFF for all records
             0x18 => Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
-                DTCMaskRecord::from_reader(reader)?,
+                DTCRecord::from_reader(reader)?,
                 UserDefDTCSnapshotRecordNumber::from_reader(reader)?,
                 reader.read_u8()?,
             ),
             0x19 => Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
-                DTCMaskRecord::from_reader(reader)?,
+                DTCRecord::from_reader(reader)?,
                 DTCExtDataRecordNumber::from_reader(reader)?,
                 reader.read_u8()?,
             ),
@@ -434,25 +434,25 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     DTCList(
         SubFunctionID,
         DTCStatusAvailabilityMask,
-        Vec<(DTCMaskRecord, DTCStatusMask)>,
+        Vec<(DTCRecord, DTCStatusMask)>,
     ),
 
     /// Snapshot identification - aka "Freeze Frame"
     ///
-    /// Parameter: Vec<(DTCMaskRecord, DTCSnapshotRecordNumber> (4 * n)
+    /// Parameter: Vec<(DTCRecord, DTCSnapshotRecordNumber> (4 * n)
     ///
     /// Note: DTCSnapshot list might be empty
     ///
     /// For subfunction 0x03
     ///     * 0x03: [ReadDTCInfoSubFunction::ReportDTCSnapshotIdentification]
-    DTCSnapshotList(Vec<(DTCMaskRecord, DTCSnapshotRecordNumber)>),
+    DTCSnapshotList(Vec<(DTCRecord, DTCSnapshotRecordNumber)>),
 
     /// Get the DTC status and snapshot number and information w/ corresponding Data Identifier (DID)
     ///
     /// DTC, Status, snapshot number, # of identifiers, DID (times # of identifiers), Snapshot info
     /// If all records are requested, it can be a theoretically large amount of data.
     ///
-    /// Parameter: DTCMaskRecord (3 bytes) - Echo of the request
+    /// Parameter: DTCRecord (3 bytes) - Echo of the request
     /// Parameter: DTCStatusMask (1) - status of the requested DTC
     /// C2/C4: There are multiple dataIdentifier/snapshotData combinations allowed to be present in a single DTCSnapshotRecord.
     /// This can, for example be the case for the situation where a single dataIdentifier only references an integral part of data. When
@@ -477,10 +477,10 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             }
             0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
                 let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
-                let mut dtcs: Vec<(DTCMaskRecord, DTCStatusMask)> = Vec::new();
+                let mut dtcs: Vec<(DTCRecord, DTCStatusMask)> = Vec::new();
 
                 // Loop until we're done with the reader and fill the DTC list
-                while let Some(record) = DTCMaskRecord::option_from_reader(reader)? {
+                while let Some(record) = DTCRecord::option_from_reader(reader)? {
                     match reader.read_u8() {
                         Ok(status) => dtcs.push((record, DTCStatusMask::from(status))),
                         Err(_) => break,
@@ -490,10 +490,10 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 Ok(Some(Self::DTCList(subfunction_id, status, dtcs)))
             }
             0x03 => {
-                let mut dtcs: Vec<(DTCMaskRecord, DTCSnapshotRecordNumber)> = Vec::new();
+                let mut dtcs: Vec<(DTCRecord, DTCSnapshotRecordNumber)> = Vec::new();
 
                 // Loop until we're done with the reader and fill the DTC list
-                while let Some(record) = DTCMaskRecord::option_from_reader(reader)? {
+                while let Some(record) = DTCRecord::option_from_reader(reader)? {
                     match DTCSnapshotRecordNumber::option_from_reader(reader)? {
                         Some(number) => dtcs.push((record, number)),
                         None => break,
@@ -657,11 +657,11 @@ mod response {
                 DTCStatusMask::TestFailed,
                 vec![
                     (
-                        DTCMaskRecord::new(0x01, 0x02, 0x03),
+                        DTCRecord::new(0x01, 0x02, 0x03),
                         DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed
                     ),
                     (
-                        DTCMaskRecord::new(0x17, 0x04, 0x03),
+                        DTCRecord::new(0x17, 0x04, 0x03),
                         DTCStatusMask::TestNotCompletedThisOperationCycle
                     )
                 ]
@@ -723,14 +723,14 @@ mod request {
                 ),
                 0x03 => ReadDTCInfoSubFunction::ReportDTCSnapshotIdentification,
                 0x04 => ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber(
-                    DTCMaskRecord::new(0x01, 0x02, 0x03),
+                    DTCRecord::new(0x01, 0x02, 0x03),
                     DTCSnapshotRecordNumber::new(0x04),
                 ),
                 0x05 => ReadDTCInfoSubFunction::ReportDTCStoredData_ByRecordNumber(
                     DTCStoredDataRecordNumber::new(0x20).unwrap(),
                 ),
                 0x06 => ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber(
-                    DTCMaskRecord::new(0x01, 0x02, 0x03),
+                    DTCRecord::new(0x01, 0x02, 0x03),
                     DTCExtDataRecordNumber(0x04),
                 ),
                 0x07 => ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord(

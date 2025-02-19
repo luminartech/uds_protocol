@@ -1,10 +1,10 @@
 //! Module for making and handling UDS Requests
 use crate::{
     services::{
-        CommunicationControlRequest, ControlDTCSettingsRequest, DiagnosticSessionControlRequest,
-        EcuResetRequest, ReadDataByIdentifierRequest, RequestDownloadRequest,
-        RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
-        WriteDataByIdentifierRequest,
+        ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
+        DiagnosticSessionControlRequest, EcuResetRequest, ReadDataByIdentifierRequest,
+        RequestDownloadRequest, RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest,
+        TransferDataRequest, WriteDataByIdentifierRequest,
     },
     Error, IterableWireFormat, NegativeResponseCode, ReadDTCInfoRequest, ResetType,
     SecurityAccessType, SingleValueWireFormat, WireFormat,
@@ -13,8 +13,9 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 use super::{
-    service::UdsServiceType, CommunicationControlType, CommunicationType, DataFormatIdentifier,
-    DiagnosticSessionType, DtcSettings, ReadDTCInfoSubFunction, RoutineControlSubFunction,
+    service::UdsServiceType, CommunicationControlType, CommunicationType, DTCRecord,
+    DataFormatIdentifier, DiagnosticSessionType, DtcSettings, ReadDTCInfoSubFunction,
+    RoutineControlSubFunction,
 };
 
 /// UDS Request types
@@ -22,6 +23,7 @@ use super::{
 /// The variants contain all request data for each service
 #[derive(Clone, Debug, PartialEq)]
 pub enum Request<DiagnosticIdentifier, DiagnosticPayload> {
+    ClearDiagnosticInfo(ClearDiagnosticInfoRequest),
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
@@ -40,6 +42,18 @@ pub enum Request<DiagnosticIdentifier, DiagnosticPayload> {
 impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat>
     Request<DiagnosticIdentifier, DiagnosticPayload>
 {
+    /// Create a `ClearDiagnosticInfo` request, clears diagnostic information in one or more servers' memory
+    pub fn clear_diagnostic_info(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
+        Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::new(
+            group_of_dtc,
+            memory_selection,
+        ))
+    }
+
+    pub fn clear_all_dtc_info(memory_selection: u8) -> Self {
+        Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::clear_all(memory_selection))
+    }
+
     /// Create a `CommunicationControlRequest` with standard address information.
     ///
     /// # Panics
@@ -167,6 +181,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
 
     pub fn service(&self) -> UdsServiceType {
         match self {
+            Self::ClearDiagnosticInfo(_) => UdsServiceType::ClearDiagnosticInfo,
             Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
             Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings,
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
@@ -185,6 +200,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
 
     pub fn allowed_nack_codes(&self) -> &'static [NegativeResponseCode] {
         match self {
+            Self::ClearDiagnosticInfo(_) => ClearDiagnosticInfoRequest::allowed_nack_codes(),
             Self::DiagnosticSessionControl(_) => {
                 DiagnosticSessionControlRequest::allowed_nack_codes()
             }
@@ -267,6 +283,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
 
     fn required_size(&self) -> usize {
         1 + match self {
+            Self::ClearDiagnosticInfo(cdi) => cdi.required_size(),
             Self::CommunicationControl(cc) => cc.required_size(),
             Self::ControlDTCSettings(ct) => ct.required_size(),
             Self::DiagnosticSessionControl(ds) => ds.required_size(),
@@ -291,6 +308,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
         writer.write_u8(self.service().request_service_to_byte())?;
         // Write the payload
         Ok(1 + match self {
+            Self::ClearDiagnosticInfo(cdi) => cdi.to_writer(writer),
             Self::CommunicationControl(cc) => cc.to_writer(writer),
             Self::ControlDTCSettings(ct) => ct.to_writer(writer),
             Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
