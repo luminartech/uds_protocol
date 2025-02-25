@@ -143,7 +143,7 @@ impl From<u8> for DataFormatIdentifier {
 }
 impl From<DataFormatIdentifier> for u8 {
     fn from(data_format_identifier: DataFormatIdentifier) -> u8 {
-        data_format_identifier.encryption_method | (data_format_identifier.compression_method << 4)
+        data_format_identifier.encryption_method | data_format_identifier.compression_method << 4
     }
 }
 
