@@ -3,9 +3,9 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask, DTCSnapshotRecordList,
-    DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Error,
-    FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
+    DTCExtDataRecordList, DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask,
+    DTCSnapshotRecordList, DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber,
+    Error, FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
     UserDefDTCSnapshotRecordNumber, WireFormat,
 };
 
@@ -49,11 +49,11 @@ type DTCReadinessGroupIdentifier = u8; // RGID
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ReadDTCInfoSubFunction {
-    /// Parameter: DTCStatusMask
+    /// * Parameter: DTCStatusMask
     ///
     /// 0x01
     ReportNumberOfDTC_ByStatusMask(DTCStatusMask),
-    /// Parameter: DTCStatusMask
+    /// * Parameter: DTCStatusMask
     ///
     /// 0x02
     ReportDTC_ByStatusMask(DTCStatusMask),
@@ -67,7 +67,7 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x04
     ReportDTCSnapshotRecord_ByDTCNumber(DTCRecord, DTCSnapshotRecordNumber),
 
-    /// Parameter: DTCStoredDataRecordNumber(1)
+    /// * Parameter: DTCStoredDataRecordNumber(1)
     ///
     /// 0x05
     ReportDTCStoredData_ByRecordNumber(DTCStoredDataRecordNumber),
@@ -78,7 +78,7 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x06
     ReportDTCExtDataRecord_ByDTCNumber(DTCRecord, DTCExtDataRecordNumber),
 
-    /// Parameter: DTCSeverityMaskRecord(2)
+    /// * Parameter: DTCSeverityMaskRecord(2)
     ///     * DTCSeverityMask
     ///     * DTCStatusMask
     ///
@@ -107,12 +107,12 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x15
     ReportDTCWithPermanentStatus,
 
-    /// Parameter: DTCExtDataRecordNumber(1)
+    /// * Parameter: DTCExtDataRecordNumber(1)
     ///
     /// 0x16
     ReportDTCExtDataRecord_ByRecordNumber(DTCExtDataRecordNumber),
 
-    /// Parameter: DTCStatusMask
+    /// * Parameter: DTCStatusMask
     ///
     /// 0x17
     ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask),
@@ -136,25 +136,25 @@ pub enum ReadDTCInfoSubFunction {
         MemorySelection,
     ),
 
-    /// Parameter: DTCExtDataRecordNumber(1)
+    /// * Parameter: DTCExtDataRecordNumber(1)
     ///
     /// 0x1A
     ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber),
 
-    /// Parameter: FunctionalGroupIdentifier(1)
-    /// Parameter: DTCStatusMask
-    /// Parameter: DTCSeverityMask
+    /// * Parameter: FunctionalGroupIdentifier(1)
+    /// * Parameter: DTCStatusMask
+    /// * Parameter: DTCSeverityMask
     ///
     /// 0x42
     ReportWWHOBDDTC_ByMaskRecord(FunctionalGroupIdentifier, DTCStatusMask, DTCSeverityMask),
 
-    /// Parameter: FunctionalGroupIdentifier(1)
+    /// * Parameter: FunctionalGroupIdentifier(1)
     ///
     /// 0x55
     ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier),
 
-    /// Parameter: FunctionalGroupIdentifier(1)
-    /// Parameter: DTCReadinessGroupIdentifier(1)
+    /// * Parameter: FunctionalGroupIdentifier(1)
+    /// * Parameter: DTCReadinessGroupIdentifier(1)
     ///
     /// 0x56
     ReportDTCInformation_ByDTCReadinessGroupIdentifier(
@@ -402,35 +402,36 @@ type DTCStatusAvailabilityMask = DTCStatusMask;
 type SubFunctionID = u8;
 
 /// Response payloads can be shared among multiple request subfunctions
+///
 /// For example, subfunction 0x01 and 0x07 both return the number of DTCs
 /// and have the same response format
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub enum ReadDTCInfoResponse<UserPayload> {
-    /// Parameter: DTCStatusAvailabilityMask(1)
-    /// Parameter: NumberOfDTCs(2)
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
+    /// * Parameter: `NumberOfDTCs`(2)
     ///
     /// For subfunctions 0x01, 0x07
-    ///     * 0x01: [ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask]
-    ///     * 0x07: [ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord]
+    ///   * 0x01: [ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask]
+    ///   * 0x07: [ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord]
     NumberOfDTCs(SubFunctionID, DTCStatusAvailabilityMask, NumberOfDTCs),
 
     /// A list of DTCs matching the subfunction request
     ///
-    /// Parameter: DTCStatusAvailabilityMask(1)
-    /// Parameter: Vec<DTCAndStatusRecord> (4 * n)
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
+    /// * Parameter: `Vec<DTCAndStatusRecord>` (4 * n)
     ///
     /// Note: DTC list can be empty if there are none to report,
     ///       but the response will still be sent
     ///
     /// For subfunctions 0x02, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x15
-    ///     * 0x02: [ReadDTCInfoSubFunction::ReportDTC_ByStatusMask]
-    ///     * 0x0A: [ReadDTCInfoSubFunction::ReportSupportedDTC]
-    ///     * 0x0B: [ReadDTCInfoSubFunction::ReportFirstTestFailedDTC]
-    ///     * 0x0C: [ReadDTCInfoSubFunction::ReportFirstConfirmedDTC]
-    ///     * 0x0D: [ReadDTCInfoSubFunction::ReportMostRecentTestFailedDTC]
-    ///     * 0x0E: [ReadDTCInfoSubFunction::ReportMostRecentConfirmedDTC]
-    ///     * 0x15: [ReadDTCInfoSubFunction::ReportDTCWithPermanentStatus]
+    ///   * 0x02: [ReadDTCInfoSubFunction::ReportDTC_ByStatusMask]
+    ///   * 0x0A: [ReadDTCInfoSubFunction::ReportSupportedDTC]
+    ///   * 0x0B: [ReadDTCInfoSubFunction::ReportFirstTestFailedDTC]
+    ///   * 0x0C: [ReadDTCInfoSubFunction::ReportFirstConfirmedDTC]
+    ///   * 0x0D: [ReadDTCInfoSubFunction::ReportMostRecentTestFailedDTC]
+    ///   * 0x0E: [ReadDTCInfoSubFunction::ReportMostRecentConfirmedDTC]
+    ///   * 0x15: [ReadDTCInfoSubFunction::ReportDTCWithPermanentStatus]
     DTCList(
         SubFunctionID,
         DTCStatusAvailabilityMask,
@@ -449,7 +450,8 @@ pub enum ReadDTCInfoResponse<UserPayload> {
 
     /// Get the DTC status and snapshot number and information w/ corresponding Data Identifier (DID)
     ///
-    /// DTC, Status, snapshot number, # of identifiers, DID (times # of identifiers), Snapshot info
+    /// DTC, Status, snapshot number, # of identifiers, DID (times # of identifiers), Snapshot info.
+    ///
     /// If all records are requested, it can be a theoretically large amount of data.
     ///
     /// Parameter: DTCRecord (3 bytes) - Echo of the request
@@ -461,8 +463,21 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// Note: See example 12.3.5.6.2 in ISO 14229-1:2020 for more information
     ///
     /// For subfunction 0x04
-    ///     * 0x04: [ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber]
+    ///   * 0x04: [ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber]
     DTCSnapshotRecordList(DTCSnapshotRecordList<UserPayload>),
+
+    /// List of [crate::DTCExtDataRecord]s for a given DTC.
+    ///
+    /// UserPayload is so the data can be read according to a specific format
+    /// defined by the supplier/vehicle manufacturer
+    ///
+    /// * Parameter: [`DTCMaskRecord`] (3 bytes) - Echo of the request
+    /// * Parameter: [`DTCStatusMask`] (1) - status of the requested DTC
+    /// * Parameter: [`crate::DTCExtDataRecord`] (n)
+    ///
+    /// For subfunction 0x06
+    ///   * 0x06: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
+    DTCExtDataRecordList(DTCExtDataRecordList<UserPayload>),
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
@@ -502,6 +517,14 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
 
                 Ok(Some(Self::DTCSnapshotList(dtcs)))
             }
+            0x04 => {
+                let snapshot_list = DTCSnapshotRecordList::option_from_reader(reader)?.unwrap();
+                Ok(Some(Self::DTCSnapshotRecordList(snapshot_list)))
+            }
+            0x06 => {
+                let ext_data_list = DTCExtDataRecordList::option_from_reader(reader)?.unwrap();
+                Ok(Some(Self::DTCExtDataRecordList(ext_data_list)))
+            }
             _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
@@ -513,6 +536,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCList(_, _, list) => 1 + list.len() * 4,
             Self::DTCSnapshotList(list) => 1 + list.len() * 4,
             Self::DTCSnapshotRecordList(list) => list.required_size(),
+            Self::DTCExtDataRecordList(list) => list.required_size(),
         }
     }
 
@@ -539,6 +563,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 }
             }
             Self::DTCSnapshotRecordList(list) => {
+                writer.write_u8(0x04)?;
+                list.to_writer(writer)?;
+            }
+            Self::DTCExtDataRecordList(list) => {
+                writer.write_u8(0x06)?;
                 list.to_writer(writer)?;
             }
         }
@@ -676,6 +705,116 @@ mod response {
         assert_eq!(written, response.required_size());
     }
 }
+
+#[cfg(test)]
+mod ext_data {
+    use super::*;
+
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    pub enum TestDTCExtDataRecordNumber {
+        // DTC records
+        WarmUpCycleCount = 0x04,
+        FaultDetectionCounter = 0x05,
+    }
+
+    impl WireFormat for TestDTCExtDataRecordNumber {
+        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let id = reader.read_u8();
+            match id {
+                Ok(0x04) => Ok(Some(TestDTCExtDataRecordNumber::WarmUpCycleCount)),
+                Ok(0x05) => Ok(Some(TestDTCExtDataRecordNumber::FaultDetectionCounter)),
+                Err(_) => Ok(None),
+                _ => Err(Error::NoDataAvailable),
+            }
+        }
+
+        fn required_size(&self) -> usize {
+            1
+        }
+
+        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+            writer.write_u8(*self as u8)?;
+            Ok(self.required_size())
+        }
+    }
+
+    impl IterableWireFormat for TestDTCExtDataRecordNumber {}
+
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    enum TestDTCExtData {
+        WarmUpCycleCount(u16),
+        FaultDetectionCounter(u8),
+    }
+
+    impl WireFormat for TestDTCExtData {
+        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let id = TestDTCExtDataRecordNumber::option_from_reader(reader)?;
+            match id {
+                Some(TestDTCExtDataRecordNumber::WarmUpCycleCount) => {
+                    let count = reader.read_u16::<byteorder::BigEndian>()?;
+                    Ok(Some(TestDTCExtData::WarmUpCycleCount(count)))
+                }
+                Some(TestDTCExtDataRecordNumber::FaultDetectionCounter) => {
+                    let count = reader.read_u8()?;
+                    Ok(Some(TestDTCExtData::FaultDetectionCounter(count)))
+                }
+                None => Ok(None),
+            }
+        }
+
+        fn required_size(&self) -> usize {
+            match self {
+                TestDTCExtData::WarmUpCycleCount(_) => 3,
+                TestDTCExtData::FaultDetectionCounter(_) => 2,
+            }
+        }
+
+        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+            match self {
+                TestDTCExtData::WarmUpCycleCount(count) => {
+                    writer.write_u8(TestDTCExtDataRecordNumber::WarmUpCycleCount as u8)?;
+                    writer.write_u16::<byteorder::BigEndian>(*count)?;
+                }
+                TestDTCExtData::FaultDetectionCounter(count) => {
+                    writer.write_u8(TestDTCExtDataRecordNumber::FaultDetectionCounter as u8)?;
+                    writer.write_u8(*count)?;
+                }
+            }
+            Ok(self.required_size())
+        }
+    }
+
+    impl IterableWireFormat for TestDTCExtData {}
+
+    #[test]
+    fn ext_data_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x06, // subfunction
+            // First DTC record
+            0x12, 0x34, 0x56, // DTC Mask
+            0x24, //Status
+            0x04, // "WarmUpCycleCount"
+            //Ext data
+            0xBE, 0xEF,
+            0x05, // "FaultDetectionCounter"
+            0x10,
+
+        ];
+        let mut reader = &bytes[..];
+        let response: ReadDTCInfoResponse<TestDTCExtData> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
+}
+
 #[cfg(test)]
 mod request {
     use super::*;
@@ -731,7 +870,7 @@ mod request {
                 ),
                 0x06 => ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber(
                     DTCRecord::new(0x01, 0x02, 0x03),
-                    DTCExtDataRecordNumber(0x04),
+                    DTCExtDataRecordNumber::new(0x04),
                 ),
                 0x07 => ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord(
                     DTCSeverityMask::DTCClass_4,
