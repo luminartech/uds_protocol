@@ -36,10 +36,21 @@ pub type ProtocolRequest = Request<ProtocolIdentifier, ProtocolPayload>;
 /// Type alias for a UDS Response type that only implements the messages explicitly defined by the UDS specification.
 pub type ProtocolResponse = Response<ProtocolIdentifier, ProtocolPayload>;
 
+/// What type of routine control to perform for a [RoutineControlRequest].
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum RoutineControlSubFunction {
+    /// Routine will be started sometime between completion of the StartRoutine request and the completion of the 1st response message
+    /// which indicates that the routine has already been performed, or is in progress
+    ///
+    /// It might be necessary to switch the server to a specific Diagnostic Session via [DiagnosticSessionControlRequest] before starting the routine,
+    /// or unlock the server using [`SecurityAccessRequest`] before starting the routine.
     StartRoutine,
+
+    /// The server routine shall be stopped in the server's memory sometime between the completion of the StopRoutine request and the completion of the 1st response message
+    /// which indicates that the routine has already been stopped, or is in progress
     StopRoutine,
+
+    /// Request results for the specified routineIdentifier
     RequestRoutineResults,
 }
 
