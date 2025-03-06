@@ -32,7 +32,7 @@ pub enum Request<DiagnosticIdentifier, DiagnosticPayload> {
     ReadDTCInfo(ReadDTCInfoRequest),
     RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
-    RoutineControl(RoutineControlRequest),
+    RoutineControl(RoutineControlRequest<DiagnosticIdentifier>),
     SecurityAccess(SecurityAccessRequest),
     TesterPresent(TesterPresentRequest),
     TransferData(TransferDataRequest),
@@ -149,8 +149,8 @@ impl<DiagnosticIdentifier: Identifier, DiagnosticPayload: IterableWireFormat>
 
     pub fn routine_control(
         sub_function: RoutineControlSubFunction,
-        routine_id: u16,
-        data: Vec<u8>,
+        routine_id: DiagnosticIdentifier,
+        data: Option<Vec<u8>>,
     ) -> Self {
         Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
