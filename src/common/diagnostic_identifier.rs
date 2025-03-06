@@ -110,11 +110,10 @@ pub enum UDSRoutineIdentifier {
     CheckProgrammingDependencies,
 }
 
-impl TryFrom<u16> for UDSRoutineIdentifier {
-    type Error = Error;
-
-    fn try_from(value: u16) -> Result<Self, Self::Error> {
-        Ok(match value {
+/// We know all values for the Routine Identifier, so we can implement From<u16> for UDSRoutineIdentifier
+impl From<u16> for UDSRoutineIdentifier {
+    fn from(value: u16) -> Self {
+        match value {
             0x0000..=0x00FF | 0xE300..=0xEFFF | 0xFF02..=0xFFFF => Self::ISOSAEReserved(value),
             0x0100..=0x01FF => Self::TachographTestIds(value),
             0x0200..=0xDFFF => Self::VehicleManufacturerSpecific(value),
@@ -125,7 +124,7 @@ impl TryFrom<u16> for UDSRoutineIdentifier {
             0xF000..=0xFEFF => Self::SystemSupplierSpecific(value),
             0xFF00 => Self::EraseMemory,
             0xFF01 => Self::CheckProgrammingDependencies,
-        })
+        }
     }
 }
 

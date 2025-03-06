@@ -7,7 +7,7 @@ mod error;
 pub use error::Error;
 
 mod protocol_definitions;
-pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayload};
+pub use protocol_definitions::{Identifier, ProtocolIdentifier, ProtocolPayload};
 
 mod request;
 pub use request::Request;
