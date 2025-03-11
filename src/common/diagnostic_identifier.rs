@@ -70,7 +70,7 @@ pub enum UDSRoutineIdentifier {
     ISOSAEReserved(u16),
     /// Represent Tachograph test result values
     ///
-    /// // 0x0100-0x01FF
+    /// 0x0100-0x01FF
     TachographTestIds(u16),
 
     /// Vehicle Manufacturer Specific Routine Identifiers
