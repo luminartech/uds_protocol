@@ -6,8 +6,14 @@ pub use common::*;
 mod error;
 pub use error::Error;
 
+// Export the Identifier derive macro
+pub use uds_protocol_derive::Identifier;
+
+mod identifier;
+pub use identifier::Identifier;
+
 mod protocol_definitions;
-pub use protocol_definitions::{Identifier, ProtocolIdentifier, ProtocolPayload};
+pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayload};
 
 mod request;
 pub use request::Request;

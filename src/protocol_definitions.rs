@@ -1,16 +1,9 @@
-use crate::{iterable_identifier, Error, IterableWireFormat, UDSIdentifier, WireFormat};
-use byteorder::{BigEndian, WriteBytesExt};
+use crate::{Error, Identifier, IterableWireFormat, UDSIdentifier, WireFormat};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
-/// Trait for types that can be used as identifiers (ie Data Identifiers and Routine Identifiers)
-pub trait Identifier: TryFrom<u16> + Into<u16> {}
-
-/// Impl Identifier for all types that implement TryFrom<u16> and Into<u16>
-impl<T> Identifier for T where T: TryFrom<u16> + Into<u16> {}
-
 /// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports Diagnostic Identifiers defined by UDS
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Identifier)]
 pub struct ProtocolIdentifier {
     identifier: UDSIdentifier,
 }
@@ -43,8 +36,7 @@ impl Deref for ProtocolIdentifier {
     }
 }
 
-// Implementing the WireFormat and IterableWireFormat traits for ProtocolIdentifier
-iterable_identifier!(ProtocolIdentifier);
+impl IterableWireFormat for ProtocolIdentifier {}
 
 /// The UDS protocol does not define the structure of any payload, so this struct will always return an error when attempting to read from a reader
 /// It cannot be constructed, and therefore the write method is unreachable

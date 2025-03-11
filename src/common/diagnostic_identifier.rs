@@ -1,21 +1,22 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
-use crate::Error;
+use crate::{Error, Identifier, SingleValueWireFormat};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Identifier)]
+#[repr(u16)]
 pub enum UDSIdentifier {
     ISOSAEReserved(u16),
-    BootSoftwareIdentification,
-    ApplicationSoftware,
-    ApplicationDataIdentification,
-    BootSoftwareFingerprint,
-    ApplicationSoftwareFingerprint,
-    ApplicationDataFingerprint,
-    ActiveDiagnosticSession,
-    VehicleManufacturerSparePartNumber,
-    VehicleManufacturerECUSoftwareNumber,
-    VehicleManufacturerECUSoftwareVersionNumber,
+    BootSoftwareIdentification = 0x0183,
+    ApplicationSoftware = 0x0184,
+    ApplicationDataIdentification = 0x0185,
+    BootSoftwareFingerprint = 0x0186,
+    ApplicationSoftwareFingerprint = 0x0187,
+    ApplicationDataFingerprint = 0x0188,
+    ActiveDiagnosticSession = 0x0189,
+    VehicleManufacturerSparePartNumber = 0x018A,
+    VehicleManufacturerECUSoftwareNumber = 0x018B,
+    VehicleManufacturerECUSoftwareVersionNumber = 0x018C,
 }
 
 impl TryFrom<u16> for UDSIdentifier {
@@ -62,7 +63,8 @@ impl From<UDSIdentifier> for u16 {
 ///
 /// Some services will be defined by the Vehicle manufacturer or a system supplier,
 /// and they must be implemented by the tester system.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Identifier)]
+#[repr(u16)]
 pub enum UDSRoutineIdentifier {
     // 0x0000-0x00FF
     // 0xE300-0xEFFF
@@ -84,12 +86,12 @@ pub enum UDSRoutineIdentifier {
     /// Execute Service Programming Loop (SPL)
     ///
     /// 0xE200
-    ExecuteSPL,
+    ExecuteSPL = 0xE200,
 
     /// Deploy Loop Routine ID
     ///
     /// 0xE201
-    DeployLoopRoutineID,
+    DeployLoopRoutineID = 0xE201,
 
     /// 0xE202-0xE2FF
     SafetySystemRoutineID(u16),
@@ -102,15 +104,15 @@ pub enum UDSRoutineIdentifier {
     /// Erase Memory
     ///
     /// 0xFF00
-    EraseMemory,
+    EraseMemory = 0xFF00,
 
     /// Check Programming Dependencies
     ///
     /// 0xFF01
-    CheckProgrammingDependencies,
+    CheckProgrammingDependencies = 0xFF01,
 }
 
-/// We know all values for the Routine Identifier, so we can implement From<u16> for UDSRoutineIdentifier
+/// We know all values for the Routine Identifier, so we can implement `From<u16>` for UDSRoutineIdentifier
 impl From<u16> for UDSRoutineIdentifier {
     fn from(value: u16) -> Self {
         match value {
@@ -144,3 +146,5 @@ impl From<UDSRoutineIdentifier> for u16 {
         }
     }
 }
+
+impl SingleValueWireFormat for UDSRoutineIdentifier {}
