@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+uds_protocol_derive = { path = "uds_protocol_derive" }
 byteorder.workspace = true
 thiserror.workspace = true
 # Optional dependencies

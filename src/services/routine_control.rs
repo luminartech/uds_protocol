@@ -1,3 +1,7 @@
+//! Routine Control (0x31) Service is used to perform functions on the ECU that are may not be covered by other services.
+//!
+//! It can also be used to check the ECU’s health, erase memory, or other custom manufacturer/supplier routines.
+//! However, some routines may have side effects or require certain preconditions to be met.
 use crate::{Error, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -50,6 +54,7 @@ impl WireFormat for RoutineControlRequest {
 
 impl SingleValueWireFormat for RoutineControlRequest {}
 
+/// RoutineStatusRecord is a variable length field that can contain the status of the routine
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlResponse {

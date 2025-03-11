@@ -8,7 +8,7 @@ mod diagnostic_session_type;
 pub use diagnostic_session_type::DiagnosticSessionType;
 
 mod diagnostic_identifier;
-pub use diagnostic_identifier::UDSIdentifier;
+pub use diagnostic_identifier::{UDSIdentifier, UDSRoutineIdentifier};
 
 mod dtc_ext_data;
 pub use dtc_ext_data::*;
