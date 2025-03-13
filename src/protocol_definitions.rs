@@ -36,8 +36,6 @@ impl Deref for ProtocolIdentifier {
     }
 }
 
-impl IterableWireFormat for ProtocolIdentifier {}
-
 /// The UDS protocol does not define the structure of any payload, so this struct will always return an error when attempting to read from a reader
 /// It cannot be constructed, and therefore the write method is unreachable
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

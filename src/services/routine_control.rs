@@ -2,9 +2,7 @@
 //!
 //! It can also be used to check the ECU’s health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
-use crate::{
-    Error, IterableWireFormat, RoutineControlSubFunction, SingleValueWireFormat, WireFormat,
-};
+use crate::{Error, Identifier, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -18,7 +16,7 @@ pub struct RoutineControlRequest<RoutineIdentifier> {
     pub data: Option<Vec<u8>>,
 }
 
-impl<RoutineIdentifier: IterableWireFormat> RoutineControlRequest<RoutineIdentifier> {
+impl<RoutineIdentifier: Identifier> RoutineControlRequest<RoutineIdentifier> {
     pub(crate) fn new(
         sub_function: RoutineControlSubFunction,
         routine_id: RoutineIdentifier,
@@ -32,9 +30,7 @@ impl<RoutineIdentifier: IterableWireFormat> RoutineControlRequest<RoutineIdentif
     }
 }
 
-impl<RoutineIdentifier: IterableWireFormat> WireFormat
-    for RoutineControlRequest<RoutineIdentifier>
-{
+impl<RoutineIdentifier: Identifier> WireFormat for RoutineControlRequest<RoutineIdentifier> {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
         let routine_id = RoutineIdentifier::option_from_reader(reader)?.unwrap();
@@ -63,7 +59,7 @@ impl<RoutineIdentifier: IterableWireFormat> WireFormat
     }
 }
 
-impl<RoutineIdentifier: IterableWireFormat> SingleValueWireFormat
+impl<RoutineIdentifier: Identifier> SingleValueWireFormat
     for RoutineControlRequest<RoutineIdentifier>
 {
 }
@@ -102,10 +98,9 @@ impl SingleValueWireFormat for RoutineControlResponse {}
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{iterable_identifier, Identifier};
-    use byteorder::{BigEndian, WriteBytesExt};
+    use crate::Identifier;
 
-    iterable_identifier!(u16);
+    impl Identifier for u16 {}
 
     #[test]
     fn simple_request() {
