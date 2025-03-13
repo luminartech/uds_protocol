@@ -1,7 +1,7 @@
 use crate::{
     CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse,
     DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings, EcuResetResponse, Error,
-    IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDTCInfoResponse,
+    Identifier, IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDTCInfoResponse,
     ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferResponse, ResetType,
     RoutineControlResponse, SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat,
     TesterPresentResponse, TransferDataResponse, UdsServiceType, WireFormat,
@@ -127,7 +127,7 @@ impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
     }
 }
 
-impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFormat
+impl<UserIdentifier: Identifier, UserPayload: IterableWireFormat> WireFormat
     for Response<UserIdentifier, UserPayload>
 {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
@@ -237,7 +237,7 @@ impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> WireFo
     }
 }
 
-impl<UserIdentifier: IterableWireFormat, UserPayload: IterableWireFormat> SingleValueWireFormat
+impl<UserIdentifier: Identifier, UserPayload: IterableWireFormat> SingleValueWireFormat
     for Response<UserIdentifier, UserPayload>
 {
 }

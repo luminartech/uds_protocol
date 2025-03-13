@@ -1,4 +1,6 @@
-use crate::{Error, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat};
+use crate::{
+    Error, Identifier, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat,
+};
 use serde::{Deserialize, Serialize};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
@@ -58,25 +60,25 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
 /// See ISO-14229-1:2020, Section 11.7.3.1
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
-pub struct WriteDataByIdentifierResponse<Identifier> {
-    pub identifier: Identifier,
+pub struct WriteDataByIdentifierResponse<DataIdentifier> {
+    pub identifier: DataIdentifier,
 }
 
-impl<Identifier: IterableWireFormat> WriteDataByIdentifierResponse<Identifier> {
-    pub fn new(identifier: Identifier) -> Self {
+impl<DataIdentifier: Identifier> WriteDataByIdentifierResponse<DataIdentifier> {
+    pub fn new(identifier: DataIdentifier) -> Self {
         Self { identifier }
     }
 }
 
-impl<Identifier: IterableWireFormat> SingleValueWireFormat
-    for WriteDataByIdentifierResponse<Identifier>
+impl<DataIdentifier: Identifier> SingleValueWireFormat
+    for WriteDataByIdentifierResponse<DataIdentifier>
 {
 }
 
-impl<Identifier: IterableWireFormat> WireFormat for WriteDataByIdentifierResponse<Identifier> {
+impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<DataIdentifier> {
     /// Create a WriteDataByIdentifierResponse from a stream of bytes, i.e. deserialization.
     fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let identifier = Identifier::option_from_reader(reader)?.unwrap();
+        let identifier = DataIdentifier::option_from_reader(reader)?.unwrap();
         Ok(Some(Self::new(identifier)))
     }
 
@@ -95,11 +97,27 @@ impl<Identifier: IterableWireFormat> WireFormat for WriteDataByIdentifierRespons
 #[cfg(test)]
 mod test {
     use super::*;
-    use byteorder::{BigEndian, WriteBytesExt};
+    use byteorder::WriteBytesExt;
 
-    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, Identifier)]
     pub enum TestIdentifier {
         Abracadabra = 0xBEEF,
+    }
+    impl From<u16> for TestIdentifier {
+        fn from(value: u16) -> Self {
+            match value {
+                0xBEEF => TestIdentifier::Abracadabra,
+                _ => panic!("Invalid test identifier: {value}"),
+            }
+        }
+    }
+
+    impl From<TestIdentifier> for u16 {
+        fn from(value: TestIdentifier) -> Self {
+            match value {
+                TestIdentifier::Abracadabra => 0xBEEF,
+            }
+        }
     }
 
     impl PartialEq<u16> for TestIdentifier {
@@ -109,31 +127,6 @@ mod test {
             }
         }
     }
-
-    impl WireFormat for TestIdentifier {
-        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-            let mut buf = [0u8; 2];
-            reader.read_exact(&mut buf)?;
-
-            let id = u16::from_be_bytes(buf);
-            if TestIdentifier::Abracadabra == id {
-                Ok(Some(TestIdentifier::Abracadabra))
-            } else {
-                Err(Error::NoDataAvailable)
-            }
-        }
-
-        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-            writer.write_u16::<BigEndian>(*self as u16)?;
-            Ok(self.required_size())
-        }
-
-        fn required_size(&self) -> usize {
-            2
-        }
-    }
-
-    impl IterableWireFormat for TestIdentifier {}
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 

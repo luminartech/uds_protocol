@@ -34,7 +34,7 @@ pub const SUCCESS: u8 = 0x80;
 pub const PENDING: u8 = 0x78;
 
 /// Type alias for a UDS Request type that only implements the messages explicitly defined by the UDS specification.
-pub type ProtocolRequest = Request<ProtocolIdentifier, ProtocolPayload>;
+pub type ProtocolRequest = Request<ProtocolIdentifier, ProtocolIdentifier, ProtocolPayload>;
 
 /// Type alias for a UDS Response type that only implements the messages explicitly defined by the UDS specification.
 pub type ProtocolResponse = Response<ProtocolIdentifier, ProtocolPayload>;
