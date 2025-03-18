@@ -151,8 +151,38 @@ impl<
         Self::RequestTransferExit
     }
 
-    /// Create a new `RoutineControl` request
+    /// Create a new `RoutineControl` request with no payload
+    ///
+    /// **Note**: This does not check if the server requires a payload to perform the routine
+    /// # Parameters:
+    ///    * `sub_function`: The type of routine control to perform.
+    ///      * [`RoutineControlSubFunction::StartRoutine`]
+    ///      * [`RoutineControlSubFunction::StopRoutine`]
+    ///      * [`RoutineControlSubFunction::RequestRoutineResults`]
+    ///    * `routine_id`: The identifier of the routine to control
     pub fn routine_control(
+        sub_function: RoutineControlSubFunction,
+        routine_id: RoutineIdentifier,
+    ) -> Self {
+        Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, None))
+    }
+
+    /// Create a new `RoutineControl` request
+    ///
+    /// **Note**: This could be cleaner as the Identifier is technically represented in the RoutinePayload
+    /// and if the RoutinePayload is a single value, then the RoutineIdentifier is not needed
+    ///
+    /// This does not check if the server requires a payload
+    ///
+    /// # Parameters:
+    ///    * `sub_function`: The type of routine control to perform.
+    ///      * [`RoutineControlSubFunction::StartRoutine`]
+    ///      * [`RoutineControlSubFunction::StopRoutine`]
+    ///      * [`RoutineControlSubFunction::RequestRoutineResults`]
+    ///    * `routine_id`: The identifier of the routine to control. User defined routine identifiers and payloads are allowed
+    ///      * General purpose/UDS defined: [crate::UDSRoutineIdentifier]
+    ///    * `data`: Optional payload for the routine control request
+    pub fn routine_control_payload(
         sub_function: RoutineControlSubFunction,
         routine_id: RoutineIdentifier,
         data: Option<RoutinePayload>,
