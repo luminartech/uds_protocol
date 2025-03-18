@@ -38,7 +38,8 @@ pub type ProtocolRequest =
     Request<ProtocolIdentifier, ProtocolIdentifier, ProtocolPayload, ProtocolPayload>;
 
 /// Type alias for a UDS Response type that only implements the messages explicitly defined by the UDS specification.
-pub type ProtocolResponse = Response<ProtocolIdentifier, ProtocolPayload>;
+pub type ProtocolResponse =
+    Response<ProtocolIdentifier, ProtocolIdentifier, ProtocolPayload, ProtocolPayload>;
 
 /// What type of routine control to perform for a [RoutineControlRequest].
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
