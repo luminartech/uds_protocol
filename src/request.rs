@@ -22,7 +22,7 @@ use super::{
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
 #[derive(Clone, Debug, PartialEq)]
-pub enum Request<RoutineIdentifier, DiagnosticIdentifier, DiagnosticPayload> {
+pub enum Request<RoutineIdentifier, DiagnosticIdentifier, RoutinePayload, DiagnosticPayload> {
     ClearDiagnosticInfo(ClearDiagnosticInfoRequest),
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
@@ -32,7 +32,7 @@ pub enum Request<RoutineIdentifier, DiagnosticIdentifier, DiagnosticPayload> {
     ReadDTCInfo(ReadDTCInfoRequest),
     RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
-    RoutineControl(RoutineControlRequest<RoutineIdentifier>),
+    RoutineControl(RoutineControlRequest<RoutineIdentifier, RoutinePayload>),
     SecurityAccess(SecurityAccessRequest),
     TesterPresent(TesterPresentRequest),
     TransferData(TransferDataRequest),
@@ -42,8 +42,9 @@ pub enum Request<RoutineIdentifier, DiagnosticIdentifier, DiagnosticPayload> {
 impl<
         RoutineIdentifier: Identifier,
         DiagnosticIdentifier: Identifier,
+        RoutinePayload: WireFormat,
         DiagnosticPayload: IterableWireFormat,
-    > Request<RoutineIdentifier, DiagnosticIdentifier, DiagnosticPayload>
+    > Request<RoutineIdentifier, DiagnosticIdentifier, RoutinePayload, DiagnosticPayload>
 {
     /// Create a `ClearDiagnosticInfo` request, clears diagnostic information in one or more servers' memory
     pub fn clear_diagnostic_info(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
@@ -154,7 +155,7 @@ impl<
     pub fn routine_control(
         sub_function: RoutineControlSubFunction,
         routine_id: RoutineIdentifier,
-        data: Option<Vec<u8>>,
+        data: Option<RoutinePayload>,
     ) -> Self {
         Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
@@ -219,8 +220,10 @@ impl<
 impl<
         RoutineIdentifier: Identifier,
         DiagnosticIdentifier: Identifier,
+        RoutinePayload: WireFormat,
         DiagnosticPayload: IterableWireFormat,
-    > WireFormat for Request<RoutineIdentifier, DiagnosticIdentifier, DiagnosticPayload>
+    > WireFormat
+    for Request<RoutineIdentifier, DiagnosticIdentifier, RoutinePayload, DiagnosticPayload>
 {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
@@ -336,8 +339,9 @@ impl<
 impl<
         RoutineIdentifier: Identifier,
         DiagnosticIdentifier: Identifier,
+        RoutinePayload: WireFormat,
         DiagnosticPayload: IterableWireFormat,
     > SingleValueWireFormat
-    for Request<RoutineIdentifier, DiagnosticIdentifier, DiagnosticPayload>
+    for Request<RoutineIdentifier, DiagnosticIdentifier, RoutinePayload, DiagnosticPayload>
 {
 }
