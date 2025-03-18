@@ -34,7 +34,8 @@ pub const SUCCESS: u8 = 0x80;
 pub const PENDING: u8 = 0x78;
 
 /// Type alias for a UDS Request type that only implements the messages explicitly defined by the UDS specification.
-pub type ProtocolRequest = Request<ProtocolIdentifier, ProtocolIdentifier, ProtocolPayload>;
+pub type ProtocolRequest =
+    Request<ProtocolIdentifier, ProtocolIdentifier, ProtocolPayload, ProtocolPayload>;
 
 /// Type alias for a UDS Response type that only implements the messages explicitly defined by the UDS specification.
 pub type ProtocolResponse = Response<ProtocolIdentifier, ProtocolPayload>;
@@ -96,6 +97,7 @@ impl WireFormat for Vec<u8> {
 }
 
 impl SingleValueWireFormat for Vec<u8> {}
+impl IterableWireFormat for Vec<u8> {}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum DtcSettings {

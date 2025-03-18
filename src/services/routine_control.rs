@@ -10,17 +10,19 @@ use std::io::{Read, Write};
 /// Used by a client to execute a defined sequence of events and obtain any relevant results
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct RoutineControlRequest<RoutineIdentifier> {
+pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
     pub sub_function: RoutineControlSubFunction,
     pub routine_id: RoutineIdentifier,
-    pub data: Option<Vec<u8>>,
+    pub data: Option<RoutinePayload>,
 }
 
-impl<RoutineIdentifier: Identifier> RoutineControlRequest<RoutineIdentifier> {
+impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat>
+    RoutineControlRequest<RoutineIdentifier, RoutinePayload>
+{
     pub(crate) fn new(
         sub_function: RoutineControlSubFunction,
         routine_id: RoutineIdentifier,
-        data: Option<Vec<u8>>,
+        data: Option<RoutinePayload>,
     ) -> Self {
         Self {
             sub_function,
@@ -30,11 +32,13 @@ impl<RoutineIdentifier: Identifier> RoutineControlRequest<RoutineIdentifier> {
     }
 }
 
-impl<RoutineIdentifier: Identifier> WireFormat for RoutineControlRequest<RoutineIdentifier> {
+impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
+    for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
+{
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
         let routine_id = RoutineIdentifier::option_from_reader(reader)?.unwrap();
-        let data = Vec::<u8>::option_from_reader(reader)?;
+        let data = RoutinePayload::option_from_reader(reader)?;
         Ok(Some(Self {
             sub_function,
             routine_id,
@@ -43,7 +47,7 @@ impl<RoutineIdentifier: Identifier> WireFormat for RoutineControlRequest<Routine
     }
 
     fn required_size(&self) -> usize {
-        3 + match self.data {
+        3 + match &self.data {
             Some(ref record) => record.required_size(),
             None => 0,
         }
@@ -59,8 +63,8 @@ impl<RoutineIdentifier: Identifier> WireFormat for RoutineControlRequest<Routine
     }
 }
 
-impl<RoutineIdentifier: Identifier> SingleValueWireFormat
-    for RoutineControlRequest<RoutineIdentifier>
+impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireFormat
+    for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
 {
 }
 
@@ -102,11 +106,13 @@ mod request {
 
     impl Identifier for u16 {}
 
+    type RoutineControlRequestType = RoutineControlRequest<u16, Vec<u8>>;
+
     #[test]
     fn simple_request() {
         // Fake data: StartRoutine, RoutineID of 0x8606 for "Start O2 Sensor Heater Test" or something
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
-        let req: RoutineControlRequest<u16> =
+        let req: RoutineControlRequestType =
             RoutineControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.sub_function), 0x01);
@@ -119,7 +125,7 @@ mod request {
         assert_eq!(written, bytes.len());
         assert_eq!(written, req.required_size());
 
-        let new_req: RoutineControlRequest<u16> = RoutineControlRequest::new(
+        let new_req: RoutineControlRequestType = RoutineControlRequest::new(
             RoutineControlSubFunction::StopRoutine,
             0x0002,
             Some(vec![]),
