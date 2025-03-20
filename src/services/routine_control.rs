@@ -68,7 +68,7 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireF
 {
 }
 
-/// RoutineStatusRecord is a variable length field that can contain the status of the routine
+/// RoutineControlResponse is a variable length field that can contain the status of the routine
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlResponse<RoutineIdentifier, RoutineInfoStatusRecord> {
