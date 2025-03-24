@@ -13,13 +13,13 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 /// See ISO-14229-1:2020, Table 11.2.1 for format information
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
-pub struct ReadDataByIdentifierRequest<Identifier> {
-    pub dids: Vec<Identifier>,
+pub struct ReadDataByIdentifierRequest<DataIdentifier> {
+    pub dids: Vec<DataIdentifier>,
 }
 
-impl<Identifier: IterableWireFormat> ReadDataByIdentifierRequest<Identifier> {
+impl<DataIdentifier: IterableWireFormat> ReadDataByIdentifierRequest<DataIdentifier> {
     /// Create a new request from a sequence of data identifiers
-    pub(crate) fn new(dids: Vec<Identifier>) -> Self {
+    pub(crate) fn new(dids: Vec<DataIdentifier>) -> Self {
         Self { dids }
     }
 
@@ -29,11 +29,13 @@ impl<Identifier: IterableWireFormat> ReadDataByIdentifierRequest<Identifier> {
     }
 }
 
-impl<Identifier: IterableWireFormat> WireFormat for ReadDataByIdentifierRequest<Identifier> {
+impl<DataIdentifier: IterableWireFormat> WireFormat
+    for ReadDataByIdentifierRequest<DataIdentifier>
+{
     /// Create a request from a sequence of bytes
     fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut dids = Vec::new();
-        for identifier in Identifier::from_reader_iterable(reader) {
+        for identifier in DataIdentifier::from_reader_iterable(reader) {
             match identifier {
                 Ok(id) => {
                     dids.push(id);
@@ -65,8 +67,8 @@ impl<Identifier: IterableWireFormat> WireFormat for ReadDataByIdentifierRequest<
     }
 }
 
-impl<Identifier: IterableWireFormat> SingleValueWireFormat
-    for ReadDataByIdentifierRequest<Identifier>
+impl<DataIdentifier: IterableWireFormat> SingleValueWireFormat
+    for ReadDataByIdentifierRequest<DataIdentifier>
 {
 }
 
