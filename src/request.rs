@@ -6,7 +6,7 @@ use crate::{
         RequestDownloadRequest, RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest,
         TransferDataRequest, WriteDataByIdentifierRequest,
     },
-    Error, IterableWireFormat, NegativeResponseCode, ReadDTCInfoRequest, ResetType,
+    Error, Identifier, IterableWireFormat, NegativeResponseCode, ReadDTCInfoRequest, ResetType,
     SecurityAccessType, SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
@@ -39,7 +39,7 @@ pub enum Request<DiagnosticIdentifier, DiagnosticPayload> {
     WriteDataByIdentifier(WriteDataByIdentifierRequest<DiagnosticPayload>),
 }
 
-impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat>
+impl<DiagnosticIdentifier: Identifier, DiagnosticPayload: IterableWireFormat>
     Request<DiagnosticIdentifier, DiagnosticPayload>
 {
     /// Create a `ClearDiagnosticInfo` request, clears diagnostic information in one or more servers' memory
@@ -212,7 +212,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
     }
 }
 
-impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat> WireFormat
+impl<DiagnosticIdentifier: Identifier, DiagnosticPayload: IterableWireFormat> WireFormat
     for Request<DiagnosticIdentifier, DiagnosticPayload>
 {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
@@ -326,7 +326,7 @@ impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFo
     }
 }
 
-impl<DiagnosticIdentifier: IterableWireFormat, DiagnosticPayload: IterableWireFormat>
-    SingleValueWireFormat for Request<DiagnosticIdentifier, DiagnosticPayload>
+impl<DiagnosticIdentifier: Identifier, DiagnosticPayload: IterableWireFormat> SingleValueWireFormat
+    for Request<DiagnosticIdentifier, DiagnosticPayload>
 {
 }

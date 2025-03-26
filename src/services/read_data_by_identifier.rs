@@ -1,4 +1,6 @@
-use crate::{Error, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat};
+use crate::{
+    Error, Identifier, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +19,7 @@ pub struct ReadDataByIdentifierRequest<DataIdentifier> {
     pub dids: Vec<DataIdentifier>,
 }
 
-impl<DataIdentifier: IterableWireFormat> ReadDataByIdentifierRequest<DataIdentifier> {
+impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
     /// Create a new request from a sequence of data identifiers
     pub(crate) fn new(dids: Vec<DataIdentifier>) -> Self {
         Self { dids }
@@ -29,22 +31,10 @@ impl<DataIdentifier: IterableWireFormat> ReadDataByIdentifierRequest<DataIdentif
     }
 }
 
-impl<DataIdentifier: IterableWireFormat> WireFormat
-    for ReadDataByIdentifierRequest<DataIdentifier>
-{
+impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<DataIdentifier> {
     /// Create a request from a sequence of bytes
     fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let mut dids = Vec::new();
-        for identifier in DataIdentifier::from_reader_iterable(reader) {
-            match identifier {
-                Ok(id) => {
-                    dids.push(id);
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-        }
+        let dids = DataIdentifier::parse_from_list(reader)?;
         if dids.is_empty() {
             Err(Error::NoDataAvailable)
         } else {
@@ -67,7 +57,7 @@ impl<DataIdentifier: IterableWireFormat> WireFormat
     }
 }
 
-impl<DataIdentifier: IterableWireFormat> SingleValueWireFormat
+impl<DataIdentifier: Identifier> SingleValueWireFormat
     for ReadDataByIdentifierRequest<DataIdentifier>
 {
 }
