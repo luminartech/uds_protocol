@@ -9,9 +9,6 @@ pub use error::Error;
 // Export the Identifier derive macro
 pub use uds_protocol_derive::Identifier;
 
-mod identifier;
-pub use identifier::Identifier;
-
 mod protocol_definitions;
 pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayload};
 
@@ -28,7 +25,7 @@ mod services;
 pub use services::*;
 
 mod traits;
-pub use traits::{IterableWireFormat, SingleValueWireFormat, WireFormat};
+pub use traits::{Identifier, IterableWireFormat, SingleValueWireFormat, WireFormat};
 
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
