@@ -16,7 +16,7 @@ pub struct UdsResponse {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Response<UserIdentifier, UserPayload> {
+pub enum Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload> {
     ClearDiagnosticInfo,
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
@@ -36,14 +36,20 @@ pub enum Response<UserIdentifier, UserPayload> {
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
-    RoutineControl(RoutineControlResponse),
+    RoutineControl(RoutineControlResponse<RoutineIdentifier, RoutinePayload>),
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
     TransferData(TransferDataResponse),
     WriteDataByIdentifier(WriteDataByIdentifierResponse<UserIdentifier>),
 }
 
-impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
+impl<
+        RoutineIdentifier: Identifier,
+        UserIdentifier: Identifier,
+        RoutinePayload: WireFormat,
+        UserPayload: IterableWireFormat,
+    > Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload>
+{
     pub fn clear_diagnostic_info() -> Self {
         Response::ClearDiagnosticInfo
     }
@@ -89,8 +95,16 @@ impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
         todo!()
     }
 
-    pub fn routine_control(data: Vec<u8>) -> Self {
-        Response::RoutineControl(RoutineControlResponse::new(data))
+    pub fn routine_control(
+        routine_control_type: crate::RoutineControlSubFunction,
+        routine_id: RoutineIdentifier,
+        data: RoutinePayload,
+    ) -> Self {
+        Response::RoutineControl(RoutineControlResponse::new(
+            routine_control_type,
+            routine_id,
+            data,
+        ))
     }
 
     pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
@@ -127,8 +141,12 @@ impl<UserIdentifier, UserPayload> Response<UserIdentifier, UserPayload> {
     }
 }
 
-impl<UserIdentifier: Identifier, UserPayload: IterableWireFormat> WireFormat
-    for Response<UserIdentifier, UserPayload>
+impl<
+        RoutineIdentifier: Identifier,
+        UserIdentifier: Identifier,
+        RoutinePayload: WireFormat,
+        UserPayload: IterableWireFormat,
+    > WireFormat for Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload>
 {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
@@ -237,7 +255,12 @@ impl<UserIdentifier: Identifier, UserPayload: IterableWireFormat> WireFormat
     }
 }
 
-impl<UserIdentifier: Identifier, UserPayload: IterableWireFormat> SingleValueWireFormat
-    for Response<UserIdentifier, UserPayload>
+impl<
+        RoutineIdentifier: Identifier,
+        UserIdentifier: Identifier,
+        RoutinePayload: WireFormat,
+        UserPayload: IterableWireFormat,
+    > SingleValueWireFormat
+    for Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload>
 {
 }

@@ -68,36 +68,86 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireF
 {
 }
 
-/// RoutineStatusRecord is a variable length field that can contain the status of the routine
+/// RoutineControlResponse is a variable length field that can contain the status of the routine
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
-pub struct RoutineControlResponse {
-    pub data: Vec<u8>,
+pub struct RoutineControlResponse<RoutineIdentifier, RoutineInfoStatusRecord> {
+    /// The sub-function echoes the routine control request
+    pub routine_control_type: RoutineControlSubFunction,
+
+    pub routine_id: RoutineIdentifier,
+
+    /// Should contain the routine_info (u8) and the routine_status_record (u8 * n) information. n can be 0
+    ///
+    /// routine_info: The routine information that the response is for (vehicle manufacturer specific)
+    /// routine_status_record: The status of the routine (optional)
+    ///
+    /// Mandatory for any routine where the routine_status_record is defined by ISO/SAE specs, even if it is 0 bytes.
+    /// Optional if the routine is defined by a manufacturer.
+    pub routine_status_record: RoutineInfoStatusRecord,
 }
 
-impl RoutineControlResponse {
-    pub(crate) fn new(data: Vec<u8>) -> Self {
-        Self { data }
+impl<RoutineIdentifier: Identifier, RoutineStatusRecord: WireFormat>
+    RoutineControlResponse<RoutineIdentifier, RoutineStatusRecord>
+{
+    pub(crate) fn new(
+        routine_control_type: RoutineControlSubFunction,
+        routine_id: RoutineIdentifier,
+        data: RoutineStatusRecord,
+    ) -> Self {
+        Self {
+            routine_control_type,
+            routine_id,
+            routine_status_record: data,
+        }
+    }
+
+    pub fn identifier(&self) -> RoutineIdentifier {
+        self.routine_id
+    }
+
+    /// Get the raw data of the status record
+    pub fn status_record_data(&self) -> Result<Vec<u8>, Error> {
+        let mut writer: Vec<u8> = Vec::new();
+        self.routine_status_record.to_writer(&mut writer)?;
+
+        Ok(writer)
     }
 }
-impl WireFormat for RoutineControlResponse {
+
+impl<RoutineIdentifier: Identifier, RoutineStatusRecord: WireFormat> WireFormat
+    for RoutineControlResponse<RoutineIdentifier, RoutineStatusRecord>
+{
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Some(Self { data }))
+        let routine_control_type = RoutineControlSubFunction::from(reader.read_u8()?);
+        let routine_id = RoutineIdentifier::option_from_reader(reader)?.unwrap();
+        // can read 0 bytes, 1 byte, or more
+        let routine_status_record = RoutineStatusRecord::option_from_reader(reader)?.unwrap();
+        Ok(Some(Self {
+            routine_control_type,
+            routine_id,
+            routine_status_record,
+        }))
     }
 
+    /// Can be 3 bytes, or more
     fn required_size(&self) -> usize {
-        self.data.len()
+        // control type + (routine identifier + routine info + status record)
+        1 + self.routine_id.required_size() + self.routine_status_record.required_size()
     }
 
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_all(&self.data)?;
+        writer.write_u8(self.routine_control_type.into())?;
+        self.routine_id.to_writer(writer)?;
+        self.routine_status_record.to_writer(writer)?;
         Ok(self.required_size())
     }
 }
 
-impl SingleValueWireFormat for RoutineControlResponse {}
+impl<RoutineIdentifier: Identifier, RoutineStatusRecord: WireFormat> SingleValueWireFormat
+    for RoutineControlResponse<RoutineIdentifier, RoutineStatusRecord>
+{
+}
 
 #[cfg(test)]
 mod request {
@@ -133,5 +183,28 @@ mod request {
 
         assert_eq!(new_req.sub_function, RoutineControlSubFunction::StopRoutine);
         assert_eq!(new_req.routine_id, 0x0002);
+    }
+
+    #[test]
+    fn simple_response() {
+        let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
+        let resp: RoutineControlResponse<u16, Vec<u8>> =
+            RoutineControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
+
+        assert_eq!(u8::from(resp.routine_control_type), 0x01);
+        assert_eq!(resp.routine_status_record, vec![0x02, 0x03, 0x04]);
+
+        let mut buf = Vec::new();
+        let written = resp.to_writer(&mut buf).unwrap();
+        assert_eq!(written, bytes.len());
+        assert_eq!(written, resp.required_size());
+
+        let new_resp: RoutineControlResponse<u16, Vec<u8>> =
+            RoutineControlResponse::new(RoutineControlSubFunction::StopRoutine, 0xFF00, buf);
+
+        assert_eq!(
+            new_resp.routine_control_type,
+            RoutineControlSubFunction::StopRoutine
+        );
     }
 }
