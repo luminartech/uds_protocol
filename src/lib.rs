@@ -34,7 +34,8 @@ pub const SUCCESS: u8 = 0x80;
 pub const PENDING: u8 = 0x78;
 
 /// Type alias for a UDS Request type that only implements the messages explicitly defined by the UDS specification.
-pub type ProtocolRequest = Request<ProtocolIdentifier, ProtocolPayload>;
+pub type ProtocolRequest =
+    Request<ProtocolIdentifier, ProtocolIdentifier, ProtocolPayload, ProtocolPayload>;
 
 /// Type alias for a UDS Response type that only implements the messages explicitly defined by the UDS specification.
 pub type ProtocolResponse = Response<ProtocolIdentifier, ProtocolPayload>;
@@ -77,6 +78,26 @@ impl From<u8> for RoutineControlSubFunction {
         }
     }
 }
+
+impl WireFormat for Vec<u8> {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data)?;
+        Ok(Some(data))
+    }
+
+    fn required_size(&self) -> usize {
+        self.len()
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_all(self)?;
+        Ok(self.len())
+    }
+}
+
+impl SingleValueWireFormat for Vec<u8> {}
+impl IterableWireFormat for Vec<u8> {}
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum DtcSettings {
