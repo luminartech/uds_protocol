@@ -478,6 +478,17 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// For subfunction 0x06
     ///   * 0x06: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
     DTCExtDataRecordList(DTCExtDataRecordList<UserPayload>),
+
+    DTCSeverityRecordList(
+        SubFunctionID,
+        DTCStatusAvailabilityMask,
+        Vec<(
+            DTCSeverityMask,
+            FunctionalGroupIdentifier,
+            DTCRecord,
+            DTCStatusMask,
+        )>,
+    ),
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
@@ -486,7 +497,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
 
         match subfunction_id {
             0x01 | 0x07 => {
-                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                let status: DTCStatusMask = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                // supposed to read the format identifier
+
                 let count = reader.read_u16::<byteorder::BigEndian>()?;
                 Ok(Some(Self::NumberOfDTCs(subfunction_id, status, count)))
             }
@@ -525,6 +538,34 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let ext_data_list = DTCExtDataRecordList::option_from_reader(reader)?.unwrap();
                 Ok(Some(Self::DTCExtDataRecordList(ext_data_list)))
             }
+            0x08 | 0x09 => {
+                let status: DTCStatusMask = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                let mut dtcs: Vec<(
+                    DTCSeverityMask,
+                    FunctionalGroupIdentifier,
+                    DTCRecord,
+                    DTCStatusMask,
+                )> = Vec::new();
+
+                while let Some(severity) = DTCSeverityMask::option_from_reader(reader)? {
+                    let functional_group_identifier =
+                        FunctionalGroupIdentifier::from(reader.read_u8()?);
+                    let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
+                    let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
+                    dtcs.push((
+                        severity,
+                        functional_group_identifier,
+                        dtc_record,
+                        dtc_status_mask,
+                    ));
+                }
+
+                Ok(Some(Self::DTCSeverityRecordList(
+                    subfunction_id,
+                    status,
+                    dtcs,
+                )))
+            }
             _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
@@ -537,6 +578,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCSnapshotList(list) => 1 + list.len() * 4,
             Self::DTCSnapshotRecordList(list) => list.required_size(),
             Self::DTCExtDataRecordList(list) => list.required_size(),
+            Self::DTCSeverityRecordList(_, _, list) => 1 + list.len() * 6,
         }
     }
 
@@ -569,6 +611,16 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCExtDataRecordList(list) => {
                 writer.write_u8(0x06)?;
                 list.to_writer(writer)?;
+            }
+            Self::DTCSeverityRecordList(id, status, list) => {
+                writer.write_u8(*id)?;
+                status.to_writer(writer)?;
+                for (severity, functional_group_identifier, dtc_record, dtc_status_mask) in list {
+                    severity.to_writer(writer)?;
+                    writer.write_u8(functional_group_identifier.value())?;
+                    dtc_record.to_writer(writer)?;
+                    dtc_status_mask.to_writer(writer)?;
+                }
             }
         }
         Ok(self.required_size())
@@ -695,6 +747,65 @@ mod response {
                     )
                 ]
             )
+        );
+
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes);
+        assert_eq!(written, bytes.len());
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn severity_list_test() {
+        let bytes: [u8; 8] = [
+            0x08, // subfunction
+            0x01, // Availability mask
+            DTCSeverityMask::CheckImmediately.into(),
+            FunctionalGroupIdentifier::EmissionsSystemGroup.into(),
+            0x01,
+            0x02,
+            0x03,
+            (DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed).into(),
+        ];
+        let mut reader = &bytes[..];
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::DTCSeverityRecordList(
+                0x08,
+                DTCStatusMask::TestFailed,
+                vec![(
+                    DTCSeverityMask::CheckImmediately,
+                    FunctionalGroupIdentifier::EmissionsSystemGroup,
+                    DTCRecord::new(0x01, 0x02, 0x03),
+                    (DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed),
+                )]
+            )
+        );
+
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes);
+        assert_eq!(written, bytes.len());
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn severity_empty_list_test() {
+        let bytes: [u8; 2] = [
+            0x08, // subfunction
+            0x01, // Availability mask
+        ];
+        let mut reader = &bytes[..];
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::DTCSeverityRecordList(0x08, DTCStatusMask::TestFailed, vec![])
         );
 
         // write
