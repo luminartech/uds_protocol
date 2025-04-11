@@ -348,6 +348,24 @@ impl DTCSeverityMask {
     }
 }
 
+impl WireFormat for DTCSeverityMask {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let severity = reader.read_u8();
+        match severity {
+            Ok(sev) => Ok(Some(DTCSeverityMask::from(sev))),
+            Err(_) => Ok(None),
+        }
+    }
+
+    fn required_size(&self) -> usize {
+        1
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.bits)?;
+        Ok(1)
+    }
+}
 /// Indicates the number of the specific DTCSnapshot data record requested
 /// Setting to 0xFF will return all DTCStoredDataRecords at once
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
