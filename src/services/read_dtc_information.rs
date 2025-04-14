@@ -9,6 +9,9 @@ use crate::{
     UserDefDTCSnapshotRecordNumber, WireFormat,
 };
 
+/// Used for non-emissions related servers
+type DTCFaultDetectionCounter = u8;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub struct ReadDTCInfoRequest {
@@ -38,6 +41,39 @@ impl WireFormat for ReadDTCInfoRequest {
 }
 
 impl SingleValueWireFormat for ReadDTCInfoRequest {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Copy)]
+pub struct DTCFaultDetectionCounterRecord {
+    pub dtc_record: DTCRecord,
+    pub dtc_fault_detection_counter: DTCFaultDetectionCounter,
+}
+
+impl WireFormat for DTCFaultDetectionCounterRecord {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let dtc_record = match DTCRecord::option_from_reader(reader) {
+            Ok(None) => return Ok(None),
+            Ok(record) => record,
+            Err(_) => return Ok(None),
+        };
+        let dtc_fault_detection_counter = reader.read_u8()?;
+        Ok(Some(Self {
+            dtc_record: dtc_record.unwrap(),
+            dtc_fault_detection_counter,
+        }))
+    }
+
+    fn required_size(&self) -> usize {
+        4
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.dtc_record.to_writer(writer)?;
+        writer.write_u8(self.dtc_fault_detection_counter)?;
+        Ok(self.required_size())
+    }
+}
+
+impl IterableWireFormat for DTCFaultDetectionCounterRecord {}
 
 /// Used to address the respective user-defined DTC memory when retrieving DTCs
 type MemorySelection = u8;
@@ -493,6 +529,15 @@ pub enum ReadDTCInfoResponse<UserPayload> {
         DTCStatusAvailabilityMask,
         Vec<DTCSeverityRecord>,
     ),
+    /// List of DTC Records along with their fault detection counters for subfunction [ReadDTCInfoSubFunction::ReportDTCFaultDetectionCounter].
+
+    ///
+    /// * Parameter: [`DTCRecord`] - (3 bytes)
+    /// * Parameter: [`DTCFaultDetectionCounter`] - (1 byte)
+    ///
+    /// For Subfunction 0x14:
+    ///     * 0x14: [ReadDTCInfoSubFunction::ReportDTCFaultDetectionCounter]
+    DTCFaultDetectionCounterRecordList(Vec<DTCFaultDetectionCounterRecord>),
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
@@ -561,6 +606,22 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     dtcs,
                 )))
             }
+            0x14 => {
+                let mut dtcs = Vec::new();
+                for dtc_fault_record in DTCFaultDetectionCounterRecord::from_reader_iterable(reader)
+                {
+                    match dtc_fault_record {
+                        Ok(p) => {
+                            dtcs.push(p);
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                }
+                Ok(Some(Self::DTCFaultDetectionCounterRecordList(dtcs)))
+            }
+
             _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
@@ -574,6 +635,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCSnapshotRecordList(list) => list.required_size(),
             Self::DTCExtDataRecordList(list) => list.required_size(),
             Self::DTCSeverityRecordList(_, _, list) => 1 + list.len() * 6,
+            Self::DTCFaultDetectionCounterRecordList(list) => list.len() * 4,
         }
     }
 
@@ -607,6 +669,12 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 writer.write_u8(0x06)?;
                 list.to_writer(writer)?;
             }
+            Self::DTCFaultDetectionCounterRecordList(list) => {
+                writer.write_u8(0x14)?;
+                for fault_detection_counter in list {
+                    fault_detection_counter.to_writer(writer)?;
+                }
+            }
             Self::DTCSeverityRecordList(id, status, list) => {
                 writer.write_u8(*id)?;
                 status.to_writer(writer)?;
@@ -623,6 +691,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat for ReadDTCInfoRespo
 
 #[cfg(test)]
 mod response {
+
     use super::*;
 
     #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -705,7 +774,6 @@ mod response {
             3
         }
     }
-
     impl IterableWireFormat for TestPayload {}
 
     #[test]
@@ -801,6 +869,54 @@ mod response {
         assert_eq!(
             response,
             ReadDTCInfoResponse::DTCSeverityRecordList(0x08, DTCStatusMask::TestFailed, vec![])
+        );
+
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes);
+        assert_eq!(written, bytes.len());
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn fault_detection_test() {
+        let bytes = [
+            0x14, // subfunction
+            0x01, 0x02, 0x03, //DTC Record
+            0x04, //DTC Status
+        ];
+        let mut reader = &bytes[..];
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::DTCFaultDetectionCounterRecordList(vec![
+                DTCFaultDetectionCounterRecord {
+                    dtc_record: DTCRecord::new(0x01, 0x02, 0x03),
+                    dtc_fault_detection_counter: 0x04
+                }
+            ])
+        );
+
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes);
+        assert_eq!(written, bytes.len());
+        assert_eq!(written, response.required_size());
+    }
+    #[test]
+    fn fault_detection_empty_test() {
+        let bytes = [
+            0x14, // subfunction
+        ];
+        let mut reader = &bytes[..];
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::DTCFaultDetectionCounterRecordList(vec![])
         );
 
         // write
