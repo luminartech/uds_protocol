@@ -479,6 +479,15 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     ///   * 0x06: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
     DTCExtDataRecordList(DTCExtDataRecordList<UserPayload>),
 
+    /// List of DTC Records that either match a severity and status mask for subfunction [ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord],
+    /// or a single record if the request type was [ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC].
+    ///
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1 byte)
+    /// * Parameter: [`Vec<(DTCSeverityMask, FunctionalGroupIdentifier, DTCRecord, DTCStatusMask)>`] (6 bytes)
+    ///
+    /// For Subfunctions 0x08, 0x09
+    ///     * 0x08: [ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord]
+    ///     * 0x09: [ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC]
     DTCSeverityRecordList(
         SubFunctionID,
         DTCStatusAvailabilityMask,
