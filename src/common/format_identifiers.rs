@@ -32,8 +32,8 @@ impl MemoryFormatIdentifier {
     /// Takes in the actual memory address to be used and the size of the memory to be used
     /// and computes how many bytes are needed to represent them
     pub fn from_values(memory_size: u32, memory_address: u64) -> Self {
-        let memory_address_length = ((u64::BITS - memory_address.leading_zeros() + 7) / 8) as u8;
-        let memory_size_length = ((u32::BITS - memory_size.leading_zeros() + 7) / 8) as u8;
+        let memory_address_length = (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
+        let memory_size_length = (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
 
         Self {
             memory_size_length,
