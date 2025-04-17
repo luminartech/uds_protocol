@@ -5,6 +5,8 @@ use crate::{
     DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
 };
 
+use super::{DTCSeverityMask, FunctionalGroupIdentifier};
+
 /// The DTCExtDataRecordNumber is used in the request message to get a stored [DTCExtDataRecord]
 /// Its used to specify the type of DTCExtDataRecord to be reported.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -161,6 +163,49 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPa
 }
 
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCExtDataRecordList<UserPayload> {}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DTCSeverityRecord {
+    pub severity: DTCSeverityMask,
+    pub functional_group_identifier: FunctionalGroupIdentifier,
+    pub dtc_record: DTCRecord,
+    pub dtc_status_mask: DTCStatusMask,
+}
+
+impl WireFormat for DTCSeverityRecord {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let sev = match reader.read_u8() {
+            Ok(sev) => sev,
+            Err(_) => return Ok(None),
+        };
+
+        let severity = DTCSeverityMask::from(sev);
+        let functional_group_identifier = FunctionalGroupIdentifier::from(reader.read_u8()?);
+        let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
+        let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
+
+        Ok(Some(Self {
+            severity,
+            functional_group_identifier,
+            dtc_record,
+            dtc_status_mask,
+        }))
+    }
+
+    fn required_size(&self) -> usize {
+        6
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.severity.bits())?;
+        writer.write_u8(self.functional_group_identifier.value())?;
+        self.dtc_record.to_writer(writer)?;
+        self.dtc_status_mask.to_writer(writer)?;
+        Ok(self.required_size())
+    }
+}
+
+impl IterableWireFormat for DTCSeverityRecord {}
 
 // tests
 #[cfg(test)]
