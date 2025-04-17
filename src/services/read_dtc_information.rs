@@ -3,7 +3,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DTCExtDataRecordList, DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask,
+    DTCExtDataRecordList, DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask, DTCSeverityRecord,
     DTCSnapshotRecordList, DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber,
     Error, FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
     UserDefDTCSnapshotRecordNumber, WireFormat,
@@ -491,12 +491,7 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     DTCSeverityRecordList(
         SubFunctionID,
         DTCStatusAvailabilityMask,
-        Vec<(
-            DTCSeverityMask,
-            FunctionalGroupIdentifier,
-            DTCRecord,
-            DTCStatusMask,
-        )>,
+        Vec<DTCSeverityRecord>,
     ),
 }
 
@@ -549,24 +544,17 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             }
             0x08 | 0x09 => {
                 let status: DTCStatusMask = DTCStatusAvailabilityMask::from(reader.read_u8()?);
-                let mut dtcs: Vec<(
-                    DTCSeverityMask,
-                    FunctionalGroupIdentifier,
-                    DTCRecord,
-                    DTCStatusMask,
-                )> = Vec::new();
+                let mut dtcs: Vec<DTCSeverityRecord> = Vec::new();
 
-                while let Some(severity) = DTCSeverityMask::option_from_reader(reader)? {
-                    let functional_group_identifier =
-                        FunctionalGroupIdentifier::from(reader.read_u8()?);
-                    let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
-                    let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
-                    dtcs.push((
-                        severity,
-                        functional_group_identifier,
-                        dtc_record,
-                        dtc_status_mask,
-                    ));
+                for dtc_severity_record in DTCSeverityRecord::from_reader_iterable(reader) {
+                    match dtc_severity_record {
+                        Ok(p) => {
+                            dtcs.push(p);
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
                 }
 
                 Ok(Some(Self::DTCSeverityRecordList(
@@ -624,11 +612,8 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCSeverityRecordList(id, status, list) => {
                 writer.write_u8(*id)?;
                 status.to_writer(writer)?;
-                for (severity, functional_group_identifier, dtc_record, dtc_status_mask) in list {
-                    severity.to_writer(writer)?;
-                    writer.write_u8(functional_group_identifier.value())?;
-                    dtc_record.to_writer(writer)?;
-                    dtc_status_mask.to_writer(writer)?;
+                for dtcs in list {
+                    dtcs.to_writer(writer)?;
                 }
             }
         }
@@ -786,12 +771,15 @@ mod response {
             ReadDTCInfoResponse::DTCSeverityRecordList(
                 0x08,
                 DTCStatusMask::TestFailed,
-                vec![(
-                    DTCSeverityMask::CheckImmediately,
-                    FunctionalGroupIdentifier::EmissionsSystemGroup,
-                    DTCRecord::new(0x01, 0x02, 0x03),
-                    (DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed),
-                )]
+                vec![
+                    (DTCSeverityRecord {
+                        severity: DTCSeverityMask::CheckImmediately,
+                        functional_group_identifier:
+                            FunctionalGroupIdentifier::EmissionsSystemGroup,
+                        dtc_record: DTCRecord::new(0x01, 0x02, 0x03),
+                        dtc_status_mask: (DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed),
+                    })
+                ]
             )
         );
 
