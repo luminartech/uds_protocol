@@ -483,7 +483,7 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// or a single record if the request type was [ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC].
     ///
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1 byte)
-    /// * Parameter: [`Vec<(DTCSeverityMask, FunctionalGroupIdentifier, DTCRecord, DTCStatusMask)>`] (6 bytes)
+    /// * Parameter: [`Vec<DTCSeverityRecord>`] (6 bytes)
     ///
     /// For Subfunctions 0x08, 0x09
     ///     * 0x08: [ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord]

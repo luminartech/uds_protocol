@@ -165,6 +165,13 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPa
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCExtDataRecordList<UserPayload> {}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).
+///
+/// # Fields
+/// - `severity`: The severity mask associated with the DTC, indicating the level of severity.
+/// - `functional_group_identifier`: Identifier for the functional group associated with the DTC.
+/// - `dtc_record`: The actual DTC record containing diagnostic information.
+/// - `dtc_status_mask`: The status mask of the DTC, representing its current state.
 pub struct DTCSeverityRecord {
     pub severity: DTCSeverityMask,
     pub functional_group_identifier: FunctionalGroupIdentifier,
@@ -172,6 +179,41 @@ pub struct DTCSeverityRecord {
     pub dtc_status_mask: DTCStatusMask,
 }
 
+/// Implementation of the `WireFormat` trait for the `DTCSeverityRecord` struct.
+///
+/// This implementation provides methods for reading and writing `DTCSeverityRecord`
+/// instances to and from a binary format, as well as calculating the required size
+/// for serialization.
+///
+/// # Methods
+///
+/// - `option_from_reader`:
+///   Reads a `DTCSeverityRecord` from a reader. If the reader encounters an error
+///   while reading the severity byte, it returns `Ok(None)`. Otherwise, it constructs
+///   a `DTCSeverityRecord` from the binary data.
+///
+///   ## Parameters:
+///   - `reader`: A mutable reference to an object implementing the `std::io::Read` trait.
+///
+///   ## Returns:
+///   - `Result<Option<Self>, Error>`: Returns `Ok(Some(Self))` if successful, `Ok(None)`
+///     if the severity byte cannot be read, or an error if any other issue occurs.
+///
+/// - `required_size`:
+///   Returns the size in bytes required to serialize the `DTCSeverityRecord`.
+///
+///   ## Returns:
+///   - `usize`: The size in bytes (always 6 for this implementation).
+///
+/// - `to_writer`:
+///   Writes the `DTCSeverityRecord` to a writer in binary format.
+///
+///   ## Parameters:
+///   - `writer`: A mutable reference to an object implementing the `std::io::Write` trait.
+///
+///   ## Returns:
+///   - `Result<usize, Error>`: Returns the number of bytes written (always 6 for this
+///     implementation) or an error if writing fails.
 impl WireFormat for DTCSeverityRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sev = match reader.read_u8() {
@@ -205,6 +247,11 @@ impl WireFormat for DTCSeverityRecord {
     }
 }
 
+/// Implements the `IterableWireFormat` trait for the `DTCSeverityRecord` type.
+///
+/// This allows `DTCSeverityRecord` to be serialized and deserialized in a format
+/// suitable for wire transmission, enabling iteration over its data structure
+/// in a protocol-compliant manner.
 impl IterableWireFormat for DTCSeverityRecord {}
 
 // tests
