@@ -2,7 +2,7 @@ use bitmask_enum::bitmask;
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, SingleValueWireFormat, WireFormat};
+use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
 
 /// Bit-packed DTC status information used by the ReadDTCInformation service
 ///
@@ -401,6 +401,54 @@ impl From<u8> for DTCStoredDataRecordNumber {
         Self(value)
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).
+pub struct DTCSeverityRecord {
+    ///  The severity mask associated with the DTC, indicating the level of severity.
+    pub severity: DTCSeverityMask,
+    /// Identifier for the functional group associated with the DTC.
+    pub functional_group_identifier: FunctionalGroupIdentifier,
+    /// The actual DTC record containing diagnostic information.
+    pub dtc_record: DTCRecord,
+    ///  The status mask of the DTC, representing its current state.
+    pub dtc_status_mask: DTCStatusMask,
+}
+
+impl WireFormat for DTCSeverityRecord {
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let sev = match reader.read_u8() {
+            Ok(sev) => sev,
+            Err(_) => return Ok(None),
+        };
+
+        let severity = DTCSeverityMask::from(sev);
+        let functional_group_identifier = FunctionalGroupIdentifier::from(reader.read_u8()?);
+        let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
+        let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
+
+        Ok(Some(Self {
+            severity,
+            functional_group_identifier,
+            dtc_record,
+            dtc_status_mask,
+        }))
+    }
+
+    fn required_size(&self) -> usize {
+        6
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.severity.bits())?;
+        writer.write_u8(self.functional_group_identifier.value())?;
+        self.dtc_record.to_writer(writer)?;
+        self.dtc_status_mask.to_writer(writer)?;
+        Ok(self.required_size())
+    }
+}
+
+impl IterableWireFormat for DTCSeverityRecord {}
 
 #[cfg(test)]
 mod dtc_status_tests {

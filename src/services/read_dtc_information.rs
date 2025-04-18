@@ -501,9 +501,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
 
         match subfunction_id {
             0x01 | 0x07 => {
-                let status: DTCStatusMask = DTCStatusAvailabilityMask::from(reader.read_u8()?);
-                // supposed to read the format identifier
-
+                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
                 let count = reader.read_u16::<byteorder::BigEndian>()?;
                 Ok(Some(Self::NumberOfDTCs(subfunction_id, status, count)))
             }
@@ -543,8 +541,8 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 Ok(Some(Self::DTCExtDataRecordList(ext_data_list)))
             }
             0x08 | 0x09 => {
-                let status: DTCStatusMask = DTCStatusAvailabilityMask::from(reader.read_u8()?);
-                let mut dtcs: Vec<DTCSeverityRecord> = Vec::new();
+                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                let mut dtcs = Vec::new();
 
                 for dtc_severity_record in DTCSeverityRecord::from_reader_iterable(reader) {
                     match dtc_severity_record {
