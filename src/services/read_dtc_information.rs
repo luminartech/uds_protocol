@@ -3,7 +3,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    DTCExtDataRecordList, DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask,
+    DTCExtDataRecordList, DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask, DTCSeverityRecord,
     DTCSnapshotRecordList, DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber,
     Error, FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
     UserDefDTCSnapshotRecordNumber, WireFormat,
@@ -478,6 +478,21 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// For subfunction 0x06
     ///   * 0x06: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
     DTCExtDataRecordList(DTCExtDataRecordList<UserPayload>),
+
+    /// List of DTC Records that either match a severity and status mask for subfunction [ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord],
+    /// or a single record if the request type was [ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC].
+    ///
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1 byte)
+    /// * Parameter: [`Vec<DTCSeverityRecord>`] (6 bytes)
+    ///
+    /// For Subfunctions 0x08, 0x09
+    ///     * 0x08: [ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord]
+    ///     * 0x09: [ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC]
+    DTCSeverityRecordList(
+        SubFunctionID,
+        DTCStatusAvailabilityMask,
+        Vec<DTCSeverityRecord>,
+    ),
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
@@ -525,6 +540,27 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let ext_data_list = DTCExtDataRecordList::option_from_reader(reader)?.unwrap();
                 Ok(Some(Self::DTCExtDataRecordList(ext_data_list)))
             }
+            0x08 | 0x09 => {
+                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                let mut dtcs = Vec::new();
+
+                for dtc_severity_record in DTCSeverityRecord::from_reader_iterable(reader) {
+                    match dtc_severity_record {
+                        Ok(p) => {
+                            dtcs.push(p);
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                }
+
+                Ok(Some(Self::DTCSeverityRecordList(
+                    subfunction_id,
+                    status,
+                    dtcs,
+                )))
+            }
             _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
@@ -537,6 +573,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCSnapshotList(list) => 1 + list.len() * 4,
             Self::DTCSnapshotRecordList(list) => list.required_size(),
             Self::DTCExtDataRecordList(list) => list.required_size(),
+            Self::DTCSeverityRecordList(_, _, list) => 1 + list.len() * 6,
         }
     }
 
@@ -569,6 +606,13 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCExtDataRecordList(list) => {
                 writer.write_u8(0x06)?;
                 list.to_writer(writer)?;
+            }
+            Self::DTCSeverityRecordList(id, status, list) => {
+                writer.write_u8(*id)?;
+                status.to_writer(writer)?;
+                for dtcs in list {
+                    dtcs.to_writer(writer)?;
+                }
             }
         }
         Ok(self.required_size())
@@ -695,6 +739,68 @@ mod response {
                     )
                 ]
             )
+        );
+
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes);
+        assert_eq!(written, bytes.len());
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn severity_list_test() {
+        let bytes: [u8; 8] = [
+            0x08, // subfunction
+            0x01, // Availability mask
+            DTCSeverityMask::CheckImmediately.into(),
+            FunctionalGroupIdentifier::EmissionsSystemGroup.into(),
+            0x01,
+            0x02,
+            0x03,
+            (DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed).into(),
+        ];
+        let mut reader = &bytes[..];
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::DTCSeverityRecordList(
+                0x08,
+                DTCStatusMask::TestFailed,
+                vec![
+                    (DTCSeverityRecord {
+                        severity: DTCSeverityMask::CheckImmediately,
+                        functional_group_identifier:
+                            FunctionalGroupIdentifier::EmissionsSystemGroup,
+                        dtc_record: DTCRecord::new(0x01, 0x02, 0x03),
+                        dtc_status_mask: (DTCStatusMask::PendingDTC | DTCStatusMask::TestFailed),
+                    })
+                ]
+            )
+        );
+
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes);
+        assert_eq!(written, bytes.len());
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn severity_empty_list_test() {
+        let bytes: [u8; 2] = [
+            0x08, // subfunction
+            0x01, // Availability mask
+        ];
+        let mut reader = &bytes[..];
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::DTCSeverityRecordList(0x08, DTCStatusMask::TestFailed, vec![])
         );
 
         // write
