@@ -286,11 +286,6 @@ impl From<FunctionalGroupIdentifier> for u8 {
     }
 }
 
-/// Used for non-emissions related servers
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[non_exhaustive]
-pub enum DTCFaultDetectionCounter {}
-
 /// GTR DTC Class Information
 ///
 /// Bits 7-5 of the DTCSeverityMask/DTCSeverity parameters contain severity information (optional)
