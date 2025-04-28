@@ -180,6 +180,15 @@ pub struct WWHOBDDTCWithPermanentStatusRecord {
     pub record_data: Vec<(DTCRecord, DTCStatusMask)>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DTCByReadinessGroupIdentifierRecord {
+    pub functional_group_identifier: FunctionalGroupIdentifier,
+    pub dtc_status_availability_mask: DTCStatusAvailabilityMask,
+    pub dtc_format_identifier: DTCFormatIdentifier,
+    pub dtc_readiness_group_identifier: DTCReadinessGroupIdentifier,
+    pub record_data: Vec<(DTCRecord, DTCStatusMask)>,
+}
+
 /// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [FunctionalGroupIdentifier]s
 /// This RGID depends on the functional group
 type DTCReadinessGroupIdentifier = u8; // RGID
@@ -703,6 +712,10 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// For Subfunction 0x55
     ///   * 0x55: [ReadDTCInfoSubFunction::ReportWWHOBDDTC_WithPermanentStatus]
     WWHOBDDTCWithPermanentStatusList(WWHOBDDTCWithPermanentStatusRecord),
+
+    /// For Subfunction 0x56
+    ///   * 0x56: [ReadDTCInfoSubFunction::ReportDTCInformation_ByDTCReadinessGroupIdentifier]
+    DTCByReadinessGroupIdentifierList(DTCByReadinessGroupIdentifierRecord),
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
@@ -868,6 +881,33 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     },
                 )))
             }
+            0x56 => {
+                let functional_group_identifier =
+                    FunctionalGroupIdentifier::from(reader.read_u8()?);
+                let dtc_status_availability_mask =
+                    DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
+                let dtc_format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
+                let dtc_readiness_group_identifier =
+                    DTCReadinessGroupIdentifier::from(reader.read_u8()?);
+                let mut record_data = Vec::new();
+                while let Ok(dtc_record) = DTCRecord::option_from_reader(reader) {
+                    if dtc_record.is_none() {
+                        break;
+                    }
+                    let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
+                    record_data.push((dtc_record.unwrap(), dtc_status));
+                }
+
+                Ok(Some(Self::DTCByReadinessGroupIdentifierList(
+                    DTCByReadinessGroupIdentifierRecord {
+                        functional_group_identifier,
+                        dtc_status_availability_mask,
+                        dtc_format_identifier,
+                        dtc_readiness_group_identifier,
+                        record_data,
+                    },
+                )))
+            }
             _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
@@ -889,6 +929,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             }
             Self::WWHOBDDTCWithPermanentStatusList(response_struct) => {
                 3 + response_struct.record_data.len() * 4
+            }
+            Self::DTCByReadinessGroupIdentifierList(response_struct) => {
+                4 + response_struct.record_data.len() * 4
             }
         }
     }
@@ -969,6 +1012,19 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
                 response_struct.status_availability_mask.to_writer(writer)?;
                 writer.write_u8(response_struct.format_identifier.into())?;
+                for (dtc_record, dtc_status) in &response_struct.record_data {
+                    dtc_record.to_writer(writer)?;
+                    dtc_status.to_writer(writer)?;
+                }
+            }
+            Self::DTCByReadinessGroupIdentifierList(response_struct) => {
+                writer.write_u8(0x56)?;
+                writer.write_u8(response_struct.functional_group_identifier.value())?;
+                response_struct
+                    .dtc_status_availability_mask
+                    .to_writer(writer)?;
+                writer.write_u8(response_struct.dtc_format_identifier.into())?;
+                writer.write_u8(response_struct.dtc_readiness_group_identifier.into())?;
                 for (dtc_record, dtc_status) in &response_struct.record_data {
                     dtc_record.to_writer(writer)?;
                     dtc_status.to_writer(writer)?;
@@ -1486,6 +1542,91 @@ mod response {
                         (DTCRecord::new(0x15, 0x17, 0x19), DTCStatusMask::TestFailed),
                         (DTCRecord::new(0x51, 0x71, 0x91), DTCStatusMask::TestFailed)
                     ]
+                }
+            )
+        );
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn report_dtc_by_readiness_group_identifier_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x56, // subfunction
+            FunctionalGroupIdentifier::VODBSystem.into(),//Functional Group Identifier
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            DTCFormatIdentifier::ISO_14229_1_DTCFormat.into(),//Format Identifier
+            0x72,// Readiness Group Identifier
+            0x15,0x17,0x19 ,// DTCRecord
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            0x15,0x17,0x19 ,// DTCRecord
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+        ];
+        let mut reader = &bytes[..];
+
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::DTCByReadinessGroupIdentifierList(
+                DTCByReadinessGroupIdentifierRecord {
+                    functional_group_identifier: FunctionalGroupIdentifier::VODBSystem,
+                    dtc_status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
+                    dtc_format_identifier: DTCFormatIdentifier::ISO_14229_1_DTCFormat,
+                    dtc_readiness_group_identifier: DTCReadinessGroupIdentifier::from(0x72),
+                    record_data: vec![
+                        (
+                            DTCRecord::new(0x15, 0x17, 0x19),
+                            DTCStatusAvailabilityMask::TestFailed
+                        ),
+                        (
+                            DTCRecord::new(0x15, 0x17, 0x19),
+                            DTCStatusAvailabilityMask::TestFailed
+                        )
+                    ]
+                }
+            )
+        );
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn report_dtc_by_readiness_group_identifier_empty_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x56, // subfunction
+            FunctionalGroupIdentifier::VODBSystem.into(),//Functional Group Identifier
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            DTCFormatIdentifier::ISO_14229_1_DTCFormat.into(),//Format Identifier
+            0x72,// Readiness Group Identifier
+        ];
+        let mut reader = &bytes[..];
+
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::DTCByReadinessGroupIdentifierList(
+                DTCByReadinessGroupIdentifierRecord {
+                    functional_group_identifier: FunctionalGroupIdentifier::VODBSystem,
+                    dtc_status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
+                    dtc_format_identifier: DTCFormatIdentifier::ISO_14229_1_DTCFormat,
+                    dtc_readiness_group_identifier: DTCReadinessGroupIdentifier::from(0x72),
+                    record_data: vec![]
                 }
             )
         );
