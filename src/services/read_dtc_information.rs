@@ -1141,6 +1141,40 @@ mod response {
             0x01, // Memory Selection
             0x12, 0x34, 0x56, // DTC Mask
             DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            ];
+        let mut reader = &bytes[..];
+
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
+                UserDefMemoryDTCSnapshotRecordByDTCNumRecord {
+                    memory_selection: 0x1,
+                    dtc_record: DTCRecord::new(0x12, 0x34, 0x56),
+                    dtc_status_mask: DTCStatusMask::TestFailed,
+                    dtc_snapshot_record: vec![]
+                }
+            )
+        );
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn user_def_memory_dtc_by_dtc_number_empty_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x18, // subfunction
+            0x01, // Memory Selection
+            0x12, 0x34, 0x56, // DTC Mask
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
             0x13, // UserDefDTCSnapshotRecordNumber
             0x02, // DTCSnapshotRecordNumberOfIdentifiers
             0xBE, 0xEF, // SnapshotDataIdentifier
