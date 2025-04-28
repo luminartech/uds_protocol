@@ -620,14 +620,12 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     ///   * 0x17: [ReadDTCInfoSubFunction::reportUserDefMemoryDTCByStatusMask]
     UserDefMemoryDTCByStatusMaskList(UserDefMemoryDTCByStatusMaskRecord),
 
-    /// List of [crate::DTCExtDataRecord]s for a given DTC.
+    /// List of [crate::DTCSnapshotRecord]s for a given DTC.
     ///
     /// UserPayload is so the data can be read according to a specific format
     /// defined by the supplier/vehicle manufacturer
     ///
-    /// * Parameter: [`DTCMaskRecord`] (3 bytes) - Echo of the request
-    /// * Parameter: [`DTCStatusMask`] (1) - status of the requested DTC
-    /// * Parameter: [`crate::DTCExtDataRecord`] (n)
+    /// * Parameter: [`UserDefMemoryDTCSNapshotRecordByDTCNumRecord`] (n bytes)
     ///
     /// For subfunction 0x06
     ///   * 0x18: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
@@ -1133,7 +1131,7 @@ mod response {
     }
 
     #[test]
-    fn user_def_memory_dtc_by_dtc_number_list() {
+    fn user_def_memory_dtc_by_dtc_number_empty_list() {
         // skip formatting
         #[rustfmt::skip]
         let bytes = [
@@ -1167,7 +1165,7 @@ mod response {
     }
 
     #[test]
-    fn user_def_memory_dtc_by_dtc_number_empty_list() {
+    fn user_def_memory_dtc_by_dtc_number_list() {
         // skip formatting
         #[rustfmt::skip]
         let bytes = [
