@@ -982,7 +982,7 @@ mod response {
         #[rustfmt::skip]
         let bytes = [
             0x17, // subfunction
-            0x15, //Memory Selection
+            0x15, // Memory Selection
             DTCStatusAvailabilityMask::TestFailed.into(), //Availibilty Mask
         ];
         let mut reader = &bytes[..];
@@ -1014,12 +1014,12 @@ mod response {
         #[rustfmt::skip]
         let bytes = [
             0x17, // subfunction
-            0x15, //Memory Selection
-            DTCStatusAvailabilityMask::TestFailed.into(), //Availibilty Mask
+            0x15, // Memory Selection
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
             0x12, 0x34, 0x56, // DTC Mask
-            DTCStatusMask::TestFailed.into(), //Status
+            DTCStatusMask::TestFailed.into(), // Status
             0x12, 0x34, 0x56, // DTC Mask
-            DTCStatusMask::TestFailed.into(), //Status
+            DTCStatusMask::TestFailed.into(), // Status
         ];
         let mut reader = &bytes[..];
 
