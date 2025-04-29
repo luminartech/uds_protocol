@@ -133,7 +133,7 @@ impl<UserPayload: IterableWireFormat> WireFormat
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.memory_selection))?;
+        writer.write_u8(self.memory_selection)?;
         self.dtc_record.to_writer(writer)?;
         self.dtc_status_mask.to_writer(writer)?;
         for (record_number, record) in &self.dtc_snapshot_record {
@@ -625,9 +625,13 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// UserPayload is so the data can be read according to a specific format
     /// defined by the supplier/vehicle manufacturer
     ///
-    /// * Parameter: [`UserDefMemoryDTCSNapshotRecordByDTCNumRecord`] (n bytes)
+    /// Contains a snapshot of data values from the time of the system malfunction occurrence.
+    /// * Parameter: [`MemorySelection`] (1) - user defined DTC memory when retrieving DTCs.
+    /// * Parameter: [`DTCRecord`] (3 bytes)
+    /// * Parameter: [`DTCStatusMask`] (1 bytes)
+    /// * Parameter: [`Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>`] (m*(1+n) bytes) - Echo of the request
     ///
-    /// For subfunction 0x06
+    /// For subfunction 0x18
     ///   * 0x18: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
     UserDefMemoryDTCSnapshotRecordByDTCNumberList(
         UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>,
