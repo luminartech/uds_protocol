@@ -163,9 +163,9 @@ impl From<u8> for DTCFormatIdentifier {
         }
     }
 }
-impl Into<u8> for DTCFormatIdentifier {
-    fn into(self) -> u8 {
-        match self {
+impl From<DTCFormatIdentifier> for u8 {
+    fn from(val: DTCFormatIdentifier) -> Self {
+        match val {
             DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_00 => 0x00,
             DTCFormatIdentifier::ISO_14229_1_DTCFormat => 0x01,
             DTCFormatIdentifier::SAE_J1939_73_DTCFormat => 0x02,
