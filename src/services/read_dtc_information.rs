@@ -151,9 +151,12 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WWHOBDDTCByMaskRecord {
+    // Used to distinguish commands sent by the test equipment between different functional system groups within an electrical architecture which consists of many different servers.
     pub functional_group_identifier: FunctionalGroupIdentifier,
+    /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
     pub dtc_status_availability_mask: DTCStatusAvailabilityMask,
     pub dtc_severity_availability_mask: DTCSeverityMask,
+    /// Specifies the format of the DTC reported by the server.
     pub dtc_format_identifier: DTCFormatIdentifier,
     pub record_data: Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>,
 }
@@ -646,6 +649,16 @@ pub enum ReadDTCInfoResponse<UserPayload> {
         UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>,
     ),
 
+    /// List of WWH OBD DTCs and corresponding status and severity information
+    /// matching a client defined status mask and severity mask record
+    ///
+    ///Contains a struct of WWHOBDDTCByMaskRecord
+    /// * Parameter: [`FunctionalGroupIdentifier`] (1)
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
+    /// * Parameter: [`DTCSeverityMask`] (1)
+    /// * Parameter: [`DTCFormatIdentifier`] (1)
+    /// * Parameter: [`Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>'] (5*n)
+    ///
     /// For Subfunction 0x42
     ///   * 0x42: [ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord]
     WWHOBDDTCByMaskRecordList(WWHOBDDTCByMaskRecord),
