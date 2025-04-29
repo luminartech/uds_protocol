@@ -682,6 +682,16 @@ pub enum ReadDTCInfoResponse<UserPayload> {
         UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>,
     ),
 
+    /// DTCs which supports a DTCExtendedDataRecord
+    ///
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
+    /// * Parameter: [`DTCExtDataRecordNumber`] (1)
+    /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>`] (4 * n bytes)
+    ///
+    /// For Subfunction 0x1A
+    ///   * 0x1A: [ReadDTCInfoSubFunction::ReportSupportedDTCExtDataRecord]
+    SupportedDTCExtDataRecordList(SupportedDTCExtDataRecord),
+
     /// List of WWH OBD DTCs and corresponding status and severity information
     /// matching a client defined status mask and severity mask record
     ///
@@ -834,6 +844,26 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             0x18 => Ok(Some(Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
                 UserDefMemoryDTCSnapshotRecordByDTCNumRecord::option_from_reader(reader)?.unwrap(),
             ))),
+            0x1A => {
+                let dtc_status_availability_mask =
+                    DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
+                let dtc_ext_data_record_number =
+                    DTCExtDataRecordNumber::option_from_reader(reader)?.unwrap();
+                let mut dtcs = Vec::new();
+                while let Ok(Some(dtc_record)) = DTCRecord::option_from_reader(reader) {
+                    let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
+                    dtcs.push((dtc_record, dtc_status));
+                }
+
+                Ok(Some(Self::SupportedDTCExtDataRecordList(
+                    SupportedDTCExtDataRecord {
+                        dtc_status_availability_mask,
+                        dtc_ext_data_record_number,
+                        dtc_and_status_records: dtcs,
+                    },
+                )))
+            }
+
             0x42 => {
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
@@ -934,6 +964,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCFaultDetectionCounterRecordList(list) => list.len() * 4,
             Self::UserDefMemoryDTCByStatusMaskList(list) => 2 + list.record_data.len() * 4,
             Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(list) => list.required_size(),
+            Self::SupportedDTCExtDataRecordList(list) => 2 + list.dtc_and_status_records.len() * 4,
             Self::WWHOBDDTCByMaskRecordList(response_struct) => {
                 4 + response_struct.record_data.len() * 5
             }
@@ -1004,6 +1035,19 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(snapshot_struct) => {
                 writer.write_u8(0x18)?;
                 snapshot_struct.to_writer(writer)?;
+            }
+            Self::SupportedDTCExtDataRecordList(response_struct) => {
+                writer.write_u8(0x1A)?;
+                response_struct
+                    .dtc_status_availability_mask
+                    .to_writer(writer)?;
+                response_struct
+                    .dtc_ext_data_record_number
+                    .to_writer(writer)?;
+                for (record, status) in &response_struct.dtc_and_status_records {
+                    record.to_writer(writer)?;
+                    status.to_writer(writer)?;
+                }
             }
             Self::WWHOBDDTCByMaskRecordList(response_struct) => {
                 writer.write_u8(0x42)?;
@@ -1426,6 +1470,79 @@ mod response {
                     )]
                 }
             )
+        );
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn supported_dtc_ext_data_record_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x1A, // subfunction
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            DTCExtDataRecordNumber::AllDTCExtDataRecords.value(), // DTC Extended Data Record Number
+            0x15,0x17,0x19 ,// DTCRecord
+            DTCStatusMask::TestFailedSinceLastClear.into(),// DTC Status
+            0x15,0x17,0x19 ,// DTCRecord
+            DTCStatusMask::TestFailedSinceLastClear.into(),// DTC Status
+        ];
+        let mut reader = &bytes[..];
+
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::SupportedDTCExtDataRecordList(SupportedDTCExtDataRecord {
+                dtc_status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
+                dtc_ext_data_record_number: DTCExtDataRecordNumber::AllDTCExtDataRecords,
+                dtc_and_status_records: vec![
+                    (
+                        DTCRecord::new(0x15, 0x17, 0x19), // DTCRecord
+                        DTCStatusMask::TestFailedSinceLastClear
+                    ),
+                    (
+                        DTCRecord::new(0x15, 0x17, 0x19), // DTCRecord
+                        DTCStatusMask::TestFailedSinceLastClear
+                    )
+                ]
+            })
+        );
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn supported_dtc_ext_data_record_empty_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x1A, // subfunction
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            DTCExtDataRecordNumber::AllDTCExtDataRecords.value(), // DTC Extended Data Record Number
+        ];
+        let mut reader = &bytes[..];
+
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::SupportedDTCExtDataRecordList(SupportedDTCExtDataRecord {
+                dtc_status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
+                dtc_ext_data_record_number: DTCExtDataRecordNumber::AllDTCExtDataRecords,
+                dtc_and_status_records: vec![]
+            })
         );
         // write
         let mut writer = Vec::new();
