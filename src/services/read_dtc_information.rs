@@ -151,13 +151,16 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WWHOBDDTCByMaskRecord {
-    // Used to distinguish commands sent by the test equipment between different functional system groups within an electrical architecture which consists of many different servers.
+    // Echo from the request.
     pub functional_group_identifier: FunctionalGroupIdentifier,
     /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
-    pub dtc_status_availability_mask: DTCStatusAvailabilityMask,
-    pub dtc_severity_availability_mask: DTCSeverityMask,
+    pub status_availability_mask: DTCStatusAvailabilityMask,
+    pub severity_availability_mask: DTCSeverityMask,
     /// Specifies the format of the DTC reported by the server.
-    pub dtc_format_identifier: DTCFormatIdentifier,
+    /// Only possible options:
+    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
+    ///    DTCFormatIdentifier::SAE_J1939_73_DTCFormat
+    pub format_identifier: DTCFormatIdentifier,
     pub record_data: Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>,
 }
 
@@ -643,7 +646,7 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`DTCStatusMask`] (1 bytes)
     /// * Parameter: [`Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>`] (m*(1+n) bytes) - Echo of the request
     ///
-    // For subfunction 0x18
+    /// For subfunction 0x18
     ///   * 0x18: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
     UserDefMemoryDTCSnapshotRecordByDTCNumberList(
         UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>,
@@ -769,25 +772,23 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             0x42 => {
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
-                let dtc_status_availability_mask =
-                    DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
-                let dtc_severity_availability_mask = DTCSeverityMask::from(reader.read_u8()?);
-                let dtc_format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
+                let status_availability_mask = DTCStatusAvailabilityMask::from_reader(reader)?;
+                let severity_availability_mask = DTCSeverityMask::from(reader.read_u8()?);
+                let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
                 let mut record_data = Vec::new();
-                //: Vec<(DTCRecord, DTCStatusMask)>,
                 while let Ok(dtc_severity_mask) = reader.read_u8() {
                     let dtc_severity_mask = DTCSeverityMask::from(dtc_severity_mask);
-                    let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
-                    let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
+                    let dtc_record = DTCRecord::from_reader(reader)?;
+                    let dtc_status = DTCStatusMask::from_reader(reader)?;
                     record_data.push((dtc_severity_mask, dtc_record, dtc_status));
                 }
 
                 Ok(Some(Self::WWHOBDDTCByMaskRecordList(
                     WWHOBDDTCByMaskRecord {
                         functional_group_identifier,
-                        dtc_status_availability_mask,
-                        dtc_severity_availability_mask,
-                        dtc_format_identifier,
+                        status_availability_mask,
+                        severity_availability_mask,
+                        format_identifier,
                         record_data,
                     },
                 )))
@@ -876,11 +877,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::WWHOBDDTCByMaskRecordList(response_struct) => {
                 writer.write_u8(0x42)?;
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
-                response_struct
-                    .dtc_status_availability_mask
-                    .to_writer(writer)?;
-                writer.write_u8(response_struct.dtc_severity_availability_mask.into())?;
-                writer.write_u8(response_struct.dtc_format_identifier.into())?;
+                response_struct.status_availability_mask.to_writer(writer)?;
+                writer.write_u8(response_struct.severity_availability_mask.into())?;
+                writer.write_u8(response_struct.format_identifier.into())?;
                 for (dtc_severity, dtc_record, dtc_status) in &response_struct.record_data {
                     writer.write_u8((*dtc_severity).into())?;
                     dtc_record.to_writer(writer)?;
@@ -1290,16 +1289,16 @@ mod response {
         #[rustfmt::skip]
         let bytes = [
             0x42, // subfunction
-            FunctionalGroupIdentifier::VODBSystem.into(),//Functional Group Identifier
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCSeverityMask::DTCClass_0.into(), // Severity Mask
-            DTCFormatIdentifier::ISO_14229_1_DTCFormat.into(),//Format Identifier
-            DTCSeverityMask::DTCClass_0.into(), // Severity Mask
+            FunctionalGroupIdentifier::VODBSystem.into(),
+            DTCStatusAvailabilityMask::TestFailed.into(), 
+            DTCSeverityMask::DTCClass_0.into(), 
+            DTCFormatIdentifier::ISO_14229_1_DTCFormat.into(),
+            DTCSeverityMask::DTCClass_0.into(),
             0x15,0x17,0x19 ,// DTCRecord
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCSeverityMask::DTCClass_0.into(), // Severity Mask
+            DTCStatusAvailabilityMask::TestFailed.into(), 
+            DTCSeverityMask::DTCClass_0.into(), 
             0x15,0x17,0x19 ,// DTCRecord
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            DTCStatusAvailabilityMask::TestFailed.into(), 
         ];
         let mut reader = &bytes[..];
 
@@ -1310,9 +1309,9 @@ mod response {
             response,
             ReadDTCInfoResponse::WWHOBDDTCByMaskRecordList(WWHOBDDTCByMaskRecord {
                 functional_group_identifier: FunctionalGroupIdentifier::VODBSystem,
-                dtc_status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
-                dtc_severity_availability_mask: DTCSeverityMask::DTCClass_0,
-                dtc_format_identifier: DTCFormatIdentifier::ISO_14229_1_DTCFormat,
+                status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
+                severity_availability_mask: DTCSeverityMask::DTCClass_0,
+                format_identifier: DTCFormatIdentifier::ISO_14229_1_DTCFormat,
                 record_data: vec![
                     (
                         DTCSeverityMask::DTCClass_0,
@@ -1341,10 +1340,10 @@ mod response {
         #[rustfmt::skip]
         let bytes = [
             0x42, // subfunction
-            FunctionalGroupIdentifier::VODBSystem.into(),//Functional Group Identifier
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCSeverityMask::DTCClass_0.into(), // Severity Mask
-            DTCFormatIdentifier::ISO_14229_1_DTCFormat.into(),//Format Identifier
+            FunctionalGroupIdentifier::VODBSystem.into(),
+            DTCStatusAvailabilityMask::TestFailed.into(),
+            DTCSeverityMask::all_flags().into(), 
+            DTCFormatIdentifier::ISO_14229_1_DTCFormat.into(),
         ];
         let mut reader = &bytes[..];
 
@@ -1355,9 +1354,9 @@ mod response {
             response,
             ReadDTCInfoResponse::WWHOBDDTCByMaskRecordList(WWHOBDDTCByMaskRecord {
                 functional_group_identifier: FunctionalGroupIdentifier::VODBSystem,
-                dtc_status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
-                dtc_severity_availability_mask: DTCSeverityMask::DTCClass_0,
-                dtc_format_identifier: DTCFormatIdentifier::ISO_14229_1_DTCFormat,
+                status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
+                severity_availability_mask: DTCSeverityMask::all_flags(),
+                format_identifier: DTCFormatIdentifier::ISO_14229_1_DTCFormat,
                 record_data: vec![]
             })
         );
