@@ -131,6 +131,7 @@ impl SingleValueWireFormat for DTCStatusMask {}
 #[allow(non_camel_case_types)]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 #[non_exhaustive]
+#[repr(u8)]
 pub enum DTCFormatIdentifier {
     /// Defined in [SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>) DTC Format
     SAE_J2012_DA_DTCFormat_00 = 0x00,
@@ -149,8 +150,10 @@ pub enum DTCFormatIdentifier {
 
     /// Reserved for future usage
     /// 0x05 - 0xFF
-    ISOSAEReserved,
+    ISOSAEReserved(u8),
 }
+
+impl DTCFormatIdentifier {}
 impl From<u8> for DTCFormatIdentifier {
     fn from(value: u8) -> Self {
         match value {
@@ -159,10 +162,11 @@ impl From<u8> for DTCFormatIdentifier {
             0x02 => DTCFormatIdentifier::SAE_J1939_73_DTCFormat,
             0x03 => DTCFormatIdentifier::ISO_11992_4_DTCFormat,
             0x04 => DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04,
-            _ => DTCFormatIdentifier::ISOSAEReserved,
+            val => DTCFormatIdentifier::ISOSAEReserved(val),
         }
     }
 }
+
 impl From<DTCFormatIdentifier> for u8 {
     fn from(val: DTCFormatIdentifier) -> Self {
         match val {
@@ -171,7 +175,7 @@ impl From<DTCFormatIdentifier> for u8 {
             DTCFormatIdentifier::SAE_J1939_73_DTCFormat => 0x02,
             DTCFormatIdentifier::ISO_11992_4_DTCFormat => 0x03,
             DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04 => 0x04,
-            DTCFormatIdentifier::ISOSAEReserved => 0xFF, // Default value for reserved
+            DTCFormatIdentifier::ISOSAEReserved(value) => value, // Default value for reserved
         }
     }
 }
