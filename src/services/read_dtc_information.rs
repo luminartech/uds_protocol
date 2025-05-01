@@ -152,7 +152,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 /// List of WWH OBD DTCs and corresponding status and severity information matching a client defined status mask and severity mask record
 pub struct WWHOBDDTCByMaskRecord {
-    // Echo from the request.
+    /// Echo from the request.
     pub functional_group_identifier: FunctionalGroupIdentifier,
     /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
     pub status_availability_mask: DTCStatusAvailabilityMask,
@@ -166,11 +166,18 @@ pub struct WWHOBDDTCByMaskRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// List of WWH OBD DTCs with "permanent DTC" status as described in 3.12
 pub struct WWHOBDDTCWithPermanentStatusRecord {
+    /// Echo from the request.
     pub functional_group_identifier: FunctionalGroupIdentifier,
-    pub dtc_status_availability_mask: DTCStatusAvailabilityMask,
-    pub dtc_format_identifier: DTCFormatIdentifier,
-    pub record_data: Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>,
+    /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
+    pub status_availability_mask: DTCStatusAvailabilityMask,
+    /// Specifies the format of the DTC reported by the server.
+    /// Only possible options:
+    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
+    ///    DTCFormatIdentifier::SAE_J1939_73_DTCFormat
+    pub format_identifier: DTCFormatIdentifier,
+    pub record_data: Vec<(DTCRecord, DTCStatusMask)>,
 }
 
 /// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [FunctionalGroupIdentifier]s
@@ -680,6 +687,19 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     ///   * 0x42: [ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord]
     WWHOBDDTCByMaskRecordList(WWHOBDDTCByMaskRecord),
 
+    /// List of WWH OBD DTCs with "permanent DTC" status as described in 3.12
+    ///
+    ///Contains a struct of WWHOBDDTCWithPermanentStatusRecord
+    /// * Parameter: [`FunctionalGroupIdentifier`] (1)
+    /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
+    /// * Parameter: [`DTCFormatIdentifier`] (1)
+    /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>'] (5*n)
+    ///
+    /// Only possible options for [`DTCFormatIdentifier`] :
+    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
+    ///    DTCFormatIdentifier::SAE_J1939_73_DTCFormat
+    /// * Returns Error::InvalidDtcFormatIdentifier in case of incorrect DTCFormatIdentifier
+    ///
     /// For Subfunction 0x55
     ///   * 0x55: [ReadDTCInfoSubFunction::ReportWWHOBDDTC_WithPermanentStatus]
     WWHOBDDTCWithPermanentStatusList(WWHOBDDTCWithPermanentStatusRecord),
@@ -821,23 +841,27 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             0x55 => {
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
-                let dtc_status_availability_mask =
+                let status_availability_mask =
                     DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
-                let dtc_format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
+                let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
+                if (format_identifier != DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04)
+                    && (format_identifier != DTCFormatIdentifier::SAE_J1939_73_DTCFormat)
+                {
+                    return Err(Error::InvalidDtcFormatIdentifier(u8::from(
+                        format_identifier,
+                    )));
+                }
                 let mut record_data = Vec::new();
-                //: Vec<(DTCRecord, DTCStatusMask)>,
-                while let Ok(dtc_severity_mask) = reader.read_u8() {
-                    let dtc_severity_mask = DTCSeverityMask::from(dtc_severity_mask);
-                    let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
+                while let Ok(Some(dtc_record)) = DTCRecord::option_from_reader(reader) {
                     let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
-                    record_data.push((dtc_severity_mask, dtc_record, dtc_status));
+                    record_data.push((dtc_record, dtc_status));
                 }
 
                 Ok(Some(Self::WWHOBDDTCWithPermanentStatusList(
                     WWHOBDDTCWithPermanentStatusRecord {
                         functional_group_identifier,
-                        dtc_status_availability_mask,
-                        dtc_format_identifier,
+                        status_availability_mask,
+                        format_identifier,
                         record_data,
                     },
                 )))
@@ -862,7 +886,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 4 + response_struct.record_data.len() * 5
             }
             Self::WWHOBDDTCWithPermanentStatusList(response_struct) => {
-                3 + response_struct.record_data.len() * 5
+                3 + response_struct.record_data.len() * 4
             }
         }
     }
@@ -941,12 +965,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::WWHOBDDTCWithPermanentStatusList(response_struct) => {
                 writer.write_u8(0x55)?;
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
-                response_struct
-                    .dtc_status_availability_mask
-                    .to_writer(writer)?;
-                writer.write_u8(response_struct.dtc_format_identifier.into())?;
-                for (dtc_severity, dtc_record, dtc_status) in &response_struct.record_data {
-                    writer.write_u8((*dtc_severity).into())?;
+                response_struct.status_availability_mask.to_writer(writer)?;
+                writer.write_u8(response_struct.format_identifier.into())?;
+                for (dtc_record, dtc_status) in &response_struct.record_data {
                     dtc_record.to_writer(writer)?;
                     dtc_status.to_writer(writer)?;
                 }
@@ -1441,11 +1462,9 @@ mod response {
             0x55, // subfunction
             FunctionalGroupIdentifier::VODBSystem.into(),//Functional Group Identifier
             DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCFormatIdentifier::ISO_14229_1_DTCFormat.into(),//Format Identifier
-            DTCSeverityMask::DTCClass_0.into(), // Severity Mask
+            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04.into(),//Format Identifier
             0x15,0x17,0x19 ,// DTCRecord
             DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCSeverityMask::DTCClass_0.into(), // Severity Mask
             0x15,0x17,0x19 ,// DTCRecord
             DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
         ];
@@ -1459,16 +1478,14 @@ mod response {
             ReadDTCInfoResponse::WWHOBDDTCWithPermanentStatusList(
                 WWHOBDDTCWithPermanentStatusRecord {
                     functional_group_identifier: FunctionalGroupIdentifier::VODBSystem,
-                    dtc_status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
-                    dtc_format_identifier: DTCFormatIdentifier::ISO_14229_1_DTCFormat,
+                    status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
+                    format_identifier: DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04,
                     record_data: vec![
                         (
-                            DTCSeverityMask::DTCClass_0,
                             DTCRecord::new(0x15, 0x17, 0x19),
                             DTCStatusAvailabilityMask::TestFailed
                         ),
                         (
-                            DTCSeverityMask::DTCClass_0,
                             DTCRecord::new(0x15, 0x17, 0x19),
                             DTCStatusAvailabilityMask::TestFailed
                         )
