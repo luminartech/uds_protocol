@@ -150,6 +150,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// List of WWH OBD DTCs and corresponding status and severity information matching a client defined status mask and severity mask record
 pub struct WWHOBDDTCByMaskRecord {
     // Echo from the request.
     pub functional_group_identifier: FunctionalGroupIdentifier,
@@ -783,7 +784,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 if (format_identifier != DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04)
                     && (format_identifier != DTCFormatIdentifier::SAE_J1939_73_DTCFormat)
                 {
-                    return Err(Error::InvalidDtcFormatIdentifier(format_identifier as u8));
+                    return Err(Error::InvalidDtcFormatIdentifier(u8::from(
+                        format_identifier,
+                    )));
                 }
                 let mut record_data = Vec::new();
                 while let Ok(dtc_severity_mask) = reader.read_u8() {
