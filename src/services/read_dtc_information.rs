@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     DTCExtDataRecordList, DTCExtDataRecordNumber, DTCRecord, DTCSeverityMask, DTCSeverityRecord,
-    DTCSnapshotRecordList, DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber,
-    Error, FunctionalGroupIdentifier, IterableWireFormat, SingleValueWireFormat,
-    UserDefDTCSnapshotRecordNumber, WireFormat,
+    DTCSnapshotRecord, DTCSnapshotRecordList, DTCSnapshotRecordNumber, DTCStatusMask,
+    DTCStoredDataRecordNumber, Error, FunctionalGroupIdentifier, IterableWireFormat,
+    SingleValueWireFormat, UserDefDTCSnapshotRecordNumber, WireFormat,
 };
 
 /// Used for non-emissions related servers
@@ -86,6 +86,67 @@ pub struct UserDefMemoryDTCByStatusMaskRecord {
     pub status_availibility_mask: DTCStatusMask,
     /// Vector of DTC Records and Status of Corresponding DTC
     pub record_data: Vec<(DTCRecord, DTCStatusMask)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload> {
+    // This parameter shall be used to address the respective user defined DTC memory when retrieving DTCs.
+    pub memory_selection: MemorySelection,
+    pub dtc_record: DTCRecord,
+    pub dtc_status_mask: DTCStatusMask,
+    /// Contains a snapshot of data values from the time of the system malfunction occurrence.
+    pub dtc_snapshot_record: Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>,
+}
+impl<UserPayload: IterableWireFormat> WireFormat
+    for UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>
+{
+    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let memory_selection = reader.read_u8()?;
+        let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
+        let dtc_status_mask = DTCStatusMask::option_from_reader(reader)?.unwrap();
+        let mut dtc_snapshot_record = Vec::new();
+
+        while let Ok(Some(dtc_snapshot_record_number)) =
+            DTCSnapshotRecordNumber::option_from_reader(reader)
+        {
+            let snapshot_record = DTCSnapshotRecord::option_from_reader(reader)?.unwrap();
+            dtc_snapshot_record.push((dtc_snapshot_record_number, snapshot_record));
+        }
+
+        Ok(Some(UserDefMemoryDTCSnapshotRecordByDTCNumRecord {
+            memory_selection,
+            dtc_record,
+            dtc_status_mask,
+            dtc_snapshot_record,
+        }))
+    }
+
+    fn required_size(&self) -> usize {
+        1 + self.dtc_record.required_size()
+            + self.dtc_status_mask.required_size()
+            + self
+                .dtc_snapshot_record
+                .iter()
+                .fold(0, |acc, (record_number, record)| {
+                    acc + record_number.required_size() + record.required_size()
+                })
+    }
+
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.memory_selection)?;
+        self.dtc_record.to_writer(writer)?;
+        self.dtc_status_mask.to_writer(writer)?;
+        for (record_number, record) in &self.dtc_snapshot_record {
+            record_number.to_writer(writer)?;
+            record.to_writer(writer)?;
+        }
+        Ok(self.required_size())
+    }
+}
+
+impl<UserPayload: IterableWireFormat> SingleValueWireFormat
+    for UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>
+{
 }
 
 /// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [FunctionalGroupIdentifier]s
@@ -558,6 +619,23 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// For subfunction 0x17
     ///   * 0x17: [ReadDTCInfoSubFunction::reportUserDefMemoryDTCByStatusMask]
     UserDefMemoryDTCByStatusMaskList(UserDefMemoryDTCByStatusMaskRecord),
+
+    /// List of [crate::DTCSnapshotRecord]s for a given DTC.
+    ///
+    /// UserPayload is so the data can be read according to a specific format
+    /// defined by the supplier/vehicle manufacturer
+    ///
+    /// Contains a snapshot of data values from the time of the system malfunction occurrence.
+    /// * Parameter: [`MemorySelection`] (1) - user defined DTC memory when retrieving DTCs.
+    /// * Parameter: [`DTCRecord`] (3 bytes)
+    /// * Parameter: [`DTCStatusMask`] (1 bytes)
+    /// * Parameter: [`Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>`] (m*(1+n) bytes) - Echo of the request
+    ///
+    /// For subfunction 0x18
+    ///   * 0x18: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
+    UserDefMemoryDTCSnapshotRecordByDTCNumberList(
+        UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>,
+    ),
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
@@ -659,6 +737,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     },
                 )))
             }
+            0x18 => Ok(Some(Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
+                UserDefMemoryDTCSnapshotRecordByDTCNumRecord::option_from_reader(reader)?.unwrap(),
+            ))),
             _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
@@ -674,6 +755,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCSeverityRecordList(_, _, list) => 1 + list.len() * 6,
             Self::DTCFaultDetectionCounterRecordList(list) => list.len() * 4,
             Self::UserDefMemoryDTCByStatusMaskList(list) => 2 + list.record_data.len() * 4,
+            Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(list) => list.required_size(),
         }
     }
 
@@ -730,6 +812,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     data_record.to_writer(writer)?;
                     status.to_writer(writer)?;
                 }
+            }
+
+            Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(snapshot_struct) => {
+                writer.write_u8(0x18)?;
+                snapshot_struct.to_writer(writer)?;
             }
         }
         Ok(self.required_size())
@@ -1036,6 +1123,88 @@ mod response {
                         (DTCRecord::new(0x12, 0x34, 0x56), DTCStatusMask::TestFailed),
                         (DTCRecord::new(0x12, 0x34, 0x56), DTCStatusMask::TestFailed),
                     ]
+                }
+            )
+        );
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn user_def_memory_dtc_by_dtc_number_empty_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x18, // subfunction
+            0x01, // Memory Selection
+            0x12, 0x34, 0x56, // DTC Mask
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            ];
+        let mut reader = &bytes[..];
+
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
+                UserDefMemoryDTCSnapshotRecordByDTCNumRecord {
+                    memory_selection: 0x1,
+                    dtc_record: DTCRecord::new(0x12, 0x34, 0x56),
+                    dtc_status_mask: DTCStatusMask::TestFailed,
+                    dtc_snapshot_record: vec![]
+                }
+            )
+        );
+        // write
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
+        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(written, response.required_size());
+    }
+
+    #[test]
+    fn user_def_memory_dtc_by_dtc_number_list() {
+        // skip formatting
+        #[rustfmt::skip]
+        let bytes = [
+            0x18, // subfunction
+            0x01, // Memory Selection
+            0x12, 0x34, 0x56, // DTC Mask
+            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            0x13, // UserDefDTCSnapshotRecordNumber
+            0x02, // DTCSnapshotRecordNumberOfIdentifiers
+            0xBE, 0xEF, // SnapshotDataIdentifier
+            0x05, // SnapshotData
+            0xBE, 0xEF, // SnapshotDataIdentifier
+            0x05, // SnapshotData
+            ];
+        let mut reader = &bytes[..];
+
+        let response: ReadDTCInfoResponse<TestPayload> =
+            ReadDTCInfoResponse::from_reader(&mut reader).unwrap();
+
+        assert_eq!(
+            response,
+            ReadDTCInfoResponse::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
+                UserDefMemoryDTCSnapshotRecordByDTCNumRecord {
+                    memory_selection: 0x1,
+                    dtc_record: DTCRecord::new(0x12, 0x34, 0x56),
+                    dtc_status_mask: DTCStatusMask::TestFailed,
+                    dtc_snapshot_record: vec![(
+                        DTCSnapshotRecordNumber::new(0x13),
+                        DTCSnapshotRecord {
+                            data: vec![
+                                TestPayload::Abracadabra(0x05),
+                                TestPayload::Abracadabra(0x05)
+                            ]
+                        }
+                    )]
                 }
             )
         );
