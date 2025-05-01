@@ -422,9 +422,9 @@ impl WireFormat for ReadDTCInfoSubFunction {
                 Self::ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber::from_reader(reader)?)
             }
             0x42 => Self::ReportWWHOBDDTC_ByMaskRecord(
-                FunctionalGroupIdentifier::EmissionsSystemGroup,
-                DTCStatusMask::TestFailed,
-                DTCSeverityMask::DTCClass_4,
+                FunctionalGroupIdentifier::from(reader.read_u8()?),
+                DTCStatusMask::from(reader.read_u8()?),
+                DTCSeverityMask::from(reader.read_u8()?),
             ),
             0x43..=0x54 => Self::ISOSAEReserved(report_type),
             0x55 => Self::ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier::from(
