@@ -315,7 +315,9 @@ impl<
             UdsServiceType::ReadDataByIdentifierPeriodic => todo!(),
             UdsServiceType::DynamicallyDefinedDataIdentifier => todo!(),
             UdsServiceType::WriteMemoryByAddress => todo!(),
-            UdsServiceType::ClearDiagnosticInfo => todo!(),
+            UdsServiceType::ClearDiagnosticInfo => {
+                Self::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::from_reader(reader)?)
+            }
             UdsServiceType::InputOutputControlByIdentifier => todo!(),
             UdsServiceType::RequestUpload => todo!(),
             UdsServiceType::RequestFileTransfer => todo!(),
