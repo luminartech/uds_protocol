@@ -693,7 +693,7 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`FunctionalGroupIdentifier`] (1)
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
     /// * Parameter: [`DTCFormatIdentifier`] (1)
-    /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>'] (5*n)
+    /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>'] (4*n)
     ///
     /// Only possible options for [`DTCFormatIdentifier`] :
     ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
@@ -1460,13 +1460,13 @@ mod response {
         #[rustfmt::skip]
         let bytes = [
             0x55, // subfunction
-            FunctionalGroupIdentifier::VODBSystem.into(),//Functional Group Identifier
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04.into(),//Format Identifier
+            FunctionalGroupIdentifier::VODBSystem.into(),
+            DTCStatusAvailabilityMask::TestFailed.into(), 
+            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04.into(),
             0x15,0x17,0x19 ,// DTCRecord
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            DTCStatusMask::TestFailed.into(), 
             0x15,0x17,0x19 ,// DTCRecord
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            DTCStatusMask::TestFailed.into(),
         ];
         let mut reader = &bytes[..];
 
@@ -1481,14 +1481,8 @@ mod response {
                     status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
                     format_identifier: DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04,
                     record_data: vec![
-                        (
-                            DTCRecord::new(0x15, 0x17, 0x19),
-                            DTCStatusAvailabilityMask::TestFailed
-                        ),
-                        (
-                            DTCRecord::new(0x15, 0x17, 0x19),
-                            DTCStatusAvailabilityMask::TestFailed
-                        )
+                        (DTCRecord::new(0x15, 0x17, 0x19), DTCStatusMask::TestFailed),
+                        (DTCRecord::new(0x15, 0x17, 0x19), DTCStatusMask::TestFailed)
                     ]
                 }
             )
