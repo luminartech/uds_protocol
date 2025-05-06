@@ -1467,7 +1467,7 @@ mod response {
             DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04.into(),
             0x15,0x17,0x19 ,// DTCRecord
             DTCStatusMask::TestFailed.into(), 
-            0x15,0x17,0x19 ,// DTCRecord
+            0x51,0x71,0x91 ,// DTCRecord
             DTCStatusMask::TestFailed.into(),
         ];
         let mut reader = &bytes[..];
@@ -1484,7 +1484,7 @@ mod response {
                     format_identifier: DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04,
                     record_data: vec![
                         (DTCRecord::new(0x15, 0x17, 0x19), DTCStatusMask::TestFailed),
-                        (DTCRecord::new(0x15, 0x17, 0x19), DTCStatusMask::TestFailed)
+                        (DTCRecord::new(0x51, 0x71, 0x91), DTCStatusMask::TestFailed)
                     ]
                 }
             )
