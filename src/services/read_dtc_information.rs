@@ -199,7 +199,7 @@ pub struct SupportedDTCExtDataRecord {
     /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
     pub status_availability_mask: DTCStatusAvailabilityMask,
     /// Request message to get a stored [DTCExtDataRecord]
-    pub ext_data_record_number: DTCExtDataRecordNumber,
+    pub ext_data_record_number: Option<DTCExtDataRecordNumber>,
     pub dtc_and_status_records: Vec<(DTCRecord, DTCStatusMask)>,
 }
 
@@ -694,8 +694,11 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// DTCs which supports a DTCExtendedDataRecord
     ///
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
-    /// * Parameter: [`DTCExtDataRecordNumber`] (1)
+    /// * Parameter: [`Option<DTCExtDataRecordNumber>`] (1)
     /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>`] (4 * n bytes)
+    ///
+    /// [`Option<DTCExtDataRecordNumber>`] is only present if atleast one DTC supports the DTCExtendedDataRecord
+    /// [`<Vec<(DTCRecord, DTCStatusMask)>`]  length is non-zero only if atleast one DTC supports the DTCExtendedDataRecord
     ///
     /// For Subfunction 0x1A
     ///   * 0x1A: [ReadDTCInfoSubFunction::ReportSupportedDTCExtDataRecord]
@@ -856,14 +859,14 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             0x1A => {
                 let status_availability_mask =
                     DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
-                let ext_data_record_number =
-                    DTCExtDataRecordNumber::option_from_reader(reader)?.unwrap();
                 let mut dtc_and_status_records = Vec::new();
-                while let Ok(Some(dtc_record)) = DTCRecord::option_from_reader(reader) {
-                    let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
-                    dtc_and_status_records.push((dtc_record, dtc_status));
+                let ext_data_record_number = DTCExtDataRecordNumber::option_from_reader(reader)?;
+                if ext_data_record_number.is_some() {
+                    while let Some(dtc_record) = DTCRecord::option_from_reader(reader)? {
+                        let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
+                        dtc_and_status_records.push((dtc_record, dtc_status));
+                    }
                 }
-
                 Ok(Some(Self::SupportedDTCExtDataRecordList(
                     SupportedDTCExtDataRecord {
                         status_availability_mask,
@@ -1048,10 +1051,16 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::SupportedDTCExtDataRecordList(response_struct) => {
                 writer.write_u8(0x1A)?;
                 response_struct.status_availability_mask.to_writer(writer)?;
-                response_struct.ext_data_record_number.to_writer(writer)?;
-                for (record, status) in &response_struct.dtc_and_status_records {
-                    record.to_writer(writer)?;
-                    status.to_writer(writer)?;
+                if response_struct.ext_data_record_number.is_some() {
+                    response_struct
+                        .ext_data_record_number
+                        .as_ref()
+                        .unwrap()
+                        .to_writer(writer)?;
+                    for (record, status) in &response_struct.dtc_and_status_records {
+                        record.to_writer(writer)?;
+                        status.to_writer(writer)?;
+                    }
                 }
             }
             Self::WWHOBDDTCByMaskRecordList(response_struct) => {
@@ -1506,7 +1515,7 @@ mod response {
             response,
             ReadDTCInfoResponse::SupportedDTCExtDataRecordList(SupportedDTCExtDataRecord {
                 status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
-                ext_data_record_number: DTCExtDataRecordNumber::AllDTCExtDataRecords,
+                ext_data_record_number: Some(DTCExtDataRecordNumber::AllDTCExtDataRecords),
                 dtc_and_status_records: vec![
                     (
                         DTCRecord::new(0x15, 0x17, 0x19), // DTCRecord
@@ -1534,7 +1543,6 @@ mod response {
         let bytes = [
             0x1A, // subfunction
             DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCExtDataRecordNumber::AllDTCExtDataRecords.value(), // DTC Extended Data Record Number
         ];
         let mut reader = &bytes[..];
         let response: ReadDTCInfoResponse<TestPayload> =
@@ -1543,7 +1551,7 @@ mod response {
             response,
             ReadDTCInfoResponse::SupportedDTCExtDataRecordList(SupportedDTCExtDataRecord {
                 status_availability_mask: DTCStatusAvailabilityMask::TestFailed,
-                ext_data_record_number: DTCExtDataRecordNumber::AllDTCExtDataRecords,
+                ext_data_record_number: None,
                 dtc_and_status_records: vec![]
             })
         );
