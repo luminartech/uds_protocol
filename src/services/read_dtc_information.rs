@@ -188,8 +188,6 @@ pub struct DTCByReadinessGroupIdentifierRecord {
     /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
     pub status_availability_mask: DTCStatusAvailabilityMask,
     /// Specifies the format of the DTC reported by the server.
-    /// Only possible options:
-    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
     pub format_identifier: DTCFormatIdentifier,
     /// DTC readiness groups
     pub readiness_group_identifier: DTCReadinessGroupIdentifier,
@@ -900,14 +898,13 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             0x56 => {
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
-                let status_availability_mask =
-                    DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
+                let status_availability_mask = DTCStatusAvailabilityMask::from_reader(reader)?;
                 let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
                 let readiness_group_identifier =
                     DTCReadinessGroupIdentifier::from(reader.read_u8()?);
                 let mut record_data = Vec::new();
                 while let Ok(Some(dtc_record)) = DTCRecord::option_from_reader(reader) {
-                    let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
+                    let dtc_status = DTCStatusMask::from_reader(reader)?;
                     record_data.push((dtc_record, dtc_status));
                 }
 
