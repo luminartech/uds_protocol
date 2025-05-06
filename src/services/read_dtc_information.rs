@@ -976,7 +976,13 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::DTCFaultDetectionCounterRecordList(list) => list.len() * 4,
             Self::UserDefMemoryDTCByStatusMaskList(list) => 2 + list.record_data.len() * 4,
             Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(list) => list.required_size(),
-            Self::SupportedDTCExtDataRecordList(list) => 2 + list.dtc_and_status_records.len() * 4,
+            Self::SupportedDTCExtDataRecordList(list) => {
+                if list.ext_data_record_number.is_some() {
+                    2 + list.dtc_and_status_records.len() * 4
+                } else {
+                    1
+                }
+            }
             Self::WWHOBDDTCByMaskRecordList(response_struct) => {
                 4 + response_struct.record_data.len() * 5
             }

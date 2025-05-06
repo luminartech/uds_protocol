@@ -67,7 +67,10 @@ impl PartialEq<u8> for DTCExtDataRecordNumber {
 
 impl WireFormat for DTCExtDataRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        Ok(Some(Self::new(reader.read_u8()?)))
+        match reader.read_u8() {
+            Ok(ext_data_record_number) => Ok(Some(Self::new(ext_data_record_number))),
+            Err(_) => Ok(None),
+        }
     }
 
     fn required_size(&self) -> usize {
