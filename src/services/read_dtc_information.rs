@@ -844,9 +844,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let status_availability_mask =
                     DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
                 let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
-                if (format_identifier != DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04)
-                    && (format_identifier != DTCFormatIdentifier::SAE_J1939_73_DTCFormat)
-                {
+                if !matches!(
+                    format_identifier,
+                    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
+                        | DTCFormatIdentifier::SAE_J1939_73_DTCFormat
+                ) {
                     return Err(Error::InvalidDtcFormatIdentifier(u8::from(
                         format_identifier,
                     )));
