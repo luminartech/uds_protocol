@@ -1579,14 +1579,14 @@ mod response {
         #[rustfmt::skip]
         let bytes = [
             0x56, // subfunction
-            FunctionalGroupIdentifier::VODBSystem.into(),//Functional Group Identifier
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04.into(),//Format Identifier
+            FunctionalGroupIdentifier::VODBSystem.into(),
+            DTCStatusAvailabilityMask::TestFailed.into(),
+            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04.into(),
             0x72,// Readiness Group Identifier
             0x15,0x17,0x19 ,// DTCRecord
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            0x15,0x17,0x19 ,// DTCRecord
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
+            DTCStatusAvailabilityMask::TestFailed.into(), 
+            0x51,0x71,0x91 ,// DTCRecord
+            DTCStatusAvailabilityMask::TestFailed.into(), 
         ];
         let mut reader = &bytes[..];
 
@@ -1607,7 +1607,7 @@ mod response {
                             DTCStatusAvailabilityMask::TestFailed
                         ),
                         (
-                            DTCRecord::new(0x15, 0x17, 0x19),
+                            DTCRecord::new(0x51, 0x71, 0x91),
                             DTCStatusAvailabilityMask::TestFailed
                         )
                     ]
@@ -1628,9 +1628,9 @@ mod response {
         #[rustfmt::skip]
         let bytes = [
             0x56, // subfunction
-            FunctionalGroupIdentifier::VODBSystem.into(),//Functional Group Identifier
-            DTCStatusAvailabilityMask::TestFailed.into(), // Availibilty Mask
-            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04.into(),//Format Identifier
+            FunctionalGroupIdentifier::VODBSystem.into(),
+            DTCStatusAvailabilityMask::TestFailed.into(), 
+            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04.into(),
             0x72,// Readiness Group Identifier
         ];
         let mut reader = &bytes[..];
