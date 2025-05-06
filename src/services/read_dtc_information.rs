@@ -729,10 +729,6 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`DTCReadinessGroupIdentifier`] (1)
     /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>'] (5*n)
     ///
-    /// Only possible options for [`DTCFormatIdentifier`] :
-    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
-    /// * Returns Error::InvalidDtcFormatIdentifier in case of incorrect DTCFormatIdentifier
-    ///
     /// For Subfunction 0x56
     ///   * 0x56: [ReadDTCInfoSubFunction::ReportDTCInformation_ByDTCReadinessGroupIdentifier]
     DTCByReadinessGroupIdentifierList(DTCByReadinessGroupIdentifierRecord),
@@ -907,11 +903,6 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let status_availability_mask =
                     DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
                 let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
-                if format_identifier != DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04 {
-                    return Err(Error::InvalidDtcFormatIdentifier(u8::from(
-                        format_identifier,
-                    )));
-                }
                 let readiness_group_identifier =
                     DTCReadinessGroupIdentifier::from(reader.read_u8()?);
                 let mut record_data = Vec::new();
