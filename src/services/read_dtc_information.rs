@@ -915,12 +915,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let readiness_group_identifier =
                     DTCReadinessGroupIdentifier::from(reader.read_u8()?);
                 let mut record_data = Vec::new();
-                while let Ok(dtc_record) = DTCRecord::option_from_reader(reader) {
-                    if dtc_record.is_none() {
-                        break;
-                    }
+                while let Ok(Some(dtc_record)) = DTCRecord::option_from_reader(reader) {
                     let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
-                    record_data.push((dtc_record.unwrap(), dtc_status));
+                    record_data.push((dtc_record, dtc_status));
                 }
 
                 Ok(Some(Self::DTCByReadinessGroupIdentifierList(
