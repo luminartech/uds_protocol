@@ -118,7 +118,10 @@ impl<
     }
 
     /// Create a new `ReadDataByIdentifier` request
-    pub fn read_data_by_identifier(dids: Vec<DiagnosticIdentifier>) -> Self {
+    pub fn read_data_by_identifier<I>(dids: I) -> Self
+    where
+        I: IntoIterator<Item = DiagnosticIdentifier>,
+    {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 

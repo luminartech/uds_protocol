@@ -21,7 +21,11 @@ pub struct ReadDataByIdentifierRequest<DataIdentifier> {
 
 impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
     /// Create a new request from a sequence of data identifiers
-    pub(crate) fn new(dids: Vec<DataIdentifier>) -> Self {
+    pub(crate) fn new<I>(dids: I) -> Self
+    where
+        I: IntoIterator<Item = DataIdentifier>,
+    {
+        let dids = dids.into_iter().collect();
         Self { dids }
     }
 
