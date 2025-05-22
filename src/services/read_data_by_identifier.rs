@@ -175,7 +175,7 @@ mod test {
         fn get_test_ids() -> Vec<ProtocolIdentifier> {
             vec![
                 ProtocolIdentifier::new(UDSIdentifier::BootSoftwareIdentification),
-                ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftware),
+                ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftwareIdentification),
                 ProtocolIdentifier::new(UDSIdentifier::ApplicationDataIdentification),
                 ProtocolIdentifier::new(UDSIdentifier::BootSoftwareFingerprint),
                 ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftwareFingerprint),
