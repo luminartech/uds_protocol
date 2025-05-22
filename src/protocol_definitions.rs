@@ -12,6 +12,13 @@ impl ProtocolIdentifier {
     pub fn new(identifier: UDSIdentifier) -> Self {
         ProtocolIdentifier { identifier }
     }
+
+    pub fn identifiers<I>(list: I) -> Vec<Self>
+    where
+        I: IntoIterator<Item = UDSIdentifier>,
+    {
+        list.into_iter().map(Self::new).collect()
+    }
 }
 
 impl TryFrom<u16> for ProtocolIdentifier {
