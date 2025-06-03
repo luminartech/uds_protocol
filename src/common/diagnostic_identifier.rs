@@ -10,6 +10,8 @@ use std::fmt::Debug;
 #[repr(u16)]
 pub enum UDSIdentifier {
     ISOSAEReserved(u16),
+    VehicleManufacturerSpecific(u16),
+    SystemSupplierSpecific(u16),
     BootSoftwareIdentification = 0xF180,
     ApplicationSoftwareIdentification = 0xF181,
     ApplicationDataIdentification = 0xF182,
@@ -54,6 +56,8 @@ pub enum UDSIdentifier {
     ODXFile = 0xF19E,
     /// Used to reference the entity data identifier for a secured data transfer
     Entity = 0xF19F,
+    UDSVersionData = 0xFF00,
+    ReservedForISO15765_5 = 0xFF01,
 }
 
 impl TryFrom<u16> for UDSIdentifier {
@@ -62,6 +66,7 @@ impl TryFrom<u16> for UDSIdentifier {
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         Ok(match value {
             0x0000..=0x00FF => Self::ISOSAEReserved(value),
+            0xF100..=0xF17F => Self::VehicleManufacturerSpecific(value),
             // 0x0100..0xA5FF => Manufacturer Specific,
             0xF180 => Self::BootSoftwareIdentification,
             0xF181 => Self::ApplicationSoftwareIdentification,
@@ -95,6 +100,8 @@ impl TryFrom<u16> for UDSIdentifier {
             0xF19D => Self::ECUInstallationDate,
             0xF19E => Self::ODXFile,
             0xF19F => Self::Entity,
+            0xFD00..=0xFEFF => Self::SystemSupplierSpecific(value),
+            0xFF02..=0xFFFF => Self::ISOSAEReserved(value),
 
             _ => return Err(Error::InvalidDiagnosticIdentifier(value)),
         })
@@ -105,6 +112,8 @@ impl From<UDSIdentifier> for u16 {
     fn from(value: UDSIdentifier) -> Self {
         match value {
             UDSIdentifier::ISOSAEReserved(identifier) => identifier,
+            UDSIdentifier::VehicleManufacturerSpecific(identifier) => identifier,
+            UDSIdentifier::SystemSupplierSpecific(identifier) => identifier,
             UDSIdentifier::BootSoftwareIdentification => 0xF180,
             UDSIdentifier::ApplicationSoftwareIdentification => 0xF181,
             UDSIdentifier::ApplicationDataIdentification => 0xF182,
@@ -137,6 +146,8 @@ impl From<UDSIdentifier> for u16 {
             UDSIdentifier::ECUInstallationDate => 0xF19D,
             UDSIdentifier::ODXFile => 0xF19E,
             UDSIdentifier::Entity => 0xF19F,
+            UDSIdentifier::UDSVersionData => 0xFF00,
+            UDSIdentifier::ReservedForISO15765_5 => 0xFF01,
         }
     }
 }
