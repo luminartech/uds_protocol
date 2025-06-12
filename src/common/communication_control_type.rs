@@ -7,7 +7,7 @@ use crate::Error;
 ///
 /// *Note*:
 ///
-/// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`](crate::Error) if the
+/// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum CommunicationControlType {

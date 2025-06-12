@@ -10,7 +10,7 @@ use crate::Error;
 ///
 /// Note:
 ///
-/// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`](crate::Error) if the value is not a valid `CommunicationType`
+/// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`] if the value is not a valid `CommunicationType`
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum CommunicationType {
     /// This value is reserved by the ISO 14229-1 Specification

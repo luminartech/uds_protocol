@@ -1,3 +1,4 @@
+#[allow(rustdoc::private_intra_doc_links)]
 mod communication_control_type;
 pub use communication_control_type::CommunicationControlType;
 
