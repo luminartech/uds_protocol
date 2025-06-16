@@ -75,7 +75,9 @@ pub trait SingleValueWireFormat: WireFormat {
 ///
 /// Prefer using the [`#[derive(Identifier)]`](uds_protocol_derive::Identifier) derive macro to implement this trait
 pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + Serialize {
-    /// Returns a `Vec<Self>` from a reader that contains a list of Identifier values
+    /// Attempt to read a vector of identifiers from a `Reader`.
+    /// Returns a vector of from a reader that contains a list of Identifier values
+    /// or 'Error' if parsing fails.
     fn parse_from_list<R: std::io::Read>(reader: &mut R) -> Result<Vec<Self>, Error> {
         // Create an iterator to collect. Will use the blanket implementation of WireFormat for Identifier
         // to read the values from the reader
