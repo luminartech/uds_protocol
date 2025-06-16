@@ -633,7 +633,7 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// UserPayload is so the data can be read according to a specific format
     /// defined by the supplier/vehicle manufacturer
     ///
-    /// * Parameter: [`DTCMaskRecord`] (3 bytes) - Echo of the request
+    /// * Parameter: [`DTCRecord`] (3 bytes) - Echo of the request
     /// * Parameter: [`DTCStatusMask`] (1) - status of the requested DTC
     /// * Parameter: [`crate::DTCExtDataRecord`] (n)
     ///
@@ -671,7 +671,7 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`UserDefMemoryDTCByStatusMaskRecord`] (n)
     ///
     /// For subfunction 0x17
-    ///   * 0x17: [ReadDTCInfoSubFunction::reportUserDefMemoryDTCByStatusMask]
+    ///   * 0x17: [ReadDTCInfoSubFunction::ReportUserDefMemoryDTC_ByStatusMask]
     UserDefMemoryDTCByStatusMaskList(UserDefMemoryDTCByStatusMaskRecord),
 
     /// List of [crate::DTCSnapshotRecord]s for a given DTC.

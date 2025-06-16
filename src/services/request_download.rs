@@ -33,7 +33,7 @@ pub struct RequestDownloadRequest {
     /// Has a variable number of bytes, max of 5
     pub memory_address: u64,
     /// Size of the data to be downloaded. Number of bytes sent is determined by `address_and_length_format_identifier`
-    /// Used by the server to validate the data transferred by the [`TransferData`] service
+    /// Used by the server to validate the data transferred by the [`TransferData`](crate::Response::TransferData) service
     /// Has a variable number of bytes, max of 4
     pub memory_size: u32,
 }
@@ -135,7 +135,7 @@ pub struct RequestDownloadResponse {
     /// In it is a byte with the high nibble being the length of the max_number_of_block_length field.
     length_format_identifier: LengthFormatIdentifier,
     /// Variable length field, length determined by `length_format_identifier`
-    /// Client is instructed to send this many bytes per [`TransferDataRequest`] message.
+    /// Client is instructed to send this many bytes per [`TransferDataRequest`](crate::services::TransferDataRequest) message.
     pub max_number_of_block_length: Vec<u8>,
 }
 

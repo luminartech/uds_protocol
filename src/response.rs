@@ -30,10 +30,10 @@ pub enum Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload
     NegativeResponse(NegativeResponse),
     ReadDataByIdentifier(ReadDataByIdentifierResponse<UserPayload>),
     ReadDTCInfo(ReadDTCInfoResponse<UserPayload>),
-    /// Response to a [`RequestDownload`](crate::RequestDownload)
+    /// Response to a [`RequestDownload`](crate::Request::RequestDownload)
     RequestDownload(RequestDownloadResponse),
     RequestFileTransfer(RequestFileTransferResponse),
-    /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
+    /// Response to a [`RequestTransferExit`](crate::Request::RequestTransferExit)
     RequestTransferExit,
     /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
     RoutineControl(RoutineControlResponse<RoutineIdentifier, RoutinePayload>),

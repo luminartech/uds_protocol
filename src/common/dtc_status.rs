@@ -44,7 +44,7 @@ pub enum DTCStatusMask {
     /// * 0 shall indicate the last test passed
     /// * 1 shall indicate the last matured test **failed**
     ///
-    /// Will be 0 after a successful [`ClearDiagnosticInformation`](crate::services::ClearDiagnosticInformation) service
+    /// Will be 0 after a successful [`ClearDiagnosticInformation`](crate::service::UdsServiceType::ClearDiagnosticInfo) service
     TestFailed,
     /// Whether or not a diagnostic test has reported a test failed result during the current operation cycle,
     /// or that it's been reported during this operation and after ClearDiagnosticInformation
