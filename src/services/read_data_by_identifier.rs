@@ -21,7 +21,11 @@ pub struct ReadDataByIdentifierRequest<DataIdentifier> {
 
 impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
     /// Create a new request from a sequence of data identifiers
-    pub(crate) fn new(dids: Vec<DataIdentifier>) -> Self {
+    pub(crate) fn new<I>(dids: I) -> Self
+    where
+        I: IntoIterator<Item = DataIdentifier>,
+    {
+        let dids = dids.into_iter().collect();
         Self { dids }
     }
 
@@ -175,7 +179,7 @@ mod test {
         fn get_test_ids() -> Vec<ProtocolIdentifier> {
             vec![
                 ProtocolIdentifier::new(UDSIdentifier::BootSoftwareIdentification),
-                ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftware),
+                ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftwareIdentification),
                 ProtocolIdentifier::new(UDSIdentifier::ApplicationDataIdentification),
                 ProtocolIdentifier::new(UDSIdentifier::BootSoftwareFingerprint),
                 ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftwareFingerprint),
