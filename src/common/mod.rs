@@ -38,3 +38,12 @@ pub(crate) use format_identifiers::{
 
 mod util;
 pub use util::{param_length_u128, param_length_u16, param_length_u32, param_length_u64};
+
+mod primitive_generics;
+pub use primitive_generics::*;
+
+mod active_diagnostic_session;
+pub use active_diagnostic_session::ActiveDiagnosticSession;
+
+mod bcd_4_byte;
+pub use bcd_4_byte::BCD4ByteLE;
