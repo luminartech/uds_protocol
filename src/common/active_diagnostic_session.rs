@@ -22,20 +22,17 @@ impl std::ops::Deref for ActiveDiagnosticSession {
 
 impl ActiveDiagnosticSession {
     /// Creates a new `ActiveDiagnosticSession` instance.
-    pub fn new(current_session: u8) -> Self {
-        ActiveDiagnosticSession {
-            current_session: match current_session.try_into() {
-                Ok(session) => session,
-                Err(_) => todo!("Error Handling pending!"),
-            },
-        }
+    pub fn new(current_session: u8) -> Result<Self, Error> {
+        Ok(ActiveDiagnosticSession {
+            current_session: current_session.try_into()?,
+        })
     }
 }
 
 impl WireFormat for ActiveDiagnosticSession {
     fn option_from_reader<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let value = reader.read_u8()?;
-        Ok(Some(ActiveDiagnosticSession::new(value)))
+        Ok(Some(ActiveDiagnosticSession::new(value)?))
     }
 
     fn required_size(&self) -> usize {
