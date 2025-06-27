@@ -29,7 +29,7 @@ impl FromStr for BCD4ByteLE {
         let value = s
             .trim()
             .parse::<u32>()
-            .map_err(|e| format!("Failed to parse BCD4ByteLE: {}", e))?;
+            .map_err(|e| format!("Failed to parse BCD4ByteLE: {e}"))?;
         Ok(BCD4ByteLE::new(value))
     }
 }
@@ -68,7 +68,7 @@ mod bcd_tests {
 
         for (input, expected_value) in valid_inputs {
             let bcd = BCD4ByteLE::from_str(&input).unwrap();
-            assert_eq!(bcd.value, expected_value, "Failed for input: {}", input);
+            assert_eq!(bcd.value, expected_value, "Failed for input: {input}");
         }
     }
 
@@ -83,7 +83,7 @@ mod bcd_tests {
 
         for input in invalid_inputs {
             let result = BCD4ByteLE::from_str(input);
-            assert!(result.is_err(), "Expected error for input: {}", input);
+            assert!(result.is_err(), "Expected error for input: {input}");
         }
     }
 }
