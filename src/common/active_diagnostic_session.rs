@@ -12,14 +12,6 @@ pub struct ActiveDiagnosticSession {
     pub current_session: DiagnosticSessionType,
 }
 
-impl std::ops::Deref for ActiveDiagnosticSession {
-    type Target = DiagnosticSessionType;
-
-    fn deref(&self) -> &Self::Target {
-        &self.current_session
-    }
-}
-
 impl ActiveDiagnosticSession {
     /// Creates a new `ActiveDiagnosticSession` instance.
     pub fn new(current_session: u8) -> Result<Self, Error> {
