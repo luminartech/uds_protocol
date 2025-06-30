@@ -8,7 +8,7 @@ macro_rules! unsigned_primitive_wire_format {
         impl WireFormat for $primitive {
             fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
                 let value: $primitive = reader
-                    .read_uint::<BigEndian>(std::mem::size_of::<$primitive>())?
+                    .read_uint128::<BigEndian>(std::mem::size_of::<$primitive>())?
                     .try_into()
                     .unwrap();
                 Ok(Some(value))
@@ -17,7 +17,7 @@ macro_rules! unsigned_primitive_wire_format {
                 std::mem::size_of::<$primitive>()
             }
             fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-                writer.write_uint::<BigEndian>(u64::from(*self), self.required_size())?;
+                writer.write_uint128::<BigEndian>(u128::from(*self), self.required_size())?;
                 Ok(self.required_size())
             }
         }
@@ -25,21 +25,7 @@ macro_rules! unsigned_primitive_wire_format {
     };
 }
 
-unsigned_primitive_wire_format!(u8, u16, u32, u64);
-
-impl WireFormat for u128 {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let value: u128 = reader.read_u128::<BigEndian>()?;
-        Ok(Some(value))
-    }
-    fn required_size(&self) -> usize {
-        16
-    }
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        writer.write_u128::<BigEndian>(*self)?;
-        Ok(self.required_size())
-    }
-}
+unsigned_primitive_wire_format!(u8, u16, u32, u64, u128);
 
 #[macro_export]
 macro_rules! signed_primitive_wire_format {
@@ -48,7 +34,7 @@ macro_rules! signed_primitive_wire_format {
         impl WireFormat for $primitive {
             fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
                 let value: $primitive = reader
-                    .read_int::<BigEndian>(std::mem::size_of::<$primitive>())?
+                    .read_int128::<BigEndian>(std::mem::size_of::<$primitive>())?
                     .try_into()
                     .unwrap();
                 Ok(Some(value))
@@ -57,7 +43,7 @@ macro_rules! signed_primitive_wire_format {
                 std::mem::size_of::<$primitive>()
             }
             fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-                writer.write_int::<BigEndian>(i64::from(*self), self.required_size())?;
+                writer.write_int128::<BigEndian>(i128::from(*self), self.required_size())?;
                 Ok(self.required_size())
             }
         }
@@ -65,21 +51,7 @@ macro_rules! signed_primitive_wire_format {
     };
 }
 
-signed_primitive_wire_format!(i8, i16, i32, i64);
-
-impl WireFormat for i128 {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let value: i128 = reader.read_i128::<BigEndian>()?;
-        Ok(Some(value))
-    }
-    fn required_size(&self) -> usize {
-        16
-    }
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        writer.write_i128::<BigEndian>(*self)?;
-        Ok(self.required_size())
-    }
-}
+signed_primitive_wire_format!(i8, i16, i32, i64, i128);
 
 impl WireFormat for f32 {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
