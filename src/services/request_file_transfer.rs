@@ -963,7 +963,7 @@ mod response_tests {
         // File or dir size
         let num = param_length_u128(file_size);
         if mode == FileOperationMode::ReadFile {
-            print!("{:?}", mode);
+            print!("{mode:?}");
 
             bytes.write_u16::<byteorder::BE>(num).unwrap();
             let source = file_size.to_be_bytes();
