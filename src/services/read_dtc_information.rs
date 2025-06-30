@@ -1369,8 +1369,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1408,8 +1408,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
     #[test]
@@ -1441,8 +1441,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1489,8 +1489,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1532,8 +1532,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1559,8 +1559,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1610,8 +1610,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1644,8 +1644,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1685,8 +1685,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1734,8 +1734,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 
@@ -1770,8 +1770,8 @@ mod response {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 }
@@ -1879,8 +1879,8 @@ mod ext_data {
         // write
         let mut writer = Vec::new();
         let written = response.to_writer(&mut writer).unwrap();
-        assert_eq!(writer, bytes, "Written: \n{:02X?}\n{:02X?}", writer, bytes);
-        assert_eq!(written, bytes.len(), "Written: \n{:?}\n{:?}", writer, bytes);
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
     }
 }
