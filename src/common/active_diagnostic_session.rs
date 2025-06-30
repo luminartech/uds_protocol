@@ -39,3 +39,30 @@ impl WireFormat for ActiveDiagnosticSession {
 }
 
 impl SingleValueWireFormat for ActiveDiagnosticSession {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_active_diagnostic_session() {
+        let bytes = [0x01]; // DiagnosticSessionType::DefaultSession
+        let mut reader = &bytes[..];
+
+        let response = ActiveDiagnosticSession::option_from_reader(&mut reader)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(
+            response.current_session,
+            DiagnosticSessionType::DefaultSession
+        );
+        assert_eq!(response.required_size(), 1);
+
+        let mut writer = Vec::new();
+        let written = response.to_writer(&mut writer).unwrap();
+        assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
+        assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
+        assert_eq!(written, response.required_size());
+    }
+}
