@@ -6,8 +6,8 @@ use crate::{
         RequestDownloadRequest, RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest,
         TransferDataRequest, WriteDataByIdentifierRequest,
     },
-    Error, Identifier, IterableWireFormat, NegativeResponseCode, ReadDTCInfoRequest, ResetType,
-    SecurityAccessType, SingleValueWireFormat, WireFormat,
+    DataSpecifier, Error, NegativeResponseCode, ReadDTCInfoRequest, ResetType, SecurityAccessType,
+    SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -22,30 +22,24 @@ use super::{
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
 #[derive(Clone, Debug, PartialEq)]
-pub enum Request<RoutineIdentifier, DiagnosticIdentifier, RoutinePayload, DiagnosticPayload> {
+pub enum Request<D: DataSpecifier> {
     ClearDiagnosticInfo(ClearDiagnosticInfoRequest),
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
     EcuReset(EcuResetRequest),
-    ReadDataByIdentifier(ReadDataByIdentifierRequest<DiagnosticIdentifier>),
+    ReadDataByIdentifier(ReadDataByIdentifierRequest<D::DID>),
     ReadDTCInfo(ReadDTCInfoRequest),
     RequestDownload(RequestDownloadRequest),
     RequestTransferExit,
-    RoutineControl(RoutineControlRequest<RoutineIdentifier, RoutinePayload>),
+    RoutineControl(RoutineControlRequest<D::RID, D::RoutinePayload>),
     SecurityAccess(SecurityAccessRequest),
     TesterPresent(TesterPresentRequest),
     TransferData(TransferDataRequest),
-    WriteDataByIdentifier(WriteDataByIdentifierRequest<DiagnosticPayload>),
+    WriteDataByIdentifier(WriteDataByIdentifierRequest<D::DiagnosticPayload>),
 }
 
-impl<
-        RoutineIdentifier: Identifier,
-        DiagnosticIdentifier: Identifier,
-        RoutinePayload: WireFormat,
-        DiagnosticPayload: IterableWireFormat,
-    > Request<RoutineIdentifier, DiagnosticIdentifier, RoutinePayload, DiagnosticPayload>
-{
+impl<D: DataSpecifier> Request<D> {
     /// Create a `ClearDiagnosticInfo` request, clears diagnostic information in one or more servers' memory
     pub fn clear_diagnostic_info(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
         Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::new(
@@ -120,7 +114,7 @@ impl<
     /// Create a new `ReadDataByIdentifier` request
     pub fn read_data_by_identifier<I>(dids: I) -> Self
     where
-        I: IntoIterator<Item = DiagnosticIdentifier>,
+        I: IntoIterator<Item = D::DID>,
     {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
@@ -163,10 +157,7 @@ impl<
     ///      * [`RoutineControlSubFunction::StopRoutine`]
     ///      * [`RoutineControlSubFunction::RequestRoutineResults`]
     ///    * `routine_id`: The identifier of the routine to control
-    pub fn routine_control(
-        sub_function: RoutineControlSubFunction,
-        routine_id: RoutineIdentifier,
-    ) -> Self {
+    pub fn routine_control(sub_function: RoutineControlSubFunction, routine_id: D::RID) -> Self {
         Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, None))
     }
 
@@ -187,8 +178,8 @@ impl<
     ///    * `data`: Optional payload for the routine control request
     pub fn routine_control_payload(
         sub_function: RoutineControlSubFunction,
-        routine_id: RoutineIdentifier,
-        data: Option<RoutinePayload>,
+        routine_id: D::RID,
+        data: Option<D::RoutinePayload>,
     ) -> Self {
         Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
@@ -213,7 +204,7 @@ impl<
         Request::TransferData(TransferDataRequest::new(sequence, data))
     }
 
-    pub fn write_data_by_identifier(payload: DiagnosticPayload) -> Self {
+    pub fn write_data_by_identifier(payload: D::DiagnosticPayload) -> Self {
         Request::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(payload))
     }
 
@@ -250,14 +241,7 @@ impl<
     }
 }
 
-impl<
-        RoutineIdentifier: Identifier,
-        DiagnosticIdentifier: Identifier,
-        RoutinePayload: WireFormat,
-        DiagnosticPayload: IterableWireFormat,
-    > WireFormat
-    for Request<RoutineIdentifier, DiagnosticIdentifier, RoutinePayload, DiagnosticPayload>
-{
+impl<T: DataSpecifier> WireFormat for Request<T> {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -267,7 +251,7 @@ impl<
     /// Some services allow for custom byte arrays at the end of the request
     /// It is important that only the request data is passed to this function
     /// or the deserialization could read unexpected data
-    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn option_from_reader<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         Ok(Some(match service {
             UdsServiceType::CommunicationControl => {
@@ -346,7 +330,7 @@ impl<
     /// Serialization function to write a [`Request`] to a [`Writer`](std::io::Write)
     /// This function writes the service byte and then calls the appropriate
     /// serialization function for the service represented by self.
-    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn to_writer<W: Write>(&self, writer: &mut W) -> Result<usize, Error> {
         // Write the service byte
         writer.write_u8(self.service().request_service_to_byte())?;
         // Write the payload
@@ -369,12 +353,4 @@ impl<
     }
 }
 
-impl<
-        RoutineIdentifier: Identifier,
-        DiagnosticIdentifier: Identifier,
-        RoutinePayload: WireFormat,
-        DiagnosticPayload: IterableWireFormat,
-    > SingleValueWireFormat
-    for Request<RoutineIdentifier, DiagnosticIdentifier, RoutinePayload, DiagnosticPayload>
-{
-}
+impl<D: DataSpecifier> SingleValueWireFormat for Request<D> {}
