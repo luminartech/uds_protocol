@@ -10,7 +10,7 @@ macro_rules! unsigned_primitive_wire_format {
                 let value: $primitive = reader
                     .read_uint128::<BigEndian>(std::mem::size_of::<$primitive>())?
                     .try_into()
-                    .unwrap();
+                    .expect("Failed to convert value to the target primitive type");
                 Ok(Some(value))
             }
             fn required_size(&self) -> usize {
@@ -36,7 +36,7 @@ macro_rules! signed_primitive_wire_format {
                 let value: $primitive = reader
                     .read_int128::<BigEndian>(std::mem::size_of::<$primitive>())?
                     .try_into()
-                    .unwrap();
+                    .expect("Failed to convert value to the target primitive type");
                 Ok(Some(value))
             }
             fn required_size(&self) -> usize {
