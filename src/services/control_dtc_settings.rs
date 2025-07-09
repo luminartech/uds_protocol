@@ -41,6 +41,10 @@ impl WireFormat for ControlDTCSettingsRequest {
         writer.write_u8(request_byte)?;
         Ok(1)
     }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        self.suppress_response
+    }
 }
 
 impl SingleValueWireFormat for ControlDTCSettingsRequest {}

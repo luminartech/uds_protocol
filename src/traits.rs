@@ -32,6 +32,14 @@ pub trait WireFormat: Sized {
     /// # Errors
     /// - If the data cannot be written to the stream
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error>;
+
+    /// For some UDS messages, positive replies can be suppressed via the SPRMIB (bit 7 position) of the request.
+    ///
+    /// Default to false, meaning that the positive response is not suppressed. Some services do not support this feature,
+    /// so this function should not be used to assume that a positive response can be suppressed.
+    fn is_positive_response_suppressed(&self) -> bool {
+        false
+    }
 }
 
 struct WireFormatIterator<'a, T, R> {

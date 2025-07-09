@@ -351,6 +351,18 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
             Self::WriteDataByIdentifier(wd) => wd.to_writer(writer),
         }?)
     }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        match self {
+            Self::CommunicationControl(cc) => cc.suppress_positive_response(),
+            Self::ControlDTCSettings(ct) => ct.is_positive_response_suppressed(),
+            Self::DiagnosticSessionControl(ds) => ds.suppress_positive_response(),
+            Self::EcuReset(er) => er.suppress_positive_response(),
+            Self::SecurityAccess(sa) => sa.suppress_positive_response(),
+            Self::TesterPresent(tp) => tp.suppress_positive_response(),
+            _ => false,
+        }
+    }
 }
 
 impl<D: DiagnosticDefinition> SingleValueWireFormat for Request<D> {}

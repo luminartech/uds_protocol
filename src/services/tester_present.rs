@@ -106,6 +106,10 @@ impl WireFormat for TesterPresentRequest {
         writer.write_u8(u8::from(self.zero_sub_function))?;
         Ok(1)
     }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        self.suppress_positive_response()
+    }
 }
 
 impl SingleValueWireFormat for TesterPresentRequest {}
