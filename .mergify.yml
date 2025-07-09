@@ -1,0 +1,57 @@
+
+pull_request_rules:
+  - name: Linear History Status
+    conditions:
+      - linear-history
+    actions:
+      post_check:
+        title: |
+          {% if check_succeed %}
+          Branch has linear history
+          {% else %}
+          Branch does not have linear history
+          {% endif %}
+        summary: |
+          {% if not check_succeed %}
+          Please rebase your branch, removing any merge commits -
+          https://luminartech.atlassian.net/wiki/spaces/EMBSYS/pages/1820787964/Mergify+Integration
+          https://www.bitsnbites.eu/a-tidy-linear-git-history/
+          {% endif %}
+
+# Rules for PRs in the queue. When all conditions are fulfilled, it will be merged.
+  - name: Automatic semi-linear merge on label, approval and CI success
+    conditions: []
+    actions:
+      queue:
+queue_rules:
+  - name: default
+    # Mergify can create multiple temporary PRs to test CI multiple times
+    # Set to 1 to allow semi-linear merge
+    queue_conditions:
+      - -draft
+      - label=automerge
+      - "#review-requested=0"
+      - "#approved-reviews-by>=1"
+      - "#changes-requested-reviews-by=0"
+    merge_conditions:
+      - linear-history
+
+# Default account to use when using actions or "@MergifyIO <command>"
+    update_method: rebase
+    update_bot_account: lumci
+    merge_method: merge
+defaults:
+  actions:
+    rebase:
+      bot_account: lumci
+    backport:
+      bot_account: "{{author}}"
+      labels:
+        - automerge
+      body: |
+        This is an automatic backport of pull request #{{number}} done by [Mergify](https://mergify.com).
+        {{cherry_pick_error}}
+        {{ body | get_section("# Changelog") }}
+
+merge_queue:
+  max_parallel_checks: 1
