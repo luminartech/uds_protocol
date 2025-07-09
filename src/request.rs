@@ -366,3 +366,55 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
 }
 
 impl<D: DiagnosticDefinition> SingleValueWireFormat for Request<D> {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        CommunicationControlType, CommunicationType, ProtocolRequest, ResetType, SecurityAccessType,
+    };
+
+    #[test]
+    fn test_is_positive_response_suppressed() {
+        let communication_control_request = ProtocolRequest::communication_control(
+            CommunicationControlType::EnableRxAndTx,
+            CommunicationType::Normal,
+            true,
+        );
+        assert!(communication_control_request.is_positive_response_suppressed());
+
+        let control_dtc_settings_request =
+            ProtocolRequest::control_dtc_settings(DtcSettings::On, true);
+        assert!(control_dtc_settings_request.is_positive_response_suppressed());
+
+        let diagnostic_session_control_request = ProtocolRequest::diagnostic_session_control(
+            true,
+            DiagnosticSessionType::ProgrammingSession,
+        );
+        assert!(diagnostic_session_control_request.is_positive_response_suppressed());
+        let diagnostic_session_control_request = ProtocolRequest::diagnostic_session_control(
+            false,
+            DiagnosticSessionType::ProgrammingSession,
+        );
+        let should_not_be_suppressed =
+            diagnostic_session_control_request.is_positive_response_suppressed();
+        assert!(!should_not_be_suppressed);
+
+        let ecu_reset_request = ProtocolRequest::ecu_reset(true, ResetType::HardReset);
+        assert!(ecu_reset_request.is_positive_response_suppressed());
+
+        let security_access_request = ProtocolRequest::security_access(
+            true,
+            SecurityAccessType::ISO26021_2SendKeyValues,
+            vec![0x01, 0x02],
+        );
+        assert!(security_access_request.is_positive_response_suppressed());
+
+        let tester_present_request = ProtocolRequest::tester_present(true);
+        assert!(tester_present_request.is_positive_response_suppressed());
+
+        let clear_diagnostic_info_request =
+            ProtocolRequest::clear_diagnostic_info(DTCRecord::new(0x01, 0x02, 0x03), 0x01);
+        assert!(!clear_diagnostic_info_request.is_positive_response_suppressed());
+    }
+}
