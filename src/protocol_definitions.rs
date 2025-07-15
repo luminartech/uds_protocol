@@ -58,9 +58,12 @@ impl WireFormat for ProtocolPayload {
             2 => (),
             _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
         };
-        Err(Error::InvalidDiagnosticIdentifier(u16::from_be_bytes(
-            identifier_data,
-        )))
+        let mut entire_payload: Vec<u8> = Vec::new();
+        reader.read_to_end(&mut entire_payload)?;
+        Err(Error::InvalidDiagnosticIdentifierPayload(
+            u16::from_be_bytes(identifier_data),
+            entire_payload,
+        ))
     }
 
     fn required_size(&self) -> usize {

@@ -6,8 +6,10 @@ pub enum Error {
     IoError(#[from] std::io::Error),
     #[error("Insufficient data. Expected {0} bytes.")]
     InsufficientData(usize),
-    #[error("Invalid Diagnostic Identifier: {0}")]
+    #[error("Invalid Diagnostic Identifier: {0:X}")]
     InvalidDiagnosticIdentifier(u16),
+    #[error("Invalid Diagnostic Identifier: {0:X} with payload {1:?}")]
+    InvalidDiagnosticIdentifierPayload(u16, Vec<u8>),
     #[error("Invalid diagnostic session type: {0}")]
     InvalidDiagnosticSessionType(u8),
     #[error("Invalid ECU reset type: {0}")]
