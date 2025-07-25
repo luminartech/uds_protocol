@@ -6,8 +6,8 @@ use crate::{
         RequestDownloadRequest, RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest,
         TransferDataRequest, WriteDataByIdentifierRequest,
     },
-    DataSpecifier, Error, NegativeResponseCode, ReadDTCInfoRequest, ResetType, SecurityAccessType,
-    SingleValueWireFormat, WireFormat,
+    DiagnosticDefinition, Error, NegativeResponseCode, ReadDTCInfoRequest, ResetType,
+    SecurityAccessType, SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -22,7 +22,7 @@ use super::{
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
 #[derive(Clone, Debug, PartialEq)]
-pub enum Request<D: DataSpecifier> {
+pub enum Request<D: DiagnosticDefinition> {
     ClearDiagnosticInfo(ClearDiagnosticInfoRequest),
     CommunicationControl(CommunicationControlRequest),
     ControlDTCSettings(ControlDTCSettingsRequest),
@@ -39,7 +39,7 @@ pub enum Request<D: DataSpecifier> {
     WriteDataByIdentifier(WriteDataByIdentifierRequest<D::DiagnosticPayload>),
 }
 
-impl<D: DataSpecifier> Request<D> {
+impl<D: DiagnosticDefinition> Request<D> {
     /// Create a `ClearDiagnosticInfo` request, clears diagnostic information in one or more servers' memory
     pub fn clear_diagnostic_info(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
         Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::new(
@@ -241,7 +241,7 @@ impl<D: DataSpecifier> Request<D> {
     }
 }
 
-impl<T: DataSpecifier> WireFormat for Request<T> {
+impl<T: DiagnosticDefinition> WireFormat for Request<T> {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -353,4 +353,4 @@ impl<T: DataSpecifier> WireFormat for Request<T> {
     }
 }
 
-impl<D: DataSpecifier> SingleValueWireFormat for Request<D> {}
+impl<D: DiagnosticDefinition> SingleValueWireFormat for Request<D> {}

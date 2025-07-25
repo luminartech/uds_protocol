@@ -25,7 +25,9 @@ mod services;
 pub use services::*;
 
 mod traits;
-pub use traits::{Identifier, IterableWireFormat, SingleValueWireFormat, WireFormat};
+pub use traits::{
+    DiagnosticDefinition, Identifier, IterableWireFormat, SingleValueWireFormat, WireFormat,
+};
 
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -33,34 +35,13 @@ use serde::{Deserialize, Serialize};
 pub const SUCCESS: u8 = 0x80;
 pub const PENDING: u8 = 0x78;
 
-/// A trait that defines the user-defined data specifiers for UDS requests and responses.
-///
-/// Used to specify the types of the identifiers and payloads used in UDS requests and responses.
-/// It allows for flexibility in defining custom data types while adhering to the UDS protocol.
-pub trait DataSpecifier {
-    /// UDS Data Identifier
-    ///
-    /// Requests : [ReadDataByIdentifierRequest], [WriteDataByIdentifierRequest], and [ReadDTCInfoRequest]
-    /// Responses: [ReadDataByIdentifierResponse], [WriteDataByIdentifierResponse], and [ReadDTCInfoResponse]
-    type DID: Identifier;
-    /// Response payload for [ReadDataByIdentifierRequest]
-    type DiagnosticPayload: IterableWireFormat;
-
-    /// UDS Routine Identifier
-    ///
-    /// This is used to identify the routine to be controlled in a [RoutineControlRequest]
-    type RID: Identifier;
-    /// Payload for both requests and responses of [RoutineControlRequest] and [RoutineControlResponse]
-    type RoutinePayload: WireFormat;
-}
-
-/// Basic UDS implementation of the [DataSpecifier] trait.
+/// Basic UDS implementation of the [DiagnosticDefinition] trait.
 ///
 /// This is an example of a simple data spec that can be used with UDS requests and responses.
 /// It should **not** be used directly in production code, but rather as a base for more complex data specifiers.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UdsSpec;
-impl DataSpecifier for UdsSpec {
+impl DiagnosticDefinition for UdsSpec {
     type RID = ProtocolIdentifier;
     type DID = ProtocolIdentifier;
     type RoutinePayload = ProtocolPayload;

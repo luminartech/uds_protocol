@@ -1,6 +1,6 @@
 use crate::{
     CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse,
-    DataSpecifier, DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings,
+    DiagnosticDefinition, DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings,
     EcuResetResponse, Error, NegativeResponse, NegativeResponseCode, ReadDTCInfoResponse,
     ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferResponse, ResetType,
     RoutineControlResponse, SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat,
@@ -16,7 +16,7 @@ pub struct UdsResponse {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Response<D: DataSpecifier> {
+pub enum Response<D: DiagnosticDefinition> {
     ClearDiagnosticInfo,
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
@@ -43,7 +43,7 @@ pub enum Response<D: DataSpecifier> {
     WriteDataByIdentifier(WriteDataByIdentifierResponse<D::DID>),
 }
 
-impl<D: DataSpecifier> Response<D> {
+impl<D: DiagnosticDefinition> Response<D> {
     pub fn clear_diagnostic_info() -> Self {
         Response::ClearDiagnosticInfo
     }
@@ -135,7 +135,7 @@ impl<D: DataSpecifier> Response<D> {
     }
 }
 
-impl<D: DataSpecifier> WireFormat for Response<D> {
+impl<D: DiagnosticDefinition> WireFormat for Response<D> {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
@@ -243,4 +243,4 @@ impl<D: DataSpecifier> WireFormat for Response<D> {
     }
 }
 
-impl<D: DataSpecifier> SingleValueWireFormat for Response<D> {}
+impl<D: DiagnosticDefinition> SingleValueWireFormat for Response<D> {}
