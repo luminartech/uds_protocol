@@ -141,6 +141,27 @@ where
     }
 }
 
+/// A trait that defines the user-defined diagnostic definitions/specifiers for UDS requests and responses.
+///
+/// Used to specify the types of the identifiers and payloads used in UDS requests and responses.
+/// It allows for flexibility in defining custom data types while adhering to the UDS protocol.
+pub trait DiagnosticDefinition {
+    /// UDS Data Identifier
+    ///
+    /// Requests : [ReadDataByIdentifierRequest], [WriteDataByIdentifierRequest], and [ReadDTCInfoRequest]
+    /// Responses: [ReadDataByIdentifierResponse], [WriteDataByIdentifierResponse], and [ReadDTCInfoResponse]
+    type DID: Identifier;
+    /// Response payload for [ReadDataByIdentifierRequest]
+    type DiagnosticPayload: IterableWireFormat;
+
+    /// UDS Routine Identifier
+    ///
+    /// This is used to identify the routine to be controlled in a [RoutineControlRequest]
+    type RID: Identifier;
+    /// Payload for both requests and responses of [RoutineControlRequest] and [RoutineControlResponse]
+    type RoutinePayload: WireFormat;
+}
+
 /// tests
 #[cfg(test)]
 mod tests {
