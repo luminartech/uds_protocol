@@ -154,9 +154,22 @@ mod request {
     use super::*;
     use crate::Identifier;
 
-    impl Identifier for u16 {}
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Identifier)]
+    struct TestIdentifier(pub u16);
 
-    type RoutineControlRequestType = RoutineControlRequest<u16, Vec<u8>>;
+    impl From<u16> for TestIdentifier {
+        fn from(value: u16) -> Self {
+            TestIdentifier(value)
+        }
+    }
+
+    impl From<TestIdentifier> for u16 {
+        fn from(val: TestIdentifier) -> Self {
+            val.0
+        }
+    }
+
+    type RoutineControlRequestType = RoutineControlRequest<TestIdentifier, Vec<u8>>;
 
     #[test]
     fn simple_request() {
@@ -166,7 +179,7 @@ mod request {
             RoutineControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.sub_function), 0x01);
-        assert_eq!(req.routine_id, 0x0001);
+        assert_eq!(req.routine_id, TestIdentifier::from(0x0001));
         let data = req.data.clone().unwrap();
         assert_eq!(data, vec![0x02, 0x03, 0x04]);
 
@@ -177,18 +190,18 @@ mod request {
 
         let new_req: RoutineControlRequestType = RoutineControlRequest::new(
             RoutineControlSubFunction::StopRoutine,
-            0x0002,
+            TestIdentifier::from(0x0002),
             Some(vec![]),
         );
 
         assert_eq!(new_req.sub_function, RoutineControlSubFunction::StopRoutine);
-        assert_eq!(new_req.routine_id, 0x0002);
+        assert_eq!(new_req.routine_id, TestIdentifier::from(0x0002));
     }
 
     #[test]
     fn simple_response() {
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
-        let resp: RoutineControlResponse<u16, Vec<u8>> =
+        let resp: RoutineControlResponse<TestIdentifier, Vec<u8>> =
             RoutineControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(resp.routine_control_type), 0x01);
@@ -199,8 +212,11 @@ mod request {
         assert_eq!(written, bytes.len());
         assert_eq!(written, resp.required_size());
 
-        let new_resp: RoutineControlResponse<u16, Vec<u8>> =
-            RoutineControlResponse::new(RoutineControlSubFunction::StopRoutine, 0xFF00, buf);
+        let new_resp: RoutineControlResponse<TestIdentifier, Vec<u8>> = RoutineControlResponse::new(
+            RoutineControlSubFunction::StopRoutine,
+            TestIdentifier::from(0xFF00),
+            buf,
+        );
 
         assert_eq!(
             new_resp.routine_control_type,
