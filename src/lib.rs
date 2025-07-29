@@ -25,7 +25,9 @@ mod services;
 pub use services::*;
 
 mod traits;
-pub use traits::{Identifier, IterableWireFormat, SingleValueWireFormat, WireFormat};
+pub use traits::{
+    DiagnosticDefinition, Identifier, IterableWireFormat, SingleValueWireFormat, WireFormat,
+};
 
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -33,13 +35,24 @@ use serde::{Deserialize, Serialize};
 pub const SUCCESS: u8 = 0x80;
 pub const PENDING: u8 = 0x78;
 
+/// Basic UDS implementation of the [DiagnosticDefinition] trait.
+///
+/// This is an example of a simple data spec that can be used with UDS requests and responses.
+/// It should **not** be used directly in production code, but rather as a base for more complex data specifiers.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UdsSpec;
+impl DiagnosticDefinition for UdsSpec {
+    type RID = ProtocolIdentifier;
+    type DID = ProtocolIdentifier;
+    type RoutinePayload = ProtocolPayload;
+    type DiagnosticPayload = ProtocolPayload;
+}
+
 /// Type alias for a UDS Request type that only implements the messages explicitly defined by the UDS specification.
-pub type ProtocolRequest =
-    Request<ProtocolIdentifier, ProtocolIdentifier, ProtocolPayload, ProtocolPayload>;
+pub type ProtocolRequest = Request<UdsSpec>;
 
 /// Type alias for a UDS Response type that only implements the messages explicitly defined by the UDS specification.
-pub type ProtocolResponse =
-    Response<ProtocolIdentifier, ProtocolIdentifier, ProtocolPayload, ProtocolPayload>;
+pub type ProtocolResponse = Response<UdsSpec>;
 
 /// What type of routine control to perform for a [RoutineControlRequest].
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]

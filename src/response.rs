@@ -1,7 +1,7 @@
 use crate::{
     CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse,
-    DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings, EcuResetResponse, Error,
-    Identifier, IterableWireFormat, NegativeResponse, NegativeResponseCode, ReadDTCInfoResponse,
+    DiagnosticDefinition, DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings,
+    EcuResetResponse, Error, NegativeResponse, NegativeResponseCode, ReadDTCInfoResponse,
     ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferResponse, ResetType,
     RoutineControlResponse, SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat,
     TesterPresentResponse, TransferDataResponse, UdsServiceType, WireFormat,
@@ -16,7 +16,7 @@ pub struct UdsResponse {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload> {
+pub enum Response<D: DiagnosticDefinition> {
     ClearDiagnosticInfo,
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
@@ -28,28 +28,22 @@ pub enum Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload
     EcuReset(EcuResetResponse),
     /// Negative response to any request
     NegativeResponse(NegativeResponse),
-    ReadDataByIdentifier(ReadDataByIdentifierResponse<UserPayload>),
-    ReadDTCInfo(ReadDTCInfoResponse<UserPayload>),
+    ReadDataByIdentifier(ReadDataByIdentifierResponse<D::DiagnosticPayload>),
+    ReadDTCInfo(ReadDTCInfoResponse<D::DiagnosticPayload>),
     /// Response to a [`RequestDownload`](crate::RequestDownload)
     RequestDownload(RequestDownloadResponse),
     RequestFileTransfer(RequestFileTransferResponse),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
-    RoutineControl(RoutineControlResponse<RoutineIdentifier, RoutinePayload>),
+    RoutineControl(RoutineControlResponse<D::RID, D::RoutinePayload>),
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
     TransferData(TransferDataResponse),
-    WriteDataByIdentifier(WriteDataByIdentifierResponse<UserIdentifier>),
+    WriteDataByIdentifier(WriteDataByIdentifierResponse<D::DID>),
 }
 
-impl<
-        RoutineIdentifier: Identifier,
-        UserIdentifier: Identifier,
-        RoutinePayload: WireFormat,
-        UserPayload: IterableWireFormat,
-    > Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload>
-{
+impl<D: DiagnosticDefinition> Response<D> {
     pub fn clear_diagnostic_info() -> Self {
         Response::ClearDiagnosticInfo
     }
@@ -97,8 +91,8 @@ impl<
 
     pub fn routine_control(
         routine_control_type: crate::RoutineControlSubFunction,
-        routine_id: RoutineIdentifier,
-        data: RoutinePayload,
+        routine_id: D::RID,
+        data: D::RoutinePayload,
     ) -> Self {
         Response::RoutineControl(RoutineControlResponse::new(
             routine_control_type,
@@ -141,13 +135,7 @@ impl<
     }
 }
 
-impl<
-        RoutineIdentifier: Identifier,
-        UserIdentifier: Identifier,
-        RoutinePayload: WireFormat,
-        UserPayload: IterableWireFormat,
-    > WireFormat for Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload>
-{
+impl<D: DiagnosticDefinition> WireFormat for Response<D> {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
@@ -255,12 +243,4 @@ impl<
     }
 }
 
-impl<
-        RoutineIdentifier: Identifier,
-        UserIdentifier: Identifier,
-        RoutinePayload: WireFormat,
-        UserPayload: IterableWireFormat,
-    > SingleValueWireFormat
-    for Response<RoutineIdentifier, UserIdentifier, RoutinePayload, UserPayload>
-{
-}
+impl<D: DiagnosticDefinition> SingleValueWireFormat for Response<D> {}
