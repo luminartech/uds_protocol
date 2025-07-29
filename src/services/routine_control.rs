@@ -2,23 +2,27 @@
 //!
 //! It can also be used to check the ECU’s health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
-use crate::{Error, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use crate::{Error, Identifier, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
+use byteorder::{ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-#[derive(Clone, Debug, PartialEq)]
+/// Used by a client to execute a defined sequence of events and obtain any relevant results
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct RoutineControlRequest {
+pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
     pub sub_function: RoutineControlSubFunction,
-    pub routine_id: u16,
-    pub data: Vec<u8>,
+    pub routine_id: RoutineIdentifier,
+    pub data: Option<RoutinePayload>,
 }
 
-impl RoutineControlRequest {
+impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat>
+    RoutineControlRequest<RoutineIdentifier, RoutinePayload>
+{
     pub(crate) fn new(
         sub_function: RoutineControlSubFunction,
-        routine_id: u16,
-        data: Vec<u8>,
+        routine_id: RoutineIdentifier,
+        data: Option<RoutinePayload>,
     ) -> Self {
         Self {
             sub_function,
@@ -27,12 +31,14 @@ impl RoutineControlRequest {
         }
     }
 }
-impl WireFormat for RoutineControlRequest {
+
+impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
+    for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
+{
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
-        let routine_id = reader.read_u16::<BigEndian>()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
+        let routine_id = RoutineIdentifier::option_from_reader(reader)?.unwrap();
+        let data = RoutinePayload::option_from_reader(reader)?;
         Ok(Some(Self {
             sub_function,
             routine_id,
@@ -41,18 +47,26 @@ impl WireFormat for RoutineControlRequest {
     }
 
     fn required_size(&self) -> usize {
-        3 + self.data.len()
+        3 + match &self.data {
+            Some(ref record) => record.required_size(),
+            None => 0,
+        }
     }
 
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.sub_function))?;
-        writer.write_u16::<BigEndian>(self.routine_id)?;
-        writer.write_all(&self.data)?;
+        self.routine_id.to_writer(writer)?;
+        if let Some(record) = &self.data {
+            record.to_writer(writer)?;
+        }
         Ok(self.required_size())
     }
 }
 
-impl SingleValueWireFormat for RoutineControlRequest {}
+impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireFormat
+    for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
+{
+}
 
 /// RoutineStatusRecord is a variable length field that can contain the status of the routine
 #[derive(Clone, Debug, PartialEq)]
@@ -88,23 +102,34 @@ impl SingleValueWireFormat for RoutineControlResponse {}
 #[cfg(test)]
 mod request {
     use super::*;
+    use crate::Identifier;
+
+    impl Identifier for u16 {}
+
+    type RoutineControlRequestType = RoutineControlRequest<u16, Vec<u8>>;
 
     #[test]
     fn simple_request() {
+        // Fake data: StartRoutine, RoutineID of 0x8606 for "Start O2 Sensor Heater Test" or something
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
-        let req = RoutineControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req: RoutineControlRequestType =
+            RoutineControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.sub_function), 0x01);
         assert_eq!(req.routine_id, 0x0001);
-        assert_eq!(req.data, vec![0x02, 0x03, 0x04]);
+        let data = req.data.clone().unwrap();
+        assert_eq!(data, vec![0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();
         let written = req.to_writer(&mut buf).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, req.required_size());
 
-        let new_req: RoutineControlRequest =
-            RoutineControlRequest::new(RoutineControlSubFunction::StopRoutine, 0x0002, vec![]);
+        let new_req: RoutineControlRequestType = RoutineControlRequest::new(
+            RoutineControlSubFunction::StopRoutine,
+            0x0002,
+            Some(vec![]),
+        );
 
         assert_eq!(new_req.sub_function, RoutineControlSubFunction::StopRoutine);
         assert_eq!(new_req.routine_id, 0x0002);
