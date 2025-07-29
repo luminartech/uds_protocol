@@ -385,9 +385,7 @@ mod snapshot {
         assert_eq!(
             written,
             bytes.len(),
-            "Written bytes: \n{:?}\n{:?}",
-            writer,
-            bytes
+            "Written bytes: \n{writer:?}\n{bytes:?}"
         );
         assert_eq!(writer, bytes);
     }
