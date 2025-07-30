@@ -158,16 +158,16 @@ pub trait DiagnosticDefinition {
     ///
     /// Requests : [ReadDataByIdentifierRequest], [WriteDataByIdentifierRequest], and [ReadDTCInfoRequest]
     /// Responses: [ReadDataByIdentifierResponse], [WriteDataByIdentifierResponse], and [ReadDTCInfoResponse]
-    type DID: Identifier;
+    type DID: Identifier + Clone + std::fmt::Debug + Send + Sync;
     /// Response payload for [ReadDataByIdentifierRequest]
-    type DiagnosticPayload: IterableWireFormat;
+    type DiagnosticPayload: IterableWireFormat + Clone + std::fmt::Debug + Send + Sync;
 
     /// UDS Routine Identifier
     ///
     /// This is used to identify the routine to be controlled in a [RoutineControlRequest]
-    type RID: Identifier;
+    type RID: Identifier + Clone + std::fmt::Debug + Send + Sync;
     /// Payload for both requests and responses of [RoutineControlRequest] and [RoutineControlResponse]
-    type RoutinePayload: WireFormat;
+    type RoutinePayload: WireFormat + Clone + std::fmt::Debug + Send + Sync;
 }
 
 /// tests
