@@ -26,7 +26,8 @@ pub use services::*;
 
 mod traits;
 pub use traits::{
-    DiagnosticDefinition, Identifier, IterableWireFormat, SingleValueWireFormat, WireFormat,
+    DiagnosticDefinition, Identifier, IterableWireFormat, RoutineIdentifier, SingleValueWireFormat,
+    WireFormat,
 };
 
 use clap::ValueEnum;
@@ -42,7 +43,7 @@ pub const PENDING: u8 = 0x78;
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct UdsSpec;
 impl DiagnosticDefinition for UdsSpec {
-    type RID = ProtocolIdentifier;
+    type RID = UDSRoutineIdentifier;
     type DID = ProtocolIdentifier;
     type RoutinePayload = ProtocolPayload;
     type DiagnosticPayload = ProtocolPayload;
