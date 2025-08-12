@@ -45,9 +45,9 @@ impl Deref for ProtocolIdentifier {
 
 /// The UDS protocol does not define the structure of any payload, so this struct will always return an error when attempting to read from a reader
 /// It cannot be constructed, and therefore the write method is unreachable
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
-pub struct ProtocolPayload;
+pub struct ProtocolPayload([u8; 2], Vec<u8>);
 
 impl WireFormat for ProtocolPayload {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
@@ -58,12 +58,11 @@ impl WireFormat for ProtocolPayload {
             2 => (),
             _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
         };
+        // Reads the entire payload, but does not have the ability to determine the amount of bytes to read
+        // depending on the Identifier, so all data is read until EOF
         let mut entire_payload: Vec<u8> = Vec::new();
         reader.read_to_end(&mut entire_payload)?;
-        Err(Error::InvalidDiagnosticIdentifierPayload(
-            u16::from_be_bytes(identifier_data),
-            entire_payload,
-        ))
+        Ok(Some(ProtocolPayload(identifier_data, entire_payload)))
     }
 
     fn required_size(&self) -> usize {
@@ -78,3 +77,19 @@ impl WireFormat for ProtocolPayload {
 }
 
 impl IterableWireFormat for ProtocolPayload {}
+
+impl std::fmt::Debug for ProtocolPayload {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // show the hex value
+        write!(
+            f,
+            "{:#06X} => {}",
+            self.0[1] as u16 | (self.0[0] as u16) << 8,
+            self.1
+                .iter()
+                .map(|b| format!("{:02X}", b))
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
+    }
+}

@@ -1,12 +1,11 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
 use crate::{traits::RoutineIdentifier, Error, Identifier, SingleValueWireFormat};
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 
 /// C.1 DID - Diagnostic Data Identifier specified in ISO 14229-1
 ///
 /// The identifiers listed here are defined and should be implemented by the vehicle manufacturer/system supplier.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, Identifier)]
+#[derive(Clone, Copy, Deserialize, Eq, PartialEq, Serialize, Identifier)]
 #[repr(u16)]
 pub enum UDSIdentifier {
     ISOSAEReserved(u16),
@@ -149,6 +148,20 @@ impl From<UDSIdentifier> for u16 {
             UDSIdentifier::UDSVersionData => 0xFF00,
             UDSIdentifier::ReservedForISO15765_5 => 0xFF01,
         }
+    }
+}
+
+impl std::fmt::Display for UDSIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let value: u16 = (*self).into();
+        write!(f, "{:#06X?}", value)
+    }
+}
+
+impl std::fmt::Debug for UDSIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let value: u16 = (*self).into();
+        write!(f, "{:#06X}", value)
     }
 }
 
