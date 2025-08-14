@@ -99,6 +99,10 @@ impl WireFormat for SecurityAccessRequest {
         writer.write_all(&self.request_data)?;
         Ok(self.required_size())
     }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        self.suppress_positive_response()
+    }
 }
 
 impl SingleValueWireFormat for SecurityAccessRequest {}
