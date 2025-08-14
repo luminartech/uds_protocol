@@ -67,7 +67,7 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 }
 
 /// See ISO-14229-1:2020, Table 11.2.3 for format information
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ReadDataByIdentifierResponse<UserPayload> {
     pub data: Vec<UserPayload>,
 }
@@ -116,6 +116,12 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat
     for ReadDataByIdentifierResponse<UserPayload>
 {
+}
+
+impl<UserPayload: std::fmt::Debug> std::fmt::Debug for ReadDataByIdentifierResponse<UserPayload> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ReadDataByIdentifierResponse\n{:?}", self.data)
+    }
 }
 
 #[cfg(test)]

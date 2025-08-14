@@ -1,6 +1,6 @@
 use crate::Error;
 use byteorder::{BigEndian, WriteBytesExt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// A trait for types that can be deserialized from a
 /// [`Reader`](https://doc.rust-lang.org/std/io/trait.Read.html) and serialized
@@ -82,7 +82,9 @@ pub trait SingleValueWireFormat: WireFormat {
 /// Trait for types that can be used as identifiers (ie Data Identifiers and Routine Identifiers)
 ///
 /// Prefer using the [`#[derive(Identifier)]`](uds_protocol_derive::Identifier) derive macro to implement this trait
-pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + Serialize {
+pub trait Identifier:
+    TryFrom<u16> + Into<u16> + Clone + Copy + Serialize + for<'de> Deserialize<'de>
+{
     /// Returns a Vec<Self> from a reader that contains a list of Identifier values
     fn parse_from_list<R: std::io::Read>(reader: &mut R) -> Result<Vec<Self>, Error> {
         // Create an iterator to collect. Will use the blanket implementation of WireFormat for Identifier
@@ -116,6 +118,8 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + Serialize {
         Self::option_from_reader(reader)
     }
 }
+
+pub trait RoutineIdentifier: Identifier {}
 
 /// Blanket implementation of the [WireFormat] trait for types that implement the [Identifier] trait
 impl<T> WireFormat for T
@@ -153,21 +157,53 @@ where
 ///
 /// Used to specify the types of the identifiers and payloads used in UDS requests and responses.
 /// It allows for flexibility in defining custom data types while adhering to the UDS protocol.
-pub trait DiagnosticDefinition {
+pub trait DiagnosticDefinition: 'static {
     /// UDS Data Identifier
     ///
     /// Requests : [ReadDataByIdentifierRequest], [WriteDataByIdentifierRequest], and [ReadDTCInfoRequest]
     /// Responses: [ReadDataByIdentifierResponse], [WriteDataByIdentifierResponse], and [ReadDTCInfoResponse]
-    type DID: Identifier;
+    type DID: Identifier
+        + Clone
+        + std::fmt::Debug
+        + Send
+        + Sync
+        + PartialEq
+        + Serialize
+        + 'static
+        + for<'de> Deserialize<'de>;
     /// Response payload for [ReadDataByIdentifierRequest]
-    type DiagnosticPayload: IterableWireFormat;
+    type DiagnosticPayload: IterableWireFormat
+        + Clone
+        + std::fmt::Debug
+        + Send
+        + Sync
+        + PartialEq
+        + Serialize
+        + 'static
+        + for<'de> Deserialize<'de>;
 
     /// UDS Routine Identifier
     ///
     /// This is used to identify the routine to be controlled in a [RoutineControlRequest]
-    type RID: Identifier;
+    type RID: RoutineIdentifier
+        + Clone
+        + std::fmt::Debug
+        + Send
+        + Sync
+        + PartialEq
+        + Serialize
+        + 'static
+        + for<'de> Deserialize<'de>;
     /// Payload for both requests and responses of [RoutineControlRequest] and [RoutineControlResponse]
-    type RoutinePayload: WireFormat;
+    type RoutinePayload: WireFormat
+        + Clone
+        + std::fmt::Debug
+        + Send
+        + Sync
+        + PartialEq
+        + Serialize
+        + 'static
+        + for<'de> Deserialize<'de>;
 }
 
 /// tests
@@ -178,7 +214,7 @@ mod tests {
     use byteorder::ReadBytesExt;
     use std::io::Cursor;
 
-    #[derive(Clone, Copy, Serialize, PartialEq, Eq, Debug, Identifier)]
+    #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Debug, Identifier)]
     #[repr(u16)]
     pub enum MyIdentifier {
         Identifier1 = 0x0101,
