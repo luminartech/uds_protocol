@@ -71,11 +71,9 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireF
 /// RoutineControlResponse is a variable length field that can contain the status of the routine
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
-pub struct RoutineControlResponse<RoutineIdentifier, RoutineInfoStatusRecord> {
+pub struct RoutineControlResponse<RoutineInfoStatusRecord> {
     /// The sub-function echoes the routine control request
     pub routine_control_type: RoutineControlSubFunction,
-
-    pub routine_id: RoutineIdentifier,
 
     /// Should contain the routine_info (u8) and the routine_status_record (u8 * n) information. n can be 0
     ///
@@ -87,23 +85,15 @@ pub struct RoutineControlResponse<RoutineIdentifier, RoutineInfoStatusRecord> {
     pub routine_status_record: RoutineInfoStatusRecord,
 }
 
-impl<RoutineIdentifier: Identifier, RoutineStatusRecord: WireFormat>
-    RoutineControlResponse<RoutineIdentifier, RoutineStatusRecord>
-{
+impl<RoutineStatusRecord: WireFormat> RoutineControlResponse<RoutineStatusRecord> {
     pub(crate) fn new(
         routine_control_type: RoutineControlSubFunction,
-        routine_id: RoutineIdentifier,
         data: RoutineStatusRecord,
     ) -> Self {
         Self {
             routine_control_type,
-            routine_id,
             routine_status_record: data,
         }
-    }
-
-    pub fn identifier(&self) -> RoutineIdentifier {
-        self.routine_id
     }
 
     /// Get the raw data of the status record
@@ -115,17 +105,13 @@ impl<RoutineIdentifier: Identifier, RoutineStatusRecord: WireFormat>
     }
 }
 
-impl<RoutineIdentifier: Identifier, RoutineStatusRecord: WireFormat> WireFormat
-    for RoutineControlResponse<RoutineIdentifier, RoutineStatusRecord>
-{
+impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<RoutineStatusRecord> {
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let routine_control_type = RoutineControlSubFunction::from(reader.read_u8()?);
-        let routine_id = RoutineIdentifier::option_from_reader(reader)?.unwrap();
-        // can read 0 bytes, 1 byte, or more
+        // Reads the identifier, then can read 0 bytes, 1 byte, or more
         let routine_status_record = RoutineStatusRecord::option_from_reader(reader)?.unwrap();
         Ok(Some(Self {
             routine_control_type,
-            routine_id,
             routine_status_record,
         }))
     }
@@ -133,19 +119,18 @@ impl<RoutineIdentifier: Identifier, RoutineStatusRecord: WireFormat> WireFormat
     /// Can be 3 bytes, or more
     fn required_size(&self) -> usize {
         // control type + (routine identifier + routine info + status record)
-        1 + self.routine_id.required_size() + self.routine_status_record.required_size()
+        1 + self.routine_status_record.required_size()
     }
 
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.routine_control_type.into())?;
-        self.routine_id.to_writer(writer)?;
         self.routine_status_record.to_writer(writer)?;
         Ok(self.required_size())
     }
 }
 
-impl<RoutineIdentifier: Identifier, RoutineStatusRecord: WireFormat> SingleValueWireFormat
-    for RoutineControlResponse<RoutineIdentifier, RoutineStatusRecord>
+impl<RoutineStatusRecord: WireFormat> SingleValueWireFormat
+    for RoutineControlResponse<RoutineStatusRecord>
 {
 }
 
@@ -201,7 +186,7 @@ mod request {
     #[test]
     fn simple_response() {
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
-        let resp: RoutineControlResponse<TestIdentifier, Vec<u8>> =
+        let resp: RoutineControlResponse<Vec<u8>> =
             RoutineControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(resp.routine_control_type), 0x01);
@@ -212,11 +197,8 @@ mod request {
         assert_eq!(written, bytes.len());
         assert_eq!(written, resp.required_size());
 
-        let new_resp: RoutineControlResponse<TestIdentifier, Vec<u8>> = RoutineControlResponse::new(
-            RoutineControlSubFunction::StopRoutine,
-            TestIdentifier::from(0xFF00),
-            buf,
-        );
+        let new_resp: RoutineControlResponse<Vec<u8>> =
+            RoutineControlResponse::new(RoutineControlSubFunction::StopRoutine, buf);
 
         assert_eq!(
             new_resp.routine_control_type,
