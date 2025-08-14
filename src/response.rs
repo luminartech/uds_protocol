@@ -36,7 +36,7 @@ pub enum Response<D: DiagnosticDefinition> {
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
-    RoutineControl(RoutineControlResponse<D::RID, D::RoutinePayload>),
+    RoutineControl(RoutineControlResponse<D::RoutinePayload>),
     SecurityAccess(SecurityAccessResponse),
     TesterPresent(TesterPresentResponse),
     TransferData(TransferDataResponse),
@@ -91,14 +91,9 @@ impl<D: DiagnosticDefinition> Response<D> {
 
     pub fn routine_control(
         routine_control_type: crate::RoutineControlSubFunction,
-        routine_id: D::RID,
         data: D::RoutinePayload,
     ) -> Self {
-        Response::RoutineControl(RoutineControlResponse::new(
-            routine_control_type,
-            routine_id,
-            data,
-        ))
+        Response::RoutineControl(RoutineControlResponse::new(routine_control_type, data))
     }
 
     pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
