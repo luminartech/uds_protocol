@@ -87,7 +87,7 @@ impl std::fmt::Debug for ProtocolPayload {
             self.0[1] as u16 | (self.0[0] as u16) << 8,
             self.1
                 .iter()
-                .map(|b| format!("{:02X}", b))
+                .map(|b| format!("{b:02X}"))
                 .collect::<Vec<_>>()
                 .join(" ")
         )

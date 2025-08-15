@@ -189,8 +189,15 @@ mod request {
         let resp: RoutineControlResponse<Vec<u8>> =
             RoutineControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
 
-        assert_eq!(u8::from(resp.routine_control_type), 0x01);
-        assert_eq!(resp.routine_status_record, vec![0x02, 0x03, 0x04]);
+        assert_eq!(
+            resp.routine_control_type,
+            RoutineControlSubFunction::StartRoutine
+        );
+        // Vec<u8> as payload just reads until the end, including the identifier
+        assert_eq!(
+            resp.routine_status_record,
+            vec![0x00, 0x01, 0x02, 0x03, 0x04]
+        );
 
         let mut buf = Vec::new();
         let written = resp.to_writer(&mut buf).unwrap();
