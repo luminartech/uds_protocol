@@ -75,12 +75,17 @@ impl SingleValueWireFormat for EcuResetRequest {}
 #[non_exhaustive]
 pub struct EcuResetResponse {
     pub reset_type: ResetType,
-    pub power_down_time: u8,
+    pub power_down_time: Option<u8>,
 }
 
 impl EcuResetResponse {
     /// Create a new '`EcuResetResponse`'
     pub(crate) fn new(reset_type: ResetType, power_down_time: u8) -> Self {
+        let power_down_time = if reset_type == ResetType::EnableRapidPowerShutDown {
+            Some(power_down_time)
+        } else {
+            None
+        };
         Self {
             reset_type,
             power_down_time,
@@ -92,7 +97,11 @@ impl WireFormat for EcuResetResponse {
     /// Deserialization function to read a [`EcuResetResponse`] from a `Reader`
     fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = ResetType::try_from(reader.read_u8()?)?;
-        let power_down_time = reader.read_u8()?;
+        let power_down_time = if reset_type == ResetType::EnableRapidPowerShutDown {
+            Some(reader.read_u8()?)
+        } else {
+            None
+        };
         Ok(Some(Self {
             reset_type,
             power_down_time,
@@ -100,14 +109,24 @@ impl WireFormat for EcuResetResponse {
     }
 
     fn required_size(&self) -> usize {
-        2
+        if self.reset_type == ResetType::EnableRapidPowerShutDown {
+            2 // 1 byte for reset type + 1 byte for power down time
+        } else {
+            1 // Only 1 byte for reset type
+        }
     }
 
     /// Serialization function to write a [`EcuResetResponse`] to a `Writer`
     fn to_writer<T: Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.reset_type))?;
-        buffer.write_u8(self.power_down_time)?;
-        Ok(2)
+        if self.reset_type == ResetType::EnableRapidPowerShutDown {
+            if let Some(time) = self.power_down_time {
+                buffer.write_u8(time)?;
+            } else {
+                buffer.write_u8(0)?;
+            };
+        }
+        Ok(self.required_size())
     }
 }
 
@@ -137,8 +156,8 @@ mod response {
 
     #[test]
     fn ecu_reset_response() {
-        let bytes: [u8; 2] = [0x01, 0x20];
-        let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
+        let bytes: [u8; 2] = [0x04, 0x20];
+        let resp = EcuResetResponse::new(ResetType::EnableRapidPowerShutDown, 0x20);
         let mut buffer = Vec::new();
         let written = resp.to_writer(&mut buffer).unwrap();
         let result = EcuResetResponse::from_reader(&mut bytes.as_slice()).unwrap();
