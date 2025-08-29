@@ -1,7 +1,14 @@
-use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
+#[derive(
+    clap::ValueEnum,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    PartialEq,
+    serde::Deserialize,
+    serde::Serialize,
+    utoipa::ToSchema,
+)]
 // Without the non-exhaustive annotation, adding additional diagnostic commands would be a breaking semver change.
 #[non_exhaustive]
 pub enum UdsServiceType {

@@ -1,8 +1,9 @@
 use crate::{Error, NegativeResponseCode, SingleValueWireFormat, UdsServiceType, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize, utoipa::ToSchema,
+)]
 #[non_exhaustive]
 pub struct NegativeResponse {
     pub request_service: UdsServiceType,

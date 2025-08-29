@@ -1,5 +1,6 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 
@@ -21,7 +22,7 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 /// Step 3: The client sends a [`crate::UdsServiceType::RequestTransferExit`] message to the server (SID 0x37)
 ///
 /// Step 3 Response: The server sends a [`crate::UdsServiceType::RequestTransferExit`] response message to the client (RID 0x77)
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, ToSchema)]
 #[non_exhaustive]
 pub struct TransferDataRequest {
     /// Starts at 0x01 from the server when a RequestDownload or RequestUpload or RequestFileTransfer is received
@@ -66,7 +67,7 @@ impl WireFormat for TransferDataRequest {
 
 impl SingleValueWireFormat for TransferDataRequest {}
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, ToSchema)]
 #[non_exhaustive]
 pub struct TransferDataResponse {
     /// Starts at 0x01 from the server when a RequestDownload or RequestUpload or RequestFileTransfer is received

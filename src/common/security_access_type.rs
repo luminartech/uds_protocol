@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use crate::Error;
 
 /// Security Access Type allows for multiple different security challenges within an ECU.
@@ -11,7 +9,9 @@ use crate::Error;
 ///
 /// Conversions from `u8` to `SecurityAccessType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize, utoipa::ToSchema,
+)]
 pub enum SecurityAccessType {
     /// This value is reserved for future definition
     ISOSAEReserved(u8),

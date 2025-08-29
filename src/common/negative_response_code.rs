@@ -1,8 +1,15 @@
-use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
-
 /// `NegativeResponseCode` is a shared error mechanism
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
+#[derive(
+    clap::ValueEnum,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    PartialEq,
+    serde::Deserialize,
+    serde::Serialize,
+    utoipa::ToSchema,
+)]
 pub enum NegativeResponseCode {
     /// This response code shall not be used in a negative response message.
     /// This positiveResponse parameter value is reserved for server internal implementation

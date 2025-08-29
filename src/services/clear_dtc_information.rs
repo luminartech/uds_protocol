@@ -1,6 +1,5 @@
 use crate::{DTCRecord, NegativeResponseCode, SingleValueWireFormat, WireFormat, CLEAR_ALL_DTCS};
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 
 /// Negative response codes
 const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
@@ -10,7 +9,7 @@ const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::GeneralProgrammingFailure,
 ];
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
 pub struct ClearDiagnosticInfoRequest {
     /// Can be either a DTC group (such as chassis/powertrain) or a single DTC
     pub group_of_dtc: DTCRecord,
