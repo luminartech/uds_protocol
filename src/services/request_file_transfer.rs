@@ -1,12 +1,13 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::Read;
+use utoipa::ToSchema;
 
 use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
 pub enum FileOperationMode {
     // 0x00, 0x07-0xFF Reserved for future definition by ISO
     ISOSAEReserved(u8),
@@ -568,7 +569,7 @@ impl WireFormat for PositionPayload {
 ///
 /// The server will respond with a [`RequestFileTransferResponse`] to indicate the status of the request
 /// [DataFormatIdentifier] - Echoes the value of the request
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, ToSchema)]
 #[non_exhaustive]
 pub enum RequestFileTransferResponse {
     AddFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),

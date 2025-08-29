@@ -1,6 +1,7 @@
 use crate::Error;
 use byteorder::{BigEndian, WriteBytesExt};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// A trait for types that can be deserialized from a
 /// [`Reader`](https://doc.rust-lang.org/std/io/trait.Read.html) and serialized
@@ -169,6 +170,7 @@ pub trait DiagnosticDefinition: 'static {
         + Sync
         + PartialEq
         + Serialize
+        + ToSchema
         + 'static
         + for<'de> Deserialize<'de>;
     /// Response payload for [ReadDataByIdentifierRequest]
@@ -179,6 +181,7 @@ pub trait DiagnosticDefinition: 'static {
         + Sync
         + PartialEq
         + Serialize
+        + ToSchema
         + 'static
         + for<'de> Deserialize<'de>;
 
@@ -192,6 +195,7 @@ pub trait DiagnosticDefinition: 'static {
         + Sync
         + PartialEq
         + Serialize
+        + ToSchema
         + 'static
         + for<'de> Deserialize<'de>;
     /// Payload for both requests and responses of [RoutineControlRequest] and [RoutineControlResponse]
@@ -202,6 +206,7 @@ pub trait DiagnosticDefinition: 'static {
         + Sync
         + PartialEq
         + Serialize
+        + ToSchema
         + 'static
         + for<'de> Deserialize<'de>;
 }

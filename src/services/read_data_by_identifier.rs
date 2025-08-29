@@ -3,6 +3,7 @@ use crate::{
 };
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -13,7 +14,7 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 ];
 
 /// See ISO-14229-1:2020, Table 11.2.1 for format information
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
 #[non_exhaustive]
 pub struct ReadDataByIdentifierRequest<DataIdentifier> {
     pub dids: Vec<DataIdentifier>,
@@ -67,7 +68,7 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 }
 
 /// See ISO-14229-1:2020, Table 11.2.3 for format information
-#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
 pub struct ReadDataByIdentifierResponse<UserPayload> {
     pub data: Vec<UserPayload>,
 }

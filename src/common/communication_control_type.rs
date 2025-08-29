@@ -9,7 +9,9 @@ use crate::Error;
 ///
 /// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`](crate::Error) if the
 /// Suppress Positive Response bit is set.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum, utoipa::ToSchema,
+)]
 pub enum CommunicationControlType {
     /// This value indicates that the reception and transmission of messages
     /// shall be enabled for the specified [`CommunicationType`](crate::CommunicationType)

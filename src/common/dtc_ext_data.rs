@@ -1,5 +1,6 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::{
     DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
@@ -7,7 +8,7 @@ use crate::{
 
 /// The DTCExtDataRecordNumber is used in the request message to get a stored [DTCExtDataRecord]
 /// Its used to specify the type of DTCExtDataRecord to be reported.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, ToSchema)]
 pub enum DTCExtDataRecordNumber {
     // 0x00, 0xF0-0xFD are reserved
     ISOSAEReserved(u8),
@@ -85,7 +86,7 @@ impl WireFormat for DTCExtDataRecordNumber {
 
 impl SingleValueWireFormat for DTCExtDataRecordNumber {}
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct DTCExtDataRecord<UserPayload> {
     pub data: Vec<UserPayload>,
 }
@@ -120,7 +121,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayloa
 
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCExtDataRecord<UserPayload> {}
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct DTCExtDataRecordList<UserPayload> {
     pub mask_record: DTCRecord,
     pub status_mask: DTCStatusMask,
