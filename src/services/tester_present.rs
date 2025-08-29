@@ -114,7 +114,7 @@ impl WireFormat for TesterPresentRequest {
 
 impl SingleValueWireFormat for TesterPresentRequest {}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct TesterPresentResponse {
     zero_sub_function: ZeroSubFunction,
 }
