@@ -15,7 +15,7 @@ pub struct UdsResponse {
     pub data: Vec<u8>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, serde::Serialize)]
 pub enum Response<D: DiagnosticDefinition> {
     ClearDiagnosticInfo,
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)

@@ -69,7 +69,7 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireF
 }
 
 /// RoutineControlResponse is a variable length field that can contain the status of the routine
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, serde::Deserialize, PartialEq, serde::Serialize)]
 #[non_exhaustive]
 pub struct RoutineControlResponse<RoutineInfoStatusRecord> {
     /// The sub-function echoes the routine control request
