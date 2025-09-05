@@ -156,10 +156,6 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
     }
 }
 
-/// This might be a duplicate of the non-user defined DTC snapshot data
-/// Indicates the number of the specific `DTCSnapshot` data record requested
-pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
-
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
