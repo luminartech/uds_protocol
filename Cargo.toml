@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-uds_protocol_derive = { path = "uds_protocol_derive" }
+uds_protocol_derive = { path = "./uds_protocol_derive" }
 byteorder = "1"
 thiserror = "2"
 utoipa = "5"
