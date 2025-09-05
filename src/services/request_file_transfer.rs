@@ -5,11 +5,11 @@ use std::io::Read;
 use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
+/// Mode of operation for file transfer requests
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
-/// Mode of operation for file transfer requests
 pub enum FileOperationMode {
     // 0x00, 0x07-0xFF Reserved for future definition by ISO
     ISOSAEReserved(u8),
@@ -227,7 +227,7 @@ impl SingleValueWireFormat for NamePayload {}
 ///   * Receive information about the file system on the server
 ///   * Send/Receive files to/from the server
 ///
-/// Available as an alternative to [`crate::RequestDownloadRequest`] and [`crate::RequestUploadRequest`]
+/// Available as an alternative to [`RequestDownloadRequest`](crate::RequestDownloadRequest) and `RequestUploadRequest`
 /// if the server implements a file system for data storage
 ///
 /// Use [`crate::UdsServiceType::TransferData`] to send the file data to the server and [`crate::UdsServiceType::RequestTransferExit`] to end the transfer
@@ -557,7 +557,7 @@ impl WireFormat for DirSizePayload {
 pub struct PositionPayload {
     /// Specifies the byte position within the file at which the Tester will resume downloading after an initial download is suspended
     /// A download is suspended when the ECU stops receiving [`crate::TransferDataRequest`] requests and does not receive the
-    /// [`crate::RequestTransferExitRequest`] request to end the transfer before returning to the default session
+    /// `RequestTransferExit` request to end the transfer before returning to the default session
     ///
     /// Fixed size: 8 bytes
     ///
@@ -587,7 +587,7 @@ impl WireFormat for PositionPayload {
 /// Response to a [`RequestFileTransferRequest`] from the server
 ///
 /// The server will respond with a [`RequestFileTransferResponse`] to indicate the status of the request
-/// [`DataFormatIdentifier`] - Echoes the value of the request
+/// `DataFormatIdentifier` - Echoes the value of the request
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]

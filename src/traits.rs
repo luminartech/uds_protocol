@@ -112,7 +112,7 @@ mod maybe_utoipa {
 ///
 /// Prefer using the [`#[derive(Identifier)]`](uds_protocol_derive::Identifier) derive macro to implement this trait
 pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bound {
-    /// Returns a Vec<Self> from a reader that contains a list of Identifier values
+    /// Returns a `Vec<Self>` from a reader that contains a list of Identifier values
     /// # Errors
     /// - if the list is not in the expected format
     /// - if the list contains partial data
@@ -194,8 +194,8 @@ where
 pub trait DiagnosticDefinition: 'static {
     /// UDS Data Identifier
     ///
-    /// Requests : [`ReadDataByIdentifierRequest`], [`WriteDataByIdentifierRequest`], and [`ReadDTCInfoRequest`]
-    /// Responses: [`ReadDataByIdentifierResponse`], [`WriteDataByIdentifierResponse`], and [`ReadDTCInfoResponse`]
+    /// Requests : [`ReadDataByIdentifierRequest`](crate::ReadDataByIdentifierRequest), [`WriteDataByIdentifierRequest`](crate::WriteDataByIdentifierRequest), and [`ReadDTCInfoRequest`](crate::ReadDTCInfoRequest)
+    /// Responses: [`ReadDataByIdentifierResponse`](crate::ReadDataByIdentifierResponse), [`WriteDataByIdentifierResponse`](crate::WriteDataByIdentifierResponse), and [`ReadDTCInfoResponse`](crate::ReadDTCInfoResponse)
     type DID: Identifier
         + Clone
         + std::fmt::Debug
@@ -205,7 +205,7 @@ pub trait DiagnosticDefinition: 'static {
         + 'static
         + maybe_serde::Bound
         + maybe_utoipa::Bound;
-    /// Response payload for [`ReadDataByIdentifierRequest`]
+    /// Response payload for [`ReadDataByIdentifierRequest`](crate::ReadDataByIdentifierRequest)
     type DiagnosticPayload: IterableWireFormat
         + Clone
         + std::fmt::Debug
@@ -218,7 +218,7 @@ pub trait DiagnosticDefinition: 'static {
 
     /// UDS Routine Identifier
     ///
-    /// This is used to identify the routine to be controlled in a [`RoutineControlRequest`]
+    /// This is used to identify the routine to be controlled in a [`RoutineControlRequest`](crate::RoutineControlRequest)
     type RID: RoutineIdentifier
         + Clone
         + std::fmt::Debug
@@ -228,7 +228,7 @@ pub trait DiagnosticDefinition: 'static {
         + 'static
         + maybe_serde::Bound
         + maybe_utoipa::Bound;
-    /// Payload for both requests and responses of [`RoutineControlRequest`] and [`RoutineControlResponse`]
+    /// Payload for both requests and responses of [`RoutineControlRequest`](crate::RoutineControlRequest) and [`RoutineControlResponse`](crate::RoutineControlResponse)
     type RoutinePayload: WireFormat
         + Clone
         + std::fmt::Debug

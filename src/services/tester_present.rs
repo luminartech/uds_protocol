@@ -60,9 +60,9 @@ impl TryFrom<u8> for ZeroSubFunction {
     }
 }
 
+/// Request to indicate the client is still connected
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-/// Request to indicate the client is still connected
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TesterPresentRequest {
     zero_sub_function: SuppressablePositiveResponse<ZeroSubFunction>,
@@ -121,9 +121,9 @@ impl WireFormat for TesterPresentRequest {
 
 impl SingleValueWireFormat for TesterPresentRequest {}
 
+/// Positive response to a `TesterPresentRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-/// Positive response to a `TesterPresentRequest`
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TesterPresentResponse {
     zero_sub_function: ZeroSubFunction,

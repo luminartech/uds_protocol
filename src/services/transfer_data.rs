@@ -9,7 +9,7 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 ///     34 .. 11  .. 33   .. 60 20 00 .. 00 FF FF << -- Bytes sent by the client
 ///    RID .. DFI .. ALFID .. `MA_B`#   .. `UCMS_B`#
 ///
-/// Step 1 Response: The server sends a [`crate::RequestDownloadResponse`] or [`crate::RequestUploadResponse`] message to the client
+/// Step 1 Response: The server sends a [`RequestDownloadResponse`](crate::RequestDownloadResponse) or `RequestUploadResponse` message to the client
 ///
 /// Step 2: The client shall send many `TransferDataRequest` messages written in blocks
 ///     to the server with a max number of bytes equal to `MNROB_B`# from the `RequestDownloadResponse` message

@@ -35,11 +35,11 @@ pub enum Response<D: DiagnosticDefinition> {
     ReadDataByIdentifier(ReadDataByIdentifierResponse<D::DiagnosticPayload>),
     /// Response to a [`ReadDTCInfoRequest`](crate::ReadDTCInfoRequest)
     ReadDTCInfo(ReadDTCInfoResponse<D::DiagnosticPayload>),
-    /// Response to a [`RequestDownload`](crate::RequestDownload)
+    /// Response to a [`RequestDownloadRequest`](crate::RequestDownloadRequest)
     RequestDownload(RequestDownloadResponse),
-    /// Response to a [`RequestFileTransfer`](crate::RequestFileTransfer)
+    /// Response to a [`RequestFileTransferRequest`](crate::RequestFileTransferRequest)
     RequestFileTransfer(RequestFileTransferResponse),
-    /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
+    /// Response to a `RequestTransferExit` request
     RequestTransferExit,
     /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
     RoutineControl(RoutineControlResponse<D::RoutinePayload>),

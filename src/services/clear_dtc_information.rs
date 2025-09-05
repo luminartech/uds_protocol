@@ -10,9 +10,9 @@ const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::GeneralProgrammingFailure,
 ];
 
+/// Request for the server to clear diagnostic information
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-/// Request for the server to clear diagnostic information
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClearDiagnosticInfoRequest {
     /// Can be either a DTC group (such as chassis/powertrain) or a single DTC

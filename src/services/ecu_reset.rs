@@ -70,10 +70,10 @@ impl WireFormat for EcuResetRequest {
 
 impl SingleValueWireFormat for EcuResetRequest {}
 
+/// Positive response to an `EcuResetRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// Positive response to an `EcuResetRequest`
 #[non_exhaustive]
 pub struct EcuResetResponse {
     pub reset_type: ResetType,
