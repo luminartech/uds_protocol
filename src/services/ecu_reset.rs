@@ -1,3 +1,4 @@
+//! `ECUReset` (0x11) service implementation
 use crate::{
     Error, NegativeResponseCode, ResetType, SingleValueWireFormat, SuppressablePositiveResponse,
     WireFormat,
@@ -12,10 +13,10 @@ const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SecurityAccessDenied,
 ];
 
+/// Request for the server to reset the ECU
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-/// Request for the server to reset the ECU
 pub struct EcuResetRequest {
     reset_type: SuppressablePositiveResponse<ResetType>,
 }
@@ -40,7 +41,7 @@ impl EcuResetRequest {
         self.reset_type.value()
     }
 
-    /// Get the allowed Nack codes for this request
+    /// Get the allowed [`NegativeResponseCode`] variants for this request
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &ECU_RESET_NEGATIVE_RESPONSE_CODES
@@ -48,7 +49,6 @@ impl EcuResetRequest {
 }
 
 impl WireFormat for EcuResetRequest {
-    /// Deserialization function to read a [`EcuResetRequest`] from a `Reader`
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { reset_type }))
@@ -58,7 +58,6 @@ impl WireFormat for EcuResetRequest {
         1
     }
 
-    /// Serialization function to write a [`EcuResetRequest`] to a `Writer`
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.reset_type))?;
         Ok(1)
@@ -74,6 +73,7 @@ impl SingleValueWireFormat for EcuResetRequest {}
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Positive response to an `EcuResetRequest`
 #[non_exhaustive]
 pub struct EcuResetResponse {
     pub reset_type: ResetType,
@@ -91,7 +91,6 @@ impl EcuResetResponse {
 }
 
 impl WireFormat for EcuResetResponse {
-    /// Deserialization function to read a [`EcuResetResponse`] from a `Reader`
     fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = ResetType::try_from(reader.read_u8()?)?;
         let power_down_time = reader.read_u8()?;
@@ -105,7 +104,6 @@ impl WireFormat for EcuResetResponse {
         2
     }
 
-    /// Serialization function to write a [`EcuResetResponse`] to a `Writer`
     fn encode<T: Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.reset_type))?;
         buffer.write_u8(self.power_down_time)?;

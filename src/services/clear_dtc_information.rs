@@ -1,3 +1,4 @@
+//! `ClearDiagnosticInformation` (0x14) service implementation
 use crate::{CLEAR_ALL_DTCS, DTCRecord, NegativeResponseCode, SingleValueWireFormat, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
@@ -11,6 +12,7 @@ const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+/// Request for the server to clear diagnostic information
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClearDiagnosticInfoRequest {
     /// Can be either a DTC group (such as chassis/powertrain) or a single DTC
@@ -36,7 +38,7 @@ impl ClearDiagnosticInfoRequest {
         }
     }
 
-    /// Get the allowed Nack codes for this request
+    /// Get the allowed [`NegativeResponseCode`] variants for this request
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES

@@ -1,3 +1,4 @@
+//! `WriteDataByIdentifier` (0x2E) service implementation
 use crate::{
     Error, Identifier, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat,
 };
@@ -34,10 +35,6 @@ impl<Payload: IterableWireFormat> WriteDataByIdentifierRequest<Payload> {
 impl<Payload: IterableWireFormat> SingleValueWireFormat for WriteDataByIdentifierRequest<Payload> {}
 
 impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Payload> {
-    /// Create a `WriteDataByIdentifierRequest` from a stream of bytes, i.e. deserialization.
-    ///
-    /// Note: The first two bytes in the reader must represent the data identifier, immediately followed by the
-    /// corresponding payload for that identifier.
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let payload = Payload::decode(reader)?.unwrap();
         Ok(Some(Self { payload }))
@@ -47,10 +44,6 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
         self.payload.required_size()
     }
 
-    /// Serialize a `WriteDataByIdentifierRequest` instance.
-    ///
-    /// Note: The first two bytes of the writer will be the data identifier, immediately followed by the corresponding
-    /// payload for that identifier.
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
         self.payload.encode(writer)
@@ -80,7 +73,6 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 }
 
 impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<DataIdentifier> {
-    /// Create a `WriteDataByIdentifierResponse` from a stream of bytes, i.e. deserialization.
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let identifier = DataIdentifier::decode(reader)?.unwrap();
         Ok(Some(Self::new(identifier)))
@@ -90,7 +82,6 @@ impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<Da
         self.identifier.required_size()
     }
 
-    /// Serialize a `WriteDataByIdentifierResponse` instance.
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
         self.identifier.encode(writer)

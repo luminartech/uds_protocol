@@ -122,7 +122,6 @@ impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<Rout
         }))
     }
 
-    /// Can be 3 bytes, or more
     fn required_size(&self) -> usize {
         // control type + (routine identifier + routine info + status record)
         1 + self.routine_status_record.required_size()

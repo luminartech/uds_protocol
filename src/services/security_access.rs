@@ -1,3 +1,4 @@
+//! `SecurityAccess` (0x27) service implementation
 use crate::{
     Error, NegativeResponseCode, SecurityAccessType, SingleValueWireFormat,
     SuppressablePositiveResponse, WireFormat,
@@ -83,7 +84,6 @@ impl SecurityAccessRequest {
 }
 
 impl WireFormat for SecurityAccessRequest {
-    /// Deserialization function to read a [`SecurityAccessRequest`] from a `Reader`
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         let mut request_data: Vec<u8> = Vec::new();
@@ -98,7 +98,6 @@ impl WireFormat for SecurityAccessRequest {
         1 + self.request_data().len()
     }
 
-    /// Serialization function to write a [`SecurityAccessRequest`] to a `Writer`
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.access_type))?;
         writer.write_all(&self.request_data)?;
@@ -141,7 +140,6 @@ impl SecurityAccessResponse {
 }
 
 impl WireFormat for SecurityAccessResponse {
-    /// Deserialization function to read a `SecurityAccessResponse` from a [`Reader`](std::io::Read)
     fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
         let mut security_seed = Vec::new();
@@ -156,7 +154,6 @@ impl WireFormat for SecurityAccessResponse {
         1 + self.security_seed.len()
     }
 
-    /// Serialization function to write a `SecurityAccessResponse` to a [`Writer`](std::io::Write)
     fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.access_type))?;
         writer.write_all(&self.security_seed)?;

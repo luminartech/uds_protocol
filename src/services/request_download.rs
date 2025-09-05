@@ -1,3 +1,4 @@
+//! `RequestDownload` (0x34) service implementation
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 use crate::{

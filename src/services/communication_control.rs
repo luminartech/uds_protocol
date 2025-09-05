@@ -1,3 +1,4 @@
+//! `CommunicationControl` (0x28) service implementation
 use crate::{
     CommunicationControlType, CommunicationType, Error, NegativeResponseCode,
     SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
@@ -73,7 +74,7 @@ impl CommunicationControlRequest {
         self.control_type.value()
     }
 
-    /// Get the allowed Nack codes for this request
+    /// Get the allowed [`NegativeResponseCode`] variants for this request
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES

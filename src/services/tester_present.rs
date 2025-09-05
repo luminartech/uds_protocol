@@ -1,3 +1,4 @@
+//! `TesterPresent` (0x3E) service implementation
 use crate::{
     Error, NegativeResponseCode, SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
 };
@@ -11,15 +12,17 @@ const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
 
 const NO_SUBFUNCTION_VALUE: u8 = 0x00;
 
-// Subfunction parameter values for the Test Present service.
-// The range of values is only 7 of the 8 bits, with bit 7 being used as the Suppress Positive Response (SPR) Message Indication Bit.
+/// Subfunction parameter values for the `TesterPresent` service.
+///
+/// The range of values is only 7 of the 8 bits, with bit 7 being used as the
+/// Suppress Positive Response (SPR) Message Indication Bit.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ZeroSubFunction {
-    // Request and response. Indicates that no value beside the (SPR) Message Indication Bit is supported by this service.
+    /// Request and response. Indicates that no value beside the SPR Message Indication Bit is supported by this service.
     NoSubFunctionSupported,
-    // Request only.
+    /// Request only.
     ISOSAEReserved(u8),
 }
 
@@ -59,6 +62,7 @@ impl TryFrom<u8> for ZeroSubFunction {
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+/// Request to indicate the client is still connected
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TesterPresentRequest {
     zero_sub_function: SuppressablePositiveResponse<ZeroSubFunction>,
@@ -88,7 +92,7 @@ impl TesterPresentRequest {
         self.zero_sub_function.suppress_positive_response()
     }
 
-    /// Get the allowed Nack codes for this request
+    /// Get the allowed [`NegativeResponseCode`] variants for this request
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &TESTER_PRESENT_NEGATIVE_RESPONSE_CODES
@@ -96,7 +100,6 @@ impl TesterPresentRequest {
 }
 
 impl WireFormat for TesterPresentRequest {
-    /// Deserialization function to read a `TesterPresentRequest` from a `Reader`
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
@@ -106,7 +109,6 @@ impl WireFormat for TesterPresentRequest {
         1
     }
 
-    /// Serialization function to write a `TesterPresentRequest` to a `Writer`
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.zero_sub_function))?;
         Ok(1)
@@ -121,6 +123,7 @@ impl SingleValueWireFormat for TesterPresentRequest {}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+/// Positive response to a `TesterPresentRequest`
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TesterPresentResponse {
     zero_sub_function: ZeroSubFunction,
@@ -136,7 +139,6 @@ impl TesterPresentResponse {
 }
 
 impl WireFormat for TesterPresentResponse {
-    /// Create a `TesterPresentResponse` from a sequence of bytes
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
@@ -146,7 +148,6 @@ impl WireFormat for TesterPresentResponse {
         1
     }
 
-    /// Write the response as a sequence of bytes to a buffer
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.zero_sub_function))?;
         Ok(1)

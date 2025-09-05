@@ -1,3 +1,4 @@
+//! `TransferData` (0x36) service implementation
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 use crate::{Error, SingleValueWireFormat, WireFormat};

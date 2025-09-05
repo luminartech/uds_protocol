@@ -5,7 +5,7 @@ use crate::{
     DTCExtDataRecordList, DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
     DTCSeverityRecord, DTCSnapshotRecord, DTCSnapshotRecordList, DTCSnapshotRecordNumber,
     DTCStatusMask, DTCStoredDataRecordNumber, Error, FunctionalGroupIdentifier, IterableWireFormat,
-    SingleValueWireFormat, UserDefDTCSnapshotRecordNumber, WireFormat,
+    SingleValueWireFormat, WireFormat,
 };
 
 /// Used for non-emissions related servers
@@ -15,6 +15,7 @@ type MemorySelection = u8;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+/// Request for the server to report diagnostic trouble code information
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct ReadDTCInfoRequest {
@@ -47,6 +48,7 @@ impl SingleValueWireFormat for ReadDTCInfoRequest {}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+/// A DTC paired with its fault detection counter value
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DTCFaultDetectionCounterRecord {
     pub dtc_record: DTCRecord,
@@ -83,8 +85,8 @@ impl IterableWireFormat for DTCFaultDetectionCounterRecord {}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+/// Record containing user-defined memory DTC information filtered by status mask
 #[derive(Clone, Debug, PartialEq)]
-// Represent a record containing information about User Defined Memory DTC By Status Mask
 pub struct UserDefMemoryDTCByStatusMaskRecord {
     // This parameter shall be used to address the respective user defined DTC memory when retrieving DTCs.
     pub memory_selection: MemorySelection,
@@ -96,6 +98,7 @@ pub struct UserDefMemoryDTCByStatusMaskRecord {
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+/// Record containing user-defined memory DTC snapshot data for a specific DTC
 #[derive(Clone, Debug, PartialEq)]
 pub struct UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload> {
     // This parameter shall be used to address the respective user defined DTC memory when retrieving DTCs.
@@ -208,6 +211,7 @@ pub struct DTCByReadinessGroupIdentifierRecord {
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+/// List of DTCs that support a specific extended data record number
 #[derive(Clone, Debug, PartialEq)]
 pub struct SupportedDTCExtDataRecord {
     /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
@@ -299,7 +303,7 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x18
     ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
         DTCRecord,
-        UserDefDTCSnapshotRecordNumber,
+        DTCSnapshotRecordNumber,
         MemorySelection,
     ),
 
@@ -428,7 +432,7 @@ impl WireFormat for ReadDTCInfoSubFunction {
             // 0xFF for all records
             0x18 => Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
                 DTCRecord::decode_single_value(reader)?,
-                UserDefDTCSnapshotRecordNumber::decode_single_value(reader)?,
+                DTCSnapshotRecordNumber::decode_single_value(reader)?,
                 reader.read_u8()?,
             ),
             0x19 => Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
@@ -458,8 +462,6 @@ impl WireFormat for ReadDTCInfoSubFunction {
         Ok(Some(subfunction))
     }
 
-    /// Each subfunction has a different size
-    /// The first byte is always the subfunction report type
     #[allow(clippy::match_same_arms)]
     fn required_size(&self) -> usize {
         1 + match self {
@@ -1480,7 +1482,7 @@ mod response {
             0x01, // Memory Selection
             0x12, 0x34, 0x56, // DTC Mask
             DTCStatusAvailabilityMask::TestFailed.into(), // Availability Mask
-            0x13, // UserDefDTCSnapshotRecordNumber
+            0x13, // DTCSnapshotRecordNumber
             0x02, // DTCSnapshotRecordNumberOfIdentifiers
             0xBE, 0xEF, // SnapshotDataIdentifier
             0x05, // SnapshotData

@@ -1,3 +1,4 @@
+//! `ReadDataByIdentifier` (0x22) service implementation
 use crate::{
     Error, Identifier, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat,
 };
@@ -37,7 +38,6 @@ impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
 }
 
 impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<DataIdentifier> {
-    /// Create a request from a sequence of bytes
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let dids = DataIdentifier::parse_from_list(reader)?;
         if dids.is_empty() {
@@ -51,7 +51,6 @@ impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<Data
         self.dids.len() * 2
     }
 
-    /// Write the response as a sequence of bytes to a buffer
     fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let mut count = 0;
         for did in &self.dids {
@@ -86,7 +85,6 @@ impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierResponse<UserPayload> {
-    /// Create a response from a sequence of bytes
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
         for payload in UserPayload::decode_iterable(reader) {
@@ -110,7 +108,6 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
         self.data.iter().map(WireFormat::required_size).sum()
     }
 
-    /// Write the response as a sequence of bytes to a buffer
     fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let mut total_written = 0;
         for payload in &self.data {

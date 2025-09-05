@@ -1,3 +1,4 @@
+//! `RequestFileTransfer` (0x38) service implementation
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::Read;
 
@@ -8,6 +9,7 @@ use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
+/// Mode of operation for file transfer requests
 pub enum FileOperationMode {
     // 0x00, 0x07-0xFF Reserved for future definition by ISO
     ISOSAEReserved(u8),

@@ -55,14 +55,13 @@ impl DiagnosticSessionControlRequest {
         self.session_type.value()
     }
 
-    /// Get the allowed Nack codes for this request
+    /// Get the allowed [`NegativeResponseCode`] variants for this request
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 }
 impl WireFormat for DiagnosticSessionControlRequest {
-    /// Deserialization function to read a `DiagnosticSessionControlRequest` from a `Reader`
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { session_type }))
@@ -72,7 +71,6 @@ impl WireFormat for DiagnosticSessionControlRequest {
         1
     }
 
-    /// Serialization function to write a `DiagnosticSessionControlRequest` to a `Writer`
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.session_type))?;
         Ok(1)
@@ -111,7 +109,6 @@ impl DiagnosticSessionControlResponse {
     }
 }
 impl WireFormat for DiagnosticSessionControlResponse {
-    /// Read a `DiagnosticSessionControlResponse` from a `Reader`
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
         let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
@@ -127,7 +124,6 @@ impl WireFormat for DiagnosticSessionControlResponse {
         5
     }
 
-    /// Write a `DiagnosticSessionControlResponse` to a `Writer`
     fn encode<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.session_type))?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_server_max)?;
