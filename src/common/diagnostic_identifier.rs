@@ -65,7 +65,6 @@ impl TryFrom<u16> for UDSIdentifier {
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         Ok(match value {
-            0x0000..=0x00FF => Self::ISOSAEReserved(value),
             0xF100..=0xF17F => Self::VehicleManufacturerSpecific(value),
             // 0x0100..0xA5FF => Manufacturer Specific,
             0xF180 => Self::BootSoftwareIdentification,
@@ -101,8 +100,7 @@ impl TryFrom<u16> for UDSIdentifier {
             0xF19E => Self::ODXFile,
             0xF19F => Self::Entity,
             0xFD00..=0xFEFF => Self::SystemSupplierSpecific(value),
-            0xFF02..=0xFFFF => Self::ISOSAEReserved(value),
-
+            0x0000..=0x00FF | 0xFF02..=0xFFFF => Self::ISOSAEReserved(value),
             _ => return Err(Error::InvalidDiagnosticIdentifier(value)),
         })
     }
@@ -111,9 +109,9 @@ impl TryFrom<u16> for UDSIdentifier {
 impl From<UDSIdentifier> for u16 {
     fn from(value: UDSIdentifier) -> Self {
         match value {
-            UDSIdentifier::ISOSAEReserved(identifier) => identifier,
-            UDSIdentifier::VehicleManufacturerSpecific(identifier) => identifier,
-            UDSIdentifier::SystemSupplierSpecific(identifier) => identifier,
+            UDSIdentifier::ISOSAEReserved(identifier)
+            | UDSIdentifier::VehicleManufacturerSpecific(identifier)
+            | UDSIdentifier::SystemSupplierSpecific(identifier) => identifier,
             UDSIdentifier::BootSoftwareIdentification => 0xF180,
             UDSIdentifier::ApplicationSoftwareIdentification => 0xF181,
             UDSIdentifier::ApplicationDataIdentification => 0xF182,
@@ -240,14 +238,14 @@ impl From<u16> for UDSRoutineIdentifier {
 impl From<UDSRoutineIdentifier> for u16 {
     fn from(value: UDSRoutineIdentifier) -> Self {
         match value {
-            UDSRoutineIdentifier::ISOSAEReserved(identifier) => identifier,
-            UDSRoutineIdentifier::TachographTestIds(identifier) => identifier,
-            UDSRoutineIdentifier::VehicleManufacturerSpecific(identifier) => identifier,
-            UDSRoutineIdentifier::OBDTestIds(identifier) => identifier,
+            UDSRoutineIdentifier::ISOSAEReserved(identifier)
+            | UDSRoutineIdentifier::TachographTestIds(identifier)
+            | UDSRoutineIdentifier::VehicleManufacturerSpecific(identifier)
+            | UDSRoutineIdentifier::OBDTestIds(identifier)
+            | UDSRoutineIdentifier::SafetySystemRoutineID(identifier)
+            | UDSRoutineIdentifier::SystemSupplierSpecific(identifier) => identifier,
             UDSRoutineIdentifier::ExecuteSPL => 0xE200,
             UDSRoutineIdentifier::DeployLoopRoutineID => 0xE201,
-            UDSRoutineIdentifier::SafetySystemRoutineID(identifier) => identifier,
-            UDSRoutineIdentifier::SystemSupplierSpecific(identifier) => identifier,
             UDSRoutineIdentifier::EraseMemory => 0xFF00,
             UDSRoutineIdentifier::CheckProgrammingDependencies => 0xFF01,
         }

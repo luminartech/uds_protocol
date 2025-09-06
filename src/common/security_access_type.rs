@@ -31,12 +31,12 @@ pub enum SecurityAccessType {
 impl From<SecurityAccessType> for u8 {
     fn from(value: SecurityAccessType) -> Self {
         match value {
-            SecurityAccessType::ISOSAEReserved(val) => val,
-            SecurityAccessType::RequestSeed(val) => val,
-            SecurityAccessType::SendKey(val) => val,
+            SecurityAccessType::ISOSAEReserved(val)
+            | SecurityAccessType::RequestSeed(val)
+            | SecurityAccessType::SendKey(val)
+            | SecurityAccessType::SystemSupplierSpecific(val) => val,
             SecurityAccessType::ISO26021_2Values => 0x5F,
             SecurityAccessType::ISO26021_2SendKeyValues => 0x60,
-            SecurityAccessType::SystemSupplierSpecific(val) => val,
         }
     }
 }

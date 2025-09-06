@@ -40,13 +40,13 @@ pub enum DiagnosticSessionType {
 impl From<DiagnosticSessionType> for u8 {
     fn from(value: DiagnosticSessionType) -> Self {
         match value {
-            DiagnosticSessionType::ISOSAEReserved(value) => value,
             DiagnosticSessionType::DefaultSession => 0x01,
             DiagnosticSessionType::ProgrammingSession => 0x02,
             DiagnosticSessionType::ExtendedDiagnosticSession => 0x03,
             DiagnosticSessionType::SafetySystemDiagnosticSession => 0x04,
-            DiagnosticSessionType::VehicleManufacturerSpecificSession(value) => value,
-            DiagnosticSessionType::SystemSupplierSpecificSession(value) => value,
+            DiagnosticSessionType::ISOSAEReserved(value)
+            | DiagnosticSessionType::VehicleManufacturerSpecificSession(value)
+            | DiagnosticSessionType::SystemSupplierSpecificSession(value) => value,
         }
     }
 }
@@ -55,17 +55,15 @@ impl TryFrom<u8> for DiagnosticSessionType {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
+            0x00 | 0x05..=0x3F | 0x7F => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
             0x01 => Ok(DiagnosticSessionType::DefaultSession),
             0x02 => Ok(DiagnosticSessionType::ProgrammingSession),
             0x03 => Ok(DiagnosticSessionType::ExtendedDiagnosticSession),
             0x04 => Ok(DiagnosticSessionType::SafetySystemDiagnosticSession),
-            0x05..=0x3F => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
             0x40..=0x5F => Ok(DiagnosticSessionType::VehicleManufacturerSpecificSession(
                 value,
             )),
             0x60..=0x7E => Ok(DiagnosticSessionType::SystemSupplierSpecificSession(value)),
-            0x7F => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
             _ => Err(Error::InvalidDiagnosticSessionType(value)),
         }
     }

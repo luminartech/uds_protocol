@@ -54,9 +54,8 @@ pub struct DTCFaultDetectionCounterRecord {
 impl WireFormat for DTCFaultDetectionCounterRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let dtc_record = match DTCRecord::option_from_reader(reader) {
-            Ok(None) => return Ok(None),
+            Ok(None) | Err(_) => return Ok(None),
             Ok(record) => record,
-            Err(_) => return Ok(None),
         };
         let dtc_fault_detection_counter = reader.read_u8()?;
         Ok(Some(Self {
@@ -428,7 +427,6 @@ impl WireFormat for ReadDTCInfoSubFunction {
                 DTCStatusMask::from(reader.read_u8()?),
                 DTCSeverityMask::from(reader.read_u8()?),
             ),
-            0x43..=0x54 => Self::ISOSAEReserved(report_type),
             0x55 => Self::ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier::from(
                 reader.read_u8()?,
             )),
@@ -436,7 +434,7 @@ impl WireFormat for ReadDTCInfoSubFunction {
                 FunctionalGroupIdentifier::from(reader.read_u8()?),
                 reader.read_u8()?,
             ),
-            0x57..=0x7F => Self::ISOSAEReserved(report_type),
+            0x43..=0x54 | 0x57..=0x7F => Self::ISOSAEReserved(report_type),
             _ => return Err(Error::InvalidDtcSubfunctionType(report_type)),
         };
         Ok(Some(subfunction))
@@ -446,32 +444,35 @@ impl WireFormat for ReadDTCInfoSubFunction {
     /// The first byte is always the subfunction report type
     fn required_size(&self) -> usize {
         1 + match self {
-            Self::ReportNumberOfDTC_ByStatusMask(_) => 1,
-            Self::ReportDTC_ByStatusMask(_) => 1,
-            Self::ReportDTCSnapshotIdentification => 0,
-            Self::ReportDTCSnapshotRecord_ByDTCNumber(_, _) => 4,
-            Self::ReportDTCStoredData_ByRecordNumber(_) => 2,
-            Self::ReportDTCExtDataRecord_ByDTCNumber(_, _) => 4,
-            Self::ReportNumberOfDTC_BySeverityMaskRecord(_, _) => 2,
-            Self::ReportDTC_BySeverityMaskRecord(_, _) => 2,
-            Self::ReportSeverityInfoOfDTC(_) => 3,
-            Self::ReportSupportedDTC => 0,
-            Self::ReportFirstTestFailedDTC => 0,
-            Self::ReportFirstConfirmedDTC => 0,
-            Self::ReportMostRecentTestFailedDTC => 0,
-            Self::ReportMostRecentConfirmedDTC => 0,
-            Self::ReportDTCFaultDetectionCounter => 0,
-            Self::ReportDTCWithPermanentStatus => 0,
-            Self::ReportDTCExtDataRecord_ByRecordNumber(_) => 1,
-            Self::ReportUserDefMemoryDTC_ByStatusMask(_) => 1,
-            Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(_, _, _) => 5,
-            Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(_, _, _) => 5,
-            Self::ReportSupportedDTCExtDataRecord(_) => 1,
-            Self::ReportWWHOBDDTC_ByMaskRecord(_, _, _) => 3,
-            Self::ReportWWHOBDDTC_WithPermanentStatus(_) => 1,
-            Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(_, _) => 2,
+            Self::ReportSupportedDTC
+            | Self::ReportFirstTestFailedDTC
+            | Self::ReportFirstConfirmedDTC
+            | Self::ReportMostRecentTestFailedDTC
+            | Self::ReportMostRecentConfirmedDTC
+            | Self::ReportDTCFaultDetectionCounter
+            | Self::ReportDTCWithPermanentStatus
+            | Self::ReportDTCSnapshotIdentification
+            | Self::ISOSAEReserved(_) => 0,
 
-            Self::ISOSAEReserved(_) => 0,
+            Self::ReportNumberOfDTC_ByStatusMask(_)
+            | Self::ReportDTC_ByStatusMask(_)
+            | Self::ReportDTCExtDataRecord_ByRecordNumber(_)
+            | Self::ReportUserDefMemoryDTC_ByStatusMask(_)
+            | Self::ReportSupportedDTCExtDataRecord(_)
+            | Self::ReportWWHOBDDTC_WithPermanentStatus(_) => 1,
+
+            Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(_, _)
+            | Self::ReportDTCStoredData_ByRecordNumber(_)
+            | Self::ReportNumberOfDTC_BySeverityMaskRecord(_, _)
+            | Self::ReportDTC_BySeverityMaskRecord(_, _) => 2,
+
+            Self::ReportSeverityInfoOfDTC(_) | Self::ReportWWHOBDDTC_ByMaskRecord(_, _, _) => 3,
+
+            Self::ReportDTCSnapshotRecord_ByDTCNumber(_, _)
+            | Self::ReportDTCExtDataRecord_ByDTCNumber(_, _) => 4,
+
+            Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(_, _, _)
+            | Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(_, _, _) => 5,
         }
     }
 
@@ -485,7 +486,6 @@ impl WireFormat for ReadDTCInfoSubFunction {
             Self::ReportDTC_ByStatusMask(mask) => {
                 mask.to_writer(writer)?;
             }
-            Self::ReportDTCSnapshotIdentification => {}
             Self::ReportDTCSnapshotRecord_ByDTCNumber(mask, record_number) => {
                 mask.to_writer(writer)?;
                 record_number.to_writer(writer)?;
@@ -508,13 +508,14 @@ impl WireFormat for ReadDTCInfoSubFunction {
             Self::ReportSeverityInfoOfDTC(mask) => {
                 mask.to_writer(writer)?;
             }
-            Self::ReportSupportedDTC => {}
-            Self::ReportFirstTestFailedDTC => {}
-            Self::ReportFirstConfirmedDTC => {}
-            Self::ReportMostRecentTestFailedDTC => {}
-            Self::ReportMostRecentConfirmedDTC => {}
-            Self::ReportDTCFaultDetectionCounter => {}
-            Self::ReportDTCWithPermanentStatus => {}
+            Self::ReportDTCSnapshotIdentification
+            | Self::ReportSupportedDTC
+            | Self::ReportFirstTestFailedDTC
+            | Self::ReportFirstConfirmedDTC
+            | Self::ReportMostRecentTestFailedDTC
+            | Self::ReportMostRecentConfirmedDTC
+            | Self::ReportDTCFaultDetectionCounter
+            | Self::ReportDTCWithPermanentStatus => {}
             Self::ReportDTCExtDataRecord_ByRecordNumber(record_number) => {
                 record_number.to_writer(writer)?;
             }

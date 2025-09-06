@@ -64,9 +64,9 @@ impl From<CommunicationControlType> for u8 {
             CommunicationControlType::DisableRxAndTx => 0x03,
             CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo => 0x04,
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => 0x05,
-            CommunicationControlType::ISOSAEReserved(val) => val,
-            CommunicationControlType::VehicleManufacturerSpecific(val) => val,
-            CommunicationControlType::SystemSupplierSpecific(val) => val,
+            CommunicationControlType::ISOSAEReserved(val)
+            | CommunicationControlType::VehicleManufacturerSpecific(val)
+            | CommunicationControlType::SystemSupplierSpecific(val) => val,
         }
     }
 }

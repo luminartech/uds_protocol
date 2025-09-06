@@ -52,10 +52,10 @@ impl DTCExtDataRecordNumber {
     #[must_use]
     pub fn value(&self) -> u8 {
         match self {
-            Self::ISOSAEReserved(value) => *value,
-            Self::VehicleManufacturer(value) => *value,
-            Self::RegulatedEmissionsOBDDTCExtDataRecords(value) => *value,
-            Self::RegulatedDTCExtDataRecords(value) => *value,
+            Self::ISOSAEReserved(value)
+            | Self::VehicleManufacturer(value)
+            | Self::RegulatedEmissionsOBDDTCExtDataRecords(value)
+            | Self::RegulatedDTCExtDataRecords(value) => *value,
             Self::AllRegulatedEmissionsOBDDTCExtDataRecords => 0xFE,
             Self::AllDTCExtDataRecords => 0xFF,
         }
