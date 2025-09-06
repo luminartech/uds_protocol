@@ -81,12 +81,12 @@ impl TesterPresentRequest {
     }
 
     /// Getter for whether a positive response should be suppressed
-    pub fn suppress_positive_response(&self) -> bool {
+    #[must_use] pub fn suppress_positive_response(&self) -> bool {
         self.zero_sub_function.suppress_positive_response()
     }
 
     /// Get the allowed Nack codes for this request
-    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+    #[must_use] pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &TESTER_PRESENT_NEGATIVE_RESPONSE_CODES
     }
 }

@@ -31,7 +31,7 @@ impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
     }
 
     /// Get the allowed Nack codes for this request
-    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+    #[must_use] pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &READ_DID_NEGATIVE_RESPONSE_CODES
     }
 }

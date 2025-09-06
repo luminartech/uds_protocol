@@ -37,7 +37,7 @@ pub enum DTCExtDataRecordNumber {
 }
 
 impl DTCExtDataRecordNumber {
-    pub fn new(value: u8) -> Self {
+    #[must_use] pub fn new(value: u8) -> Self {
         match value {
             0x00 | 0xF0..=0xFD => Self::ISOSAEReserved(value),
             0x01..=0x8F => Self::VehicleManufacturer(value),
@@ -48,7 +48,7 @@ impl DTCExtDataRecordNumber {
         }
     }
 
-    pub fn value(&self) -> u8 {
+    #[must_use] pub fn value(&self) -> u8 {
         match self {
             Self::ISOSAEReserved(value) => *value,
             Self::VehicleManufacturer(value) => *value,

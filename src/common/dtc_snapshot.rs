@@ -87,13 +87,13 @@ pub struct DTCSnapshotRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
-    pub fn new(data: Vec<UserPayload>) -> Self {
+    #[must_use] pub fn new(data: Vec<UserPayload>) -> Self {
         Self { data }
     }
 
     /// The number of DIDs in the snapshot record
     /// If the number of DIDs exceeds 0xFF, the value 0x00 shall be used
-    pub fn number_of_dids(&self) -> u8 {
+    #[must_use] pub fn number_of_dids(&self) -> u8 {
         if self.data.len() > 0xFF {
             0
         } else {
@@ -162,14 +162,14 @@ pub enum DTCSnapshotRecordNumber {
 
 impl DTCSnapshotRecordNumber {
     /// Create a new DTCSnapshotRecordNumber validating that it is in the range we expect
-    pub fn new(record_number: u8) -> Self {
+    #[must_use] pub fn new(record_number: u8) -> Self {
         match record_number {
             0x00 | 0xF0 => Self::Reserved(record_number),
             0xFF => Self::All,
             _ => Self::Number(record_number),
         }
     }
-    pub fn value(&self) -> u8 {
+    #[must_use] pub fn value(&self) -> u8 {
         match self {
             DTCSnapshotRecordNumber::Reserved(value) => *value,
             DTCSnapshotRecordNumber::Number(value) => *value,

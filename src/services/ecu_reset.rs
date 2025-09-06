@@ -29,17 +29,17 @@ impl EcuResetRequest {
     }
 
     /// Getter for whether a positive response should be suppressed
-    pub fn suppress_positive_response(&self) -> bool {
+    #[must_use] pub fn suppress_positive_response(&self) -> bool {
         self.reset_type.suppress_positive_response()
     }
 
     /// Getter for the requested [`ResetType`]
-    pub fn reset_type(&self) -> ResetType {
+    #[must_use] pub fn reset_type(&self) -> ResetType {
         self.reset_type.value()
     }
 
     /// Get the allowed Nack codes for this request
-    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+    #[must_use] pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &ECU_RESET_NEGATIVE_RESPONSE_CODES
     }
 }

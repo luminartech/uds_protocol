@@ -44,18 +44,18 @@ pub enum Response<D: DiagnosticDefinition> {
 }
 
 impl<D: DiagnosticDefinition> Response<D> {
-    pub fn clear_diagnostic_info() -> Self {
+    #[must_use] pub fn clear_diagnostic_info() -> Self {
         Response::ClearDiagnosticInfo
     }
-    pub fn communication_control(control_type: CommunicationControlType) -> Self {
+    #[must_use] pub fn communication_control(control_type: CommunicationControlType) -> Self {
         Response::CommunicationControl(CommunicationControlResponse::new(control_type))
     }
 
-    pub fn control_dtc_settings(setting: DtcSettings) -> Self {
+    #[must_use] pub fn control_dtc_settings(setting: DtcSettings) -> Self {
         Response::ControlDTCSettings(ControlDTCSettingsResponse::new(setting))
     }
 
-    pub fn diagnostic_session_control(
+    #[must_use] pub fn diagnostic_session_control(
         session_type: DiagnosticSessionType,
         p2_max: u16,
         p2_star_max: u16,
@@ -67,15 +67,15 @@ impl<D: DiagnosticDefinition> Response<D> {
         ))
     }
 
-    pub fn ecu_reset(reset_type: ResetType, power_down_time: u8) -> Self {
+    #[must_use] pub fn ecu_reset(reset_type: ResetType, power_down_time: u8) -> Self {
         Response::EcuReset(EcuResetResponse::new(reset_type, power_down_time))
     }
 
-    pub fn negative_response(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
+    #[must_use] pub fn negative_response(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
         Response::NegativeResponse(NegativeResponse::new(request_service, nrc))
     }
 
-    pub fn request_download(
+    #[must_use] pub fn request_download(
         length_format_identifier: u8,
         max_number_of_block_length: Vec<u8>,
     ) -> Self {
@@ -85,7 +85,7 @@ impl<D: DiagnosticDefinition> Response<D> {
         ))
     }
 
-    pub fn request_file_transfer() -> Self {
+    #[must_use] pub fn request_file_transfer() -> Self {
         todo!()
     }
 
@@ -96,15 +96,15 @@ impl<D: DiagnosticDefinition> Response<D> {
         Response::RoutineControl(RoutineControlResponse::new(routine_control_type, data))
     }
 
-    pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
+    #[must_use] pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
         Response::SecurityAccess(SecurityAccessResponse::new(access_type, security_seed))
     }
 
-    pub fn tester_present() -> Self {
+    #[must_use] pub fn tester_present() -> Self {
         Response::TesterPresent(TesterPresentResponse::new())
     }
 
-    pub fn transfer_data(block_sequence_counter: u8, data: Vec<u8>) -> Self {
+    #[must_use] pub fn transfer_data(block_sequence_counter: u8, data: Vec<u8>) -> Self {
         Response::TransferData(TransferDataResponse::new(block_sequence_counter, data))
     }
 
