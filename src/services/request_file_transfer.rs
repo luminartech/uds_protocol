@@ -189,7 +189,7 @@ impl WireFormat for NamePayload {
         // Read # of bytes specified by `file_path_and_name_length`
         let mut file_path_and_name = String::new();
         reader
-            .take(file_path_and_name_length as u64)
+            .take(u64::from(file_path_and_name_length))
             .read_to_string(&mut file_path_and_name)?;
 
         Ok(Some(Self {

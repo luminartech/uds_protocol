@@ -94,7 +94,9 @@ impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
 
     /// The number of DIDs in the snapshot record
     /// If the number of DIDs exceeds 0xFF, the value 0x00 shall be used
-    #[must_use] pub fn number_of_dids(&self) -> u8 {
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use]
+    pub fn number_of_dids(&self) -> u8 {
         if self.data.len() > 0xFF {
             0
         } else {
@@ -104,6 +106,7 @@ impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPayload> {
+    #[allow(clippy::cast_possible_truncation)]
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let number_of_dids = reader.read_u8()?;
         // Make sure we read the correct number of DIDs, 0 means unlimited (or at least more than 0xFF)

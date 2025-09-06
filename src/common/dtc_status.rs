@@ -218,7 +218,7 @@ impl From<u32> for DTCRecord {
 
 impl From<DTCRecord> for u32 {
     fn from(value: DTCRecord) -> Self {
-        ((value.high as u32) << 16) | ((value.middle as u32) << 8) | value.low as u32
+        (u32::from(value.high) << 16) | (u32::from(value.middle) << 8) | u32::from(value.low)
     }
 }
 
@@ -381,6 +381,7 @@ pub struct DTCStoredDataRecordNumber(u8);
 
 // create a constructor for DTCStoredDataRecordNumber
 impl DTCStoredDataRecordNumber {
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(record_number: u8) -> Result<Self, Error> {
         if record_number == 0 || record_number == 0xF0 {
             return Err(Error::ReservedForLegislativeUse(
@@ -395,17 +396,12 @@ impl DTCStoredDataRecordNumber {
 impl WireFormat for DTCStoredDataRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let value = reader.read_u8()?;
-        match value {
+        if value == 0x00 {
             // Reserved for Legislative purposes
-            0x00 => {
-                return Err(Error::ReservedForLegislativeUse(
-                    "DTCStoredDataRecordNumber".to_string(),
-                    value,
-                ));
-            }
-            // Requests that the server report all DTCStoredData records at once
-            0xFF => {}
-            _ => {}
+            return Err(Error::ReservedForLegislativeUse(
+                "DTCStoredDataRecordNumber".to_string(),
+                value,
+            ));
         }
         Ok(Some(Self(value)))
     }

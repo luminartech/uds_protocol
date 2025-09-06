@@ -88,7 +88,7 @@ impl std::fmt::Debug for ProtocolPayload {
         write!(
             f,
             "{:#06X} => {}",
-            self.0[1] as u16 | (self.0[0] as u16) << 8,
+            u16::from(self.0[1]) | u16::from(self.0[0]) << 8,
             self.1
                 .iter()
                 .map(|b| format!("{b:02X}"))
