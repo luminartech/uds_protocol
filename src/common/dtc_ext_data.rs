@@ -112,7 +112,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayloa
         // n bytes of data per UserPayload
         self.data
             .iter()
-            .map(super::super::traits::WireFormat::required_size)
+            .map(WireFormat::required_size)
             .sum::<usize>()
     }
 
@@ -155,7 +155,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPa
             + self
                 .record_data
                 .iter()
-                .map(super::super::traits::WireFormat::required_size)
+                .map(WireFormat::required_size)
                 .sum::<usize>()
     }
 

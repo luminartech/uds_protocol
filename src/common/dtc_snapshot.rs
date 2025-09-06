@@ -136,7 +136,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
         1 + self
             .data
             .iter()
-            .map(super::super::traits::WireFormat::required_size)
+            .map(WireFormat::required_size)
             .sum::<usize>()
     }
 
