@@ -183,25 +183,25 @@ impl From<DTCFormatIdentifier> for u8 {
 
 /// Use to clear all DTCs in a [`crate::ClearDiagnosticInfoRequest`]
 pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
-    high_byte: 0xFF,
-    middle_byte: 0xFF,
-    low_byte: 0xFF,
+    high: 0xFF,
+    middle: 0xFF,
+    low: 0xFF,
 };
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy, ToSchema)]
 pub struct DTCRecord {
-    high_byte: u8,
-    middle_byte: u8,
-    low_byte: u8,
+    high: u8,
+    middle: u8,
+    low: u8,
 }
 
 impl DTCRecord {
     #[must_use]
     pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
         Self {
-            high_byte,
-            middle_byte,
-            low_byte,
+            high: high_byte,
+            middle: middle_byte,
+            low: low_byte,
         }
     }
 }
@@ -209,16 +209,16 @@ impl DTCRecord {
 impl From<u32> for DTCRecord {
     fn from(value: u32) -> Self {
         Self {
-            high_byte: ((value >> 16) & 0xFF) as u8,
-            middle_byte: ((value >> 8) & 0xFF) as u8,
-            low_byte: (value & 0xFF) as u8,
+            high: ((value >> 16) & 0xFF) as u8,
+            middle: ((value >> 8) & 0xFF) as u8,
+            low: (value & 0xFF) as u8,
         }
     }
 }
 
 impl From<DTCRecord> for u32 {
     fn from(value: DTCRecord) -> Self {
-        ((value.high_byte as u32) << 16) | ((value.middle_byte as u32) << 8) | value.low_byte as u32
+        ((value.high as u32) << 16) | ((value.middle as u32) << 8) | value.low as u32
     }
 }
 
@@ -231,9 +231,9 @@ impl WireFormat for DTCRecord {
         let middle_byte = reader.read_u8()?;
         let low_byte = reader.read_u8()?;
         Ok(Some(Self {
-            high_byte,
-            middle_byte,
-            low_byte,
+            high: high_byte,
+            middle: middle_byte,
+            low: low_byte,
         }))
     }
 
@@ -242,7 +242,7 @@ impl WireFormat for DTCRecord {
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
-        writer.write_all(&[self.high_byte, self.middle_byte, self.low_byte])?;
+        writer.write_all(&[self.high, self.middle, self.low])?;
         Ok(3)
     }
 }
