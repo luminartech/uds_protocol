@@ -129,7 +129,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
     }
 
     fn required_size(&self) -> usize {
-        1 + self.data.iter().map(|d| d.required_size()).sum::<usize>()
+        1 + self.data.iter().map(super::super::traits::WireFormat::required_size).sum::<usize>()
     }
 
     // TODO: Must write the DIDs as well...

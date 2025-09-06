@@ -108,7 +108,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayloa
 
     fn required_size(&self) -> usize {
         // n bytes of data per UserPayload
-        self.data.iter().map(|d| d.required_size()).sum::<usize>()
+        self.data.iter().map(super::super::traits::WireFormat::required_size).sum::<usize>()
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
@@ -150,7 +150,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPa
             + self
                 .record_data
                 .iter()
-                .map(|r| r.required_size())
+                .map(super::super::traits::WireFormat::required_size)
                 .sum::<usize>()
     }
 

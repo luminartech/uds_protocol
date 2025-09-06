@@ -101,7 +101,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
     }
 
     fn required_size(&self) -> usize {
-        self.data.iter().map(|d| d.required_size()).sum()
+        self.data.iter().map(super::super::traits::WireFormat::required_size).sum()
     }
 
     /// Write the response as a sequence of bytes to a buffer
