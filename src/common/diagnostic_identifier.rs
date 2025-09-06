@@ -166,7 +166,7 @@ impl std::fmt::Debug for UDSIdentifier {
     }
 }
 
-/// Standard UDS Routine Identifier for the RoutineControl (0x31, 0x71) service
+/// Standard UDS Routine Identifier for the `RoutineControl` (0x31, 0x71) service
 ///
 /// Some services will be defined by the Vehicle manufacturer or a system supplier,
 /// and they must be implemented by the tester system.
@@ -219,7 +219,7 @@ pub enum UDSRoutineIdentifier {
     CheckProgrammingDependencies = 0xFF01,
 }
 
-/// We know all values for the Routine Identifier, so we can implement `From<u16>` for UDSRoutineIdentifier
+/// We know all values for the Routine Identifier, so we can implement `From<u16>` for `UDSRoutineIdentifier`
 impl From<u16> for UDSRoutineIdentifier {
     fn from(value: u16) -> Self {
         match value {

@@ -22,26 +22,26 @@ pub enum ResetType {
     /// This value is reserved
     #[clap(skip)]
     ISOSAEReserved(u8),
-    /// This SubFunction identifies a "hard reset" condition which simulates the power-on/start-up sequence
+    /// This `SubFunction` identifies a "hard reset" condition which simulates the power-on/start-up sequence
     /// typically performed after a server has been previously disconnected from its power supply (i.e. battery).
     /// The performed action is implementation specific and not defined by the spec.
     /// It might result in the re-initialization of both volatile memory and non-volatile memory locations to predetermined values.
     HardReset,
-    /// This SubFunction identifies a condition similar to the driver turning the ignition key off and back on.
+    /// This `SubFunction` identifies a condition similar to the driver turning the ignition key off and back on.
     /// This reset condition should simulate a key-off-on sequence (i.e. interrupting the switched power supply).
     /// The performed action is implementation specific and not defined by this document.
     /// Typically the values of non-volatile mmemory locations are preserved;
     /// volatile memory will be initialized.
     KeyOffOnReset,
-    /// This SubFunction identifies a "soft reset" condition, which causes the server to immediately restart the application program if applicable.
+    /// This `SubFunction` identifies a "soft reset" condition, which causes the server to immediately restart the application program if applicable.
     /// The performed action is implementation specific and not defined by the spec.
     /// A typical action is to restart the application without reinitializing of previously applied configuration data,
     /// adaptive factors and other long-term adjustments.
     SoftReset,
-    /// This SubFunction applies to ECUs which are not ignition powered but battery powered only.
+    /// This `SubFunction` applies to ECUs which are not ignition powered but battery powered only.
     /// Therefore a shutdown forces the sleep mode rather than a power off.
     /// Sleep means power off but still ready for wake-up (battery powered).
-    /// The intention of the SubFunction is to reduce the stand-by time of an ECU after ignition is turned into the off position.
+    /// The intention of the `SubFunction` is to reduce the stand-by time of an ECU after ignition is turned into the off position.
     /// This value requests the server to enable and perform a "rapid powershut down" function.
     /// The server shall execute the function immediately once the "key/ignition” is switched off.
     /// While the server executes the power down function,
@@ -49,9 +49,9 @@ pub enum ResetType {
     /// If the client requires a response message and the server is already prepared to execute the "rapid power shutdown" function,
     /// the server shall send the positive response message prior to the start of the "rapid power shut down" function.
     /// The next occurrence of a "key on" or "ignition on" signal terminates the "rapid power shut down" function.
-    /// **NOTE** This SubFunction is only applicable to a server supporting a stand-by-mode.
+    /// **NOTE** This `SubFunction` is only applicable to a server supporting a stand-by-mode.
     EnableRapidPowerShutDown,
-    /// This SubFunction requests the server to disable the previously enabled "rapid power shut down" function.
+    /// This `SubFunction` requests the server to disable the previously enabled "rapid power shut down" function.
     DisableRapidPowerShutDown,
     /// Reserved for use by vehicle manufacturers
     #[clap(skip)]

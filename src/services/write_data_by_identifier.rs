@@ -33,7 +33,7 @@ impl<Payload: IterableWireFormat> WriteDataByIdentifierRequest<Payload> {
 impl<Payload: IterableWireFormat> SingleValueWireFormat for WriteDataByIdentifierRequest<Payload> {}
 
 impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Payload> {
-    /// Create a WriteDataByIdentifierRequest from a stream of bytes, i.e. deserialization.
+    /// Create a `WriteDataByIdentifierRequest` from a stream of bytes, i.e. deserialization.
     ///
     /// Note: The first two bytes in the reader must represent the data identifier, immediately followed by the
     /// corresponding payload for that identifier.
@@ -46,7 +46,7 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
         self.payload.required_size()
     }
 
-    /// Serialize a WriteDataByIdentifierRequest instance.
+    /// Serialize a `WriteDataByIdentifierRequest` instance.
     ///
     /// Note: The first two bytes of the writer will be the data identifier, immediately followed by the corresponding
     /// payload for that identifier.
@@ -77,7 +77,7 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 }
 
 impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<DataIdentifier> {
-    /// Create a WriteDataByIdentifierResponse from a stream of bytes, i.e. deserialization.
+    /// Create a `WriteDataByIdentifierResponse` from a stream of bytes, i.e. deserialization.
     fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let identifier = DataIdentifier::option_from_reader(reader)?.unwrap();
         Ok(Some(Self::new(identifier)))
@@ -87,7 +87,7 @@ impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<Da
         self.identifier.required_size()
     }
 
-    /// Serialize a WriteDataByIdentifierResponse instance.
+    /// Serialize a `WriteDataByIdentifierResponse` instance.
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Payload must implement the extra bytes, because option_from_reader needs to know how to interpret payload message
         self.identifier.to_writer(writer)

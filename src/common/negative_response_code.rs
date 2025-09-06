@@ -18,7 +18,7 @@ pub enum NegativeResponseCode {
     #[clap(skip)]
     ISOSAEReserved(u8),
     /// This response code indicates that the requested action has been rejected by the server.
-    /// The GeneralReject response code shall only be implemented in the server if none of the negative response codes meet the needs of the implementation.
+    /// The `GeneralReject` response code shall only be implemented in the server if none of the negative response codes meet the needs of the implementation.
     /// This response code shall not be used as a general replacement for other response codes defined.
     GeneralReject,
     /// This response code indicates that the requested action will not be taken because the server does not support the requested service.
@@ -51,7 +51,7 @@ pub enum NegativeResponseCode {
     RequestOutOfRange,
     /// This response code indicates that the requested action will not be taken because the server's security strategy has not been satisfied by the client. The server shall send this response code if one of the following cases occur:
     /// - the test conditions of the server are not met,
-    /// - the required message sequence e.g. DiagnosticSessionControl, securityAccess is not met,
+    /// - the required message sequence e.g. `DiagnosticSessionControl`, securityAccess is not met,
     /// - the client has sent a request message which requires an unlocked server.
     ///
     /// Beside the mandatory use of this negative response code as specified in the applicable services within this standard,

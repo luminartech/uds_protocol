@@ -5,13 +5,13 @@ use utoipa::ToSchema;
 
 use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
 
-/// Bit-packed DTC status information used by the ReadDTCInformation service
+/// Bit-packed DTC status information used by the `ReadDTCInformation` service
 ///
-/// DTCStatusMask (1 byte)
+/// `DTCStatusMask` (1 byte)
 /// 8 DTC status bits. Refer to D.2
 /// A DTC status matches the mask if any one of the DTCs actual status bits is set to `1`
 /// and the corresponding on in the mask is set to 1
-/// if( DTCStatusMask & DTCStatus = !0) is a match
+/// if( `DTCStatusMask` & `DTCStatus` = !0) is a match
 ///
 /// Server note:
 ///     If the mask uses bits that the server does not support,
@@ -48,16 +48,16 @@ pub enum DTCStatusMask {
     /// Will be 0 after a successful [`ClearDiagnosticInformation`](crate::services::ClearDiagnosticInformation) service
     TestFailed,
     /// Whether or not a diagnostic test has reported a test failed result during the current operation cycle,
-    /// or that it's been reported during this operation and after ClearDiagnosticInformation
+    /// or that it's been reported during this operation and after `ClearDiagnosticInformation`
     ///
     /// Bit state definition:
-    /// * 0 shall indicate that **no test failed** during the current operation cycle or after a ClearDiagnosticInformation
-    /// * 1 shall indicate that a test failed during the current operation cycle or after a ClearDiagnosticInformation
+    /// * 0 shall indicate that **no test failed** during the current operation cycle or after a `ClearDiagnosticInformation`
+    /// * 1 shall indicate that a test failed during the current operation cycle or after a `ClearDiagnosticInformation`
     ///
     /// Shall remain a 1 until a new operation cycle is started
     TestFailedThisOperationCycle,
 
-    /// Similar to [Self::TestFailedThisOperationCycle], but will only clear after
+    /// Similar to [`Self::TestFailedThisOperationCycle`], but will only clear after
     /// a cycle is finished and there is a passed test w/ no failure
     ///
     /// Bit state definition:
@@ -70,29 +70,29 @@ pub enum DTCStatusMask {
     /// Aging threshold for clearing itself depends on the vehicle manufacturer or OBD regulations
     ///
     /// Bit state definition:
-    /// * 0 - DTC has **never been confirmed** since last ClearDiagnosticInformation, or after aging criteria have been met
+    /// * 0 - DTC has **never been confirmed** since last `ClearDiagnosticInformation`, or after aging criteria have been met
     /// * 1 - DTC has been confirmed at least once
     ConfirmedDTC,
 
-    /// Indicates whether a test has run and completed since last ClearDiagnosticInformation
-    /// Will not reset to 1 by any method other than calling ClearDiagnosticInformation
+    /// Indicates whether a test has run and completed since last `ClearDiagnosticInformation`
+    /// Will not reset to 1 by any method other than calling `ClearDiagnosticInformation`
     ///
     /// Bit state definition:
-    /// * 0 - Test has returned passed or failed at least once since last ClearDiagnosticInformation
+    /// * 0 - Test has returned passed or failed at least once since last `ClearDiagnosticInformation`
     /// * 1 - Test has **not** run to completion
     TestNotCompletedSinceLastClear,
 
-    /// Indicates whether a test has failed since the last ClearDiagnosticInformation
-    /// This is a latched [Self::TestFailedThisOperationCycle]
+    /// Indicates whether a test has failed since the last `ClearDiagnosticInformation`
+    /// This is a latched [`Self::TestFailedThisOperationCycle`]
     /// Vehicle manufacturer is in charge of clearing this bit if there is an aging threshold is fulfilled
     ///
     /// Bit state definition:
-    /// * 0 - Test has **not** failed since last ClearDiagnosticInformation
-    /// * 1 - Test has failed at least once since last ClearDiagnosticInformation
+    /// * 0 - Test has **not** failed since last `ClearDiagnosticInformation`
+    /// * 1 - Test has failed at least once since last `ClearDiagnosticInformation`
     TestFailedSinceLastClear,
 
     /// Indicates whether a test has run and completed during the current operation cycle,
-    ///     or whether is has run and completed after the last ClearDiagnosticInformation during the current operation cycle
+    ///     or whether is has run and completed after the last `ClearDiagnosticInformation` during the current operation cycle
     ///
     /// Bit state definition:
     /// * 0 - Test has run and completed during the current operation cycle
@@ -128,7 +128,7 @@ impl SingleValueWireFormat for DTCStatusMask {}
 
 /// Specifies the format of the DTC reported by the server.
 ///
-/// A given server shall only support one DTCFormatIdentifier.
+/// A given server shall only support one `DTCFormatIdentifier`.
 #[allow(non_camel_case_types)]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy, ToSchema)]
 #[non_exhaustive]
@@ -137,7 +137,7 @@ pub enum DTCFormatIdentifier {
     /// Defined in [SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>) DTC Format
     SAE_J2012_DA_DTCFormat_00 = 0x00,
 
-    /// reported for DTCAndStatusRecord
+    /// reported for `DTCAndStatusRecord`
     ISO_14229_1_DTCFormat = 0x01,
 
     /// Defined in [SAE J1939-73](<https://www.sae.org/standards/content/j1939/73_202208/>)
@@ -181,7 +181,7 @@ impl From<DTCFormatIdentifier> for u8 {
     }
 }
 
-/// Use to clear all DTCs in a [crate::ClearDiagnosticInfoRequest]
+/// Use to clear all DTCs in a [`crate::ClearDiagnosticInfoRequest`]
 pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
     high_byte: 0xFF,
     middle_byte: 0xFF,
@@ -372,8 +372,8 @@ impl DTCSeverityMask {
     }
 }
 
-/// Indicates the number of the specific DTCSnapshot data record requested
-/// Setting to 0xFF will return all DTCStoredDataRecords at once
+/// Indicates the number of the specific `DTCSnapshot` data record requested
+/// Setting to 0xFF will return all `DTCStoredDataRecords` at once
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 pub struct DTCStoredDataRecordNumber(u8);
 

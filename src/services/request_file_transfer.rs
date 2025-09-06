@@ -58,7 +58,7 @@ impl TryFrom<u8> for FileOperationMode {
 }
 
 /// Holds the sizes of the file to be transferred (if applicable)
-/// Used for both [RequestFileTransferRequest] and [RequestFileTransferResponse]
+/// Used for both [`RequestFileTransferRequest`] and [`RequestFileTransferResponse`]
 ///
 /// |              | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
 /// |--------------|-----------|--------------|---------------|------------|-----------|--------------|
@@ -153,7 +153,7 @@ impl WireFormat for SizePayload {
 }
 impl SingleValueWireFormat for SizePayload {}
 
-/// Payload used for all [RequestFileTransfer requests][RequestFileTransferRequest]
+/// Payload used for all [`RequestFileTransfer` requests][RequestFileTransferRequest]
 ///
 /// #### ***Request*** Message
 /// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
@@ -226,7 +226,7 @@ impl SingleValueWireFormat for NamePayload {}
 /// Use [`crate::UdsServiceType::TransferData`] to send the file data to the server and [`crate::UdsServiceType::RequestTransferExit`] to end the transfer
 ///
 /// If this service is used to delete files or directories on the server,
-/// there is no need to use the TransferData or [`crate::UdsServiceType::RequestTransferExit`] services.
+/// there is no need to use the `TransferData` or [`crate::UdsServiceType::RequestTransferExit`] services.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 pub enum RequestFileTransferRequest {
@@ -332,7 +332,7 @@ impl WireFormat for RequestFileTransferRequest {
 
 ///////////////////////////////////////// - Response - ///////////////////////////////////////////////////
 
-/// Sent by the server to inform the client of the maximum number of bytes to include in each TransferData request message
+/// Sent by the server to inform the client of the maximum number of bytes to include in each `TransferData` request message
 ///
 /// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
 /// |---------------|-----------|--------------|---------------|------------|-----------|--------------|
@@ -347,15 +347,15 @@ impl WireFormat for RequestFileTransferRequest {
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SentDataPayload {
-    /// Not related to RequestDownload
+    /// Not related to `RequestDownload`
     length_format_identifier: u8,
     /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
-    /// data bytes (maxNumberOfBlockLength) to include in each TransferData request message from the client or how
-    /// many data bytes the server will include in a TransferData positive response when uploading data. This length
+    /// data bytes (maxNumberOfBlockLength) to include in each `TransferData` request message from the client or how
+    /// many data bytes the server will include in a `TransferData` positive response when uploading data. This length
     /// reflects the complete message length, including the service identifier and the data parameters present in the
-    /// TransferData request message or positive response message. This parameter allows either the client to adapt to
+    /// `TransferData` request message or positive response message. This parameter allows either the client to adapt to
     /// the receive buffer size of the server before it starts transferring data to the server or to indicate how many data
-    /// bytes will be included in each TransferData positive response in the event that data is uploaded. A server is
+    /// bytes will be included in each `TransferData` positive response in the event that data is uploaded. A server is
     /// required to accept transferData requests that are equal in length to its reported maxNumberOfBlockLength. It is
     /// server specific what transferData request lengths less than maxNumberOfBlockLength are accepted (if any).
     ///
@@ -363,7 +363,7 @@ pub struct SentDataPayload {
     /// maxNumberOfBlockLength. It is not allowed for a server to write additional data bytes (i.e. pad bytes) not
     /// contained within the transferData message (either in a compressed or uncompressed format), as this would
     /// affect the memory address of where the subsequent transferData request data would be written.
-    /// If the modeOfOperation parameter equals to 0x02 (DeleteFile) this parameter shall be not be included in the
+    /// If the modeOfOperation parameter equals to 0x02 (`DeleteFile`) this parameter shall be not be included in the
     /// response message.
     pub max_number_of_block_length: Vec<u8>,
 }
@@ -542,8 +542,8 @@ pub struct PositionPayload {
     ///
     /// Fixed size: 8 bytes
     ///
-    /// Not included for [AddFile][FileOperationMode::AddFile], [DeleteFile][FileOperationMode::DeleteFile], [ReplaceFile][FileOperationMode::ReplaceFile], [ReadFile][FileOperationMode::ReadFile], or [ReadDir][FileOperationMode::ReadDir]
-    /// Only present if mode_of_operation is [ResumeFile][FileOperationMode::ResumeFile] (for ISO 14229-1:2020)
+    /// Not included for [`AddFile`][FileOperationMode::AddFile], [`DeleteFile`][FileOperationMode::DeleteFile], [`ReplaceFile`][FileOperationMode::ReplaceFile], [`ReadFile`][FileOperationMode::ReadFile], or [`ReadDir`][FileOperationMode::ReadDir]
+    /// Only present if `mode_of_operation` is [`ResumeFile`][FileOperationMode::ResumeFile] (for ISO 14229-1:2020)
     pub file_position: u64,
 }
 
@@ -568,7 +568,7 @@ impl WireFormat for PositionPayload {
 /// Response to a [`RequestFileTransferRequest`] from the server
 ///
 /// The server will respond with a [`RequestFileTransferResponse`] to indicate the status of the request
-/// [DataFormatIdentifier] - Echoes the value of the request
+/// [`DataFormatIdentifier`] - Echoes the value of the request
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, ToSchema)]
 #[non_exhaustive]
 pub enum RequestFileTransferResponse {

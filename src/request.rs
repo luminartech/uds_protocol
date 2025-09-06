@@ -124,10 +124,10 @@ impl<D: DiagnosticDefinition> Request<D> {
     }
 
     /// Create a new `RequestDownload` request
-    ///     encryption_method: vehicle manufacturer specific (0x0 for no encryption)
-    ///     compression_method: vehicle manufacturer specific (0x0 for no compression)
-    ///     memory_address: the address in memory to start downloading from (Maximum 40 bits - 1024GB)
-    ///     memory_size: the size of the memory to download (Max 4GB)
+    ///     `encryption_method`: vehicle manufacturer specific (0x0 for no encryption)
+    ///     `compression_method`: vehicle manufacturer specific (0x0 for no compression)
+    ///     `memory_address`: the address in memory to start downloading from (Maximum 40 bits - 1024GB)
+    ///     `memory_size`: the size of the memory to download (Max 4GB)
     pub fn request_download(
         encryption_method: u8,
         compression_method: u8,
@@ -163,8 +163,8 @@ impl<D: DiagnosticDefinition> Request<D> {
 
     /// Create a new `RoutineControl` request
     ///
-    /// **Note**: This could be cleaner as the Identifier is technically represented in the RoutinePayload
-    /// and if the RoutinePayload is a single value, then the RoutineIdentifier is not needed
+    /// **Note**: This could be cleaner as the Identifier is technically represented in the `RoutinePayload`
+    /// and if the `RoutinePayload` is a single value, then the `RoutineIdentifier` is not needed
     ///
     /// This does not check if the server requires a payload
     ///
@@ -174,7 +174,7 @@ impl<D: DiagnosticDefinition> Request<D> {
     ///      * [`RoutineControlSubFunction::StopRoutine`]
     ///      * [`RoutineControlSubFunction::RequestRoutineResults`]
     ///    * `routine_id`: The identifier of the routine to control. User defined routine identifiers and payloads are allowed
-    ///      * General purpose/UDS defined: [crate::UDSRoutineIdentifier]
+    ///      * General purpose/UDS defined: [`crate::UDSRoutineIdentifier`]
     ///    * `data`: Optional payload for the routine control request
     pub fn routine_control_payload(
         sub_function: RoutineControlSubFunction,

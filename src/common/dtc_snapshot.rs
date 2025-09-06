@@ -13,7 +13,7 @@ use crate::{
 pub struct DTCSnapshotRecordList<UserPayload> {
     pub dtc_record: DTCRecord,
     pub status_mask: DTCStatusMask,
-    /// The number of the specific DTCSnapshot data record requested
+    /// The number of the specific `DTCSnapshot` data record requested
     pub snapshot_data: Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>,
 }
 
@@ -147,21 +147,21 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
 }
 
 /// This might be a duplicate of the non-user defined DTC snapshot data
-/// Indicates the number of the specific DTCSnapshot data record requested
+/// Indicates the number of the specific `DTCSnapshot` data record requested
 pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 pub enum DTCSnapshotRecordNumber {
     /// Reserved for Legislative purposes
     Reserved(u8),
-    /// Indicates the number of the specific DTCSnapshot data record requested
+    /// Indicates the number of the specific `DTCSnapshot` data record requested
     Number(u8),
-    /// Requests that the server report all DTCSnapshot data records at once
+    /// Requests that the server report all `DTCSnapshot` data records at once
     All,
 }
 
 impl DTCSnapshotRecordNumber {
-    /// Create a new DTCSnapshotRecordNumber validating that it is in the range we expect
+    /// Create a new `DTCSnapshotRecordNumber` validating that it is in the range we expect
     #[must_use] pub fn new(record_number: u8) -> Self {
         match record_number {
             0x00 | 0xF0 => Self::Reserved(record_number),

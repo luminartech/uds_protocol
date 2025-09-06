@@ -6,33 +6,33 @@ use crate::{
     DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
 };
 
-/// The DTCExtDataRecordNumber is used in the request message to get a stored [DTCExtDataRecord]
-/// Its used to specify the type of DTCExtDataRecord to be reported.
+/// The `DTCExtDataRecordNumber` is used in the request message to get a stored [`DTCExtDataRecord`]
+/// Its used to specify the type of `DTCExtDataRecord` to be reported.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, ToSchema)]
 pub enum DTCExtDataRecordNumber {
     // 0x00, 0xF0-0xFD are reserved
     ISOSAEReserved(u8),
 
-    /// Vehicle manufactured specific stored [DTCExtDataRecord]s
+    /// Vehicle manufactured specific stored [`DTCExtDataRecord`]s
     ///
     /// 0x01-0x8F
     VehicleManufacturer(u8),
 
-    /// Requests the server to report regulated emissions OBD stored DTCExtendedDataRecords.
+    /// Requests the server to report regulated emissions OBD stored `DTCExtendedDataRecords`.
     /// The values are specified in SAE J1979-DA.
     ///
     /// 0x90-0x9F
     RegulatedEmissionsOBDDTCExtDataRecords(u8),
 
-    /// The DTCExtDataRecordNumber parameter is used to specify the DTC number of the DTCExtendedData record to be reported.
+    /// The `DTCExtDataRecordNumber` parameter is used to specify the DTC number of the `DTCExtendedData` record to be reported.
     ///
     /// 0xA0-0xEF
     RegulatedDTCExtDataRecords(u8),
 
-    /// Requests the server to report all regulated emissions OBD stored DTCExtendedDataRecords.
+    /// Requests the server to report all regulated emissions OBD stored `DTCExtendedDataRecords`.
     AllRegulatedEmissionsOBDDTCExtDataRecords,
 
-    /// Requests the server to report all stored DTCExtendedDataRecords
+    /// Requests the server to report all stored `DTCExtendedDataRecords`
     AllDTCExtDataRecords,
 }
 
