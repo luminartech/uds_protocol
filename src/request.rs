@@ -131,6 +131,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         Request::ReadDTCInfo(ReadDTCInfoRequest::new(sub_function))
     }
 
+    #[allow(clippy::missing_errors_doc)]
     /// Create a new `RequestDownload` request
     ///     `encryption_method`: vehicle manufacturer specific (0x0 for no encryption)
     ///     `compression_method`: vehicle manufacturer specific (0x0 for no compression)
@@ -143,7 +144,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         memory_size: u32,
     ) -> Result<Self, Error> {
         let data_format_identifier =
-            DataFormatIdentifier::new(compression_method, encryption_method).unwrap();
+            DataFormatIdentifier::new(compression_method, encryption_method)?;
 
         Ok(Request::RequestDownload(RequestDownloadRequest::new(
             data_format_identifier,

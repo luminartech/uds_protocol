@@ -14,6 +14,7 @@ pub struct ActiveDiagnosticSession {
 
 impl ActiveDiagnosticSession {
     /// Creates a new `ActiveDiagnosticSession` instance.
+    #[allow(clippy::missing_errors_doc)]
     pub fn new(current_session: u8) -> Result<Self, Error> {
         Ok(ActiveDiagnosticSession {
             current_session: current_session.try_into()?,
