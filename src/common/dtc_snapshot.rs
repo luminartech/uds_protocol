@@ -194,9 +194,8 @@ impl PartialEq<u8> for DTCSnapshotRecordNumber {
 
 impl WireFormat for DTCSnapshotRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let record_number = match reader.read_u8() {
-            Ok(byte) => byte,
-            Err(_) => return Ok(None),
+        let Ok(record_number) = reader.read_u8() else {
+            return Ok(None);
         };
         Ok(Some(Self::new(record_number)))
     }

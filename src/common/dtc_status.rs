@@ -224,9 +224,8 @@ impl From<DTCRecord> for u32 {
 
 impl WireFormat for DTCRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
-        let high_byte = match reader.read_u8() {
-            Ok(byte) => byte,
-            Err(_) => return Ok(None),
+        let Ok(high_byte) = reader.read_u8() else {
+            return Ok(None);
         };
         let middle_byte = reader.read_u8()?;
         let low_byte = reader.read_u8()?;
@@ -444,9 +443,8 @@ pub struct DTCSeverityRecord {
 
 impl WireFormat for DTCSeverityRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let sev = match reader.read_u8() {
-            Ok(sev) => sev,
-            Err(_) => return Ok(None),
+        let Ok(sev) = reader.read_u8() else {
+            return Ok(None);
         };
 
         let severity = DTCSeverityMask::from(sev);
