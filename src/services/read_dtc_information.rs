@@ -329,7 +329,8 @@ pub enum ReadDTCInfoSubFunction {
 }
 
 impl ReadDTCInfoSubFunction {
-    #[must_use] pub fn value(&self) -> u8 {
+    #[must_use]
+    pub fn value(&self) -> u8 {
         match self {
             Self::ReportNumberOfDTC_ByStatusMask(_) => 0x01,
             Self::ReportDTC_ByStatusMask(_) => 0x02,

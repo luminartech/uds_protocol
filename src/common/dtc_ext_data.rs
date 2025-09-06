@@ -37,7 +37,8 @@ pub enum DTCExtDataRecordNumber {
 }
 
 impl DTCExtDataRecordNumber {
-    #[must_use] pub fn new(value: u8) -> Self {
+    #[must_use]
+    pub fn new(value: u8) -> Self {
         match value {
             0x00 | 0xF0..=0xFD => Self::ISOSAEReserved(value),
             0x01..=0x8F => Self::VehicleManufacturer(value),
@@ -48,7 +49,8 @@ impl DTCExtDataRecordNumber {
         }
     }
 
-    #[must_use] pub fn value(&self) -> u8 {
+    #[must_use]
+    pub fn value(&self) -> u8 {
         match self {
             Self::ISOSAEReserved(value) => *value,
             Self::VehicleManufacturer(value) => *value,
@@ -108,7 +110,10 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayloa
 
     fn required_size(&self) -> usize {
         // n bytes of data per UserPayload
-        self.data.iter().map(super::super::traits::WireFormat::required_size).sum::<usize>()
+        self.data
+            .iter()
+            .map(super::super::traits::WireFormat::required_size)
+            .sum::<usize>()
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {

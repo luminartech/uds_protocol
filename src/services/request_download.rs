@@ -81,7 +81,8 @@ impl RequestDownloadRequest {
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
-    #[must_use] pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES
     }
 }

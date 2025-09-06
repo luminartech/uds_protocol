@@ -87,7 +87,8 @@ pub struct DTCSnapshotRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
-    #[must_use] pub fn new(data: Vec<UserPayload>) -> Self {
+    #[must_use]
+    pub fn new(data: Vec<UserPayload>) -> Self {
         Self { data }
     }
 
@@ -129,7 +130,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
     }
 
     fn required_size(&self) -> usize {
-        1 + self.data.iter().map(super::super::traits::WireFormat::required_size).sum::<usize>()
+        1 + self
+            .data
+            .iter()
+            .map(super::super::traits::WireFormat::required_size)
+            .sum::<usize>()
     }
 
     // TODO: Must write the DIDs as well...
@@ -162,14 +167,16 @@ pub enum DTCSnapshotRecordNumber {
 
 impl DTCSnapshotRecordNumber {
     /// Create a new `DTCSnapshotRecordNumber` validating that it is in the range we expect
-    #[must_use] pub fn new(record_number: u8) -> Self {
+    #[must_use]
+    pub fn new(record_number: u8) -> Self {
         match record_number {
             0x00 | 0xF0 => Self::Reserved(record_number),
             0xFF => Self::All,
             _ => Self::Number(record_number),
         }
     }
-    #[must_use] pub fn value(&self) -> u8 {
+    #[must_use]
+    pub fn value(&self) -> u8 {
         match self {
             DTCSnapshotRecordNumber::Reserved(value) => *value,
             DTCSnapshotRecordNumber::Number(value) => *value,

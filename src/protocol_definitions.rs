@@ -12,7 +12,8 @@ pub struct ProtocolIdentifier {
 }
 
 impl ProtocolIdentifier {
-    #[must_use] pub fn new(identifier: UDSIdentifier) -> Self {
+    #[must_use]
+    pub fn new(identifier: UDSIdentifier) -> Self {
         ProtocolIdentifier { identifier }
     }
 

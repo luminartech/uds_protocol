@@ -62,17 +62,20 @@ impl CommunicationControlRequest {
     }
 
     /// Getter for whether a positive response should be suppressed
-    #[must_use] pub fn suppress_positive_response(&self) -> bool {
+    #[must_use]
+    pub fn suppress_positive_response(&self) -> bool {
         self.control_type.suppress_positive_response()
     }
 
     /// Getter for the requested [`CommunicationControlType`]
-    #[must_use] pub fn control_type(&self) -> CommunicationControlType {
+    #[must_use]
+    pub fn control_type(&self) -> CommunicationControlType {
         self.control_type.value()
     }
 
     /// Get the allowed Nack codes for this request
-    #[must_use] pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 }

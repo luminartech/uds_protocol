@@ -58,22 +58,26 @@ impl SecurityAccessRequest {
     }
 
     /// Getter for whether a positive response should be suppressed
-    #[must_use] pub fn suppress_positive_response(&self) -> bool {
+    #[must_use]
+    pub fn suppress_positive_response(&self) -> bool {
         self.access_type.suppress_positive_response()
     }
 
     /// Getter for the requested [`SecurityAccessType`]
-    #[must_use] pub fn access_type(&self) -> SecurityAccessType {
+    #[must_use]
+    pub fn access_type(&self) -> SecurityAccessType {
         self.access_type.value()
     }
 
     /// Getter for the request data
-    #[must_use] pub fn request_data(&self) -> &[u8] {
+    #[must_use]
+    pub fn request_data(&self) -> &[u8] {
         &self.request_data
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
-    #[must_use] pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES
     }
 }

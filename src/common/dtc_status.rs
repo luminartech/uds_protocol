@@ -196,7 +196,8 @@ pub struct DTCRecord {
 }
 
 impl DTCRecord {
-    #[must_use] pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
+    #[must_use]
+    pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
         Self {
             high_byte,
             middle_byte,
@@ -276,7 +277,8 @@ pub enum FunctionalGroupIdentifier {
 }
 
 impl FunctionalGroupIdentifier {
-    #[must_use] pub fn value(&self) -> u8 {
+    #[must_use]
+    pub fn value(&self) -> u8 {
         match self {
             FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
             FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,
@@ -361,7 +363,8 @@ pub enum DTCSeverityMask {
 impl DTCSeverityMask {
     // Validate that at least one of the DTCClass bits is set
     // Multiple Class bits may be set to get info for multiple DTC classes
-    #[must_use] pub fn is_valid(&self) -> bool {
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
         self.intersects(
             Self::DTCClass_0
                 | Self::DTCClass_1

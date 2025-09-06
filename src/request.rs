@@ -41,14 +41,16 @@ pub enum Request<D: DiagnosticDefinition> {
 
 impl<D: DiagnosticDefinition> Request<D> {
     /// Create a `ClearDiagnosticInfo` request, clears diagnostic information in one or more servers' memory
-    #[must_use] pub fn clear_diagnostic_info(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
+    #[must_use]
+    pub fn clear_diagnostic_info(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
         Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::new(
             group_of_dtc,
             memory_selection,
         ))
     }
 
-    #[must_use] pub fn clear_all_dtc_info(memory_selection: u8) -> Self {
+    #[must_use]
+    pub fn clear_all_dtc_info(memory_selection: u8) -> Self {
         Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::clear_all(memory_selection))
     }
 
@@ -57,7 +59,8 @@ impl<D: DiagnosticDefinition> Request<D> {
     /// # Panics
     ///
     ///  Panics if one of the extended address control types is passed.
-    #[must_use] pub fn communication_control(
+    #[must_use]
+    pub fn communication_control(
         communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
         suppress_response: bool,
@@ -76,7 +79,8 @@ impl<D: DiagnosticDefinition> Request<D> {
     /// # Panics
     ///
     /// Panics if one of the standard address control types is passed.
-    #[must_use] pub fn communication_control_with_node_id(
+    #[must_use]
+    pub fn communication_control_with_node_id(
         communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
         node_id: u16,
@@ -91,12 +95,14 @@ impl<D: DiagnosticDefinition> Request<D> {
     }
 
     /// Create a new `ControlDTCSettings` request
-    #[must_use] pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
+    #[must_use]
+    pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
         Request::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
     /// Create a new `DiagnosticSessionControl` request
-    #[must_use] pub fn diagnostic_session_control(
+    #[must_use]
+    pub fn diagnostic_session_control(
         suppress_positive_response: bool,
         session_type: DiagnosticSessionType,
     ) -> Self {
@@ -107,7 +113,8 @@ impl<D: DiagnosticDefinition> Request<D> {
     }
 
     /// Create a new `EcuReset` request
-    #[must_use] pub fn ecu_reset(suppress_positive_response: bool, reset_type: ResetType) -> Self {
+    #[must_use]
+    pub fn ecu_reset(suppress_positive_response: bool, reset_type: ResetType) -> Self {
         Request::EcuReset(EcuResetRequest::new(suppress_positive_response, reset_type))
     }
 
@@ -119,7 +126,8 @@ impl<D: DiagnosticDefinition> Request<D> {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 
-    #[must_use] pub fn read_dtc_information(sub_function: ReadDTCInfoSubFunction) -> Self {
+    #[must_use]
+    pub fn read_dtc_information(sub_function: ReadDTCInfoSubFunction) -> Self {
         Request::ReadDTCInfo(ReadDTCInfoRequest::new(sub_function))
     }
 
@@ -144,7 +152,8 @@ impl<D: DiagnosticDefinition> Request<D> {
         )?))
     }
 
-    #[must_use] pub fn request_transfer_exit() -> Self {
+    #[must_use]
+    pub fn request_transfer_exit() -> Self {
         Self::RequestTransferExit
     }
 
@@ -184,7 +193,8 @@ impl<D: DiagnosticDefinition> Request<D> {
         Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
 
-    #[must_use] pub fn security_access(
+    #[must_use]
+    pub fn security_access(
         suppress_positive_response: bool,
         access_type: SecurityAccessType,
         data_record: Vec<u8>,
@@ -196,11 +206,13 @@ impl<D: DiagnosticDefinition> Request<D> {
         ))
     }
 
-    #[must_use] pub fn tester_present(suppress_positive_response: bool) -> Self {
+    #[must_use]
+    pub fn tester_present(suppress_positive_response: bool) -> Self {
         Request::TesterPresent(TesterPresentRequest::new(suppress_positive_response))
     }
 
-    #[must_use] pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
+    #[must_use]
+    pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
         Request::TransferData(TransferDataRequest::new(sequence, data))
     }
 

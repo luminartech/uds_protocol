@@ -31,7 +31,8 @@ impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
     }
 
     /// Get the allowed Nack codes for this request
-    #[must_use] pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &READ_DID_NEGATIVE_RESPONSE_CODES
     }
 }
@@ -101,7 +102,10 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
     }
 
     fn required_size(&self) -> usize {
-        self.data.iter().map(super::super::traits::WireFormat::required_size).sum()
+        self.data
+            .iter()
+            .map(super::super::traits::WireFormat::required_size)
+            .sum()
     }
 
     /// Write the response as a sequence of bytes to a buffer
