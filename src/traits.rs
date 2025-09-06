@@ -73,6 +73,9 @@ pub trait IterableWireFormat: WireFormat {
 }
 
 pub trait SingleValueWireFormat: WireFormat {
+    /// # Errors
+    /// - if the stream is not in the expected format
+    /// - if the stream contains partial data
     fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         Ok(Self::option_from_reader(reader)?.expect(
             "SingleValueWireFormat is only valid to implement on types which never return none",
@@ -87,6 +90,9 @@ pub trait Identifier:
     TryFrom<u16> + Into<u16> + Clone + Copy + Serialize + for<'de> Deserialize<'de>
 {
     /// Returns a Vec<Self> from a reader that contains a list of Identifier values
+    /// # Errors
+    /// - if the list is not in the expected format
+    /// - if the list contains partial data
     fn parse_from_list<R: std::io::Read>(reader: &mut R) -> Result<Vec<Self>, Error> {
         // Create an iterator to collect. Will use the blanket implementation of WireFormat for Identifier
         // to read the values from the reader
@@ -115,6 +121,10 @@ pub trait Identifier:
     ///     }
     /// }
     /// ```
+    ///
+    /// # Errors
+    /// - if the stream is not in the expected format
+    /// - if the stream contains partial data
     fn parse_from_payload<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         Self::option_from_reader(reader)
     }

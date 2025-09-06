@@ -98,6 +98,9 @@ impl<RoutineStatusRecord: WireFormat> RoutineControlResponse<RoutineStatusRecord
     }
 
     /// Get the raw data of the status record
+    /// # Errors
+    /// - if the stream is not in the expected format
+    /// - if the stream contains partial data
     pub fn status_record_data(&self) -> Result<Vec<u8>, Error> {
         let mut writer: Vec<u8> = Vec::new();
         self.routine_status_record.to_writer(&mut writer)?;
