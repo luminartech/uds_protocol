@@ -758,6 +758,7 @@ pub enum ReadDTCInfoResponse<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
+    #[allow(clippy::too_many_lines)]
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let subfunction_id = reader.read_u8()?;
 
@@ -997,6 +998,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         match self {
             Self::NumberOfDTCs(id, mask, count) => {
