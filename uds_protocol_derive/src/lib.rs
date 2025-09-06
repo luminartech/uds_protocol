@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic)]
 //! Blanket/Common types and traits for identifiers (Data Identifiers and Routine Identifiers)
 
 use proc_macro::TokenStream;
@@ -53,6 +54,8 @@ use syn::{DeriveInput, parse_macro_input};
 /// }
 /// ```
 #[proc_macro_derive(Identifier)]
+#[allow(clippy::missing_panics_doc)]
+#[allow(clippy::manual_assert)]
 pub fn uds_identifier_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     match input.data {
