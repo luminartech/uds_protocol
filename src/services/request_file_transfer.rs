@@ -74,8 +74,9 @@ impl TryFrom<u8> for FileOperationMode {
 /// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
 /// [Response]: RequestFileTransferResponse (RequestFileTransferResponse)
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[allow(clippy::struct_field_names)]
 pub struct SizePayload {
-    /// Length in bytes for both `uncompressed` and `compressed`
+    /// Length in bytes for both `file_size_uncompressed` and `file_size_compressed`
     ///
     /// Not included in the *Request* message if `mode_of_operation` is one of:
     ///  * `DeleteFile` (0x02)
@@ -84,7 +85,7 @@ pub struct SizePayload {
     ///
     /// Not included in the *Response* message if `mode_of_operation` is one of:
     ///    * `DeleteFile` (0x02)
-    pub parameter_length: u8,
+    pub file_size_parameter_length: u8,
 
     /// Specifies the size of the uncompressed file in bytes.
     ///
@@ -92,7 +93,7 @@ pub struct SizePayload {
     ///     * `DeleteFile` (0x02)
     ///     * `ReadFile` (0x04)
     ///     * `ReadDir` (0x05)
-    pub uncompressed: u128,
+    pub file_size_uncompressed: u128,
 
     /// Specifies the size of the compressed file in bytes
     ///
@@ -100,7 +101,7 @@ pub struct SizePayload {
     ///     * `DeleteFile` (0x02)
     ///     * `ReadFile` (0x04)
     ///     * `ReadDir` (0x05)
-    pub compressed: u128,
+    pub file_size_compressed: u128,
 }
 
 impl WireFormat for SizePayload {
@@ -113,14 +114,14 @@ impl WireFormat for SizePayload {
         reader.read_exact(&mut file_size_compressed)?;
 
         Ok(Some(Self {
-            parameter_length: file_size_parameter_length,
-            uncompressed: u128::from_be_bytes({
+            file_size_parameter_length,
+            file_size_uncompressed: u128::from_be_bytes({
                 let mut bytes = [0; 16];
                 bytes[16 - file_size_parameter_length as usize..]
                     .copy_from_slice(&file_size_uncompressed);
                 bytes
             }),
-            compressed: u128::from_be_bytes({
+            file_size_compressed: u128::from_be_bytes({
                 let mut bytes = [0; 16];
                 bytes[16 - file_size_parameter_length as usize..]
                     .copy_from_slice(&file_size_compressed);
@@ -130,21 +131,21 @@ impl WireFormat for SizePayload {
     }
 
     fn required_size(&self) -> usize {
-        1 + (2 * self.parameter_length as usize)
+        1 + (2 * self.file_size_parameter_length as usize)
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Always write the file size as 1 byte
-        writer.write_u8(self.parameter_length)?;
+        writer.write_u8(self.file_size_parameter_length)?;
         // write the file size only as many bytes as needed
         // Slice off only the number of bytes we need from the end of the file_size bytes
-        let uncompressed = self.uncompressed.to_be_bytes();
-        let compressed = self.compressed.to_be_bytes();
+        let uncompressed = self.file_size_uncompressed.to_be_bytes();
+        let compressed = self.file_size_compressed.to_be_bytes();
         // file_size_uncompressed
         let mut bytes: Vec<u8> = Vec::new();
-        bytes.extend_from_slice(&uncompressed[16 - self.parameter_length as usize..]);
+        bytes.extend_from_slice(&uncompressed[16 - self.file_size_parameter_length as usize..]);
         // file_size_compressed
-        bytes.extend_from_slice(&compressed[16 - self.parameter_length as usize..]);
+        bytes.extend_from_slice(&compressed[16 - self.file_size_parameter_length as usize..]);
 
         writer.write_all(&bytes)?;
 
@@ -406,10 +407,11 @@ impl WireFormat for SentDataPayload {
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[allow(clippy::struct_field_names)]
 pub struct FileSizePayload {
-    pub parameter_length: u16,
-    pub uncompressed: u128,
-    pub compressed: u128,
+    pub file_size_parameter_length: u16,
+    pub file_size_uncompressed: u128,
+    pub file_size_compressed: u128,
 }
 
 impl WireFormat for FileSizePayload {
@@ -422,14 +424,14 @@ impl WireFormat for FileSizePayload {
         reader.read_exact(&mut file_size_compressed)?;
 
         Ok(Some(Self {
-            parameter_length: file_size_parameter_length,
-            uncompressed: u128::from_be_bytes({
+            file_size_parameter_length,
+            file_size_uncompressed: u128::from_be_bytes({
                 let mut bytes = [0; 16];
                 bytes[16 - file_size_parameter_length as usize..]
                     .copy_from_slice(&file_size_uncompressed);
                 bytes
             }),
-            compressed: u128::from_be_bytes({
+            file_size_compressed: u128::from_be_bytes({
                 let mut bytes = [0; 16];
                 bytes[16 - file_size_parameter_length as usize..]
                     .copy_from_slice(&file_size_compressed);
@@ -439,22 +441,22 @@ impl WireFormat for FileSizePayload {
     }
 
     fn required_size(&self) -> usize {
-        2 + (2 * self.parameter_length as usize)
+        2 + (2 * self.file_size_parameter_length as usize)
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Always write the file size as 1 byte
 
-        writer.write_u16::<byteorder::BE>(self.parameter_length)?;
+        writer.write_u16::<byteorder::BE>(self.file_size_parameter_length)?;
         // write the file size only as many bytes as needed
         // Slice off only the number of bytes we need from the end of the file_size bytes
-        let uncompressed = self.uncompressed.to_be_bytes();
-        let compressed = self.compressed.to_be_bytes();
+        let uncompressed = self.file_size_uncompressed.to_be_bytes();
+        let compressed = self.file_size_compressed.to_be_bytes();
         // file_size_uncompressed
         let mut bytes: Vec<u8> = Vec::new();
-        bytes.extend_from_slice(&uncompressed[16 - self.parameter_length as usize..]);
+        bytes.extend_from_slice(&uncompressed[16 - self.file_size_parameter_length as usize..]);
         // file_size_compressed
-        bytes.extend_from_slice(&compressed[16 - self.parameter_length as usize..]);
+        bytes.extend_from_slice(&compressed[16 - self.file_size_parameter_length as usize..]);
 
         writer.write_all(&bytes)?;
 
@@ -772,9 +774,9 @@ mod request_tests {
                 assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
                 assert_eq!(pl.file_path_and_name, compare_string);
                 assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(file_size_pl.parameter_length, 9);
-                assert_eq!(file_size_pl.uncompressed, file_size);
-                assert_eq!(file_size_pl.compressed, file_size);
+                assert_eq!(file_size_pl.file_size_parameter_length, 9);
+                assert_eq!(file_size_pl.file_size_uncompressed, file_size);
+                assert_eq!(file_size_pl.file_size_compressed, file_size);
             }
             _ => panic!("Expected AddFile"),
         }
@@ -857,9 +859,9 @@ mod request_tests {
                 assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
                 assert_eq!(pl.file_path_and_name, compare_string);
                 assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(file_size_pl.parameter_length, 2);
-                assert_eq!(file_size_pl.uncompressed, file_size);
-                assert_eq!(file_size_pl.compressed, file_size);
+                assert_eq!(file_size_pl.file_size_parameter_length, 2);
+                assert_eq!(file_size_pl.file_size_uncompressed, file_size);
+                assert_eq!(file_size_pl.file_size_compressed, file_size);
             }
             _ => panic!("Expected ReplaceFile"),
         }
@@ -905,9 +907,9 @@ mod request_tests {
                 assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
                 assert_eq!(pl.file_path_and_name, compare_string);
                 assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(file_size_pl.parameter_length, 2);
-                assert_eq!(file_size_pl.uncompressed, file_size);
-                assert_eq!(file_size_pl.compressed, file_size);
+                assert_eq!(file_size_pl.file_size_parameter_length, 2);
+                assert_eq!(file_size_pl.file_size_uncompressed, file_size);
+                assert_eq!(file_size_pl.file_size_compressed, file_size);
             }
             _ => panic!("Expected ResumeFile"),
         }
@@ -1069,9 +1071,9 @@ mod response_tests {
                 assert_eq!(sent_data.length_format_identifier, 1);
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01]);
                 assert_eq!(df, DataFormatIdentifier::new(0x01, 0x01).unwrap());
-                assert_eq!(size.parameter_length, 5);
-                assert_eq!(size.uncompressed, 0x11_1111_1111);
-                assert_eq!(size.compressed, 0x11_1111_1111);
+                assert_eq!(size.file_size_parameter_length, 5);
+                assert_eq!(size.file_size_uncompressed, 0x11_1111_1111);
+                assert_eq!(size.file_size_compressed, 0x11_1111_1111);
             }
             _ => panic!("Expected ReadFile"),
         }

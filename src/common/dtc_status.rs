@@ -183,25 +183,26 @@ impl From<DTCFormatIdentifier> for u8 {
 
 /// Use to clear all DTCs in a [`crate::ClearDiagnosticInfoRequest`]
 pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
-    high: 0xFF,
-    middle: 0xFF,
-    low: 0xFF,
+    high_byte: 0xFF,
+    middle_byte: 0xFF,
+    low_byte: 0xFF,
 };
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy, ToSchema)]
+#[allow(clippy::struct_field_names)]
 pub struct DTCRecord {
-    high: u8,
-    middle: u8,
-    low: u8,
+    high_byte: u8,
+    middle_byte: u8,
+    low_byte: u8,
 }
 
 impl DTCRecord {
     #[must_use]
     pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
         Self {
-            high: high_byte,
-            middle: middle_byte,
-            low: low_byte,
+            high_byte,
+            middle_byte,
+            low_byte,
         }
     }
 }
@@ -209,16 +210,18 @@ impl DTCRecord {
 impl From<u32> for DTCRecord {
     fn from(value: u32) -> Self {
         Self {
-            high: ((value >> 16) & 0xFF) as u8,
-            middle: ((value >> 8) & 0xFF) as u8,
-            low: (value & 0xFF) as u8,
+            high_byte: ((value >> 16) & 0xFF) as u8,
+            middle_byte: ((value >> 8) & 0xFF) as u8,
+            low_byte: (value & 0xFF) as u8,
         }
     }
 }
 
 impl From<DTCRecord> for u32 {
     fn from(value: DTCRecord) -> Self {
-        (u32::from(value.high) << 16) | (u32::from(value.middle) << 8) | u32::from(value.low)
+        (u32::from(value.high_byte) << 16)
+            | (u32::from(value.middle_byte) << 8)
+            | u32::from(value.low_byte)
     }
 }
 
@@ -230,9 +233,9 @@ impl WireFormat for DTCRecord {
         let middle_byte = reader.read_u8()?;
         let low_byte = reader.read_u8()?;
         Ok(Some(Self {
-            high: high_byte,
-            middle: middle_byte,
-            low: low_byte,
+            high_byte,
+            middle_byte,
+            low_byte,
         }))
     }
 
@@ -241,7 +244,7 @@ impl WireFormat for DTCRecord {
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
-        writer.write_all(&[self.high, self.middle, self.low])?;
+        writer.write_all(&[self.high_byte, self.middle_byte, self.low_byte])?;
         Ok(3)
     }
 }
