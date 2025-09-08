@@ -381,7 +381,9 @@ pub struct DTCStoredDataRecordNumber(u8);
 
 // create a constructor for DTCStoredDataRecordNumber
 impl DTCStoredDataRecordNumber {
-    #[allow(clippy::missing_errors_doc)]
+    ///
+    /// # Errors
+    /// Will return `Err(Error::ReservedForLegislativeUse()` if the record number == 0x00 or 0xF0
     pub fn new(record_number: u8) -> Result<Self, Error> {
         if record_number == 0 || record_number == 0xF0 {
             return Err(Error::ReservedForLegislativeUse(

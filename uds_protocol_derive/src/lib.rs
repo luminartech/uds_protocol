@@ -53,8 +53,12 @@ use syn::{DeriveInput, parse_macro_input};
 ///    identifier: UDSIdentifier,
 /// }
 /// ```
+///
+/// # Panics
+///
+/// This will panic if `syn::Data::Union()` type is passed as input
+///
 #[proc_macro_derive(Identifier)]
-#[allow(clippy::missing_panics_doc)]
 #[allow(clippy::manual_assert)]
 pub fn uds_identifier_derive(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

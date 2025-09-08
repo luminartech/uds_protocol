@@ -14,7 +14,10 @@ pub struct ActiveDiagnosticSession {
 
 impl ActiveDiagnosticSession {
     /// Creates a new `ActiveDiagnosticSession` instance.
-    #[allow(clippy::missing_errors_doc)]
+    ///
+    /// # Errors
+    /// Will return error of type `Error::InvalidDiagnosticSessionType` if `current_session` value is > 0x7F
+    ///
     pub fn new(current_session: u8) -> Result<Self, Error> {
         Ok(ActiveDiagnosticSession {
             current_session: current_session.try_into()?,
