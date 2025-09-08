@@ -26,13 +26,17 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --all-features --release
-      - run: cargo test --all-features --release --tests
+      - name: Build with all features
+        run: cargo build --all-features --release
+      - name: Run Tests
+        run: cargo test --all-features --release --tests
+      - name: Check Docs build
+        run: cargo doc --release --all-features --no-deps
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --release --lcov --output-path lcov.info
 
   lint:
-    name: Build and Test
+    name: Run Clippy
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -40,3 +44,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-features --tests --benches -- -Dclippy::all
+
+  format:
+    name: Run Cargo Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt -- --check
+
+  semver-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
