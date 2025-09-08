@@ -2,6 +2,7 @@
 
 This crate aims to offer an ergonomic implementation of the UDS protocol in Rust.
 It suppports both serialization and deserialization of UDS both protocol messages as well as custom data types.
+It is not in a complete state yet with the 0.1.0 release, please check back soon! 
 
 [![Crates.io](https://img.shields.io/crates/v/uds_protocol.svg)](https://crates.io/crates/uds_protocol)
 [![Docs.rs](https://docs.rs/uds_protocol/badge.svg)](https://docs.rs/uds_protocol)
