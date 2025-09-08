@@ -1,21 +1,21 @@
 //! Module for making and handling UDS Requests
 use crate::{
+    DiagnosticDefinition, Error, NegativeResponseCode, ReadDTCInfoRequest, ResetType,
+    SecurityAccessType, SingleValueWireFormat, WireFormat,
     services::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, ReadDataByIdentifierRequest,
         RequestDownloadRequest, RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest,
         TransferDataRequest, WriteDataByIdentifierRequest,
     },
-    DiagnosticDefinition, Error, NegativeResponseCode, ReadDTCInfoRequest, ResetType,
-    SecurityAccessType, SingleValueWireFormat, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 use super::{
-    service::UdsServiceType, CommunicationControlType, CommunicationType, DTCRecord,
-    DataFormatIdentifier, DiagnosticSessionType, DtcSettings, ReadDTCInfoSubFunction,
-    RoutineControlSubFunction,
+    CommunicationControlType, CommunicationType, DTCRecord, DataFormatIdentifier,
+    DiagnosticSessionType, DtcSettings, ReadDTCInfoSubFunction, RoutineControlSubFunction,
+    service::UdsServiceType,
 };
 
 /// UDS Request types

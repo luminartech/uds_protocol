@@ -100,11 +100,7 @@ impl WireFormat for CommunicationControlRequest {
     }
 
     fn required_size(&self) -> usize {
-        if self.node_id.is_some() {
-            4
-        } else {
-            2
-        }
+        if self.node_id.is_some() { 4 } else { 2 }
     }
 
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {

@@ -1,4 +1,4 @@
-use crate::{DtcSettings, Error, SingleValueWireFormat, WireFormat, SUCCESS};
+use crate::{DtcSettings, Error, SUCCESS, SingleValueWireFormat, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
