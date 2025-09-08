@@ -179,11 +179,11 @@ impl DTCSnapshotRecordNumber {
         }
     }
     #[must_use]
+    #[allow(clippy::match_same_arms)]
     pub fn value(&self) -> u8 {
         match self {
-            DTCSnapshotRecordNumber::Reserved(value) | DTCSnapshotRecordNumber::Number(value) => {
-                *value
-            }
+            DTCSnapshotRecordNumber::Reserved(value) => *value,
+            DTCSnapshotRecordNumber::Number(value) => *value,
             DTCSnapshotRecordNumber::All => 0xFF,
         }
     }

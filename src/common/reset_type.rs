@@ -62,22 +62,24 @@ pub enum ResetType {
 }
 
 impl From<ResetType> for u8 {
+    #[allow(clippy::match_same_arms)]
     fn from(value: ResetType) -> Self {
         match value {
+            ResetType::ISOSAEReserved(val) => val,
             ResetType::HardReset => 0x01,
             ResetType::KeyOffOnReset => 0x02,
             ResetType::SoftReset => 0x03,
             ResetType::EnableRapidPowerShutDown => 0x04,
             ResetType::DisableRapidPowerShutDown => 0x05,
-            ResetType::ISOSAEReserved(val)
-            | ResetType::VehicleManufacturerSpecific(val)
-            | ResetType::SystemSupplierSpecific(val) => val,
+            ResetType::VehicleManufacturerSpecific(val) => val,
+            ResetType::SystemSupplierSpecific(val) => val,
         }
     }
 }
 
 impl TryFrom<u8> for ResetType {
     type Error = Error;
+    #[allow(clippy::match_same_arms)]
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
             0x00 => Ok(Self::ISOSAEReserved(0)),
@@ -86,9 +88,10 @@ impl TryFrom<u8> for ResetType {
             0x03 => Ok(Self::SoftReset),
             0x04 => Ok(Self::EnableRapidPowerShutDown),
             0x05 => Ok(Self::DisableRapidPowerShutDown),
+            0x06..=0x3F => Ok(Self::ISOSAEReserved(value)),
             0x40..=0x5F => Ok(Self::VehicleManufacturerSpecific(value)),
             0x60..=0x7E => Ok(Self::SystemSupplierSpecific(value)),
-            0x06..=0x3F | 0x7F => Ok(Self::ISOSAEReserved(value)),
+            0x7F => Ok(Self::ISOSAEReserved(value)),
             _ => Err(Error::InvalidEcuResetType(value)),
         }
     }

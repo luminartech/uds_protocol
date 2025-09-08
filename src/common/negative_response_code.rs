@@ -156,9 +156,11 @@ pub enum NegativeResponseCode {
 }
 
 impl From<NegativeResponseCode> for u8 {
+    #[allow(clippy::match_same_arms)]
     fn from(value: NegativeResponseCode) -> Self {
         match value {
             NegativeResponseCode::PositiveResponse => 0x00,
+            NegativeResponseCode::ISOSAEReserved(value) => value,
             NegativeResponseCode::GeneralReject => 0x10,
             NegativeResponseCode::ServiceNotSupported => 0x11,
             NegativeResponseCode::SubFunctionNotSupported => 0x12,
@@ -173,6 +175,7 @@ impl From<NegativeResponseCode> for u8 {
             NegativeResponseCode::InvalidKey => 0x35,
             NegativeResponseCode::ExceedNumberOfAttempts => 0x36,
             NegativeResponseCode::RequiredTimeDelayNotExpired => 0x37,
+            NegativeResponseCode::ExtendedDataLinkSecurityReserved(value) => value,
             NegativeResponseCode::UploadDownloadNotAccepted => 0x70,
             NegativeResponseCode::TransferDataSuspended => 0x71,
             NegativeResponseCode::GeneralProgrammingFailure => 0x72,
@@ -198,39 +201,47 @@ impl From<NegativeResponseCode> for u8 {
             NegativeResponseCode::TorqueConverterClutchLocked => 0x91,
             NegativeResponseCode::VoltageTooHigh => 0x92,
             NegativeResponseCode::VoltageTooLow => 0x93,
-            NegativeResponseCode::ISOSAEReserved(value)
-            | NegativeResponseCode::ExtendedDataLinkSecurityReserved(value)
-            | NegativeResponseCode::ReservedForSpecificConditionsNotMet(value) => value,
+            NegativeResponseCode::ReservedForSpecificConditionsNotMet(value) => value,
         }
     }
 }
 
 impl From<u8> for NegativeResponseCode {
+    #[allow(clippy::match_same_arms)]
     fn from(value: u8) -> Self {
         match value {
             0x00 => Self::PositiveResponse,
+            0x01..=0x0F => Self::ISOSAEReserved(value),
             0x10 => Self::GeneralReject,
             0x11 => Self::ServiceNotSupported,
             0x12 => Self::SubFunctionNotSupported,
             0x13 => Self::IncorrectMessageLengthOrInvalidFormat,
             0x14 => Self::ResponseTooLong,
+            0x15..=0x20 => Self::ISOSAEReserved(value),
             0x21 => Self::BusyRepeatRequest,
             0x22 => Self::ConditionsNotCorrect,
+            0x23 => Self::ISOSAEReserved(value),
             0x24 => Self::RequestSequenceError,
+            0x25..=0x30 => Self::ISOSAEReserved(value),
             0x31 => Self::RequestOutOfRange,
+            0x32 => Self::ISOSAEReserved(value),
             0x33 => Self::SecurityAccessDenied,
             0x34 => Self::AuthenticationRequired,
             0x35 => Self::InvalidKey,
             0x36 => Self::ExceedNumberOfAttempts,
             0x37 => Self::RequiredTimeDelayNotExpired,
             0x38..=0x4F => Self::ExtendedDataLinkSecurityReserved(value),
+            0x50..=0x6F => Self::ISOSAEReserved(value),
             0x70 => Self::UploadDownloadNotAccepted,
             0x71 => Self::TransferDataSuspended,
             0x72 => Self::GeneralProgrammingFailure,
             0x73 => Self::WrongBlockSequenceCounter,
+            0x74..=0x77 => Self::ISOSAEReserved(value),
             0x78 => Self::RequestCorrectlyReceivedResponsePending,
+            0x79..=0x7D => Self::ISOSAEReserved(value),
             0x7E => Self::SubFunctionNotSupportedInActiveSession,
             0x7F => Self::ServiceNotSupportedInActiveSession,
+            0x80 => Self::ISOSAEReserved(value),
             0x81 => Self::RPMTooHigh,
             0x82 => Self::RPMTooLow,
             0x83 => Self::EngineIsRunning,
@@ -244,23 +255,14 @@ impl From<u8> for NegativeResponseCode {
             0x8B => Self::ThrottleOrPedalTooLow,
             0x8C => Self::TransmissionRangeNotInNeutral,
             0x8D => Self::TransmissionRangeNotInGear,
+            0x8E => Self::ISOSAEReserved(value),
             0x8F => Self::BrakeSwitchNotClosed,
             0x90 => Self::ShifterLeverNotInPark,
             0x91 => Self::TorqueConverterClutchLocked,
             0x92 => Self::VoltageTooHigh,
             0x93 => Self::VoltageTooLow,
             0x94..=0xFE => Self::ReservedForSpecificConditionsNotMet(value),
-            0x01..=0x0F
-            | 0x15..=0x20
-            | 0x25..=0x30
-            | 0x32
-            | 0x50..=0x6F
-            | 0x74..=0x77
-            | 0x79..=0x7D
-            | 0x8E
-            | 0xFF
-            | 0x80
-            | 0x23 => Self::ISOSAEReserved(value),
+            0xFF => Self::ISOSAEReserved(value),
         }
     }
 }

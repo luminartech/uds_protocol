@@ -203,9 +203,10 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
         }))
     }
 
+    #[allow(clippy::match_same_arms)]
     fn required_size(&self) -> usize {
         1 + match self {
-            Self::ClearDiagnosticInfo | Self::RequestTransferExit => 0,
+            Self::ClearDiagnosticInfo => 0,
             Self::CommunicationControl(cc) => cc.required_size(),
             Self::ControlDTCSettings(dtc) => dtc.required_size(),
             Self::DiagnosticSessionControl(ds) => ds.required_size(),
@@ -215,6 +216,7 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
             Self::ReadDTCInfo(rd) => rd.required_size(),
             Self::RequestDownload(rd) => rd.required_size(),
             Self::RequestFileTransfer(rft) => rft.required_size(),
+            Self::RequestTransferExit => 0,
             Self::RoutineControl(rc) => rc.required_size(),
             Self::SecurityAccess(sa) => sa.required_size(),
             Self::TesterPresent(tp) => tp.required_size(),
@@ -223,12 +225,13 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
         }
     }
 
+    #[allow(clippy::match_same_arms)]
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the service byte
         writer.write_u8(self.service().response_to_byte())?;
         // Write the payload
         Ok(1 + match self {
-            Self::ClearDiagnosticInfo | Self::RequestTransferExit => Ok(0),
+            Self::ClearDiagnosticInfo => Ok(0),
             Self::CommunicationControl(cc) => cc.to_writer(writer),
             Self::ControlDTCSettings(dtc) => dtc.to_writer(writer),
             Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
@@ -238,6 +241,7 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
             Self::ReadDTCInfo(rd) => rd.to_writer(writer),
             Self::RequestDownload(rd) => rd.to_writer(writer),
             Self::RequestFileTransfer(rft) => rft.to_writer(writer),
+            Self::RequestTransferExit => Ok(0),
             Self::RoutineControl(rc) => rc.to_writer(writer),
             Self::SecurityAccess(sa) => sa.to_writer(writer),
             Self::TesterPresent(tp) => tp.to_writer(writer),
