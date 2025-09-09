@@ -1,5 +1,5 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
-use crate::{traits::RoutineIdentifier, Error, Identifier, SingleValueWireFormat};
+use crate::{Error, Identifier, SingleValueWireFormat, traits::RoutineIdentifier};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 

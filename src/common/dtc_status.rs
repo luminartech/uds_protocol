@@ -399,7 +399,7 @@ impl WireFormat for DTCStoredDataRecordNumber {
                 return Err(Error::ReservedForLegislativeUse(
                     "DTCStoredDataRecordNumber".to_string(),
                     value,
-                ))
+                ));
             }
             // Requests that the server report all DTCStoredData records at once
             0xFF => {}

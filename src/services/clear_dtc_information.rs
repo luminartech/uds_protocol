@@ -1,4 +1,4 @@
-use crate::{DTCRecord, NegativeResponseCode, SingleValueWireFormat, WireFormat, CLEAR_ALL_DTCS};
+use crate::{CLEAR_ALL_DTCS, DTCRecord, NegativeResponseCode, SingleValueWireFormat, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 /// Negative response codes

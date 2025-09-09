@@ -283,7 +283,7 @@ impl WireFormat for RequestFileTransferRequest {
             FileOperationMode::ISOSAEReserved(_) => {
                 return Err(Error::InvalidFileOperationMode(
                     name_payload.mode_of_operation.into(),
-                ))
+                ));
             }
         }))
     }
@@ -631,7 +631,7 @@ impl WireFormat for RequestFileTransferResponse {
                 PositionPayload::from_reader(reader)?,
             ),
             FileOperationMode::ISOSAEReserved(_) => {
-                return Err(Error::InvalidFileOperationMode(mode_of_operation.into()))
+                return Err(Error::InvalidFileOperationMode(mode_of_operation.into()));
             }
         }))
     }
@@ -722,7 +722,7 @@ mod request_tests {
     fn get_bytes(mode: FileOperationMode, file_name: &str, file_size: u128) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
         bytes.push(mode.into()); // AddFile (u8)
-                                 // write file_name len as 2 bytes
+        // write file_name len as 2 bytes
         bytes
             .write_u16::<byteorder::BigEndian>(file_name.len() as u16)
             .unwrap();
@@ -932,7 +932,7 @@ mod request_tests {
 #[cfg(test)]
 mod response_tests {
 
-    use crate::{param_length_u128, param_length_u32};
+    use crate::{param_length_u32, param_length_u128};
 
     use super::*;
 

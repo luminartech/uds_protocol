@@ -37,7 +37,7 @@ pub(crate) use format_identifiers::{
 };
 
 mod util;
-pub use util::{param_length_u128, param_length_u16, param_length_u32, param_length_u64};
+pub use util::{param_length_u16, param_length_u32, param_length_u64, param_length_u128};
 
 mod primitive_generics;
 

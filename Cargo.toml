@@ -1,10 +1,15 @@
 [package]
 name = "uds_protocol"
-version = "0.1.0"
+authors = ["Justin Kovacich<justin.kovacich@luminartech.com>",
+"Kimberly Kryger <kim.kryger@luminartech.com>",
+"Matthew Beisser <matthew.beisser@luminartech.com>",
+"Parth Patel <parth.patel@luminartech.com>",
+"Zachary Heylmun <zachary.heylmun@luminartech.com>", ]
+version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-uds_protocol_derive = { path = "uds_protocol_derive" }
+uds_protocol_derive = { path = "./uds_protocol_derive", version = "0.0.1" }
 byteorder = "1"
 thiserror = "2"
 utoipa = "5"
