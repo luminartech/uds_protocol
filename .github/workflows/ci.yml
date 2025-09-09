@@ -35,6 +35,12 @@ jobs:
         run: cargo doc --release --all-features --no-deps
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --release --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true
 
   lint:
     name: Run Clippy
