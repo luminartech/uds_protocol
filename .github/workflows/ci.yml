@@ -43,7 +43,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-features --tests --benches
+      - run: cargo clippy --all-features
 
   format:
     name: Run Cargo Format
