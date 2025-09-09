@@ -1,5 +1,6 @@
 [package]
 name = "uds_protocol_derive"
+description = "Procedural macros for easier implementation of UDS protocol traits"
 version = "0.0.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"

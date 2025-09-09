@@ -1,5 +1,6 @@
 [package]
 name = "uds_protocol"
+description = "A library for encoding and decoding UDS (ISO 14229) messages"
 version = "0.0.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
