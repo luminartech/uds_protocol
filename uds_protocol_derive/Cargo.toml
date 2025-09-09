@@ -2,10 +2,11 @@
 name = "uds_protocol_derive"
 version = "0.0.1"
 edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/luminartech/uds_protocol"
 authors = [
 "Kimberly Kryger <kim.kryger@luminartech.com>",
 "Zachary Heylmun <zachary.heylmun@luminartech.com>", ]
-
 
 [lib]
 name = "uds_protocol_derive"

@@ -73,6 +73,9 @@ pub trait IterableWireFormat: WireFormat {
 }
 
 pub trait SingleValueWireFormat: WireFormat {
+    /// # Errors
+    /// - if the stream is not in the expected format
+    /// - if the stream contains partial data
     fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         Ok(Self::option_from_reader(reader)?.expect(
             "SingleValueWireFormat is only valid to implement on types which never return none",
@@ -87,6 +90,9 @@ pub trait Identifier:
     TryFrom<u16> + Into<u16> + Clone + Copy + Serialize + for<'de> Deserialize<'de>
 {
     /// Returns a Vec<Self> from a reader that contains a list of Identifier values
+    /// # Errors
+    /// - if the list is not in the expected format
+    /// - if the list contains partial data
     fn parse_from_list<R: std::io::Read>(reader: &mut R) -> Result<Vec<Self>, Error> {
         // Create an iterator to collect. Will use the blanket implementation of WireFormat for Identifier
         // to read the values from the reader
@@ -98,7 +104,7 @@ pub trait Identifier:
     }
 
     /// Intended to be used in a payload where the identifier is the first value and not a list of identifiers
-    /// IE DataIdentifer (DID) payloads and RoutineIdentifier (RID) payloads
+    /// IE `DataIdentifer` (DID) payloads and `RoutineIdentifier` (RID) payloads
     ///
     /// Returns the identifier, or None if the reader is empty
     ///
@@ -115,6 +121,10 @@ pub trait Identifier:
     ///     }
     /// }
     /// ```
+    ///
+    /// # Errors
+    /// - if the stream is not in the expected format
+    /// - if the stream contains partial data
     fn parse_from_payload<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         Self::option_from_reader(reader)
     }
@@ -122,7 +132,7 @@ pub trait Identifier:
 
 pub trait RoutineIdentifier: Identifier {}
 
-/// Blanket implementation of the [WireFormat] trait for types that implement the [Identifier] trait
+/// Blanket implementation of the [`WireFormat`] trait for types that implement the [Identifier] trait
 impl<T> WireFormat for T
 where
     T: Identifier,
@@ -134,7 +144,7 @@ where
             1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
             2 => (),
             _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-        };
+        }
 
         match Self::try_from(u16::from_be_bytes(identifier_data)) {
             Ok(identifier) => Ok(Some(identifier)),
@@ -161,8 +171,8 @@ where
 pub trait DiagnosticDefinition: 'static {
     /// UDS Data Identifier
     ///
-    /// Requests : [ReadDataByIdentifierRequest], [WriteDataByIdentifierRequest], and [ReadDTCInfoRequest]
-    /// Responses: [ReadDataByIdentifierResponse], [WriteDataByIdentifierResponse], and [ReadDTCInfoResponse]
+    /// Requests : [`ReadDataByIdentifierRequest`], [`WriteDataByIdentifierRequest`], and [`ReadDTCInfoRequest`]
+    /// Responses: [`ReadDataByIdentifierResponse`], [`WriteDataByIdentifierResponse`], and [`ReadDTCInfoResponse`]
     type DID: Identifier
         + Clone
         + std::fmt::Debug
@@ -173,7 +183,7 @@ pub trait DiagnosticDefinition: 'static {
         + ToSchema
         + 'static
         + for<'de> Deserialize<'de>;
-    /// Response payload for [ReadDataByIdentifierRequest]
+    /// Response payload for [`ReadDataByIdentifierRequest`]
     type DiagnosticPayload: IterableWireFormat
         + Clone
         + std::fmt::Debug
@@ -187,7 +197,7 @@ pub trait DiagnosticDefinition: 'static {
 
     /// UDS Routine Identifier
     ///
-    /// This is used to identify the routine to be controlled in a [RoutineControlRequest]
+    /// This is used to identify the routine to be controlled in a [`RoutineControlRequest`]
     type RID: RoutineIdentifier
         + Clone
         + std::fmt::Debug
@@ -198,7 +208,7 @@ pub trait DiagnosticDefinition: 'static {
         + ToSchema
         + 'static
         + for<'de> Deserialize<'de>;
-    /// Payload for both requests and responses of [RoutineControlRequest] and [RoutineControlResponse]
+    /// Payload for both requests and responses of [`RoutineControlRequest`] and [`RoutineControlResponse`]
     type RoutinePayload: WireFormat
         + Clone
         + std::fmt::Debug

@@ -1,12 +1,14 @@
 [package]
 name = "uds_protocol"
+version = "0.0.1"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/luminartech/uds_protocol"
 authors = ["Justin Kovacich<justin.kovacich@luminartech.com>",
 "Kimberly Kryger <kim.kryger@luminartech.com>",
 "Matthew Beisser <matthew.beisser@luminartech.com>",
 "Parth Patel <parth.patel@luminartech.com>",
 "Zachary Heylmun <zachary.heylmun@luminartech.com>", ]
-version = "0.0.1"
-edition = "2024"
 
 [dependencies]
 uds_protocol_derive = { path = "./uds_protocol_derive", version = "0.0.1" }

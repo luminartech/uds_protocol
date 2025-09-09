@@ -41,6 +41,7 @@ pub enum Request<D: DiagnosticDefinition> {
 
 impl<D: DiagnosticDefinition> Request<D> {
     /// Create a `ClearDiagnosticInfo` request, clears diagnostic information in one or more servers' memory
+    #[must_use]
     pub fn clear_diagnostic_info(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
         Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::new(
             group_of_dtc,
@@ -48,6 +49,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         ))
     }
 
+    #[must_use]
     pub fn clear_all_dtc_info(memory_selection: u8) -> Self {
         Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::clear_all(memory_selection))
     }
@@ -57,6 +59,7 @@ impl<D: DiagnosticDefinition> Request<D> {
     /// # Panics
     ///
     ///  Panics if one of the extended address control types is passed.
+    #[must_use]
     pub fn communication_control(
         communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
@@ -76,6 +79,7 @@ impl<D: DiagnosticDefinition> Request<D> {
     /// # Panics
     ///
     /// Panics if one of the standard address control types is passed.
+    #[must_use]
     pub fn communication_control_with_node_id(
         communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
@@ -91,11 +95,13 @@ impl<D: DiagnosticDefinition> Request<D> {
     }
 
     /// Create a new `ControlDTCSettings` request
+    #[must_use]
     pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
         Request::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
     }
 
     /// Create a new `DiagnosticSessionControl` request
+    #[must_use]
     pub fn diagnostic_session_control(
         suppress_positive_response: bool,
         session_type: DiagnosticSessionType,
@@ -107,6 +113,7 @@ impl<D: DiagnosticDefinition> Request<D> {
     }
 
     /// Create a new `EcuReset` request
+    #[must_use]
     pub fn ecu_reset(suppress_positive_response: bool, reset_type: ResetType) -> Self {
         Request::EcuReset(EcuResetRequest::new(suppress_positive_response, reset_type))
     }
@@ -119,15 +126,20 @@ impl<D: DiagnosticDefinition> Request<D> {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 
+    #[must_use]
     pub fn read_dtc_information(sub_function: ReadDTCInfoSubFunction) -> Self {
         Request::ReadDTCInfo(ReadDTCInfoRequest::new(sub_function))
     }
 
     /// Create a new `RequestDownload` request
-    ///     encryption_method: vehicle manufacturer specific (0x0 for no encryption)
-    ///     compression_method: vehicle manufacturer specific (0x0 for no compression)
-    ///     memory_address: the address in memory to start downloading from (Maximum 40 bits - 1024GB)
-    ///     memory_size: the size of the memory to download (Max 4GB)
+    ///     `encryption_method`: vehicle manufacturer specific (0x0 for no encryption)
+    ///     `compression_method`: vehicle manufacturer specific (0x0 for no compression)
+    ///     `memory_address`: the address in memory to start downloading from (Maximum 40 bits - 1024GB)
+    ///     `memory_size`: the size of the memory to download (Max 4GB)
+    ///
+    /// # Errors
+    /// Will generate an error of type `Error::InvalidEncryptionCompressionMethod()`.
+    /// Generated when `compression_method` or `encryption_method` > 0x15
     pub fn request_download(
         encryption_method: u8,
         compression_method: u8,
@@ -135,7 +147,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         memory_size: u32,
     ) -> Result<Self, Error> {
         let data_format_identifier =
-            DataFormatIdentifier::new(compression_method, encryption_method).unwrap();
+            DataFormatIdentifier::new(compression_method, encryption_method)?;
 
         Ok(Request::RequestDownload(RequestDownloadRequest::new(
             data_format_identifier,
@@ -144,6 +156,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         )?))
     }
 
+    #[must_use]
     pub fn request_transfer_exit() -> Self {
         Self::RequestTransferExit
     }
@@ -163,8 +176,8 @@ impl<D: DiagnosticDefinition> Request<D> {
 
     /// Create a new `RoutineControl` request
     ///
-    /// **Note**: This could be cleaner as the Identifier is technically represented in the RoutinePayload
-    /// and if the RoutinePayload is a single value, then the RoutineIdentifier is not needed
+    /// **Note**: This could be cleaner as the Identifier is technically represented in the `RoutinePayload`
+    /// and if the `RoutinePayload` is a single value, then the `RoutineIdentifier` is not needed
     ///
     /// This does not check if the server requires a payload
     ///
@@ -174,7 +187,7 @@ impl<D: DiagnosticDefinition> Request<D> {
     ///      * [`RoutineControlSubFunction::StopRoutine`]
     ///      * [`RoutineControlSubFunction::RequestRoutineResults`]
     ///    * `routine_id`: The identifier of the routine to control. User defined routine identifiers and payloads are allowed
-    ///      * General purpose/UDS defined: [crate::UDSRoutineIdentifier]
+    ///      * General purpose/UDS defined: [`crate::UDSRoutineIdentifier`]
     ///    * `data`: Optional payload for the routine control request
     pub fn routine_control_payload(
         sub_function: RoutineControlSubFunction,
@@ -184,6 +197,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
 
+    #[must_use]
     pub fn security_access(
         suppress_positive_response: bool,
         access_type: SecurityAccessType,
@@ -196,10 +210,12 @@ impl<D: DiagnosticDefinition> Request<D> {
         ))
     }
 
+    #[must_use]
     pub fn tester_present(suppress_positive_response: bool) -> Self {
         Request::TesterPresent(TesterPresentRequest::new(suppress_positive_response))
     }
 
+    #[must_use]
     pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
         Request::TransferData(TransferDataRequest::new(sequence, data))
     }

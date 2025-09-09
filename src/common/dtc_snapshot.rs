@@ -13,7 +13,7 @@ use crate::{
 pub struct DTCSnapshotRecordList<UserPayload> {
     pub dtc_record: DTCRecord,
     pub status_mask: DTCStatusMask,
-    /// The number of the specific DTCSnapshot data record requested
+    /// The number of the specific `DTCSnapshot` data record requested
     pub snapshot_data: Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>,
 }
 
@@ -87,12 +87,15 @@ pub struct DTCSnapshotRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
+    #[must_use]
     pub fn new(data: Vec<UserPayload>) -> Self {
         Self { data }
     }
 
     /// The number of DIDs in the snapshot record
     /// If the number of DIDs exceeds 0xFF, the value 0x00 shall be used
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use]
     pub fn number_of_dids(&self) -> u8 {
         if self.data.len() > 0xFF {
             0
@@ -103,6 +106,7 @@ impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPayload> {
+    #[allow(clippy::cast_possible_truncation)]
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let number_of_dids = reader.read_u8()?;
         // Make sure we read the correct number of DIDs, 0 means unlimited (or at least more than 0xFF)
@@ -129,7 +133,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
     }
 
     fn required_size(&self) -> usize {
-        1 + self.data.iter().map(|d| d.required_size()).sum::<usize>()
+        1 + self
+            .data
+            .iter()
+            .map(WireFormat::required_size)
+            .sum::<usize>()
     }
 
     // TODO: Must write the DIDs as well...
@@ -147,21 +155,22 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
 }
 
 /// This might be a duplicate of the non-user defined DTC snapshot data
-/// Indicates the number of the specific DTCSnapshot data record requested
+/// Indicates the number of the specific `DTCSnapshot` data record requested
 pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
 pub enum DTCSnapshotRecordNumber {
     /// Reserved for Legislative purposes
     Reserved(u8),
-    /// Indicates the number of the specific DTCSnapshot data record requested
+    /// Indicates the number of the specific `DTCSnapshot` data record requested
     Number(u8),
-    /// Requests that the server report all DTCSnapshot data records at once
+    /// Requests that the server report all `DTCSnapshot` data records at once
     All,
 }
 
 impl DTCSnapshotRecordNumber {
-    /// Create a new DTCSnapshotRecordNumber validating that it is in the range we expect
+    /// Create a new `DTCSnapshotRecordNumber` validating that it is in the range we expect
+    #[must_use]
     pub fn new(record_number: u8) -> Self {
         match record_number {
             0x00 | 0xF0 => Self::Reserved(record_number),
@@ -169,6 +178,8 @@ impl DTCSnapshotRecordNumber {
             _ => Self::Number(record_number),
         }
     }
+    #[must_use]
+    #[allow(clippy::match_same_arms)]
     pub fn value(&self) -> u8 {
         match self {
             DTCSnapshotRecordNumber::Reserved(value) => *value,
@@ -186,9 +197,8 @@ impl PartialEq<u8> for DTCSnapshotRecordNumber {
 
 impl WireFormat for DTCSnapshotRecordNumber {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let record_number = match reader.read_u8() {
-            Ok(byte) => byte,
-            Err(_) => return Ok(None),
+        let Ok(record_number) = reader.read_u8() else {
+            return Ok(None);
         };
         Ok(Some(Self::new(record_number)))
     }

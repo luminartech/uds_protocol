@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use utoipa::ToSchema;
 
-/// List of allowed [`NegativeResponseCode`] variants for the SecurityAccess service
+/// List of allowed [`NegativeResponseCode`] variants for the `SecurityAccess` service
 const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
     NegativeResponseCode::SubFunctionNotSupported,
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -26,7 +26,7 @@ const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
 /// ## Request Seed
 ///
 /// When requesting a seed, the request data represents implementation defined
-/// SecurityAccessDataRecord values.
+/// `SecurityAccessDataRecord` values.
 /// This data is optional, and its use is implementation defined.
 /// Suppressing a positive response to this request is not supported.
 ///
@@ -45,7 +45,7 @@ pub struct SecurityAccessRequest {
 }
 
 impl SecurityAccessRequest {
-    /// Create a new 'SecurityAccessRequest'
+    /// Create a new '`SecurityAccessRequest`'
     pub(crate) fn new(
         suppress_positive_response: bool,
         access_type: SecurityAccessType,
@@ -58,21 +58,25 @@ impl SecurityAccessRequest {
     }
 
     /// Getter for whether a positive response should be suppressed
+    #[must_use]
     pub fn suppress_positive_response(&self) -> bool {
         self.access_type.suppress_positive_response()
     }
 
     /// Getter for the requested [`SecurityAccessType`]
+    #[must_use]
     pub fn access_type(&self) -> SecurityAccessType {
         self.access_type.value()
     }
 
     /// Getter for the request data
+    #[must_use]
     pub fn request_data(&self) -> &[u8] {
         &self.request_data
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
+    #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES
     }
@@ -125,7 +129,7 @@ pub struct SecurityAccessResponse {
 }
 
 impl SecurityAccessResponse {
-    /// Create a new 'SecurityAccessResponse'
+    /// Create a new '`SecurityAccessResponse`'
     pub(crate) fn new(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
         Self {
             access_type,

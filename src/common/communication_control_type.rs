@@ -45,6 +45,7 @@ pub enum CommunicationControlType {
 }
 
 impl CommunicationControlType {
+    #[must_use]
     pub const fn is_extended_address_variant(&self) -> bool {
         matches!(
             self,
@@ -55,6 +56,7 @@ impl CommunicationControlType {
 }
 
 impl From<CommunicationControlType> for u8 {
+    #[allow(clippy::match_same_arms)]
     fn from(value: CommunicationControlType) -> Self {
         match value {
             CommunicationControlType::EnableRxAndTx => 0x00,

@@ -44,17 +44,21 @@ pub enum Response<D: DiagnosticDefinition> {
 }
 
 impl<D: DiagnosticDefinition> Response<D> {
+    #[must_use]
     pub fn clear_diagnostic_info() -> Self {
         Response::ClearDiagnosticInfo
     }
+    #[must_use]
     pub fn communication_control(control_type: CommunicationControlType) -> Self {
         Response::CommunicationControl(CommunicationControlResponse::new(control_type))
     }
 
+    #[must_use]
     pub fn control_dtc_settings(setting: DtcSettings) -> Self {
         Response::ControlDTCSettings(ControlDTCSettingsResponse::new(setting))
     }
 
+    #[must_use]
     pub fn diagnostic_session_control(
         session_type: DiagnosticSessionType,
         p2_max: u16,
@@ -67,14 +71,17 @@ impl<D: DiagnosticDefinition> Response<D> {
         ))
     }
 
+    #[must_use]
     pub fn ecu_reset(reset_type: ResetType, power_down_time: u8) -> Self {
         Response::EcuReset(EcuResetResponse::new(reset_type, power_down_time))
     }
 
+    #[must_use]
     pub fn negative_response(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
         Response::NegativeResponse(NegativeResponse::new(request_service, nrc))
     }
 
+    #[must_use]
     pub fn request_download(
         length_format_identifier: u8,
         max_number_of_block_length: Vec<u8>,
@@ -85,6 +92,7 @@ impl<D: DiagnosticDefinition> Response<D> {
         ))
     }
 
+    #[must_use]
     pub fn request_file_transfer() -> Self {
         todo!()
     }
@@ -96,14 +104,17 @@ impl<D: DiagnosticDefinition> Response<D> {
         Response::RoutineControl(RoutineControlResponse::new(routine_control_type, data))
     }
 
+    #[must_use]
     pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
         Response::SecurityAccess(SecurityAccessResponse::new(access_type, security_seed))
     }
 
+    #[must_use]
     pub fn tester_present() -> Self {
         Response::TesterPresent(TesterPresentResponse::new())
     }
 
+    #[must_use]
     pub fn transfer_data(block_sequence_counter: u8, data: Vec<u8>) -> Self {
         Response::TransferData(TransferDataResponse::new(block_sequence_counter, data))
     }
@@ -192,6 +203,7 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
         }))
     }
 
+    #[allow(clippy::match_same_arms)]
     fn required_size(&self) -> usize {
         1 + match self {
             Self::ClearDiagnosticInfo => 0,
@@ -213,6 +225,7 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
         }
     }
 
+    #[allow(clippy::match_same_arms)]
     fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the service byte
         writer.write_u8(self.service().response_to_byte())?;

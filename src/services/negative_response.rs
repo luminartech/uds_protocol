@@ -11,7 +11,7 @@ pub struct NegativeResponse {
 }
 
 impl NegativeResponse {
-    /// Create a new TesterPresentResponse
+    /// Create a new `TesterPresentResponse`
     pub(crate) fn new(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
         Self {
             request_service,
@@ -21,7 +21,7 @@ impl NegativeResponse {
 }
 
 impl WireFormat for NegativeResponse {
-    /// Create a TesterPresentResponse from a sequence of bytes
+    /// Create a `TesterPresentResponse` from a sequence of bytes
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let request_service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         let nrc = NegativeResponseCode::from(reader.read_u8()?);

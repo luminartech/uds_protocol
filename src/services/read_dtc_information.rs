@@ -1,4 +1,4 @@
-//! ReadDTCInformation (0x19) request and response service implementation
+//! `ReadDTCInformation` (0x19) request and response service implementation
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -52,6 +52,7 @@ pub struct DTCFaultDetectionCounterRecord {
 }
 
 impl WireFormat for DTCFaultDetectionCounterRecord {
+    #[allow(clippy::match_same_arms)]
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let dtc_record = match DTCRecord::option_from_reader(reader) {
             Ok(None) => return Ok(None),
@@ -155,13 +156,13 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 pub struct WWHOBDDTCByMaskRecord {
     /// Echo from the request.
     pub functional_group_identifier: FunctionalGroupIdentifier,
-    /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
+    /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
     pub status_availability_mask: DTCStatusAvailabilityMask,
     pub severity_availability_mask: DTCSeverityMask,
     /// Specifies the format of the DTC reported by the server.
     /// Only possible options:
-    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
-    ///    DTCFormatIdentifier::SAE_J1939_73_DTCFormat
+    ///    `DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04`
+    ///    `DTCFormatIdentifier::SAE_J1939_73_DTCFormat`
     pub format_identifier: DTCFormatIdentifier,
     pub record_data: Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>,
 }
@@ -171,22 +172,22 @@ pub struct WWHOBDDTCByMaskRecord {
 pub struct WWHOBDDTCWithPermanentStatusRecord {
     /// Echo from the request.
     pub functional_group_identifier: FunctionalGroupIdentifier,
-    /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
+    /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
     pub status_availability_mask: DTCStatusAvailabilityMask,
     /// Specifies the format of the DTC reported by the server.
     /// Only possible options:
-    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
-    ///    DTCFormatIdentifier::SAE_J1939_73_DTCFormat
+    ///    `DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04`
+    ///    `DTCFormatIdentifier::SAE_J1939_73_DTCFormat`
     pub format_identifier: DTCFormatIdentifier,
     pub record_data: Vec<(DTCRecord, DTCStatusMask)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
-/// List of OBD DTCs which matches the DTCReadiness Group Identifier
+/// List of OBD DTCs which matches the `DTCReadiness` Group Identifier
 pub struct DTCByReadinessGroupIdentifierRecord {
     /// Echo from the request.
     pub functional_group_identifier: FunctionalGroupIdentifier,
-    /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
+    /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
     pub status_availability_mask: DTCStatusAvailabilityMask,
     /// Specifies the format of the DTC reported by the server.
     pub format_identifier: DTCFormatIdentifier,
@@ -197,26 +198,26 @@ pub struct DTCByReadinessGroupIdentifierRecord {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct SupportedDTCExtDataRecord {
-    /// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
+    /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
     pub status_availability_mask: DTCStatusAvailabilityMask,
-    /// Request message to get a stored [DTCExtDataRecord]
+    /// Request message to get a stored [`DTCExtDataRecord`]
     pub ext_data_record_number: Option<DTCExtDataRecordNumber>,
     pub dtc_and_status_records: Vec<(DTCRecord, DTCStatusMask)>,
 }
 
-/// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [FunctionalGroupIdentifier]s
+/// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [`FunctionalGroupIdentifier`]s
 /// This RGID depends on the functional group
 type DTCReadinessGroupIdentifier = u8; // RGID
 
-/// Subfunctions for the ReadDTCInformation service
+/// Subfunctions for the `ReadDTCInformation` service
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
 pub enum ReadDTCInfoSubFunction {
-    /// * Parameter: DTCStatusMask
+    /// * Parameter: `DTCStatusMask`
     ///
     /// 0x01
     ReportNumberOfDTC_ByStatusMask(DTCStatusMask),
-    /// * Parameter: DTCStatusMask
+    /// * Parameter: `DTCStatusMask`
     ///
     /// 0x02
     ReportDTC_ByStatusMask(DTCStatusMask),
@@ -224,7 +225,7 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x03
     ReportDTCSnapshotIdentification,
 
-    /// Parameter: DTCRecord (3 bytes)
+    /// Parameter: `DTCRecord` (3 bytes)
     /// Parameter DTCSnapshotRecordNumber(1)
     ///
     /// 0x04
@@ -235,22 +236,22 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x05
     ReportDTCStoredData_ByRecordNumber(DTCStoredDataRecordNumber),
 
-    /// Parameter: DTCRecord (3 bytes)
+    /// Parameter: `DTCRecord` (3 bytes)
     /// Parameter: DTCExtDataRecordNumber(1)
     ///
     /// 0x06
     ReportDTCExtDataRecord_ByDTCNumber(DTCRecord, DTCExtDataRecordNumber),
 
     /// * Parameter: DTCSeverityMaskRecord(2)
-    ///     * DTCSeverityMask
-    ///     * DTCStatusMask
+    ///     * `DTCSeverityMask`
+    ///     * `DTCStatusMask`
     ///
     /// 0x07
     ReportNumberOfDTC_BySeverityMaskRecord(DTCSeverityMask, DTCStatusMask),
     /// 0x08
     ReportDTC_BySeverityMaskRecord(DTCSeverityMask, DTCStatusMask),
 
-    /// Parameter: DTCRecord (3 bytes)
+    /// Parameter: `DTCRecord` (3 bytes)
     ///
     /// 0x09
     ReportSeverityInfoOfDTC(DTCRecord),
@@ -275,7 +276,7 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x16
     ReportDTCExtDataRecord_ByRecordNumber(DTCExtDataRecordNumber),
 
-    /// * Parameter: DTCStatusMask
+    /// * Parameter: `DTCStatusMask`
     ///
     /// 0x17
     ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask),
@@ -288,7 +289,7 @@ pub enum ReadDTCInfoSubFunction {
         MemorySelection,
     ),
 
-    /// Parameter: DTCRecord (3 bytes)
+    /// Parameter: `DTCRecord` (3 bytes)
     /// Parameter: DTCExtDataRecordNumber(1) (0xFF for all records)
     /// Parameter: MemorySelection(1)
     ///
@@ -305,8 +306,8 @@ pub enum ReadDTCInfoSubFunction {
     ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber),
 
     /// * Parameter: FunctionalGroupIdentifier(1)
-    /// * Parameter: DTCStatusMask
-    /// * Parameter: DTCSeverityMask
+    /// * Parameter: `DTCStatusMask`
+    /// * Parameter: `DTCSeverityMask`
     ///
     /// 0x42
     ReportWWHOBDDTC_ByMaskRecord(FunctionalGroupIdentifier, DTCStatusMask, DTCSeverityMask),
@@ -329,6 +330,7 @@ pub enum ReadDTCInfoSubFunction {
 }
 
 impl ReadDTCInfoSubFunction {
+    #[must_use]
     pub fn value(&self) -> u8 {
         match self {
             Self::ReportNumberOfDTC_ByStatusMask(_) => 0x01,
@@ -361,6 +363,7 @@ impl ReadDTCInfoSubFunction {
 }
 
 impl WireFormat for ReadDTCInfoSubFunction {
+    #[allow(clippy::match_same_arms)]
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let report_type = reader.read_u8()?;
 
@@ -443,6 +446,7 @@ impl WireFormat for ReadDTCInfoSubFunction {
 
     /// Each subfunction has a different size
     /// The first byte is always the subfunction report type
+    #[allow(clippy::match_same_arms)]
     fn required_size(&self) -> usize {
         1 + match self {
             Self::ReportNumberOfDTC_ByStatusMask(_) => 1,
@@ -474,6 +478,7 @@ impl WireFormat for ReadDTCInfoSubFunction {
         }
     }
 
+    #[allow(clippy::match_same_arms)]
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the subfunction value
         writer.write_u8(self.value())?;
@@ -556,8 +561,8 @@ impl WireFormat for ReadDTCInfoSubFunction {
 impl SingleValueWireFormat for ReadDTCInfoSubFunction {}
 
 type NumberOfDTCs = u16;
-/// Same representation as [DTCStatusMask] but with the bits 'on' representing the DTC status supported by the server
-/// IE if the server doesn't support [DTCStatusMask::WarningIndicatorRequested] then the bit for that status will be 'off'
+/// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
+/// IE if the server doesn't support [`DTCStatusMask::WarningIndicatorRequested`] then the bit for that status will be 'off'
 /// and all other bits will be 'on'
 type DTCStatusAvailabilityMask = DTCStatusMask;
 
@@ -575,8 +580,8 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: `NumberOfDTCs`(2)
     ///
     /// For subfunctions 0x01, 0x07
-    ///   * 0x01: [ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask]
-    ///   * 0x07: [ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord]
+    ///   * 0x01: [`ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask`]
+    ///   * 0x07: [`ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord`]
     NumberOfDTCs(SubFunctionID, DTCStatusAvailabilityMask, NumberOfDTCs),
 
     /// A list of DTCs matching the subfunction request
@@ -588,13 +593,13 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     ///       but the response will still be sent
     ///
     /// For subfunctions 0x02, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x15
-    ///   * 0x02: [ReadDTCInfoSubFunction::ReportDTC_ByStatusMask]
-    ///   * 0x0A: [ReadDTCInfoSubFunction::ReportSupportedDTC]
-    ///   * 0x0B: [ReadDTCInfoSubFunction::ReportFirstTestFailedDTC]
-    ///   * 0x0C: [ReadDTCInfoSubFunction::ReportFirstConfirmedDTC]
-    ///   * 0x0D: [ReadDTCInfoSubFunction::ReportMostRecentTestFailedDTC]
-    ///   * 0x0E: [ReadDTCInfoSubFunction::ReportMostRecentConfirmedDTC]
-    ///   * 0x15: [ReadDTCInfoSubFunction::ReportDTCWithPermanentStatus]
+    ///   * 0x02: [`ReadDTCInfoSubFunction::ReportDTC_ByStatusMask`]
+    ///   * 0x0A: [`ReadDTCInfoSubFunction::ReportSupportedDTC`]
+    ///   * 0x0B: [`ReadDTCInfoSubFunction::ReportFirstTestFailedDTC`]
+    ///   * 0x0C: [`ReadDTCInfoSubFunction::ReportFirstConfirmedDTC`]
+    ///   * 0x0D: [`ReadDTCInfoSubFunction::ReportMostRecentTestFailedDTC`]
+    ///   * 0x0E: [`ReadDTCInfoSubFunction::ReportMostRecentConfirmedDTC`]
+    ///   * 0x15: [`ReadDTCInfoSubFunction::ReportDTCWithPermanentStatus`]
     DTCList(
         SubFunctionID,
         DTCStatusAvailabilityMask,
@@ -603,12 +608,12 @@ pub enum ReadDTCInfoResponse<UserPayload> {
 
     /// Snapshot identification - aka "Freeze Frame"
     ///
-    /// Parameter: Vec<(DTCRecord, DTCSnapshotRecordNumber> (4 * n)
+    /// Parameter: Vec<(`DTCRecord`, `DTCSnapshotRecordNumber`> (4 * n)
     ///
-    /// Note: DTCSnapshot list might be empty
+    /// Note: `DTCSnapshot` list might be empty
     ///
     /// For subfunction 0x03
-    ///     * 0x03: [ReadDTCInfoSubFunction::ReportDTCSnapshotIdentification]
+    ///     * 0x03: [`ReadDTCInfoSubFunction::ReportDTCSnapshotIdentification`]
     DTCSnapshotList(Vec<(DTCRecord, DTCSnapshotRecordNumber)>),
 
     /// Get the DTC status and snapshot number and information w/ corresponding Data Identifier (DID)
@@ -617,21 +622,21 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     ///
     /// If all records are requested, it can be a theoretically large amount of data.
     ///
-    /// Parameter: DTCRecord (3 bytes) - Echo of the request
-    /// Parameter: DTCStatusMask (1) - status of the requested DTC
-    /// C2/C4: There are multiple dataIdentifier/snapshotData combinations allowed to be present in a single DTCSnapshotRecord.
+    /// Parameter: `DTCRecord` (3 bytes) - Echo of the request
+    /// Parameter: `DTCStatusMask` (1) - status of the requested DTC
+    /// C2/C4: There are multiple dataIdentifier/snapshotData combinations allowed to be present in a single `DTCSnapshotRecord`.
     /// This can, for example be the case for the situation where a single dataIdentifier only references an integral part of data. When
     /// the dataIdentifier references a block of data then a single dataIdentifier/snapshotData combination can be used.
     ///
     /// Note: See example 12.3.5.6.2 in ISO 14229-1:2020 for more information
     ///
     /// For subfunction 0x04
-    ///   * 0x04: [ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber]
+    ///   * 0x04: [`ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber`]
     DTCSnapshotRecordList(DTCSnapshotRecordList<UserPayload>),
 
-    /// List of [crate::DTCExtDataRecord]s for a given DTC.
+    /// List of [`crate::DTCExtDataRecord`]s for a given DTC.
     ///
-    /// UserPayload is so the data can be read according to a specific format
+    /// `UserPayload` is so the data can be read according to a specific format
     /// defined by the supplier/vehicle manufacturer
     ///
     /// * Parameter: [`DTCMaskRecord`] (3 bytes) - Echo of the request
@@ -639,31 +644,31 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`crate::DTCExtDataRecord`] (n)
     ///
     /// For subfunction 0x06
-    ///   * 0x06: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
+    ///   * 0x06: [`ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber`]
     DTCExtDataRecordList(DTCExtDataRecordList<UserPayload>),
 
-    /// List of DTC Records that either match a severity and status mask for subfunction [ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord],
-    /// or a single record if the request type was [ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC].
+    /// List of DTC Records that either match a severity and status mask for subfunction [`ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord`],
+    /// or a single record if the request type was [`ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC`].
     ///
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1 byte)
     /// * Parameter: [`Vec<DTCSeverityRecord>`] (6 bytes)
     ///
     /// For Subfunctions 0x08, 0x09
-    ///     * 0x08: [ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord]
-    ///     * 0x09: [ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC]
+    ///     * 0x08: [`ReadDTCInfoSubFunction::ReportDTC_BySeverityMaskRecord`]
+    ///     * 0x09: [`ReadDTCInfoSubFunction::ReportSeverityInfoOfDTC`]
     DTCSeverityRecordList(
         SubFunctionID,
         DTCStatusAvailabilityMask,
         Vec<DTCSeverityRecord>,
     ),
-    /// List of DTC Records along with their fault detection counters for subfunction [ReadDTCInfoSubFunction::ReportDTCFaultDetectionCounter].
+    /// List of DTC Records along with their fault detection counters for subfunction [`ReadDTCInfoSubFunction::ReportDTCFaultDetectionCounter`].
 
     ///
     /// * Parameter: [`DTCRecord`] - (3 bytes)
     /// * Parameter: [`DTCFaultDetectionCounter`] - (1 byte)
     ///
     /// For Subfunction 0x14:
-    ///     * 0x14: [ReadDTCInfoSubFunction::ReportDTCFaultDetectionCounter]
+    ///     * 0x14: [`ReadDTCInfoSubFunction::ReportDTCFaultDetectionCounter`]
     DTCFaultDetectionCounterRecordList(Vec<DTCFaultDetectionCounterRecord>),
 
     /// List of DTCs out of User Defined DTC Memory and corresponding statuses matching client
@@ -672,12 +677,12 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`UserDefMemoryDTCByStatusMaskRecord`] (n)
     ///
     /// For subfunction 0x17
-    ///   * 0x17: [ReadDTCInfoSubFunction::reportUserDefMemoryDTCByStatusMask]
+    ///   * 0x17: [`ReadDTCInfoSubFunction::reportUserDefMemoryDTCByStatusMask`]
     UserDefMemoryDTCByStatusMaskList(UserDefMemoryDTCByStatusMaskRecord),
 
-    /// List of [crate::DTCSnapshotRecord]s for a given DTC.
+    /// List of [`crate::DTCSnapshotRecord`]s for a given DTC.
     ///
-    /// UserPayload is so the data can be read according to a specific format
+    /// `UserPayload` is so the data can be read according to a specific format
     /// defined by the supplier/vehicle manufacturer
     ///
     /// Contains a snapshot of data values from the time of the system malfunction occurrence.
@@ -687,75 +692,76 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>`] (m*(1+n) bytes) - Echo of the request
     ///
     /// For subfunction 0x18
-    ///   * 0x18: [ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber]
+    ///   * 0x18: [`ReadDTCInfoSubFunction::ReportDTCExtDataRecord_ByDTCNumber`]
     UserDefMemoryDTCSnapshotRecordByDTCNumberList(
         UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>,
     ),
 
-    /// DTCs which supports a DTCExtendedDataRecord
+    /// DTCs which supports a `DTCExtendedDataRecord`
     ///
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
     /// * Parameter: [`Option<DTCExtDataRecordNumber>`] (1)
     /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>`] (4 * n bytes)
     ///
-    /// [`Option<DTCExtDataRecordNumber>`] is only present if atleast one DTC supports the DTCExtendedDataRecord
-    /// [`<Vec<(DTCRecord, DTCStatusMask)>`]  length is non-zero only if atleast one DTC supports the DTCExtendedDataRecord
+    /// [`Option<DTCExtDataRecordNumber>`] is only present if atleast one DTC supports the `DTCExtendedDataRecord`
+    /// [`<Vec<(DTCRecord, DTCStatusMask)>`]  length is non-zero only if atleast one DTC supports the `DTCExtendedDataRecord`
     ///
     /// For Subfunction 0x1A
-    ///   * 0x1A: [ReadDTCInfoSubFunction::ReportSupportedDTCExtDataRecord]
+    ///   * 0x1A: [`ReadDTCInfoSubFunction::ReportSupportedDTCExtDataRecord`]
     SupportedDTCExtDataRecordList(SupportedDTCExtDataRecord),
 
     /// List of WWH OBD DTCs and corresponding status and severity information
     /// matching a client defined status mask and severity mask record
     ///
-    ///Contains a struct of WWHOBDDTCByMaskRecord
+    ///Contains a struct of `WWHOBDDTCByMaskRecord`
     /// * Parameter: [`FunctionalGroupIdentifier`] (1)
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
     /// * Parameter: [`DTCSeverityMask`] (1)
     /// * Parameter: [`DTCFormatIdentifier`] (1)
-    /// * Parameter: [`Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>'] (5*n)
+    /// * Parameter: [`Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>`] (5*n)
     ///
     /// Only possible options for [`DTCFormatIdentifier`] :
-    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
-    ///    DTCFormatIdentifier::SAE_J1939_73_DTCFormat
-    /// * Returns Error::InvalidDtcFormatIdentifier in case of incorrect DTCFormatIdentifier
+    ///    `DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04`
+    ///    `DTCFormatIdentifier::SAE_J1939_73_DTCFormat`
+    /// * Returns `Error::InvalidDtcFormatIdentifier` in case of incorrect `DTCFormatIdentifier`
     ///
     /// For Subfunction 0x42
-    ///   * 0x42: [ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord]
+    ///   * 0x42: [`ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord`]
     WWHOBDDTCByMaskRecordList(WWHOBDDTCByMaskRecord),
 
     /// List of WWH OBD DTCs with "permanent DTC" status as described in 3.12
     ///
-    ///Contains a struct of WWHOBDDTCWithPermanentStatusRecord
+    ///Contains a struct of `WWHOBDDTCWithPermanentStatusRecord`
     /// * Parameter: [`FunctionalGroupIdentifier`] (1)
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
     /// * Parameter: [`DTCFormatIdentifier`] (1)
-    /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>'] (4*n)
+    /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>`] (4*n)
     ///
     /// Only possible options for [`DTCFormatIdentifier`] :
-    ///    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
-    ///    DTCFormatIdentifier::SAE_J1939_73_DTCFormat
-    /// * Returns Error::InvalidDtcFormatIdentifier in case of incorrect DTCFormatIdentifier
+    ///    `DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04`
+    ///    `DTCFormatIdentifier::SAE_J1939_73_DTCFormat`
+    /// * Returns `Error::InvalidDtcFormatIdentifier` in case of incorrect `DTCFormatIdentifier`
     ///
     /// For Subfunction 0x55
-    ///   * 0x55: [ReadDTCInfoSubFunction::ReportWWHOBDDTC_WithPermanentStatus]
+    ///   * 0x55: [`ReadDTCInfoSubFunction::ReportWWHOBDDTC_WithPermanentStatus`]
     WWHOBDDTCWithPermanentStatusList(WWHOBDDTCWithPermanentStatusRecord),
 
-    /// List of OBD DTCs which matches the DTCReadiness Group Identifier
+    /// List of OBD DTCs which matches the `DTCReadiness` Group Identifier
     ///
-    /// Contains a struct of DTCByReadinessGroupIdentifierRecord
+    /// Contains a struct of `DTCByReadinessGroupIdentifierRecord`
     /// * Parameter: [`FunctionalGroupIdentifier`] (1)
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
     /// * Parameter: [`DTCFormatIdentifier`] (1)
     /// * Parameter: [`DTCReadinessGroupIdentifier`] (1)
-    /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>'] (5*n)
+    /// * Parameter: [`Vec<(DTCRecord, DTCStatusMask)>`] (5*n)
     ///
     /// For Subfunction 0x56
-    ///   * 0x56: [ReadDTCInfoSubFunction::ReportDTCInformation_ByDTCReadinessGroupIdentifier]
+    ///   * 0x56: [`ReadDTCInfoSubFunction::ReportDTCInformation_ByDTCReadinessGroupIdentifier`]
     DTCByReadinessGroupIdentifierList(DTCByReadinessGroupIdentifierRecord),
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
+    #[allow(clippy::too_many_lines)]
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let subfunction_id = reader.read_u8()?;
 
@@ -995,6 +1001,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         match self {
             Self::NumberOfDTCs(id, mask, count) => {

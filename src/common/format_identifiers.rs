@@ -32,6 +32,7 @@ pub(crate) struct MemoryFormatIdentifier {
 impl MemoryFormatIdentifier {
     /// Takes in the actual memory address to be used and the size of the memory to be used
     /// and computes how many bytes are needed to represent them
+    #[allow(clippy::cast_possible_truncation)]
     pub fn from_values(memory_size: u32, memory_address: u64) -> Self {
         let memory_address_length = (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
         let memory_size_length = (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
@@ -42,9 +43,8 @@ impl MemoryFormatIdentifier {
         }
     }
 
-    /// Get the total length of the memory_size and memory_address fields
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
+    /// Get the total length of the `memory_size` and `memory_address` fields
+    pub fn len(self) -> usize {
         self.memory_size_length as usize + self.memory_address_length as usize
     }
 }

@@ -69,19 +69,19 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireF
 {
 }
 
-/// RoutineControlResponse is a variable length field that can contain the status of the routine
+/// `RoutineControlResponse` is a variable length field that can contain the status of the routine
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize, ToSchema)]
 #[non_exhaustive]
 pub struct RoutineControlResponse<RoutineInfoStatusRecord> {
     /// The sub-function echoes the routine control request
     pub routine_control_type: RoutineControlSubFunction,
 
-    /// Should contain the routine_info (u8) and the routine_status_record (u8 * n) information. n can be 0
+    /// Should contain the `routine_info` (u8) and the `routine_status_record` (u8 * n) information. n can be 0
     ///
-    /// routine_info: The routine information that the response is for (vehicle manufacturer specific)
-    /// routine_status_record: The status of the routine (optional)
+    /// `routine_info`: The routine information that the response is for (vehicle manufacturer specific)
+    /// `routine_status_record`: The status of the routine (optional)
     ///
-    /// Mandatory for any routine where the routine_status_record is defined by ISO/SAE specs, even if it is 0 bytes.
+    /// Mandatory for any routine where the `routine_status_record` is defined by ISO/SAE specs, even if it is 0 bytes.
     /// Optional if the routine is defined by a manufacturer.
     pub routine_status_record: RoutineInfoStatusRecord,
 }
@@ -98,6 +98,9 @@ impl<RoutineStatusRecord: WireFormat> RoutineControlResponse<RoutineStatusRecord
     }
 
     /// Get the raw data of the status record
+    /// # Errors
+    /// - if the stream is not in the expected format
+    /// - if the stream contains partial data
     pub fn status_record_data(&self) -> Result<Vec<u8>, Error> {
         let mut writer: Vec<u8> = Vec::new();
         self.routine_status_record.to_writer(&mut writer)?;

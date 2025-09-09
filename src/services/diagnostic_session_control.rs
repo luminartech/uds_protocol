@@ -1,4 +1,4 @@
-//! The DiagnosticSessionControl service is used to enable different diagnostic sessions in the server.
+//! The `DiagnosticSessionControl` service is used to enable different diagnostic sessions in the server.
 //! A diagnostic session enables a specific set of diagnostic services and/or functionality in the server.
 //! This service provides the capability that the server can report data link layer specific parameter
 //! values valid for the enabled diagnostic session (e.g. timing parameter values).
@@ -30,7 +30,7 @@ pub struct DiagnosticSessionControlRequest {
 }
 
 impl DiagnosticSessionControlRequest {
-    /// Create a new DiagnosticSessionControlRequest
+    /// Create a new `DiagnosticSessionControlRequest`
     pub(crate) fn new(
         suppress_positive_response: bool,
         session_type: DiagnosticSessionType,
@@ -44,22 +44,25 @@ impl DiagnosticSessionControlRequest {
     }
 
     /// Getter for whether a positive response should be suppressed
+    #[must_use]
     pub fn suppress_positive_response(&self) -> bool {
         self.session_type.suppress_positive_response()
     }
 
     /// Getter for the requested session type
+    #[must_use]
     pub fn session_type(&self) -> DiagnosticSessionType {
         self.session_type.value()
     }
 
     /// Get the allowed Nack codes for this request
+    #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 }
 impl WireFormat for DiagnosticSessionControlRequest {
-    /// Deserialization function to read a DiagnosticSessionControlRequest from a `Reader`
+    /// Deserialization function to read a `DiagnosticSessionControlRequest` from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { session_type }))
@@ -69,7 +72,7 @@ impl WireFormat for DiagnosticSessionControlRequest {
         1
     }
 
-    /// Serialization function to write a DiagnosticSessionControlRequest to a `Writer`
+    /// Serialization function to write a `DiagnosticSessionControlRequest` to a `Writer`
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.session_type))?;
         Ok(1)
@@ -82,7 +85,7 @@ impl WireFormat for DiagnosticSessionControlRequest {
 
 impl SingleValueWireFormat for DiagnosticSessionControlRequest {}
 
-/// Positive response to a DiagnosticSessionControlRequest
+/// Positive response to a `DiagnosticSessionControlRequest`
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
 #[non_exhaustive]
 pub struct DiagnosticSessionControlResponse {
@@ -92,7 +95,7 @@ pub struct DiagnosticSessionControlResponse {
 }
 
 impl DiagnosticSessionControlResponse {
-    /// Create a new DiagnosticSessionControlResponse
+    /// Create a new `DiagnosticSessionControlResponse`
     pub(crate) fn new(
         session_type: DiagnosticSessionType,
         p2_server_max: u16,
@@ -106,7 +109,7 @@ impl DiagnosticSessionControlResponse {
     }
 }
 impl WireFormat for DiagnosticSessionControlResponse {
-    /// Read a DiagnosticSessionControlResponse from a `Reader`
+    /// Read a `DiagnosticSessionControlResponse` from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
         let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
@@ -122,7 +125,7 @@ impl WireFormat for DiagnosticSessionControlResponse {
         5
     }
 
-    /// Write a DiagnosticSessionControlResponse to a `Writer`
+    /// Write a `DiagnosticSessionControlResponse` to a `Writer`
     fn to_writer<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.session_type))?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_server_max)?;

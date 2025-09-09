@@ -141,6 +141,7 @@ pub enum UdsServiceType {
 }
 
 impl UdsServiceType {
+    #[must_use]
     pub fn service_from_request_byte(value: u8) -> Self {
         match value {
             0x10 => Self::DiagnosticSessionControl,
@@ -174,6 +175,7 @@ impl UdsServiceType {
         }
     }
 
+    #[must_use]
     pub fn request_service_to_byte(&self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x10,
@@ -206,6 +208,7 @@ impl UdsServiceType {
             _ => 0x7F,
         }
     }
+    #[must_use]
     pub fn response_from_byte(value: u8) -> Self {
         match value {
             0x50 => Self::DiagnosticSessionControl,
@@ -240,6 +243,7 @@ impl UdsServiceType {
         }
     }
 
+    #[must_use]
     pub fn response_to_byte(self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x50,

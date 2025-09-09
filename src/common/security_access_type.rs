@@ -15,20 +15,21 @@ use crate::Error;
 pub enum SecurityAccessType {
     /// This value is reserved for future definition
     ISOSAEReserved(u8),
-    /// RequestSeed with the level of security defined by the vehicle manufacturer
+    /// `RequestSeed` with the level of security defined by the vehicle manufacturer
     RequestSeed(u8),
-    /// SendKey with the level of security defined by the vehicle manufacturer
+    /// `SendKey` with the level of security defined by the vehicle manufacturer
     SendKey(u8),
-    /// RequestSeed with different levels of security defined for end of life
+    /// `RequestSeed` with different levels of security defined for end of life
     /// activation of on-board pyrotechnic devices
     ISO26021_2Values,
-    /// SendKey with different levels of security defined for end of life activation
+    /// `SendKey` with different levels of security defined for end of life activation
     ISO26021_2SendKeyValues,
     /// This range of values is reserved for system supplier specific use
     SystemSupplierSpecific(u8),
 }
 
 impl From<SecurityAccessType> for u8 {
+    #[allow(clippy::match_same_arms)]
     fn from(value: SecurityAccessType) -> Self {
         match value {
             SecurityAccessType::ISOSAEReserved(val) => val,

@@ -18,6 +18,7 @@ pub struct ClearDiagnosticInfoRequest {
 }
 
 impl ClearDiagnosticInfoRequest {
+    #[must_use]
     pub fn new(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
         Self {
             group_of_dtc,
@@ -25,6 +26,7 @@ impl ClearDiagnosticInfoRequest {
         }
     }
 
+    #[must_use]
     pub fn clear_all(memory_selection: u8) -> Self {
         Self {
             group_of_dtc: CLEAR_ALL_DTCS,
@@ -33,6 +35,7 @@ impl ClearDiagnosticInfoRequest {
     }
 
     /// Get the allowed Nack codes for this request
+    #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES
     }

@@ -16,7 +16,7 @@ pub enum DiagnosticSessionType {
     #[clap(skip)]
     ISOSAEReserved(u8),
     /// The `DefaultSession` enables the standard diagnostic functionality
-    /// - No TesterPresent messages are required to remain in this session
+    /// - No `TesterPresent` messages are required to remain in this session
     /// - Any other diagnostic sessions are stopped upon succesful entry into this session
     /// - Any security authorization is revoked
     /// - This session is initialized on startup
@@ -38,6 +38,7 @@ pub enum DiagnosticSessionType {
 }
 
 impl From<DiagnosticSessionType> for u8 {
+    #[allow(clippy::match_same_arms)]
     fn from(value: DiagnosticSessionType) -> Self {
         match value {
             DiagnosticSessionType::ISOSAEReserved(value) => value,
@@ -53,6 +54,7 @@ impl From<DiagnosticSessionType> for u8 {
 
 impl TryFrom<u8> for DiagnosticSessionType {
     type Error = Error;
+    #[allow(clippy::match_same_arms)]
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
             0x00 => Ok(DiagnosticSessionType::ISOSAEReserved(value)),

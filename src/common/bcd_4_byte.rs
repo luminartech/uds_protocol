@@ -11,6 +11,7 @@ pub struct BCD4ByteLE {
 }
 
 impl BCD4ByteLE {
+    #[must_use]
     pub fn new(value: u32) -> Self {
         Self { value }
     }

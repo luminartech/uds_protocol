@@ -12,6 +12,7 @@ pub struct ProtocolIdentifier {
 }
 
 impl ProtocolIdentifier {
+    #[must_use]
     pub fn new(identifier: UDSIdentifier) -> Self {
         ProtocolIdentifier { identifier }
     }
@@ -60,7 +61,7 @@ impl WireFormat for ProtocolPayload {
             1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
             2 => (),
             _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-        };
+        }
         // Reads the entire payload, but does not have the ability to determine the amount of bytes to read
         // depending on the Identifier, so all data is read until EOF
         let mut entire_payload: Vec<u8> = Vec::new();
@@ -87,7 +88,7 @@ impl std::fmt::Debug for ProtocolPayload {
         write!(
             f,
             "{:#06X} => {}",
-            self.0[1] as u16 | (self.0[0] as u16) << 8,
+            u16::from(self.0[1]) | u16::from(self.0[0]) << 8,
             self.1
                 .iter()
                 .map(|b| format!("{b:02X}"))

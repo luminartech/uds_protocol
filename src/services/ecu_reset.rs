@@ -21,7 +21,7 @@ pub struct EcuResetRequest {
 }
 
 impl EcuResetRequest {
-    /// Create a new 'EcuResetRequest'
+    /// Create a new '`EcuResetRequest`'
     pub(crate) fn new(suppress_positive_response: bool, reset_type: ResetType) -> Self {
         Self {
             reset_type: SuppressablePositiveResponse::new(suppress_positive_response, reset_type),
@@ -29,16 +29,19 @@ impl EcuResetRequest {
     }
 
     /// Getter for whether a positive response should be suppressed
+    #[must_use]
     pub fn suppress_positive_response(&self) -> bool {
         self.reset_type.suppress_positive_response()
     }
 
     /// Getter for the requested [`ResetType`]
+    #[must_use]
     pub fn reset_type(&self) -> ResetType {
         self.reset_type.value()
     }
 
     /// Get the allowed Nack codes for this request
+    #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &ECU_RESET_NEGATIVE_RESPONSE_CODES
     }
@@ -76,7 +79,7 @@ pub struct EcuResetResponse {
 }
 
 impl EcuResetResponse {
-    /// Create a new 'EcuResetResponse'
+    /// Create a new '`EcuResetResponse`'
     pub(crate) fn new(reset_type: ResetType, power_down_time: u8) -> Self {
         Self {
             reset_type,

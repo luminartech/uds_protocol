@@ -63,7 +63,7 @@ pub struct TesterPresentRequest {
 }
 
 impl TesterPresentRequest {
-    /// Create a new TesterPresentRequest
+    /// Create a new `TesterPresentRequest`
     pub(crate) fn new(suppress_positive_response: bool) -> Self {
         Self::with_subfunction(suppress_positive_response, ZeroSubFunction::new())
     }
@@ -81,18 +81,20 @@ impl TesterPresentRequest {
     }
 
     /// Getter for whether a positive response should be suppressed
+    #[must_use]
     pub fn suppress_positive_response(&self) -> bool {
         self.zero_sub_function.suppress_positive_response()
     }
 
     /// Get the allowed Nack codes for this request
+    #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &TESTER_PRESENT_NEGATIVE_RESPONSE_CODES
     }
 }
 
 impl WireFormat for TesterPresentRequest {
-    /// Deserialization function to read a TesterPresentRequest from a `Reader`
+    /// Deserialization function to read a `TesterPresentRequest` from a `Reader`
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
@@ -102,7 +104,7 @@ impl WireFormat for TesterPresentRequest {
         1
     }
 
-    /// Serialization function to write a TesterPresentRequest to a `Writer`
+    /// Serialization function to write a `TesterPresentRequest` to a `Writer`
     fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.zero_sub_function))?;
         Ok(1)
@@ -121,7 +123,7 @@ pub struct TesterPresentResponse {
 }
 
 impl TesterPresentResponse {
-    /// Create a new TesterPresentResponse
+    /// Create a new `TesterPresentResponse`
     pub(crate) fn new() -> Self {
         Self {
             zero_sub_function: ZeroSubFunction::new(),
@@ -130,7 +132,7 @@ impl TesterPresentResponse {
 }
 
 impl WireFormat for TesterPresentResponse {
-    /// Create a TesterPresentResponse from a sequence of bytes
+    /// Create a `TesterPresentResponse` from a sequence of bytes
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))

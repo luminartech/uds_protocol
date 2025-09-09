@@ -63,6 +63,7 @@ pub enum UDSIdentifier {
 impl TryFrom<u16> for UDSIdentifier {
     type Error = Error;
 
+    #[allow(clippy::match_same_arms)]
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         Ok(match value {
             0x0000..=0x00FF => Self::ISOSAEReserved(value),
@@ -109,6 +110,7 @@ impl TryFrom<u16> for UDSIdentifier {
 }
 
 impl From<UDSIdentifier> for u16 {
+    #[allow(clippy::match_same_arms)]
     fn from(value: UDSIdentifier) -> Self {
         match value {
             UDSIdentifier::ISOSAEReserved(identifier) => identifier,
@@ -166,7 +168,7 @@ impl std::fmt::Debug for UDSIdentifier {
     }
 }
 
-/// Standard UDS Routine Identifier for the RoutineControl (0x31, 0x71) service
+/// Standard UDS Routine Identifier for the `RoutineControl` (0x31, 0x71) service
 ///
 /// Some services will be defined by the Vehicle manufacturer or a system supplier,
 /// and they must be implemented by the tester system.
@@ -219,7 +221,7 @@ pub enum UDSRoutineIdentifier {
     CheckProgrammingDependencies = 0xFF01,
 }
 
-/// We know all values for the Routine Identifier, so we can implement `From<u16>` for UDSRoutineIdentifier
+/// We know all values for the Routine Identifier, so we can implement `From<u16>` for `UDSRoutineIdentifier`
 impl From<u16> for UDSRoutineIdentifier {
     fn from(value: u16) -> Self {
         match value {
@@ -238,6 +240,7 @@ impl From<u16> for UDSRoutineIdentifier {
 }
 
 impl From<UDSRoutineIdentifier> for u16 {
+    #[allow(clippy::match_same_arms)]
     fn from(value: UDSRoutineIdentifier) -> Self {
         match value {
             UDSRoutineIdentifier::ISOSAEReserved(identifier) => identifier,

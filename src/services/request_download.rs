@@ -28,7 +28,7 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 pub struct RequestDownloadRequest {
     /// compression method (high nibble) and encrypting method (low nibble). 0x00 is no compression or encryption
     data_format_identifier: DataFormatIdentifier,
-    /// 7-4: length (# of bytes) of memory_size param, 3-0: length (# of bytes) of memory_address param
+    /// 7-4: length (# of bytes) of `memory_size` param, 3-0: length (# of bytes) of `memory_address` param
     address_and_length_format_identifier: MemoryFormatIdentifier,
     /// Starting address of the server memory. Size is determined by `address_and_length_format_identifier`
     /// Has a variable number of bytes, max of 5
@@ -81,6 +81,7 @@ impl RequestDownloadRequest {
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
+    #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES
     }
@@ -133,7 +134,7 @@ impl SingleValueWireFormat for RequestDownloadRequest {}
 #[non_exhaustive]
 pub struct RequestDownloadResponse {
     /// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct.
-    /// In it is a byte with the high nibble being the length of the max_number_of_block_length field.
+    /// In it is a byte with the high nibble being the length of the `max_number_of_block_length` field.
     length_format_identifier: LengthFormatIdentifier,
     /// Variable length field, length determined by `length_format_identifier`
     /// Client is instructed to send this many bytes per [`TransferDataRequest`] message.
