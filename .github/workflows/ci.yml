@@ -33,6 +33,11 @@ jobs:
         run: cargo build --all-features --release
       - name: Run Tests
         run: cargo nextest run --all-features --release --tests --profile ci
+      - name: Upload test results to Codecov
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: target/nextest/ci/junit.xml
       - name: Check Docs build
         run: cargo doc --release --all-features --no-deps
       - name: Generate code coverage
