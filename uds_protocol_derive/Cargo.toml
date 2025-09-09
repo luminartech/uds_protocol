@@ -1,7 +1,11 @@
 [package]
 name = "uds_protocol_derive"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
+authors = [
+"Kimberly Kryger <kim.kryger@luminartech.com>",
+"Zachary Heylmun <zachary.heylmun@luminartech.com>", ]
+
 
 [lib]
 name = "uds_protocol_derive"
