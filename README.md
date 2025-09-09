@@ -2,12 +2,13 @@
 
 This crate aims to offer an ergonomic implementation of the UDS protocol in Rust.
 It suppports both serialization and deserialization of UDS both protocol messages as well as custom data types.
-It is not in a complete state yet with the 0.1.0 release, please check back soon! 
+It is not in a complete state yet with the 0.1.0 release, please check back soon!
 
-[![Crates.io](https://img.shields.io/crates/v/uds_protocol.svg)](https://crates.io/crates/uds_protocol)
-[![Docs.rs](https://docs.rs/uds_protocol/badge.svg)](https://docs.rs/uds_protocol)
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE-MIT)
-[![APACHE License](https://img.shields.io/badge/license-APACHE-blue.svg)](./LICENSE-APACHE)
+[![Crates.io](https://img.shields.io/crates/v/uds_protocol.svg?style=for-the-badge)](https://crates.io/crates/uds_protocol)
+[![Docs.rs](https://img.shields.io/docsrs/uds_protocol?style=for-the-badge)](https://docs.rs/uds_protocol)
+[![Codecov](https://img.shields.io/codecov/c/github/luminartech/uds_protocol?style=for-the-badge)](https://app.codecov.io/github/luminartech/uds_protocol)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge)](./LICENSE-MIT)
+[![APACHE License](https://img.shields.io/badge/license-APACHE-blue.svg?style=for-the-badge)](./LICENSE-APACHE)
 
 This library provides serialization and deserialization of UDS messages.
 It is based on the ISO 14229-1:2020 standard.
