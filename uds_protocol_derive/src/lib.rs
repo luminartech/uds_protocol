@@ -1,11 +1,8 @@
 //! Blanket/Common types and traits for identifiers (Data Identifiers and Routine Identifiers)
-// use crate::{Error, WireFormat};
-// use byteorder::{BigEndian, WriteBytesExt};
-// use serde::Serialize;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 /// Derive Identifier and implement `TryFrom<u16>`, `Into<u16>` traits
 ///
@@ -64,12 +61,13 @@ pub fn uds_identifier_derive(input: TokenStream) -> TokenStream {
         // Sometimes we use a struct to simply pass through the identifier, accept those as well
         syn::Data::Struct(s) => {
             if let syn::Fields::Named(fields) = s.fields {
-                if fields.named.len() != 1 {
-                    panic!("Identifier can only be derived for structs with a single member");
-                }
+                assert!(
+                    fields.named.len() == 1,
+                    "Identifier can only be derived for structs with a single member"
+                );
             }
         }
-        _ => panic!("Identifier can only be derived for enums and structs"),
+        syn::Data::Union(_) => panic!("Identifier can only be derived for enums and structs"),
     }
     let name = &input.ident;
     let expanded = quote! {
