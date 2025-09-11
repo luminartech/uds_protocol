@@ -82,6 +82,14 @@ impl<D: DiagnosticDefinition> Response<D> {
     }
 
     #[must_use]
+    pub fn read_data_by_identifier<I>(payload: I) -> Self
+    where
+        I: IntoIterator<Item = D::DiagnosticPayload>,
+    {
+        Response::ReadDataByIdentifier(ReadDataByIdentifierResponse::new(payload))
+    }
+
+    #[must_use]
     pub fn request_download(
         length_format_identifier: u8,
         max_number_of_block_length: Vec<u8>,

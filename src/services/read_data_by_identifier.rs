@@ -75,7 +75,11 @@ pub struct ReadDataByIdentifierResponse<UserPayload> {
 }
 
 impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
-    pub(crate) fn new(data: Vec<UserPayload>) -> Self {
+    pub(crate) fn new<I>(data: I) -> Self
+    where
+        I: IntoIterator<Item = UserPayload>,
+    {
+        let data = data.into_iter().collect();
         Self { data }
     }
 }
