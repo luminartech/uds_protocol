@@ -363,7 +363,7 @@ mod snapshot {
 
         let resp = DTCSnapshotRecordList::from_reader(&mut bytes.as_slice()).unwrap();
 
-        assert_eq!(resp.dtc_record, DTCRecord::from(0x123456));
+        assert_eq!(resp.dtc_record, DTCRecord::from(0x0012_3456));
         let mut number: u8 = 1;
 
         resp.snapshot_data

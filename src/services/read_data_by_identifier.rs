@@ -459,8 +459,8 @@ mod test {
                 TestPayload::Bar,
                 TestPayload::Baz(BazData {
                     data: [5; 16],
-                    data2: 1234567890,
-                    data3: 54321,
+                    data2: 1_234_567_890,
+                    data3: 54_321,
                 }),
                 TestPayload::UDSIdentifier(UDSIdentifier::BootSoftwareIdentification),
             ]

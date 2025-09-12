@@ -122,7 +122,7 @@ mod tests {
         let mut reader = &data[..];
 
         let u32_byte = u32::option_from_reader(&mut reader).unwrap().unwrap();
-        assert_eq!(u32_byte, 0xFF200201);
+        assert_eq!(u32_byte, 0xFF20_0201);
         assert_eq!(u32_byte.required_size(), 4);
 
         let mut write_buffer = vec![];
@@ -137,7 +137,7 @@ mod tests {
         let mut reader = &data[..];
 
         let u64_byte = u64::option_from_reader(&mut reader).unwrap().unwrap();
-        assert_eq!(u64_byte, 0xFF200201FF200201);
+        assert_eq!(u64_byte, 0xFF20_0201_FF20_0201);
         assert_eq!(u64_byte.required_size(), 8);
 
         let mut write_buffer = vec![];
@@ -155,7 +155,7 @@ mod tests {
         let mut reader = &data[..];
 
         let u128_byte = u128::option_from_reader(&mut reader).unwrap().unwrap();
-        assert_eq!(u128_byte, 0xFF200201FF200201FF200201FF200201);
+        assert_eq!(u128_byte, 0xFF20_0201_FF20_0201_FF20_0201_FF20_0201);
         assert_eq!(u128_byte.required_size(), 16);
 
         let mut write_buffer = vec![];

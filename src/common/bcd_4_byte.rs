@@ -63,8 +63,8 @@ mod bcd_tests {
             ("0 ".to_string(), 0),
             (" 0".to_string(), 0),
             (" 0 ".to_string(), 0),
-            ("12345".to_string(), 12345),
-            (u32::MAX.to_string(), 4294967295),
+            ("12345".to_string(), 12_345),
+            (u32::MAX.to_string(), 4_294_967_295),
         ];
 
         for (input, expected_value) in valid_inputs {
