@@ -387,7 +387,7 @@ mod test {
                     1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
                     2 => (),
                     _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-                };
+                }
                 let did = u16::from_be_bytes(identifier_data);
                 Ok(Some(TestPayload::new(did, reader)?))
             }

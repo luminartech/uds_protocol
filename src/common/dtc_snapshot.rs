@@ -250,7 +250,7 @@ mod snapshot {
                 1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
                 2 => (),
                 _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-            };
+            }
             // read the identifier
             let identifier = u16::from_be_bytes(identifier_data);
             match identifier {
@@ -261,7 +261,7 @@ mod snapshot {
                         1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
                         5 => (),
                         _ => unreachable!("Impossible to read more than 5 bytes into 5 byte array"),
-                    };
+                    }
                     Ok(Some(Self::Did4711(did_4711)))
                 }
                 0x8711 => {
@@ -271,7 +271,7 @@ mod snapshot {
                         1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
                         5 => (),
                         _ => unreachable!("Impossible to read more than 5 bytes into 5 byte array"),
-                    };
+                    }
                     Ok(Some(Self::Did8711(did_8711)))
                 }
                 _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
