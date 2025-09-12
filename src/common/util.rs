@@ -39,7 +39,7 @@ mod tests {
         // Test with different unsigned types
         assert_eq!(param_length_u32(0u32), 0);
         assert_eq!(param_length_u32(0x1_FFFF), 3);
-        assert_eq!(param_length_u64(900000), 3);
-        assert_eq!(param_length_u128(137439853472), 5);
+        assert_eq!(param_length_u64(900_000), 3);
+        assert_eq!(param_length_u128(137_439_853_472), 5);
     }
 }

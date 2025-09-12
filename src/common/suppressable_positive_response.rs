@@ -84,15 +84,12 @@ mod test {
         for i in 0..=u8::MAX {
             let value: SuppressablePositiveResponse<Testu8> =
                 SuppressablePositiveResponse::try_from(i).unwrap();
-            match i {
-                0x00..=0x7F => {
-                    assert_eq!(value.value().0, i);
-                    assert!(!value.suppress_positive_response());
-                }
-                0x80..=0xFF => {
-                    assert_eq!(value.value().0, i & SPRMIB_VALUE_MASK);
-                    assert!(value.suppress_positive_response());
-                }
+            if let 0x00..=0x7F = i {
+                assert_eq!(value.value().0, i);
+                assert!(!value.suppress_positive_response());
+            } else {
+                assert_eq!(value.value().0, i & SPRMIB_VALUE_MASK);
+                assert!(value.suppress_positive_response());
             }
         }
     }

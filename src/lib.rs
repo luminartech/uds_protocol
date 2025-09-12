@@ -1,5 +1,5 @@
+#![warn(clippy::pedantic)]
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
-
 mod common;
 pub use common::*;
 

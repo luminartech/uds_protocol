@@ -1,5 +1,5 @@
+#![warn(clippy::pedantic)]
 //! Blanket/Common types and traits for identifiers (Data Identifiers and Routine Identifiers)
-
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{DeriveInput, parse_macro_input};

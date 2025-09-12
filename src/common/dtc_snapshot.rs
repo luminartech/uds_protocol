@@ -250,7 +250,7 @@ mod snapshot {
                 1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
                 2 => (),
                 _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-            };
+            }
             // read the identifier
             let identifier = u16::from_be_bytes(identifier_data);
             match identifier {
@@ -261,7 +261,7 @@ mod snapshot {
                         1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
                         5 => (),
                         _ => unreachable!("Impossible to read more than 5 bytes into 5 byte array"),
-                    };
+                    }
                     Ok(Some(Self::Did4711(did_4711)))
                 }
                 0x8711 => {
@@ -271,13 +271,14 @@ mod snapshot {
                         1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
                         5 => (),
                         _ => unreachable!("Impossible to read more than 5 bytes into 5 byte array"),
-                    };
+                    }
                     Ok(Some(Self::Did8711(did_8711)))
                 }
                 _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
             }
         }
 
+        #[allow(clippy::match_same_arms)]
         fn required_size(&self) -> usize {
             2 + match self {
                 ProtocolPayload::Did4711(_) => 5,
@@ -338,6 +339,8 @@ mod snapshot {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::match_wildcard_for_single_variants)]
     fn snapshot_list() {
         #[rustfmt::skip]
         let bytes:[u8; 29]   = [
@@ -363,7 +366,7 @@ mod snapshot {
 
         let resp = DTCSnapshotRecordList::from_reader(&mut bytes.as_slice()).unwrap();
 
-        assert_eq!(resp.dtc_record, DTCRecord::from(0x123456));
+        assert_eq!(resp.dtc_record, DTCRecord::from(0x0012_3456));
         let mut number: u8 = 1;
 
         resp.snapshot_data

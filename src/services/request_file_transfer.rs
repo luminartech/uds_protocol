@@ -721,6 +721,7 @@ mod request_tests {
     use crate::param_length_u128;
 
     // helper function to get some bytes to read from
+    #[allow(clippy::cast_possible_truncation)]
     fn get_bytes(mode: FileOperationMode, file_name: &str, file_size: u128) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
         bytes.push(mode.into()); // AddFile (u8)
@@ -754,6 +755,8 @@ mod request_tests {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_lossless)]
     fn add_file() {
         let compare_string = "test.txt";
         let file_size: u128 = (u64::MAX as u128) + 1000u128;
@@ -783,6 +786,7 @@ mod request_tests {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn delete_file() {
         let compare_string = "/var/tmp/delete_file.bin";
         let bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
@@ -806,6 +810,7 @@ mod request_tests {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn write_add_file() {
         let compare_string = "test.txt";
         let file_size: u128 = 0x1234;
@@ -825,6 +830,7 @@ mod request_tests {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn write_delete_file() {
         let compare_string = "/var/tmp/delete_file.bin";
         let req = RequestFileTransferRequest::DeleteFile(NamePayload {
@@ -842,6 +848,7 @@ mod request_tests {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn replace_file() {
         let compare_string = "/opt/testing/replace_file.bin";
         let file_size: u128 = 0x1234;
@@ -868,6 +875,7 @@ mod request_tests {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn read_file() {
         let compare_string = "/opt/testing/just_reading_stuff.txt";
         let file_size: u128 = 0x0;
@@ -891,6 +899,7 @@ mod request_tests {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn resume_file() {
         let compare_string = "/var/tmp/resume_file.bin";
         let file_size = 0x1234;
