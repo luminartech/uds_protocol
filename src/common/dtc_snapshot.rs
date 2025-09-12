@@ -278,6 +278,7 @@ mod snapshot {
             }
         }
 
+        #[allow(clippy::match_same_arms)]
         fn required_size(&self) -> usize {
             2 + match self {
                 ProtocolPayload::Did4711(_) => 5,

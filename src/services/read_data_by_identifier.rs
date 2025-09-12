@@ -392,6 +392,7 @@ mod test {
                 Ok(Some(TestPayload::new(did, reader)?))
             }
 
+            #[allow(clippy::match_same_arms)]
             fn required_size(&self) -> usize {
                 match self {
                     TestPayload::MeaningOfLife(_) => 42,
@@ -402,6 +403,7 @@ mod test {
                 }
             }
 
+            #[allow(clippy::match_same_arms)]
             fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
                 let id_bytes = u16::from(self.clone()).to_be_bytes();
                 let did_len = writer.write(&id_bytes)?;

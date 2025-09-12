@@ -277,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::match_same_arms)]
     fn test_payload() {
         let mut buffer = Cursor::new(vec![0x01, 0x01, 0xFF, 0x02, 0x02, 0xFF, 0x03, 0x03]);
         // Read until the end of the buffer
