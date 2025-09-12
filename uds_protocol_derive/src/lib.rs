@@ -1,4 +1,3 @@
-#![warn(clippy::pedantic)]
 //! Blanket/Common types and traits for identifiers (Data Identifiers and Routine Identifiers)
 
 use proc_macro::TokenStream;
