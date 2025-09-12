@@ -339,6 +339,8 @@ mod snapshot {
     }
 
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::match_wildcard_for_single_variants)]
     fn snapshot_list() {
         #[rustfmt::skip]
         let bytes:[u8; 29]   = [
