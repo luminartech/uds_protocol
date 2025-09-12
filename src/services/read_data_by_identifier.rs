@@ -219,16 +219,16 @@ mod test {
                 ReadRequestTestData::from_ids(
                     "Repeated ids",
                     &test_ids
-                        .to_vec()
+                        .clone()
                         .iter()
                         .cycle()
                         .take(100)
-                        .cloned()
+                        .copied()
                         .collect::<Vec<_>>(),
                 ),
             ];
 
-            for test_data in test_data_sets.iter() {
+            for test_data in &test_data_sets {
                 let read_result =
                     ReadDataByIdentifierRequest::<ProtocolIdentifier>::option_from_reader(
                         &mut test_data.dids_bytes.as_slice(),
@@ -285,17 +285,17 @@ mod test {
                 WriteRequestTestData::from_ids(
                     "Repeated ids",
                     &test_ids
-                        .to_vec()
+                        .clone()
                         .iter()
                         .cycle()
                         .take(100)
-                        .cloned()
+                        .copied()
                         .collect::<Vec<_>>(),
                 ),
             ];
 
             for test_data in &test_data_sets {
-                let request = ReadDataByIdentifierRequest::new(test_data.dids.to_vec());
+                let request = ReadDataByIdentifierRequest::new(test_data.dids.clone());
                 let mut buffer = Vec::new();
                 let write_result = request.to_writer(&mut buffer);
 

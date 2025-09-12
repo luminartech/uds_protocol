@@ -85,13 +85,13 @@ mod test {
             SecurityAccessType::try_from(0).unwrap(),
             SecurityAccessType::ISOSAEReserved(0)
         );
-        for value in REQUEST_SEED_VALUES.iter() {
+        for value in &REQUEST_SEED_VALUES {
             assert_eq!(
                 SecurityAccessType::try_from(*value).unwrap(),
                 SecurityAccessType::RequestSeed(*value)
             );
         }
-        for value in SEND_KEY_VALUES.iter() {
+        for value in &SEND_KEY_VALUES {
             assert_eq!(
                 SecurityAccessType::try_from(*value).unwrap(),
                 SecurityAccessType::SendKey(*value)
