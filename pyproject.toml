@@ -1,0 +1,8 @@
+[project]
+name = "uds-protocol"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = ["sphinx-needs[plotting]", "sphinxcontrib.plantuml", "furo"]
+dependency-groups = { "dev" = ["esbonio"] }
