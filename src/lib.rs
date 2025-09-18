@@ -41,7 +41,7 @@ pub const PENDING: u8 = 0x78;
 ///
 /// This is an example of a simple data spec that can be used with UDS requests and responses.
 /// It should **not** be used directly in production code, but rather as a base for more complex data specifiers.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
 pub struct UdsSpec;
 impl DiagnosticDefinition for UdsSpec {
     type RID = UDSRoutineIdentifier;

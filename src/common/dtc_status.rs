@@ -429,7 +429,7 @@ impl From<u8> for DTCStoredDataRecordNumber {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 /// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).
 pub struct DTCSeverityRecord {
     ///  The severity mask associated with the DTC, indicating the level of severity.
