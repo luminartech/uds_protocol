@@ -15,7 +15,7 @@ type DTCFaultDetectionCounter = u8;
 /// Used to address the respective user-defined DTC memory when retrieving DTCs
 type MemorySelection = u8;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct ReadDTCInfoRequest {
     pub dtc_subfunction: ReadDTCInfoSubFunction,
@@ -211,7 +211,7 @@ type DTCReadinessGroupIdentifier = u8; // RGID
 
 /// Subfunctions for the `ReadDTCInformation` service
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
 pub enum ReadDTCInfoSubFunction {
     /// * Parameter: `DTCStatusMask`
     ///

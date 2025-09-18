@@ -536,7 +536,7 @@ impl WireFormat for DirSizePayload {
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PositionPayload {
     /// Specifies the byte position within the file at which the Tester will resume downloading after an initial download is suspended
     /// A download is suspended when the ECU stops receiving [`crate::TransferDataRequest`] requests and does not receive the

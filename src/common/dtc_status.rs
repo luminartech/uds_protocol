@@ -257,7 +257,7 @@ impl SingleValueWireFormat for DTCRecord {}
 /// For the purpose of:
 ///     * Requesting DTC status from a vehicle
 ///     * Clearing DTC information in the vehicle
-#[derive(Debug, Clone, Eq, Serialize, Deserialize, PartialEq, ToSchema)]
+#[derive(Debug, Clone, Copy, Eq, Serialize, Deserialize, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub enum FunctionalGroupIdentifier {
     /// 0x00 to 0x32
@@ -429,7 +429,7 @@ impl From<u8> for DTCStoredDataRecordNumber {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 /// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).
 pub struct DTCSeverityRecord {
     ///  The severity mask associated with the DTC, indicating the level of severity.
