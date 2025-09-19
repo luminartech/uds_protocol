@@ -15,19 +15,19 @@ pub enum DiagnosticSessionType {
     /// This value is reserved by the ISO 14229-1 Specification
     #[clap(skip)]
     ISOSAEReserved(u8),
-    /// The `DefaultSession` enables the standard diagnostic functionality
+    /// The `DefaultSession` (0x01) enables the standard diagnostic functionality
     /// - No `TesterPresent` messages are required to remain in this session
     /// - Any other diagnostic sessions are stopped upon succesful entry into this session
     /// - Any security authorization is revoked
     /// - This session is initialized on startup
     DefaultSession,
-    /// The `ProgrammingSession` enables services required to support writing server memory
+    /// The `ProgrammingSession` (0x02) enables services required to support writing server memory
     /// - Upon timeout the server shall return to the `DefaultSession`
     /// - Success response may be sent before or after session is actually entered
     ProgrammingSession,
-    /// The `ExtendedDiagnosticSession` enables additional diagnostics functionality which can modify server behavior
+    /// The `ExtendedDiagnosticSession` (0x03) enables additional diagnostics functionality which can modify server behavior
     ExtendedDiagnosticSession,
-    /// The `SafetySystemDiagnosticSession` enables diagnostics functionality for safety systems
+    /// The `SafetySystemDiagnosticSession` (0x04) enables diagnostics functionality for safety systems
     SafetySystemDiagnosticSession,
     /// Value reserved for use by vehicle manufacturers
     #[clap(skip)]
