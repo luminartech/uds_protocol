@@ -1,5 +1,8 @@
+use std::str::FromStr;
+
 use bitmask_enum::bitmask;
 use byteorder::{ReadBytesExt, WriteBytesExt};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -188,11 +191,14 @@ pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
     low_byte: 0xFF,
 };
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone, Copy, ToSchema, Parser)]
 #[allow(clippy::struct_field_names)]
 pub struct DTCRecord {
+    /// High Bytes of Record
     high_byte: u8,
+    /// Middle Bytes of Record
     middle_byte: u8,
+    /// Low Bytes of Record
     low_byte: u8,
 }
 
@@ -225,6 +231,17 @@ impl From<DTCRecord> for u32 {
     }
 }
 
+impl FromStr for DTCRecord {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // try hex like "0x123456" or "123456"
+        let s = s.strip_prefix("0x").unwrap_or(s);
+        let raw = u32::from_str_radix(s, 16)
+            .map_err(|_| format!("invalid DTC '{}': expected hex like 0xABCDEF", s))?;
+        Ok(DTCRecord::from(raw))
+    }
+}
 impl WireFormat for DTCRecord {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
         let Ok(high_byte) = reader.read_u8() else {
