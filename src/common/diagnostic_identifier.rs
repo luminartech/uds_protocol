@@ -1,16 +1,22 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
 use crate::{Error, Identifier, SingleValueWireFormat, traits::RoutineIdentifier};
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 /// C.1 DID - Diagnostic Data Identifier specified in ISO 14229-1
 ///
 /// The identifiers listed here are defined and should be implemented by the vehicle manufacturer/system supplier.
-#[derive(Clone, Copy, Deserialize, Eq, PartialEq, Serialize, Identifier, utoipa::ToSchema)]
+#[derive(
+    Clone, Copy, Deserialize, Eq, PartialEq, Serialize, Identifier, utoipa::ToSchema, ValueEnum,
+)]
 #[repr(u16)]
 pub enum UDSIdentifier {
+    #[clap(skip)]
     ISOSAEReserved(u16),
+    #[clap(skip)]
     VehicleManufacturerSpecific(u16),
+    #[clap(skip)]
     SystemSupplierSpecific(u16),
     BootSoftwareIdentification = 0xF180,
     ApplicationSoftwareIdentification = 0xF181,
