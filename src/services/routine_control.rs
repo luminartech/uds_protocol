@@ -4,12 +4,12 @@
 //! However, some routines may have side effects or require certain preconditions to be met.
 use crate::{Error, Identifier, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use utoipa::ToSchema;
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
     pub sub_function: RoutineControlSubFunction,
@@ -70,7 +70,8 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireF
 }
 
 /// `RoutineControlResponse` is a variable length field that can contain the status of the routine
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct RoutineControlResponse<RoutineInfoStatusRecord> {
     /// The sub-function echoes the routine control request
@@ -143,7 +144,8 @@ mod request {
     use super::*;
     use crate::Identifier;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Identifier)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Identifier)]
     struct TestIdentifier(pub u16);
 
     impl From<u16> for TestIdentifier {

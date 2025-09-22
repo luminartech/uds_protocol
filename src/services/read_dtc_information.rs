@@ -1,6 +1,5 @@
 //! `ReadDTCInformation` (0x19) request and response service implementation
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{
@@ -15,7 +14,8 @@ type DTCFaultDetectionCounter = u8;
 /// Used to address the respective user-defined DTC memory when retrieving DTCs
 type MemorySelection = u8;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct ReadDTCInfoRequest {
     pub dtc_subfunction: ReadDTCInfoSubFunction,
@@ -45,7 +45,8 @@ impl WireFormat for ReadDTCInfoRequest {
 
 impl SingleValueWireFormat for ReadDTCInfoRequest {}
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Copy, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Copy, ToSchema)]
 pub struct DTCFaultDetectionCounterRecord {
     pub dtc_record: DTCRecord,
     pub dtc_fault_detection_counter: DTCFaultDetectionCounter,
@@ -79,7 +80,8 @@ impl WireFormat for DTCFaultDetectionCounterRecord {
 
 impl IterableWireFormat for DTCFaultDetectionCounterRecord {}
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 // Represent a record containing information about User Defined Memory DTC By Status Mask
 pub struct UserDefMemoryDTCByStatusMaskRecord {
     // This parameter shall be used to address the respective user defined DTC memory when retrieving DTCs.
@@ -90,7 +92,8 @@ pub struct UserDefMemoryDTCByStatusMaskRecord {
     pub record_data: Vec<(DTCRecord, DTCStatusMask)>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 pub struct UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload> {
     // This parameter shall be used to address the respective user defined DTC memory when retrieving DTCs.
     pub memory_selection: MemorySelection,
@@ -151,7 +154,8 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 {
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 /// List of WWH OBD DTCs and corresponding status and severity information matching a client defined status mask and severity mask record
 pub struct WWHOBDDTCByMaskRecord {
     /// Echo from the request.
@@ -167,7 +171,8 @@ pub struct WWHOBDDTCByMaskRecord {
     pub record_data: Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 /// List of WWH OBD DTCs with "permanent DTC" status as described in 3.12
 pub struct WWHOBDDTCWithPermanentStatusRecord {
     /// Echo from the request.
@@ -182,7 +187,8 @@ pub struct WWHOBDDTCWithPermanentStatusRecord {
     pub record_data: Vec<(DTCRecord, DTCStatusMask)>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 /// List of OBD DTCs which matches the `DTCReadiness` Group Identifier
 pub struct DTCByReadinessGroupIdentifierRecord {
     /// Echo from the request.
@@ -196,7 +202,8 @@ pub struct DTCByReadinessGroupIdentifierRecord {
     pub record_data: Vec<(DTCRecord, DTCStatusMask)>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 pub struct SupportedDTCExtDataRecord {
     /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
     pub status_availability_mask: DTCStatusAvailabilityMask,
@@ -211,7 +218,8 @@ type DTCReadinessGroupIdentifier = u8; // RGID
 
 /// Subfunctions for the `ReadDTCInformation` service
 #[allow(non_camel_case_types)]
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 pub enum ReadDTCInfoSubFunction {
     /// * Parameter: `DTCStatusMask`
     ///
@@ -573,7 +581,8 @@ type SubFunctionID = u8;
 ///
 /// For example, subfunction 0x01 and 0x07 both return the number of DTCs
 /// and have the same response format
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
@@ -1117,7 +1126,8 @@ mod response {
 
     use super::*;
 
-    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum TestIdentifier {
         Abracadabra = 0xBEEF,
     }
@@ -1157,7 +1167,8 @@ mod response {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     enum TestPayload {
         Abracadabra(u8),
     }
@@ -1788,7 +1799,8 @@ mod response {
 mod ext_data {
     use super::*;
 
-    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum TestDTCExtDataRecordNumber {
         // DTC records
         WarmUpCycleCount = 0x04,
@@ -1818,7 +1830,8 @@ mod ext_data {
 
     impl IterableWireFormat for TestDTCExtDataRecordNumber {}
 
-    #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     enum TestDTCExtData {
         WarmUpCycleCount(u16),
         FaultDetectionCounter(u8),

@@ -9,7 +9,6 @@ use syn::{DeriveInput, parse_macro_input};
 /// ## Enum Example
 /// ```rust
 /// use uds_protocol::{UDSRoutineIdentifier, Identifier, Error};
-/// use serde::Serialize;
 ///
 /// #[derive(Copy, Clone, Serialize, Identifier)]
 /// pub enum MyRoutineIdentifier {
@@ -45,7 +44,6 @@ use syn::{DeriveInput, parse_macro_input};
 /// ```rust
 ///
 /// use uds_protocol::{UDSIdentifier, Identifier};
-/// use serde::Serialize;
 ///
 /// #[derive(Clone, Copy, Serialize, Identifier)]
 /// pub struct ProtocolIdentifier {

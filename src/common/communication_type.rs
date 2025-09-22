@@ -1,5 +1,4 @@
 use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
@@ -11,8 +10,9 @@ use crate::Error;
 /// Note:
 ///
 /// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`](crate::Error) if the value is not a valid `CommunicationType`
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-    Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum, utoipa::ToSchema,
+    Clone, Copy, Debug, Eq, PartialEq,  ValueEnum, utoipa::ToSchema,
 )]
 pub enum CommunicationType {
     /// This value is reserved by the ISO 14229-1 Specification

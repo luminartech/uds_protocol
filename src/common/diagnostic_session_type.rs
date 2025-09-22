@@ -1,5 +1,4 @@
 use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::Error;
@@ -10,7 +9,8 @@ use crate::Error;
 ///
 /// Conversions from `u8` to `DiagnosticSessionType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq,  ValueEnum, ToSchema)]
 pub enum DiagnosticSessionType {
     /// This value is reserved by the ISO 14229-1 Specification
     #[clap(skip)]

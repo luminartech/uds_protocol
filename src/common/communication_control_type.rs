@@ -1,5 +1,4 @@
 use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
@@ -9,8 +8,9 @@ use crate::Error;
 ///
 /// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`](crate::Error) if the
 /// Suppress Positive Response bit is set.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
-    Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum, utoipa::ToSchema,
+    Clone, Copy, Debug, Eq, PartialEq,  ValueEnum, utoipa::ToSchema,
 )]
 pub enum CommunicationControlType {
     /// This value indicates that the reception and transmission of messages

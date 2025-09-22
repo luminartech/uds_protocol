@@ -7,14 +7,13 @@ use crate::Error;
 ///
 /// Conversions from `u8` to `ResetType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
     Clone,
     Copy,
     Debug,
-    serde::Deserialize,
     Eq,
     PartialEq,
-    serde::Serialize,
     clap::ValueEnum,
     utoipa::ToSchema,
 )]

@@ -14,7 +14,6 @@ use crate::{
     SuppressablePositiveResponse, WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
@@ -24,7 +23,8 @@ const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode;
 ];
 
 /// Request for the server to change diagnostic session type
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 pub struct DiagnosticSessionControlRequest {
     session_type: SuppressablePositiveResponse<DiagnosticSessionType>,
 }
@@ -86,7 +86,8 @@ impl WireFormat for DiagnosticSessionControlRequest {
 impl SingleValueWireFormat for DiagnosticSessionControlRequest {}
 
 /// Positive response to a `DiagnosticSessionControlRequest`
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct DiagnosticSessionControlResponse {
     pub session_type: DiagnosticSessionType,

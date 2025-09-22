@@ -1,3 +1,4 @@
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(
     clap::ValueEnum,
     Clone,
@@ -5,8 +6,6 @@
     Debug,
     Eq,
     PartialEq,
-    serde::Deserialize,
-    serde::Serialize,
     utoipa::ToSchema,
 )]
 // Without the non-exhaustive annotation, adding additional diagnostic commands would be a breaking semver change.

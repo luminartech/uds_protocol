@@ -2,7 +2,6 @@ use crate::{
     Error, Identifier, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat,
 };
 
-use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
@@ -14,7 +13,8 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 ];
 
 /// See ISO-14229-1:2020, Table 11.2.1 for format information
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, Eq, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct ReadDataByIdentifierRequest<DataIdentifier> {
     pub dids: Vec<DataIdentifier>,
@@ -69,7 +69,8 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 }
 
 /// See ISO-14229-1:2020, Table 11.2.3 for format information
-#[derive(Clone, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Eq, PartialEq, ToSchema)]
 pub struct ReadDataByIdentifierResponse<UserPayload> {
     pub data: Vec<UserPayload>,
 }
@@ -320,7 +321,8 @@ mod test {
     mod response {
         use super::*;
 
-        #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         pub struct BazData {
             pub data: [u8; 16],
             pub data2: u64,
@@ -328,7 +330,8 @@ mod test {
         }
 
         // The UDSIdentifiers are vender defined and don't have interesting payloads, so we define our own types for
-        #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[derive(Clone, Debug, Eq, PartialEq)]
         pub enum TestPayload {
             #[serde(with = "serde_bytes")]
             MeaningOfLife([u8; 42]),
