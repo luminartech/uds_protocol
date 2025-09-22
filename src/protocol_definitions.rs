@@ -1,6 +1,8 @@
 use crate::{Error, Identifier, IterableWireFormat, UDSIdentifier, WireFormat};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
+use tracing::error;
 use utoipa::ToSchema;
 
 /// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports Diagnostic Identifiers defined by UDS
@@ -47,36 +49,60 @@ impl Deref for ProtocolIdentifier {
     }
 }
 
-/// The UDS protocol does not define the structure of any payload, so this struct will always return an error when attempting to read from a reader
-/// It cannot be constructed, and therefore the write method is unreachable
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize, ToSchema)]
+/// The UDS protocol does not define the structure of any payload, but exists as a container for diagnostic implementations that use the generic UDS identifiers
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize, ToSchema, Parser)]
 #[non_exhaustive]
-pub struct ProtocolPayload([u8; 2], Vec<u8>);
+pub struct ProtocolPayload {
+    pub identifier: UDSIdentifier,
+    pub payload: Vec<u8>,
+}
 
+impl ProtocolPayload {
+    /// Creates a new `ProtocolPayload` with the given identifier and payload
+    #[must_use]
+    pub fn new(identifier: UDSIdentifier, payload: Vec<u8>) -> Self {
+        ProtocolPayload {
+            identifier,
+            payload,
+        }
+    }
+}
 impl WireFormat for ProtocolPayload {
     fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut identifier_data: [u8; 2] = [0; 2];
         match reader.read(&mut identifier_data)? {
             0 => return Ok(None),
-            1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
+            1 => {
+                error!(
+                    "Only read 1 byte of identifier, need 2: read byte was: {}",
+                    identifier_data[0]
+                );
+                return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+            }
             2 => (),
             _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
         }
+        let identifier = UDSIdentifier::try_from(u16::from_be_bytes(identifier_data))?;
         // Reads the entire payload, but does not have the ability to determine the amount of bytes to read
         // depending on the Identifier, so all data is read until EOF
-        let mut entire_payload: Vec<u8> = Vec::new();
-        reader.read_to_end(&mut entire_payload)?;
-        Ok(Some(ProtocolPayload(identifier_data, entire_payload)))
+        //
+        // TODO: We could be more clever, we do know the response size of some identifiers
+        let mut payload: Vec<u8> = Vec::new();
+        reader.read_to_end(&mut payload)?;
+        Ok(Some(ProtocolPayload {
+            identifier,
+            payload,
+        }))
     }
 
     fn required_size(&self) -> usize {
-        0
+        2 + self.payload.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, _: &mut T) -> Result<usize, Error> {
-        unreachable!(
-            "This type cannot be constructed, and therefore cannot be serialized to a writer."
-        )
+    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.identifier.to_writer(writer)?;
+        writer.write_all(&self.payload)?;
+        Ok(self.required_size())
     }
 }
 
@@ -84,16 +110,40 @@ impl IterableWireFormat for ProtocolPayload {}
 
 impl std::fmt::Debug for ProtocolPayload {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // show the hex value
         write!(
             f,
-            "{:#06X} => {}",
-            u16::from(self.0[1]) | u16::from(self.0[0]) << 8,
-            self.1
+            "{} => {}",
+            self.identifier,
+            self.payload
                 .iter()
                 .map(|b| format!("{b:02X}"))
                 .collect::<Vec<_>>()
                 .join(" ")
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_construction_and_debug_format() {
+        let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x01]);
+        assert_eq!(format!("{payload:?}"), "0xF186 => 01");
+        let mut buffer = Vec::new();
+        assert_eq!(3, payload.to_writer(&mut buffer).unwrap());
+    }
+
+    #[test]
+    fn test_read_and_write() {
+        let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x03]);
+        let mut buffer = Vec::new();
+        assert_eq!(3, payload.to_writer(&mut buffer).unwrap());
+        let deserialized_payload = ProtocolPayload::option_from_reader(&mut buffer.as_slice())
+            .unwrap()
+            .unwrap();
+        assert_eq!(payload, deserialized_payload);
     }
 }
