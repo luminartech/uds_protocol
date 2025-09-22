@@ -1,6 +1,5 @@
 use crate::Error;
 use byteorder::{BigEndian, WriteBytesExt};
-use utoipa::ToSchema;
 
 /// A trait for types that can be deserialized from a
 /// [`Reader`](https://doc.rust-lang.org/std/io/trait.Read.html) and serialized
@@ -93,6 +92,20 @@ mod maybe_serde {
     #[cfg(not(feature = "serde"))]
     pub trait Bound {}
     #[cfg(not(feature = "serde"))]
+    impl<T> Bound for T {}
+}
+
+mod maybe_utoipa {
+    // When `utoipa` feature is ON, require ToSchema
+    #[cfg(feature = "utoipa")]
+    pub trait Bound: utoipa::ToSchema {}
+    #[cfg(feature = "utoipa")]
+    impl<T> Bound for T where T: utoipa::ToSchema {}
+
+    // When `utoipa` feature is OFF, require nothing
+    #[cfg(not(feature = "utoipa"))]
+    pub trait Bound {}
+    #[cfg(not(feature = "utoipa"))]
     impl<T> Bound for T {}
 }
 
@@ -190,9 +203,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + ToSchema
         + 'static
-        + maybe_serde::Bound;
+        + maybe_serde::Bound
+        + maybe_utoipa::Bound;
     /// Response payload for [`ReadDataByIdentifierRequest`]
     type DiagnosticPayload: IterableWireFormat
         + Clone
@@ -201,7 +214,7 @@ pub trait DiagnosticDefinition: 'static {
         + Sync
         + PartialEq
         + maybe_serde::Bound
-        + ToSchema
+        + maybe_utoipa::Bound
         + 'static;
 
     /// UDS Routine Identifier
@@ -213,9 +226,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + ToSchema
         + 'static
-        + maybe_serde::Bound;
+        + maybe_serde::Bound
+        + maybe_utoipa::Bound;
     /// Payload for both requests and responses of [`RoutineControlRequest`] and [`RoutineControlResponse`]
     type RoutinePayload: WireFormat
         + Clone
@@ -223,9 +236,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + ToSchema
         + 'static
-        + maybe_serde::Bound;
+        + maybe_serde::Bound
+        + maybe_utoipa::Bound;
 }
 
 /// tests

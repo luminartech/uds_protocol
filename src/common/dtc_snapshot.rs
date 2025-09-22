@@ -2,14 +2,14 @@
 //! Snapshot data represents a collection of sensor values captured when a DTC is triggered.
 //! Represents the state of the server at the time the DTC was triggered.
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use utoipa::ToSchema;
 
 use crate::{
     DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
 };
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct DTCSnapshotRecordList<UserPayload> {
     pub dtc_record: DTCRecord,
     pub status_mask: DTCStatusMask,
@@ -76,8 +76,9 @@ impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identi
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecordList<UserPayload> {}
 
 /// Contains a snapshot of data values from the time of the system malfunction occurrence.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct DTCSnapshotRecord<UserPayload> {
     /// The data identifier (DID) for the data values taken at the time of the system malfunction occurrence
     /// These can be vehicle manufacturer specific
@@ -159,8 +160,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
 /// Indicates the number of the specific `DTCSnapshot` data record requested
 pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum DTCSnapshotRecordNumber {
     /// Reserved for Legislative purposes
     Reserved(u8),

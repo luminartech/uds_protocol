@@ -5,11 +5,11 @@
 use crate::{Error, Identifier, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
-use utoipa::ToSchema;
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
     pub sub_function: RoutineControlSubFunction,
@@ -70,8 +70,9 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireF
 }
 
 /// `RoutineControlResponse` is a variable length field that can contain the status of the routine
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 pub struct RoutineControlResponse<RoutineInfoStatusRecord> {
     /// The sub-function echoes the routine control request
