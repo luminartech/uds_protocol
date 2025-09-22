@@ -161,7 +161,7 @@ mod test {
             let try_result: Result<ZeroSubFunction, Error> = ZeroSubFunction::try_from(i);
             match i {
                 0x00 => {
-                    assert_eq!(try_result.unwrap(), ZeroSubFunction::NoSubFunctionSupported)
+                    assert_eq!(try_result.unwrap(), ZeroSubFunction::NoSubFunctionSupported);
                 }
                 0x01..=0x7F => {
                     assert!(matches!(try_result, Ok(ZeroSubFunction::ISOSAEReserved(_))));

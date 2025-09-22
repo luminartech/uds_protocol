@@ -127,19 +127,19 @@ mod test {
                     assert!(matches!(
                         msg_type,
                         Ok(CommunicationControlType::ISOSAEReserved(_))
-                    ))
+                    ));
                 }
                 0x40..=0x5F => {
                     assert!(matches!(
                         msg_type,
                         Ok(CommunicationControlType::VehicleManufacturerSpecific(_))
-                    ))
+                    ));
                 }
                 0x60..=0x7E => {
                     assert!(matches!(
                         msg_type,
                         Ok(CommunicationControlType::SystemSupplierSpecific(_))
-                    ))
+                    ));
                 }
                 _ => assert!(matches!(
                     msg_type,

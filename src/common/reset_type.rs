@@ -102,6 +102,7 @@ mod test {
     use super::*;
     /// Check that we properly decode and encode hex bytes
     #[test]
+    #[allow(clippy::match_same_arms)]
     fn reset_type_from_all_u8_values() {
         for i in 0..=u8::MAX {
             let reset_type: Result<ResetType, Error> = ResetType::try_from(i);

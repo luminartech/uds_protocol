@@ -204,7 +204,7 @@ mod tests {
             4
         );
 
-        assert_eq!(req.memory_address, 0xF0FFFF67);
+        assert_eq!(req.memory_address, 0xF0FF_FF67);
         assert_eq!(req.memory_size, 0x0A);
 
         assert_eq!(

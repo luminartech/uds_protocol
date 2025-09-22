@@ -219,16 +219,16 @@ mod test {
                 ReadRequestTestData::from_ids(
                     "Repeated ids",
                     &test_ids
-                        .to_vec()
+                        .clone()
                         .iter()
                         .cycle()
                         .take(100)
-                        .cloned()
+                        .copied()
                         .collect::<Vec<_>>(),
                 ),
             ];
 
-            for test_data in test_data_sets.iter() {
+            for test_data in &test_data_sets {
                 let read_result =
                     ReadDataByIdentifierRequest::<ProtocolIdentifier>::option_from_reader(
                         &mut test_data.dids_bytes.as_slice(),
@@ -285,17 +285,17 @@ mod test {
                 WriteRequestTestData::from_ids(
                     "Repeated ids",
                     &test_ids
-                        .to_vec()
+                        .clone()
                         .iter()
                         .cycle()
                         .take(100)
-                        .cloned()
+                        .copied()
                         .collect::<Vec<_>>(),
                 ),
             ];
 
             for test_data in &test_data_sets {
-                let request = ReadDataByIdentifierRequest::new(test_data.dids.to_vec());
+                let request = ReadDataByIdentifierRequest::new(test_data.dids.clone());
                 let mut buffer = Vec::new();
                 let write_result = request.to_writer(&mut buffer);
 
@@ -387,11 +387,12 @@ mod test {
                     1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
                     2 => (),
                     _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-                };
+                }
                 let did = u16::from_be_bytes(identifier_data);
                 Ok(Some(TestPayload::new(did, reader)?))
             }
 
+            #[allow(clippy::match_same_arms)]
             fn required_size(&self) -> usize {
                 match self {
                     TestPayload::MeaningOfLife(_) => 42,
@@ -402,6 +403,7 @@ mod test {
                 }
             }
 
+            #[allow(clippy::match_same_arms)]
             fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
                 let id_bytes = u16::from(self.clone()).to_be_bytes();
                 let did_len = writer.write(&id_bytes)?;
@@ -459,8 +461,8 @@ mod test {
                 TestPayload::Bar,
                 TestPayload::Baz(BazData {
                     data: [5; 16],
-                    data2: 1234567890,
-                    data3: 54321,
+                    data2: 1_234_567_890,
+                    data3: 54_321,
                 }),
                 TestPayload::UDSIdentifier(UDSIdentifier::BootSoftwareIdentification),
             ]
