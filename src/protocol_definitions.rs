@@ -119,3 +119,17 @@ impl std::fmt::Debug for ProtocolPayload {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        CommunicationControlType, CommunicationType, ProtocolRequest, ResetType, SecurityAccessType,
+    };
+
+    #[test]
+    fn test_construction_and_debug_format() {
+        let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x01]);
+        assert_eq!(format!("{payload:?}"), "0xF186 => 01");
+    }
+}
