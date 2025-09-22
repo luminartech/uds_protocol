@@ -8,11 +8,12 @@ use crate::Error;
 /// Conversions from `u8` to `ResetType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ResetType {
     /// This value is reserved
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     ISOSAEReserved(u8),
     /// This `SubFunction` identifies a "hard reset" condition which simulates the power-on/start-up sequence
     /// typically performed after a server has been previously disconnected from its power supply (i.e. battery).
@@ -46,10 +47,10 @@ pub enum ResetType {
     /// This `SubFunction` requests the server to disable the previously enabled "rapid power shut down" function.
     DisableRapidPowerShutDown,
     /// Reserved for use by vehicle manufacturers
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     VehicleManufacturerSpecific(u8),
     /// Reserved for use by system suppliers
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     SystemSupplierSpecific(u8),
 }
 

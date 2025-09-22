@@ -1,5 +1,3 @@
-use clap::ValueEnum;
-
 use crate::Error;
 
 /// `CommunicationControlType` is used to specify the type of communication behavior to be modified
@@ -9,8 +7,9 @@ use crate::Error;
 /// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`](crate::Error) if the
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CommunicationControlType {
     /// This value indicates that the reception and transmission of messages
     /// shall be enabled for the specified [`CommunicationType`](crate::CommunicationType)
@@ -33,13 +32,13 @@ pub enum CommunicationControlType {
     /// Additionally, enhanced address information shall be included in the request
     EnableRxAndTxWithEnhancedAddressInfo,
     /// These values are reserved by the ISO 14229-1 Specification
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     ISOSAEReserved(u8),
     /// Values reserved for use by vehicle manufacturers
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     VehicleManufacturerSpecific(u8),
     /// Values reserved for use by system suppliers
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     SystemSupplierSpecific(u8),
 }
 

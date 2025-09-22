@@ -16,10 +16,6 @@ authors = [
 [features]
 serde = ["dep:serde"]
 utoipa = ["dep:utoipa"]
-
-[features]
-serde = ["dep:serde"]
-utoipa = ["dep:utoipa"]
 clap = ["dep:clap"]
 
 [dependencies]

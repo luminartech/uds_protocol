@@ -1,5 +1,3 @@
-use clap::ValueEnum;
-
 use crate::Error;
 
 /// `DiagnosticSessionType` is used to specify or describe the session type of the server
@@ -10,10 +8,11 @@ use crate::Error;
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DiagnosticSessionType {
     /// This value is reserved by the ISO 14229-1 Specification
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     ISOSAEReserved(u8),
     /// The `DefaultSession` (0x01) enables the standard diagnostic functionality
     /// - No `TesterPresent` messages are required to remain in this session
@@ -30,10 +29,10 @@ pub enum DiagnosticSessionType {
     /// The `SafetySystemDiagnosticSession` (0x04) enables diagnostics functionality for safety systems
     SafetySystemDiagnosticSession,
     /// Value reserved for use by vehicle manufacturers
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     VehicleManufacturerSpecificSession(u8),
     /// Value reserved for use by system suppliers
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     SystemSupplierSpecificSession(u8),
 }
 
