@@ -58,7 +58,8 @@ pub struct ProtocolPayload {
 }
 
 impl ProtocolPayload {
-    /// Creates a new ProtocolPayload with the given identifier and payload
+    /// Creates a new `ProtocolPayload` with the given identifier and payload
+    #[must_use]
     pub fn new(identifier: UDSIdentifier, payload: Vec<u8>) -> Self {
         ProtocolPayload {
             identifier,
@@ -123,9 +124,6 @@ impl std::fmt::Debug for ProtocolPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        CommunicationControlType, CommunicationType, ProtocolRequest, ResetType, SecurityAccessType,
-    };
 
     #[test]
     fn test_construction_and_debug_format() {
