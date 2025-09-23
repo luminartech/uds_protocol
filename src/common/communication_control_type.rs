@@ -9,9 +9,7 @@ use crate::Error;
 /// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`](crate::Error) if the
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(
-    Clone, Copy, Debug, Eq, PartialEq,  ValueEnum,
-)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum CommunicationControlType {
     /// This value indicates that the reception and transmission of messages

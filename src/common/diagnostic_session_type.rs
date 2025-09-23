@@ -10,7 +10,7 @@ use crate::Error;
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq,  ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum DiagnosticSessionType {
     /// This value is reserved by the ISO 14229-1 Specification
     #[clap(skip)]

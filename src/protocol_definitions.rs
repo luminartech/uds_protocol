@@ -1,3 +1,5 @@
+use tracing::error;
+
 use crate::{Error, Identifier, IterableWireFormat, UDSIdentifier, WireFormat};
 use std::ops::Deref;
 
