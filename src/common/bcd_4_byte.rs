@@ -1,11 +1,11 @@
 use crate::{Error, WireFormat};
 use byteorder::{BigEndian, ByteOrder};
-use clap::Parser;
 use std::str::FromStr;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Parser, PartialEq)]
+#[cfg_attr(feature = "clap", derive(Parser))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BCD4ByteLE {
     pub value: u32,
 }
