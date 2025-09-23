@@ -10,9 +10,7 @@ pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 /// `SuppressablePositiveResponse` is used to encapsulate subfunction enumerations that can also encode the response suppression bit.
 /// This eliminates bit masking logic from a number of subfunction enumerations.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(
-    Clone, Copy, Debug, Eq, PartialEq,
-)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 pub(crate) struct SuppressablePositiveResponse<T: TryFrom<u8> + Into<u8> + Copy> {

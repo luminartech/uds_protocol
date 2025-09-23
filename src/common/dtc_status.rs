@@ -130,7 +130,7 @@ impl SingleValueWireFormat for DTCStatusMask {}
 /// A given server shall only support one `DTCFormatIdentifier`.
 #[allow(non_camel_case_types)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[repr(u8)]
@@ -190,7 +190,7 @@ pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[allow(clippy::struct_field_names)]
 pub struct DTCRecord {
@@ -261,7 +261,7 @@ impl SingleValueWireFormat for DTCRecord {}
 ///     * Requesting DTC status from a vehicle
 ///     * Clearing DTC information in the vehicle
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 pub enum FunctionalGroupIdentifier {
@@ -386,7 +386,7 @@ impl DTCSeverityMask {
 /// Indicates the number of the specific `DTCSnapshot` data record requested
 /// Setting to 0xFF will return all `DTCStoredDataRecords` at once
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct DTCStoredDataRecordNumber(u8);
 
@@ -438,7 +438,7 @@ impl From<u8> for DTCStoredDataRecordNumber {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 /// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).
 pub struct DTCSeverityRecord {

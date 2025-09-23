@@ -1,13 +1,6 @@
 /// `NegativeResponseCode` is a shared error mechanism
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(
-    clap::ValueEnum,
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum NegativeResponseCode {
     /// This response code shall not be used in a negative response message.

@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 
 /// Represents the active diagnostic session of the lidar module.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug,  PartialEq,  Parser)]
+#[derive(Clone, Copy, Debug, Parser, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ActiveDiagnosticSession {
     /// The current diagnostic session type.

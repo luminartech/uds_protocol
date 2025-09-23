@@ -14,7 +14,7 @@ type DTCFaultDetectionCounter = u8;
 type MemorySelection = u8;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 pub struct ReadDTCInfoRequest {
@@ -46,7 +46,7 @@ impl WireFormat for ReadDTCInfoRequest {
 impl SingleValueWireFormat for ReadDTCInfoRequest {}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct DTCFaultDetectionCounterRecord {
     pub dtc_record: DTCRecord,
@@ -82,7 +82,7 @@ impl WireFormat for DTCFaultDetectionCounterRecord {
 impl IterableWireFormat for DTCFaultDetectionCounterRecord {}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 // Represent a record containing information about User Defined Memory DTC By Status Mask
 pub struct UserDefMemoryDTCByStatusMaskRecord {
@@ -95,7 +95,7 @@ pub struct UserDefMemoryDTCByStatusMaskRecord {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload> {
     // This parameter shall be used to address the respective user defined DTC memory when retrieving DTCs.
@@ -158,7 +158,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 /// List of WWH OBD DTCs and corresponding status and severity information matching a client defined status mask and severity mask record
 pub struct WWHOBDDTCByMaskRecord {
@@ -176,7 +176,7 @@ pub struct WWHOBDDTCByMaskRecord {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 /// List of WWH OBD DTCs with "permanent DTC" status as described in 3.12
 pub struct WWHOBDDTCWithPermanentStatusRecord {
@@ -193,7 +193,7 @@ pub struct WWHOBDDTCWithPermanentStatusRecord {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 /// List of OBD DTCs which matches the `DTCReadiness` Group Identifier
 pub struct DTCByReadinessGroupIdentifierRecord {
@@ -209,7 +209,7 @@ pub struct DTCByReadinessGroupIdentifierRecord {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SupportedDTCExtDataRecord {
     /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
@@ -590,7 +590,7 @@ type SubFunctionID = u8;
 /// For example, subfunction 0x01 and 0x07 both return the number of DTCs
 /// and have the same response format
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 pub enum ReadDTCInfoResponse<UserPayload> {

@@ -1,12 +1,14 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
+use clap::ValueEnum;
+
 use crate::{Error, Identifier, SingleValueWireFormat, traits::RoutineIdentifier};
 
 /// C.1 DID - Diagnostic Data Identifier specified in ISO 14229-1
 ///
 /// The identifiers listed here are defined and should be implemented by the vehicle manufacturer/system supplier.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Eq, PartialEq,  Identifier)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Eq, Identifier, PartialEq, ValueEnum)]
 #[repr(u16)]
 pub enum UDSIdentifier {
     #[clap(skip)]
@@ -176,7 +178,7 @@ impl std::fmt::Debug for UDSIdentifier {
 /// Some services will be defined by the Vehicle manufacturer or a system supplier,
 /// and they must be implemented by the tester system.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq,  Identifier)]
+#[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[repr(u16)]
 pub enum UDSRoutineIdentifier {

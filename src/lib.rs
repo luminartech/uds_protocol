@@ -32,7 +32,6 @@ pub use traits::{
 
 use clap::ValueEnum;
 
-
 pub const SUCCESS: u8 = 0x80;
 pub const PENDING: u8 = 0x78;
 

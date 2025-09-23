@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct DTCSnapshotRecordList<UserPayload> {
     pub dtc_record: DTCRecord,
@@ -77,7 +77,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecor
 
 /// Contains a snapshot of data values from the time of the system malfunction occurrence.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct DTCSnapshotRecord<UserPayload> {
     /// The data identifier (DID) for the data values taken at the time of the system malfunction occurrence
@@ -161,7 +161,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
 pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum DTCSnapshotRecordNumber {
     /// Reserved for Legislative purposes
