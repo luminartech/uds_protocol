@@ -46,8 +46,7 @@ impl Deref for ProtocolIdentifier {
     }
 }
 
-/// The UDS protocol does not define the structure of any payload, so this struct will always return an error when attempting to read from a reader
-/// It cannot be constructed, and therefore the write method is unreachable
+/// The UDS protocol does not define the structure of any payload, but exists as a container for diagnostic implementations that use the generic UDS identifiers
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Eq, PartialEq, ToSchema)]
 #[non_exhaustive]

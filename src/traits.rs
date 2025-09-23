@@ -82,7 +82,6 @@ pub trait SingleValueWireFormat: WireFormat {
     }
 }
 
-// keep this in the same module as `Identifier` (or make the path public if elsewhere)
 mod maybe_serde {
     // When `serde` feature is ON, require Serialize + Deserialize
     #[cfg(feature = "serde")]

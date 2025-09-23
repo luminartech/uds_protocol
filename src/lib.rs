@@ -31,7 +31,6 @@ pub use traits::{
 };
 
 use clap::ValueEnum;
-
 use utoipa::ToSchema;
 
 pub const SUCCESS: u8 = 0x80;
