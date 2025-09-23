@@ -5,7 +5,7 @@ use std::str::FromStr;
 use utoipa::ToSchema;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Parser, PartialEq,  ToSchema)]
+#[derive(Clone, Copy, Debug, Parser, PartialEq, ToSchema)]
 pub struct BCD4ByteLE {
     pub value: u32,
 }

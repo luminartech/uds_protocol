@@ -333,7 +333,7 @@ mod test {
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[derive(Clone, Debug, Eq, PartialEq)]
         pub enum TestPayload {
-            #[serde(with = "serde_bytes")]
+            #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
             MeaningOfLife([u8; 42]),
             Foo(u32),
             Bar,

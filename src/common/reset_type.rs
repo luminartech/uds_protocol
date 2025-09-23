@@ -8,15 +8,7 @@ use crate::Error;
 /// Conversions from `u8` to `ResetType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Eq,
-    PartialEq,
-    clap::ValueEnum,
-    utoipa::ToSchema,
-)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum, utoipa::ToSchema)]
 pub enum ResetType {
     /// This value is reserved
     #[clap(skip)]

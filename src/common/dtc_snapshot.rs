@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq,  ToSchema)]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 pub struct DTCSnapshotRecordList<UserPayload> {
     pub dtc_record: DTCRecord,
     pub status_mask: DTCStatusMask,
@@ -77,7 +77,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecor
 
 /// Contains a snapshot of data values from the time of the system malfunction occurrence.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq,  ToSchema)]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 pub struct DTCSnapshotRecord<UserPayload> {
     /// The data identifier (DID) for the data values taken at the time of the system malfunction occurrence
     /// These can be vehicle manufacturer specific

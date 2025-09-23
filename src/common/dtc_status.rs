@@ -37,7 +37,7 @@ use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
 /// | 7 | [`WarningIndicatorRequested`](DTCStatusMask::WarningIndicatorRequested)          | **0** |
 #[bitmask(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive( ToSchema)]
+#[derive(ToSchema)]
 pub enum DTCStatusMask {
     /// Status of the most recently performed test.
     ///

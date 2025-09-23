@@ -90,7 +90,7 @@ impl WireFormat for DTCExtDataRecordNumber {
 impl SingleValueWireFormat for DTCExtDataRecordNumber {}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, PartialEq,  ToSchema)]
+#[derive(Debug, Clone, PartialEq, ToSchema)]
 pub struct DTCExtDataRecord<UserPayload> {
     pub data: Vec<UserPayload>,
 }

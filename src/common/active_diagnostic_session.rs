@@ -6,7 +6,7 @@ use utoipa::ToSchema;
 
 /// Represents the active diagnostic session of the lidar module.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug,  PartialEq,  Parser, ToSchema)]
+#[derive(Clone, Copy, Debug, PartialEq, Parser, ToSchema)]
 pub struct ActiveDiagnosticSession {
     /// The current diagnostic session type.
     pub current_session: DiagnosticSessionType,
