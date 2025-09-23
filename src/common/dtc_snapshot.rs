@@ -292,13 +292,9 @@ mod snapshot {
             let mut written = 2;
 
             match self {
-                ProtocolPayload::Did4711(data) => {
+                ProtocolPayload::Did8711(data) | ProtocolPayload::Did4711(data) => {
                     writer.write_all(data)?;
-                    written += 5;
-                }
-                ProtocolPayload::Did8711(data) => {
-                    writer.write_all(data)?;
-                    written += 5;
+                    written += data.len();
                 }
                 // bogus data
                 ProtocolPayload::Did8712(..) => {
