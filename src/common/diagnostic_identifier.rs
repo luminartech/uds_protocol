@@ -1,7 +1,6 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
-use clap::ValueEnum;
-
 use crate::{Error, Identifier, SingleValueWireFormat, traits::RoutineIdentifier};
+use clap::{Parser, ValueEnum};
 
 /// C.1 DID - Diagnostic Data Identifier specified in ISO 14229-1
 ///
@@ -9,7 +8,7 @@ use crate::{Error, Identifier, SingleValueWireFormat, traits::RoutineIdentifier}
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[repr(u16)]
-#[derive(Clone, Copy, Eq, Identifier, PartialEq, ValueEnum)]
+#[derive(Clone, Copy, Eq, Identifier, Parser, PartialEq, ValueEnum)]
 pub enum UDSIdentifier {
     #[clap(skip)]
     ISOSAEReserved(u16),
