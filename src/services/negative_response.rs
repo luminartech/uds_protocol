@@ -1,7 +1,7 @@
 use crate::{Error, NegativeResponseCode, SingleValueWireFormat, UdsServiceType, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

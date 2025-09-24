@@ -18,7 +18,7 @@ const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] =
 /// Communication Control is not fully implemented.
 /// `CommunicationType` has more complex behavior than is currently implemented.
 /// Issue is tracked [here](https://github.com/luminartech/dft/issues/196)
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CommunicationControlRequest {
@@ -121,7 +121,7 @@ impl WireFormat for CommunicationControlRequest {
 impl SingleValueWireFormat for CommunicationControlRequest {}
 
 /// Positive response from the server to change communication behavior
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive] // Prevent direct construction externally
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

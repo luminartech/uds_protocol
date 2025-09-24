@@ -6,7 +6,7 @@ use crate::{Error, Identifier, SingleValueWireFormat, traits::RoutineIdentifier}
 /// C.1 DID - Diagnostic Data Identifier specified in ISO 14229-1
 ///
 /// The identifiers listed here are defined and should be implemented by the vehicle manufacturer/system supplier.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[repr(u16)]
 #[derive(Clone, Copy, Eq, Identifier, PartialEq, ValueEnum)]
@@ -177,7 +177,7 @@ impl std::fmt::Debug for UDSIdentifier {
 ///
 /// Some services will be defined by the Vehicle manufacturer or a system supplier,
 /// and they must be implemented by the tester system.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[repr(u16)]
 #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]

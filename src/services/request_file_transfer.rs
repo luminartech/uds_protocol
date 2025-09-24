@@ -4,7 +4,7 @@ use std::io::Read;
 use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -74,7 +74,7 @@ impl TryFrom<u8> for FileOperationMode {
 /// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
 /// [Response]: RequestFileTransferResponse (RequestFileTransferResponse)
 #[allow(clippy::struct_field_names)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SizePayload {
@@ -170,7 +170,7 @@ impl SingleValueWireFormat for SizePayload {}
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct NamePayload {
@@ -232,7 +232,7 @@ impl SingleValueWireFormat for NamePayload {}
 ///
 /// If this service is used to delete files or directories on the server,
 /// there is no need to use the `TransferData` or [`crate::UdsServiceType::RequestTransferExit`] services.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
@@ -352,7 +352,7 @@ impl WireFormat for RequestFileTransferRequest {
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SentDataPayload {
@@ -415,7 +415,7 @@ impl WireFormat for SentDataPayload {
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
 #[allow(clippy::struct_field_names)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct FileSizePayload {
@@ -488,7 +488,7 @@ impl SingleValueWireFormat for FileSizePayload {}
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct DirSizePayload {
@@ -548,7 +548,7 @@ impl WireFormat for DirSizePayload {
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PositionPayload {
@@ -585,7 +585,7 @@ impl WireFormat for PositionPayload {
 ///
 /// The server will respond with a [`RequestFileTransferResponse`] to indicate the status of the request
 /// [`DataFormatIdentifier`] - Echoes the value of the request
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]

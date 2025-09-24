@@ -7,7 +7,7 @@ use crate::{
     DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
 };
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct DTCSnapshotRecordList<UserPayload> {
@@ -76,7 +76,7 @@ impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identi
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecordList<UserPayload> {}
 
 /// Contains a snapshot of data values from the time of the system malfunction occurrence.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct DTCSnapshotRecord<UserPayload> {
@@ -160,7 +160,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
 /// Indicates the number of the specific `DTCSnapshot` data record requested
 pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DTCSnapshotRecordNumber {

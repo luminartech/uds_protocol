@@ -4,7 +4,7 @@ use clap::Parser;
 use std::io::{Read, Write};
 
 /// Represents the active diagnostic session of the lidar module.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Parser, PartialEq)]
 pub struct ActiveDiagnosticSession {

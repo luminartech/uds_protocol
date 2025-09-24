@@ -34,7 +34,7 @@ use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
 /// | 5 | [`TestFailedSinceLastClear`](DTCStatusMask::TestFailedSinceLastClear)           | **0** |
 /// | 6 | [`TestNotCompletedThisOperationCycle`](DTCStatusMask::TestNotCompletedThisOperationCycle) | **1** |
 /// | 7 | [`WarningIndicatorRequested`](DTCStatusMask::WarningIndicatorRequested)          | **0** |
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[bitmask(u8)]
 pub enum DTCStatusMask {
@@ -129,7 +129,7 @@ impl SingleValueWireFormat for DTCStatusMask {}
 ///
 /// A given server shall only support one `DTCFormatIdentifier`.
 #[allow(non_camel_case_types)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[repr(u8)]
@@ -190,7 +190,7 @@ pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
 };
 
 #[allow(clippy::struct_field_names)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DTCRecord {
@@ -260,7 +260,7 @@ impl SingleValueWireFormat for DTCRecord {}
 /// For the purpose of:
 ///     * Requesting DTC status from a vehicle
 ///     * Clearing DTC information in the vehicle
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -331,7 +331,7 @@ impl From<FunctionalGroupIdentifier> for u8 {
 ///
 /// DTCCLASS_
 #[allow(non_camel_case_types)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[bitmask(u8)]
 pub enum DTCSeverityMask {
@@ -385,7 +385,7 @@ impl DTCSeverityMask {
 
 /// Indicates the number of the specific `DTCSnapshot` data record requested
 /// Setting to 0xFF will return all `DTCStoredDataRecords` at once
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DTCStoredDataRecordNumber(u8);
@@ -437,7 +437,7 @@ impl From<u8> for DTCStoredDataRecordNumber {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 /// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).

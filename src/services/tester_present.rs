@@ -13,7 +13,7 @@ const NO_SUBFUNCTION_VALUE: u8 = 0x00;
 
 // Subfunction parameter values for the Test Present service.
 // The range of values is only 7 of the 8 bits, with bit 7 being used as the Suppress Positive Response (SPR) Message Indication Bit.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ZeroSubFunction {
@@ -57,7 +57,7 @@ impl TryFrom<u8> for ZeroSubFunction {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TesterPresentRequest {
@@ -119,7 +119,7 @@ impl WireFormat for TesterPresentRequest {
 
 impl SingleValueWireFormat for TesterPresentRequest {}
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TesterPresentResponse {

@@ -21,7 +21,7 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 ///
 /// This is a variable length Request, determined by the `address_and_length_format_identifier` value
 /// See ISO-14229-1:2020, Table H.1 for format information
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -130,7 +130,7 @@ impl WireFormat for RequestDownloadRequest {
 
 impl SingleValueWireFormat for RequestDownloadRequest {}
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]

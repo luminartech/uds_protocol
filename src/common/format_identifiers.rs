@@ -21,7 +21,7 @@ const ENCRYPTION_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
 /// Decoded from the `address_and_length_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
 ///
 /// See ISO-14229-1:2020, Table H.1 for format information
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct MemoryFormatIdentifier {
@@ -86,7 +86,7 @@ impl From<MemoryFormatIdentifier> for u8 {
 /// The format is similar to the `address_and_length_format_identifier` field in the [`RequestDownloadRequest`] struct.
 /// Specifically, it is a byte where the high nibble represents the byte length of the `max_number_of_block_length` field,
 /// i.e, a value of `0x20` indicates that the `max_number_of_block_length` field is 2 bytes long.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct LengthFormatIdentifier {
@@ -111,7 +111,7 @@ impl From<LengthFormatIdentifier> for u8 {
 ///
 /// Decoded from the `data_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
 /// Values other than 0x00 are Vehicle Manufacturer specific according to ISO-14229-1:2020
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DataFormatIdentifier {
