@@ -1,6 +1,5 @@
 use crate::Error;
 use byteorder::{BigEndian, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 /// A trait for types that can be deserialized from a
@@ -83,12 +82,24 @@ pub trait SingleValueWireFormat: WireFormat {
     }
 }
 
+mod maybe_serde {
+    // When `serde` feature is ON, require Serialize + Deserialize
+    #[cfg(feature = "serde")]
+    pub trait Bound: serde::Serialize + for<'de> serde::Deserialize<'de> {}
+    #[cfg(feature = "serde")]
+    impl<T> Bound for T where T: serde::Serialize + for<'de> serde::Deserialize<'de> {}
+
+    // When `serde` feature is OFF, require nothing
+    #[cfg(not(feature = "serde"))]
+    pub trait Bound {}
+    #[cfg(not(feature = "serde"))]
+    impl<T> Bound for T {}
+}
+
 /// Trait for types that can be used as identifiers (ie Data Identifiers and Routine Identifiers)
 ///
 /// Prefer using the [`#[derive(Identifier)]`](uds_protocol_derive::Identifier) derive macro to implement this trait
-pub trait Identifier:
-    TryFrom<u16> + Into<u16> + Clone + Copy + Serialize + for<'de> Deserialize<'de>
-{
+pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bound {
     /// Returns a Vec<Self> from a reader that contains a list of Identifier values
     /// # Errors
     /// - if the list is not in the expected format
@@ -179,10 +190,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + Serialize
         + ToSchema
         + 'static
-        + for<'de> Deserialize<'de>;
+        + maybe_serde::Bound;
     /// Response payload for [`ReadDataByIdentifierRequest`]
     type DiagnosticPayload: IterableWireFormat
         + Clone
@@ -190,10 +200,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + Serialize
+        + maybe_serde::Bound
         + ToSchema
-        + 'static
-        + for<'de> Deserialize<'de>;
+        + 'static;
 
     /// UDS Routine Identifier
     ///
@@ -204,10 +213,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + Serialize
         + ToSchema
         + 'static
-        + for<'de> Deserialize<'de>;
+        + maybe_serde::Bound;
     /// Payload for both requests and responses of [`RoutineControlRequest`] and [`RoutineControlResponse`]
     type RoutinePayload: WireFormat
         + Clone
@@ -215,10 +223,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + Serialize
         + ToSchema
         + 'static
-        + for<'de> Deserialize<'de>;
+        + maybe_serde::Bound;
 }
 
 /// tests
@@ -229,7 +236,8 @@ mod tests {
     use byteorder::ReadBytesExt;
     use std::io::Cursor;
 
-    #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Debug, Identifier)]
+    #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+    #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
     #[repr(u16)]
     pub enum MyIdentifier {
         Identifier1 = 0x0101,

@@ -2,14 +2,14 @@
 //! Snapshot data represents a collection of sensor values captured when a DTC is triggered.
 //! Represents the state of the server at the time the DTC was triggered.
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::{
     DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
 };
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Debug, PartialEq, ToSchema)]
 pub struct DTCSnapshotRecordList<UserPayload> {
     pub dtc_record: DTCRecord,
     pub status_mask: DTCStatusMask,
@@ -76,7 +76,8 @@ impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identi
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecordList<UserPayload> {}
 
 /// Contains a snapshot of data values from the time of the system malfunction occurrence.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Debug, PartialEq, ToSchema)]
 pub struct DTCSnapshotRecord<UserPayload> {
     /// The data identifier (DID) for the data values taken at the time of the system malfunction occurrence
     /// These can be vehicle manufacturer specific
@@ -158,7 +159,8 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
 /// Indicates the number of the specific `DTCSnapshot` data record requested
 pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 pub enum DTCSnapshotRecordNumber {
     /// Reserved for Legislative purposes
     Reserved(u8),
@@ -287,6 +289,7 @@ mod snapshot {
             }
         }
 
+        #[allow(clippy::match_same_arms)]
         fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             writer.write_u16::<byteorder::BigEndian>(self.value())?;
             let mut written = 2;

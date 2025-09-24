@@ -3,7 +3,6 @@ use crate::{
     WireFormat,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use utoipa::ToSchema;
 
@@ -14,7 +13,8 @@ const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SecurityAccessDenied,
 ];
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 /// Request for the server to reset the ECU
 pub struct EcuResetRequest {
     reset_type: SuppressablePositiveResponse<ResetType>,
@@ -71,7 +71,8 @@ impl WireFormat for EcuResetRequest {
 
 impl SingleValueWireFormat for EcuResetRequest {}
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct EcuResetResponse {
     pub reset_type: ResetType,

@@ -9,9 +9,8 @@ use syn::{DeriveInput, parse_macro_input};
 /// ## Enum Example
 /// ```rust
 /// use uds_protocol::{UDSRoutineIdentifier, Identifier, Error};
-/// use serde::Serialize;
 ///
-/// #[derive(Copy, Clone, Serialize, Identifier)]
+/// #[derive(Clone, Copy, Identifier, Serialize)]
 /// pub enum MyRoutineIdentifier {
 ///    /// 0x0101 (example)
 ///    VerifySignature,
@@ -45,9 +44,8 @@ use syn::{DeriveInput, parse_macro_input};
 /// ```rust
 ///
 /// use uds_protocol::{UDSIdentifier, Identifier};
-/// use serde::Serialize;
 ///
-/// #[derive(Clone, Copy, Serialize, Identifier)]
+/// #[derive(Clone, Copy, Identifier, Serialize)]
 /// pub struct ProtocolIdentifier {
 ///    identifier: UDSIdentifier,
 /// }

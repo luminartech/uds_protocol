@@ -31,7 +31,6 @@ pub use traits::{
 };
 
 use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 pub const SUCCESS: u8 = 0x80;
@@ -41,7 +40,8 @@ pub const PENDING: u8 = 0x78;
 ///
 /// This is an example of a simple data spec that can be used with UDS requests and responses.
 /// It should **not** be used directly in production code, but rather as a base for more complex data specifiers.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 pub struct UdsSpec;
 impl DiagnosticDefinition for UdsSpec {
     type RID = UDSRoutineIdentifier;
@@ -57,7 +57,8 @@ pub type ProtocolRequest = Request<UdsSpec>;
 pub type ProtocolResponse = Response<UdsSpec>;
 
 /// What type of routine control to perform for a [`RoutineControlRequest`].
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum, ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema, ValueEnum)]
 pub enum RoutineControlSubFunction {
     /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message
     /// which indicates that the routine has already been performed, or is in progress
@@ -114,10 +115,8 @@ impl WireFormat for Vec<u8> {
 
 impl SingleValueWireFormat for Vec<u8> {}
 impl IterableWireFormat for Vec<u8> {}
-
-#[derive(
-    Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum, utoipa::ToSchema,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, utoipa::ToSchema, ValueEnum)]
 pub enum DtcSettings {
     On,
     Off,

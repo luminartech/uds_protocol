@@ -9,9 +9,8 @@ use crate::Error;
 ///
 /// Conversions from `u8` to `SecurityAccessType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
-#[derive(
-    Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize, utoipa::ToSchema,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, utoipa::ToSchema)]
 pub enum SecurityAccessType {
     /// This value is reserved for future definition
     ISOSAEReserved(u8),

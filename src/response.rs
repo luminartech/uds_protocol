@@ -15,7 +15,8 @@ pub struct UdsResponse {
     pub data: Vec<u8>,
 }
 
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize, utoipa::ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Debug, PartialEq, utoipa::ToSchema)]
 pub enum Response<D: DiagnosticDefinition> {
     ClearDiagnosticInfo,
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
