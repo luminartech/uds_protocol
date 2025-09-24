@@ -23,7 +23,7 @@ const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode;
 ];
 
 /// Request for the server to change diagnostic session type
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 pub struct DiagnosticSessionControlRequest {
     session_type: SuppressablePositiveResponse<DiagnosticSessionType>,
@@ -86,7 +86,7 @@ impl WireFormat for DiagnosticSessionControlRequest {
 impl SingleValueWireFormat for DiagnosticSessionControlRequest {}
 
 /// Positive response to a `DiagnosticSessionControlRequest`
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct DiagnosticSessionControlResponse {

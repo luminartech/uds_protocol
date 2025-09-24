@@ -1,7 +1,7 @@
 use crate::{Error, NegativeResponseCode, SingleValueWireFormat, UdsServiceType, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, utoipa::ToSchema)]
 #[non_exhaustive]
 pub struct NegativeResponse {

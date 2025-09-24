@@ -236,8 +236,8 @@ mod tests {
     use byteorder::ReadBytesExt;
     use std::io::Cursor;
 
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[derive(Clone, Copy, PartialEq, Eq, Debug, Identifier)]
+    #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+    #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
     #[repr(u16)]
     pub enum MyIdentifier {
         Identifier1 = 0x0101,

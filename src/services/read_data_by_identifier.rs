@@ -13,7 +13,7 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 ];
 
 /// See ISO-14229-1:2020, Table 11.2.1 for format information
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, Eq, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct ReadDataByIdentifierRequest<DataIdentifier> {
@@ -69,7 +69,7 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 }
 
 /// See ISO-14229-1:2020, Table 11.2.3 for format information
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Eq, PartialEq, ToSchema)]
 pub struct ReadDataByIdentifierResponse<UserPayload> {
     pub data: Vec<UserPayload>,
@@ -321,7 +321,7 @@ mod test {
     mod response {
         use super::*;
 
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         pub struct BazData {
             pub data: [u8; 16],
@@ -330,7 +330,7 @@ mod test {
         }
 
         // The UDSIdentifiers are vender defined and don't have interesting payloads, so we define our own types for
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
         #[derive(Clone, Debug, Eq, PartialEq)]
         pub enum TestPayload {
             #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]

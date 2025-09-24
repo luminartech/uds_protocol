@@ -37,7 +37,7 @@ const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
 /// The server will then validate the key and respond with a positive or negative response.
 /// Successful verification of the key will result in the server unlocking the requested security level.
 /// Suppressing a positive response to this request is allowed.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, Eq, PartialEq, ToSchema)]
 pub struct SecurityAccessRequest {
     access_type: SuppressablePositiveResponse<SecurityAccessType>,
@@ -121,7 +121,7 @@ impl SingleValueWireFormat for SecurityAccessRequest {}
 /// ## Send Key
 ///
 /// The positive response to a `SendKey` request shall not have any data in the security seed field.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, Eq, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct SecurityAccessResponse {

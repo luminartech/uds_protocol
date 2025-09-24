@@ -4,8 +4,8 @@ use tracing::error;
 use utoipa::ToSchema;
 
 /// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports Diagnostic Identifiers defined by UDS
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Identifier, utoipa::ToSchema)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq, utoipa::ToSchema)]
 pub struct ProtocolIdentifier {
     identifier: UDSIdentifier,
 }
@@ -47,7 +47,7 @@ impl Deref for ProtocolIdentifier {
 }
 
 /// The UDS protocol does not define the structure of any payload, but exists as a container for diagnostic implementations that use the generic UDS identifiers
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Eq, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct ProtocolPayload {

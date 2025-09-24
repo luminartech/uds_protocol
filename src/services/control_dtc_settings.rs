@@ -3,7 +3,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use utoipa::ToSchema;
 
 /// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsRequest {
@@ -54,7 +54,7 @@ impl SingleValueWireFormat for ControlDTCSettingsRequest {}
 /// Positive response to a `ControlDTCSettingsRequest`
 ///
 /// The ECU will respond with a `ControlDTCSettingsResponse` if the request was successful.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, PartialEq, ToSchema)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsResponse {

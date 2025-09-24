@@ -10,7 +10,7 @@ use syn::{DeriveInput, parse_macro_input};
 /// ```rust
 /// use uds_protocol::{UDSRoutineIdentifier, Identifier, Error};
 ///
-/// #[derive(Copy, Clone, Serialize, Identifier)]
+/// #[derive(Clone, Copy, Identifier, Serialize)]
 /// pub enum MyRoutineIdentifier {
 ///    /// 0x0101 (example)
 ///    VerifySignature,
@@ -45,7 +45,7 @@ use syn::{DeriveInput, parse_macro_input};
 ///
 /// use uds_protocol::{UDSIdentifier, Identifier};
 ///
-/// #[derive(Clone, Copy, Serialize, Identifier)]
+/// #[derive(Clone, Copy, Identifier, Serialize)]
 /// pub struct ProtocolIdentifier {
 ///    identifier: UDSIdentifier,
 /// }

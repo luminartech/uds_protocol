@@ -14,7 +14,7 @@ const NO_SUBFUNCTION_VALUE: u8 = 0x00;
 
 // Subfunction parameter values for the Test Present service.
 // The range of values is only 7 of the 8 bits, with bit 7 being used as the Suppress Positive Response (SPR) Message Indication Bit.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 enum ZeroSubFunction {
     // Request and response. Indicates that no value beside the (SPR) Message Indication Bit is supported by this service.
@@ -57,7 +57,7 @@ impl TryFrom<u8> for ZeroSubFunction {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 pub struct TesterPresentRequest {
     zero_sub_function: SuppressablePositiveResponse<ZeroSubFunction>,
@@ -118,7 +118,7 @@ impl WireFormat for TesterPresentRequest {
 
 impl SingleValueWireFormat for TesterPresentRequest {}
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
 pub struct TesterPresentResponse {
     zero_sub_function: ZeroSubFunction,
