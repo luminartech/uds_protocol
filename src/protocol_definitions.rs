@@ -1,7 +1,6 @@
-use tracing::error;
-
 use crate::{Error, Identifier, IterableWireFormat, UDSIdentifier, WireFormat};
 use std::ops::Deref;
+use tracing::error;
 
 /// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports Diagnostic Identifiers defined by UDS
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
