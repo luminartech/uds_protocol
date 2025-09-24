@@ -34,9 +34,9 @@ use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
 /// | 5 | [`TestFailedSinceLastClear`](DTCStatusMask::TestFailedSinceLastClear)           | **0** |
 /// | 6 | [`TestNotCompletedThisOperationCycle`](DTCStatusMask::TestNotCompletedThisOperationCycle) | **1** |
 /// | 7 | [`WarningIndicatorRequested`](DTCStatusMask::WarningIndicatorRequested)          | **0** |
+#[bitmask(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[bitmask(u8)]
 pub enum DTCStatusMask {
     /// Status of the most recently performed test.
     ///
@@ -331,9 +331,9 @@ impl From<FunctionalGroupIdentifier> for u8 {
 ///
 /// DTCCLASS_
 #[allow(non_camel_case_types)]
+#[bitmask(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[bitmask(u8)]
 pub enum DTCSeverityMask {
     // GtrDtcClassInfo
     /// Unclassified
