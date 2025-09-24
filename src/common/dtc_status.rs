@@ -34,9 +34,9 @@ use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
 /// | 5 | [`TestFailedSinceLastClear`](DTCStatusMask::TestFailedSinceLastClear)           | **0** |
 /// | 6 | [`TestNotCompletedThisOperationCycle`](DTCStatusMask::TestNotCompletedThisOperationCycle) | **1** |
 /// | 7 | [`WarningIndicatorRequested`](DTCStatusMask::WarningIndicatorRequested)          | **0** |
-#[bitmask(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[bitmask(u8)]
 pub enum DTCStatusMask {
     /// Status of the most recently performed test.
     ///
@@ -130,10 +130,10 @@ impl SingleValueWireFormat for DTCStatusMask {}
 /// A given server shall only support one `DTCFormatIdentifier`.
 #[allow(non_camel_case_types)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
 #[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DTCFormatIdentifier {
     /// Defined in [SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>) DTC Format
     SAE_J2012_DA_DTCFormat_00 = 0x00,
@@ -189,10 +189,10 @@ pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
     low_byte: 0xFF,
 };
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[allow(clippy::struct_field_names)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DTCRecord {
     high_byte: u8,
     middle_byte: u8,
@@ -261,9 +261,9 @@ impl SingleValueWireFormat for DTCRecord {}
 ///     * Requesting DTC status from a vehicle
 ///     * Clearing DTC information in the vehicle
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FunctionalGroupIdentifier {
     /// 0x00 to 0x32
     /// 0x34 to 0xCF
@@ -331,9 +331,9 @@ impl From<FunctionalGroupIdentifier> for u8 {
 ///
 /// DTCCLASS_
 #[allow(non_camel_case_types)]
-#[bitmask(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[bitmask(u8)]
 pub enum DTCSeverityMask {
     // GtrDtcClassInfo
     /// Unclassified
@@ -386,8 +386,8 @@ impl DTCSeverityMask {
 /// Indicates the number of the specific `DTCSnapshot` data record requested
 /// Setting to 0xFF will return all `DTCStoredDataRecords` at once
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DTCStoredDataRecordNumber(u8);
 
 // create a constructor for DTCStoredDataRecordNumber
@@ -438,8 +438,8 @@ impl From<u8> for DTCStoredDataRecordNumber {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq)]
 /// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).
 pub struct DTCSeverityRecord {
     ///  The severity mask associated with the DTC, indicating the level of severity.

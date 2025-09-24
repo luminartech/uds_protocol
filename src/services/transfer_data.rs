@@ -21,9 +21,9 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 ///
 /// Step 3 Response: The server sends a [`crate::UdsServiceType::RequestTransferExit`] response message to the client (RID 0x77)
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TransferDataRequest {
     /// Starts at 0x01 from the server when a `RequestDownload` or `RequestUpload` or `RequestFileTransfer` is received
     /// Increments by 0x01 for each `TransferDataRequest` message
@@ -68,9 +68,9 @@ impl WireFormat for TransferDataRequest {
 impl SingleValueWireFormat for TransferDataRequest {}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TransferDataResponse {
     /// Starts at 0x01 from the server when a `RequestDownload` or `RequestUpload` or `RequestFileTransfer` is received
     /// Increments by 0x01 for each `TransferDataRequest` message

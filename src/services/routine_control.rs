@@ -8,9 +8,9 @@ use std::io::{Read, Write};
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
     pub sub_function: RoutineControlSubFunction,
     pub routine_id: RoutineIdentifier,
@@ -71,9 +71,9 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireF
 
 /// `RoutineControlResponse` is a variable length field that can contain the status of the routine
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RoutineControlResponse<RoutineInfoStatusRecord> {
     /// The sub-function echoes the routine control request
     pub routine_control_type: RoutineControlSubFunction,

@@ -13,8 +13,8 @@ const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
 ];
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// Request for the server to reset the ECU
 pub struct EcuResetRequest {
     reset_type: SuppressablePositiveResponse<ResetType>,
@@ -72,9 +72,9 @@ impl WireFormat for EcuResetRequest {
 impl SingleValueWireFormat for EcuResetRequest {}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EcuResetResponse {
     pub reset_type: ResetType,
     pub power_down_time: u8,

@@ -7,8 +7,8 @@ use crate::{
 /// The `DTCExtDataRecordNumber` is used in the request message to get a stored [`DTCExtDataRecord`]
 /// Its used to specify the type of `DTCExtDataRecord` to be reported.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DTCExtDataRecordNumber {
     // 0x00, 0xF0-0xFD are reserved
     ISOSAEReserved(u8),
@@ -90,8 +90,8 @@ impl WireFormat for DTCExtDataRecordNumber {
 impl SingleValueWireFormat for DTCExtDataRecordNumber {}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DTCExtDataRecord<UserPayload> {
     pub data: Vec<UserPayload>,
 }
@@ -130,8 +130,8 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayloa
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCExtDataRecord<UserPayload> {}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DTCExtDataRecordList<UserPayload> {
     pub mask_record: DTCRecord,
     pub status_mask: DTCStatusMask,
