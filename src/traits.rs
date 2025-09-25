@@ -81,31 +81,30 @@ pub trait SingleValueWireFormat: WireFormat {
     }
 }
 
+#[cfg(feature = "serde")]
 mod maybe_serde {
     // When `serde` feature is ON, require Serialize + Deserialize
-    #[cfg(feature = "serde")]
     pub trait Bound: serde::Serialize + for<'de> serde::Deserialize<'de> {}
-    #[cfg(feature = "serde")]
     impl<T> Bound for T where T: serde::Serialize + for<'de> serde::Deserialize<'de> {}
-
+}
+#[cfg(not(feature = "serde"))]
+mod maybe_serde {
     // When `serde` feature is OFF, require nothing
-    #[cfg(not(feature = "serde"))]
     pub trait Bound {}
-    #[cfg(not(feature = "serde"))]
     impl<T> Bound for T {}
 }
 
+#[cfg(feature = "utoipa")]
 mod maybe_utoipa {
     // When `utoipa` feature is ON, require ToSchema
-    #[cfg(feature = "utoipa")]
     pub trait Bound: utoipa::ToSchema {}
-    #[cfg(feature = "utoipa")]
     impl<T> Bound for T where T: utoipa::ToSchema {}
+}
 
+#[cfg(not(feature = "utoipa"))]
+mod maybe_utoipa {
     // When `utoipa` feature is OFF, require nothing
-    #[cfg(not(feature = "utoipa"))]
     pub trait Bound {}
-    #[cfg(not(feature = "utoipa"))]
     impl<T> Bound for T {}
 }
 
