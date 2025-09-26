@@ -291,7 +291,6 @@ mod snapshot {
             }
         }
 
-        #[allow(clippy::match_same_arms)]
         fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             writer.write_u16::<byteorder::BigEndian>(self.value())?;
             let mut written = 2;
