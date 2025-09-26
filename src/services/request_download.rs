@@ -1,5 +1,4 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use utoipa::ToSchema;
 
 use crate::{
     DataFormatIdentifier, Error, LengthFormatIdentifier, MemoryFormatIdentifier,
@@ -23,8 +22,9 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 /// This is a variable length Request, determined by the `address_and_length_format_identifier` value
 /// See ISO-14229-1:2020, Table H.1 for format information
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RequestDownloadRequest {
     /// compression method (high nibble) and encrypting method (low nibble). 0x00 is no compression or encryption
     data_format_identifier: DataFormatIdentifier,
@@ -131,8 +131,9 @@ impl WireFormat for RequestDownloadRequest {
 impl SingleValueWireFormat for RequestDownloadRequest {}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RequestDownloadResponse {
     /// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct.
     /// In it is a byte with the high nibble being the length of the `max_number_of_block_length` field.

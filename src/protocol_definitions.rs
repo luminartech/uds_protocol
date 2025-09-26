@@ -1,11 +1,11 @@
 use crate::{Error, Identifier, IterableWireFormat, UDSIdentifier, WireFormat};
 use std::ops::Deref;
 use tracing::error;
-use utoipa::ToSchema;
 
 /// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports Diagnostic Identifiers defined by UDS
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq, utoipa::ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
 pub struct ProtocolIdentifier {
     identifier: UDSIdentifier,
 }
@@ -48,8 +48,9 @@ impl Deref for ProtocolIdentifier {
 
 /// The UDS protocol does not define the structure of any payload, but exists as a container for diagnostic implementations that use the generic UDS identifiers
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Eq, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Eq, PartialEq)]
 pub struct ProtocolPayload {
     pub identifier: UDSIdentifier,
     pub payload: Vec<u8>,

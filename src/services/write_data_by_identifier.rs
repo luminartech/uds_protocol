@@ -1,7 +1,6 @@
 use crate::{
     Error, Identifier, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat,
 };
-use utoipa::ToSchema;
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -13,8 +12,9 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 
 /// See ISO-14229-1:2020, Section 11.7.2.1
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, Eq, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WriteDataByIdentifierRequest<Payload> {
     pub payload: Payload,
 }
@@ -61,8 +61,9 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
 
 /// See ISO-14229-1:2020, Section 11.7.3.1
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, Eq, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[non_exhaustive]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WriteDataByIdentifierResponse<DataIdentifier> {
     pub identifier: DataIdentifier,
 }

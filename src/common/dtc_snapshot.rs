@@ -2,14 +2,14 @@
 //! Snapshot data represents a collection of sensor values captured when a DTC is triggered.
 //! Represents the state of the server at the time the DTC was triggered.
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use utoipa::ToSchema;
 
 use crate::{
     DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
 };
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DTCSnapshotRecordList<UserPayload> {
     pub dtc_record: DTCRecord,
     pub status_mask: DTCStatusMask,
@@ -77,7 +77,8 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecor
 
 /// Contains a snapshot of data values from the time of the system malfunction occurrence.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DTCSnapshotRecord<UserPayload> {
     /// The data identifier (DID) for the data values taken at the time of the system malfunction occurrence
     /// These can be vehicle manufacturer specific
@@ -160,7 +161,8 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
 pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DTCSnapshotRecordNumber {
     /// Reserved for Legislative purposes
     Reserved(u8),
@@ -289,7 +291,6 @@ mod snapshot {
             }
         }
 
-        #[allow(clippy::match_same_arms)]
         fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             writer.write_u16::<byteorder::BigEndian>(self.value())?;
             let mut written = 2;

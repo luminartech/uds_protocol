@@ -1,7 +1,8 @@
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, utoipa::ToSchema, clap::ValueEnum)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 // Without the non-exhaustive annotation, adding additional diagnostic commands would be a breaking semver change.
 #[non_exhaustive]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
 pub enum UdsServiceType {
     // ========================================================================
     // Diagnostics and Communications Management
