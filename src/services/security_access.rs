@@ -4,7 +4,6 @@ use crate::{
 };
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
-use utoipa::ToSchema;
 
 /// List of allowed [`NegativeResponseCode`] variants for the `SecurityAccess` service
 const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
@@ -38,7 +37,8 @@ const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
 /// Successful verification of the key will result in the server unlocking the requested security level.
 /// Suppressing a positive response to this request is allowed.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, Eq, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SecurityAccessRequest {
     access_type: SuppressablePositiveResponse<SecurityAccessType>,
     request_data: Vec<u8>,
@@ -122,7 +122,8 @@ impl SingleValueWireFormat for SecurityAccessRequest {}
 ///
 /// The positive response to a `SendKey` request shall not have any data in the security seed field.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, Eq, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct SecurityAccessResponse {
     pub access_type: SecurityAccessType,

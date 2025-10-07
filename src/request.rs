@@ -22,7 +22,8 @@ use super::{
 /// Each variant corresponds to a request for a different UDS service
 /// The variants contain all request data for each service
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, utoipa::ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Request<D: DiagnosticDefinition> {
     ClearDiagnosticInfo(ClearDiagnosticInfoRequest),
     CommunicationControl(CommunicationControlRequest),

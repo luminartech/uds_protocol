@@ -1,13 +1,13 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::Read;
-use utoipa::ToSchema;
 
 use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
-#[repr(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum FileOperationMode {
     // 0x00, 0x07-0xFF Reserved for future definition by ISO
     ISOSAEReserved(u8),
@@ -73,9 +73,10 @@ impl TryFrom<u8> for FileOperationMode {
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
 /// [Response]: RequestFileTransferResponse (RequestFileTransferResponse)
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
 #[allow(clippy::struct_field_names)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SizePayload {
     /// Length in bytes for both `file_size_uncompressed` and `file_size_compressed`
     ///
@@ -170,7 +171,8 @@ impl SingleValueWireFormat for SizePayload {}
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NamePayload {
     /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
     ///
@@ -231,7 +233,8 @@ impl SingleValueWireFormat for NamePayload {}
 /// If this service is used to delete files or directories on the server,
 /// there is no need to use the `TransferData` or [`crate::UdsServiceType::RequestTransferExit`] services.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum RequestFileTransferRequest {
     /// Add a file to the server
@@ -350,7 +353,8 @@ impl WireFormat for RequestFileTransferRequest {
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SentDataPayload {
     /// Not related to `RequestDownload`
     length_format_identifier: u8,
@@ -410,9 +414,10 @@ impl WireFormat for SentDataPayload {
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
 #[allow(clippy::struct_field_names)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FileSizePayload {
     pub file_size_parameter_length: u16,
     pub file_size_uncompressed: u128,
@@ -484,7 +489,8 @@ impl SingleValueWireFormat for FileSizePayload {}
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DirSizePayload {
     pub dir_info_parameter_length: u16,
     pub dir_info_length: u128,
@@ -543,7 +549,8 @@ impl WireFormat for DirSizePayload {
 /// [ResumeFile]: FileOperationMode::ResumeFile
 /// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PositionPayload {
     /// Specifies the byte position within the file at which the Tester will resume downloading after an initial download is suspended
     /// A download is suspended when the ECU stops receiving [`crate::TransferDataRequest`] requests and does not receive the
@@ -579,7 +586,8 @@ impl WireFormat for PositionPayload {
 /// The server will respond with a [`RequestFileTransferResponse`] to indicate the status of the request
 /// [`DataFormatIdentifier`] - Echoes the value of the request
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum RequestFileTransferResponse {
     AddFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),

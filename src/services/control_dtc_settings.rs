@@ -1,10 +1,10 @@
 use crate::{DtcSettings, Error, SUCCESS, SingleValueWireFormat, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use utoipa::ToSchema;
 
 /// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsRequest {
     /// The requested DTC logging setting
@@ -55,7 +55,8 @@ impl SingleValueWireFormat for ControlDTCSettingsRequest {}
 ///
 /// The ECU will respond with a `ControlDTCSettingsResponse` if the request was successful.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, Debug, PartialEq, ToSchema)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsResponse {
     /// The DTC logging setting that was set in the request

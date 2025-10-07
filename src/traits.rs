@@ -1,6 +1,5 @@
 use crate::Error;
 use byteorder::{BigEndian, WriteBytesExt};
-use utoipa::ToSchema;
 
 /// A trait for types that can be deserialized from a
 /// [`Reader`](https://doc.rust-lang.org/std/io/trait.Read.html) and serialized
@@ -82,17 +81,30 @@ pub trait SingleValueWireFormat: WireFormat {
     }
 }
 
+#[cfg(feature = "serde")]
 mod maybe_serde {
     // When `serde` feature is ON, require Serialize + Deserialize
-    #[cfg(feature = "serde")]
     pub trait Bound: serde::Serialize + for<'de> serde::Deserialize<'de> {}
-    #[cfg(feature = "serde")]
     impl<T> Bound for T where T: serde::Serialize + for<'de> serde::Deserialize<'de> {}
-
+}
+#[cfg(not(feature = "serde"))]
+mod maybe_serde {
     // When `serde` feature is OFF, require nothing
-    #[cfg(not(feature = "serde"))]
     pub trait Bound {}
-    #[cfg(not(feature = "serde"))]
+    impl<T> Bound for T {}
+}
+
+#[cfg(feature = "utoipa")]
+mod maybe_utoipa {
+    // When `utoipa` feature is ON, require ToSchema
+    pub trait Bound: utoipa::ToSchema {}
+    impl<T> Bound for T where T: utoipa::ToSchema {}
+}
+
+#[cfg(not(feature = "utoipa"))]
+mod maybe_utoipa {
+    // When `utoipa` feature is OFF, require nothing
+    pub trait Bound {}
     impl<T> Bound for T {}
 }
 
@@ -190,9 +202,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + ToSchema
         + 'static
-        + maybe_serde::Bound;
+        + maybe_serde::Bound
+        + maybe_utoipa::Bound;
     /// Response payload for [`ReadDataByIdentifierRequest`]
     type DiagnosticPayload: IterableWireFormat
         + Clone
@@ -201,7 +213,7 @@ pub trait DiagnosticDefinition: 'static {
         + Sync
         + PartialEq
         + maybe_serde::Bound
-        + ToSchema
+        + maybe_utoipa::Bound
         + 'static;
 
     /// UDS Routine Identifier
@@ -213,9 +225,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + ToSchema
         + 'static
-        + maybe_serde::Bound;
+        + maybe_serde::Bound
+        + maybe_utoipa::Bound;
     /// Payload for both requests and responses of [`RoutineControlRequest`] and [`RoutineControlResponse`]
     type RoutinePayload: WireFormat
         + Clone
@@ -223,9 +235,9 @@ pub trait DiagnosticDefinition: 'static {
         + Send
         + Sync
         + PartialEq
-        + ToSchema
         + 'static
-        + maybe_serde::Bound;
+        + maybe_serde::Bound
+        + maybe_utoipa::Bound;
 }
 
 /// tests
