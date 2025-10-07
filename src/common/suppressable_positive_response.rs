@@ -11,8 +11,8 @@ pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 /// This eliminates bit masking logic from a number of subfunction enumerations.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub(crate) struct SuppressablePositiveResponse<T: TryFrom<u8> + Into<u8> + Copy> {
     suppress_positive_response: bool,
     value: T,

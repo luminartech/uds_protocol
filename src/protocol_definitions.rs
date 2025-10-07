@@ -49,8 +49,8 @@ impl Deref for ProtocolIdentifier {
 /// The UDS protocol does not define the structure of any payload, but exists as a container for diagnostic implementations that use the generic UDS identifiers
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct ProtocolPayload {
     pub identifier: UDSIdentifier,
     pub payload: Vec<u8>,

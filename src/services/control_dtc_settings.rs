@@ -4,8 +4,8 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 /// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ControlDTCSettingsRequest {
     /// The requested DTC logging setting
     pub setting: DtcSettings,
@@ -56,8 +56,8 @@ impl SingleValueWireFormat for ControlDTCSettingsRequest {}
 /// The ECU will respond with a `ControlDTCSettingsResponse` if the request was successful.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ControlDTCSettingsResponse {
     /// The DTC logging setting that was set in the request
     pub setting: DtcSettings,

@@ -73,8 +73,8 @@ impl SingleValueWireFormat for EcuResetRequest {}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct EcuResetResponse {
     pub reset_type: ResetType,
     pub power_down_time: u8,

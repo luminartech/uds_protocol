@@ -123,8 +123,8 @@ impl SingleValueWireFormat for SecurityAccessRequest {}
 /// The positive response to a `SendKey` request shall not have any data in the security seed field.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct SecurityAccessResponse {
     pub access_type: SecurityAccessType,
     pub security_seed: Vec<u8>,

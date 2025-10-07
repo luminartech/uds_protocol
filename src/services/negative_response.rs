@@ -3,8 +3,8 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct NegativeResponse {
     pub request_service: UdsServiceType,
     pub nrc: NegativeResponseCode,

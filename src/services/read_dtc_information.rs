@@ -15,8 +15,8 @@ type MemorySelection = u8;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ReadDTCInfoRequest {
     pub dtc_subfunction: ReadDTCInfoSubFunction,
 }
@@ -591,8 +591,8 @@ type SubFunctionID = u8;
 /// and have the same response format
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`DTCStatusAvailabilityMask`] (1)
     /// * Parameter: `NumberOfDTCs`(2)

@@ -123,8 +123,8 @@ impl SingleValueWireFormat for CommunicationControlRequest {}
 /// Positive response from the server to change communication behavior
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive] // Prevent direct construction externally
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive] // Prevent direct construction externally
 pub struct CommunicationControlResponse {
     pub control_type: CommunicationControlType,
 }

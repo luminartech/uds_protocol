@@ -88,8 +88,8 @@ impl SingleValueWireFormat for DiagnosticSessionControlRequest {}
 /// Positive response to a `DiagnosticSessionControlRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct DiagnosticSessionControlResponse {
     pub session_type: DiagnosticSessionType,
     pub p2_server_max: u16,

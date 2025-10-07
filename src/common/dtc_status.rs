@@ -131,8 +131,8 @@ impl SingleValueWireFormat for DTCStatusMask {}
 #[allow(non_camel_case_types)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
 #[repr(u8)]
 pub enum DTCFormatIdentifier {
     /// Defined in [SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>) DTC Format
@@ -262,8 +262,8 @@ impl SingleValueWireFormat for DTCRecord {}
 ///     * Clearing DTC information in the vehicle
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum FunctionalGroupIdentifier {
     /// 0x00 to 0x32
     /// 0x34 to 0xCF

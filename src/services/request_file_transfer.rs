@@ -234,8 +234,8 @@ impl SingleValueWireFormat for NamePayload {}
 /// there is no need to use the `TransferData` or [`crate::UdsServiceType::RequestTransferExit`] services.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum RequestFileTransferRequest {
     /// Add a file to the server
     AddFile(NamePayload, DataFormatIdentifier, SizePayload),
@@ -587,8 +587,8 @@ impl WireFormat for PositionPayload {
 /// [`DataFormatIdentifier`] - Echoes the value of the request
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum RequestFileTransferResponse {
     AddFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
     DeleteFile(FileOperationMode),
