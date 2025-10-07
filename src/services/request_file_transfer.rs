@@ -6,8 +6,8 @@ use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum FileOperationMode {
     // 0x00, 0x07-0xFF Reserved for future definition by ISO
     ISOSAEReserved(u8),

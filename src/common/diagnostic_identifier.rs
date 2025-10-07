@@ -7,8 +7,8 @@ use clap::{Parser, ValueEnum};
 /// The identifiers listed here are defined and should be implemented by the vehicle manufacturer/system supplier.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[repr(u16)]
 #[derive(Clone, Copy, Eq, Identifier, Parser, PartialEq, ValueEnum)]
+#[repr(u16)]
 pub enum UDSIdentifier {
     #[clap(skip)]
     ISOSAEReserved(u16),
@@ -178,8 +178,8 @@ impl std::fmt::Debug for UDSIdentifier {
 /// and they must be implemented by the tester system.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[repr(u16)]
 #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
+#[repr(u16)]
 pub enum UDSRoutineIdentifier {
     // 0x0000-0x00FF
     // 0xE300-0xEFFF

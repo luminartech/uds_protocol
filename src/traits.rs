@@ -249,8 +249,8 @@ mod tests {
     use std::io::Cursor;
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-    #[repr(u16)]
     #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
+    #[repr(u16)]
     pub enum MyIdentifier {
         Identifier1 = 0x0101,
         Identifier2 = 0x0202,
