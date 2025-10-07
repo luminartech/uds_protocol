@@ -5,11 +5,13 @@ version = "0.0.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/luminartech/uds_protocol"
-authors = ["Justin Kovacich<justin.kovacich@luminartech.com>",
-"Kimberly Kryger <kim.kryger@luminartech.com>",
-"Matthew Beisser <matthew.beisser@luminartech.com>",
-"Parth Patel <parth.patel@luminartech.com>",
-"Zachary Heylmun <zachary.heylmun@luminartech.com>", ]
+authors = [
+    "Justin Kovacich<justin.kovacich@luminartech.com>",
+    "Kimberly Kryger <kim.kryger@luminartech.com>",
+    "Matthew Beisser <matthew.beisser@luminartech.com>",
+    "Parth Patel <parth.patel@luminartech.com>",
+    "Zachary Heylmun <zachary.heylmun@luminartech.com>",
+]
 
 [features]
 serde = ["dep:serde"]
@@ -25,5 +27,5 @@ clap = { version = "4", features = ["derive"] }
 serde_bytes = "0.11"
 static_assertions = "1"
 bitmask-enum = "2"
-serde = {version="1", optional=true, features = ["derive"]}
-utoipa = {version="5", optional=true}
+serde = { version = "1", optional = true, features = ["derive"] }
+utoipa = { version = "5", optional = true }
