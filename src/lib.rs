@@ -115,6 +115,7 @@ impl WireFormat for Vec<u8> {
 
 impl SingleValueWireFormat for Vec<u8> {}
 impl IterableWireFormat for Vec<u8> {}
+
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
