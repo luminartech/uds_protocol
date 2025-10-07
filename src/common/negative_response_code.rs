@@ -1,13 +1,14 @@
 /// `NegativeResponseCode` is a shared error mechanism
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum NegativeResponseCode {
     /// This response code shall not be used in a negative response message.
     /// This positiveResponse parameter value is reserved for server internal implementation
     PositiveResponse,
     /// This range of values is reserved for future definition.
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     ISOSAEReserved(u8),
     /// This response code indicates that the requested action has been rejected by the server.
     /// The `GeneralReject` response code shall only be implemented in the server if none of the negative response codes meet the needs of the implementation.
@@ -60,7 +61,7 @@ pub enum NegativeResponseCode {
     /// This response code indicates that the requested action will not be taken because the client's latest attempt to gain security access was initiated before the server's required timeout period had elapsed.
     RequiredTimeDelayNotExpired,
     /// Reserved by ISO 15764
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     ExtendedDataLinkSecurityReserved(u8),
     /// This response code indicates that an attempt to upload/download to a server's memory cannot be accomplished due to some fault conditions.
     UploadDownloadNotAccepted,
@@ -143,7 +144,7 @@ pub enum NegativeResponseCode {
     /// (current voltage is below a pre-programmed maximum threshold).
     VoltageTooLow,
     /// This range of values is reserved for future definition.
-    #[clap(skip)]
+    #[cfg_attr(feature = "clap", clap(skip))]
     ReservedForSpecificConditionsNotMet(u8),
 }
 

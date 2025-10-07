@@ -1,5 +1,3 @@
-use clap::ValueEnum;
-
 use crate::Error;
 
 /// `CommunicationType` is used to specify the type of communication behavior to be modified.
@@ -11,8 +9,9 @@ use crate::Error;
 ///
 /// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`](crate::Error) if the value is not a valid `CommunicationType`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CommunicationType {
     /// This value is reserved by the ISO 14229-1 Specification
     ISOSAEReserved,

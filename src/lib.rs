@@ -30,8 +30,6 @@ pub use traits::{
     WireFormat,
 };
 
-use clap::ValueEnum;
-
 pub const SUCCESS: u8 = 0x80;
 pub const PENDING: u8 = 0x78;
 
@@ -59,7 +57,8 @@ pub type ProtocolResponse = Response<UdsSpec>;
 /// What type of routine control to perform for a [`RoutineControlRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RoutineControlSubFunction {
     /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message
     /// which indicates that the routine has already been performed, or is in progress
@@ -119,7 +118,8 @@ impl IterableWireFormat for Vec<u8> {}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DtcSettings {
     On,
     Off,

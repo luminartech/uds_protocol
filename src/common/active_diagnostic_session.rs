@@ -1,12 +1,12 @@
 use crate::{DiagnosticSessionType, Error, SingleValueWireFormat, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use clap::Parser;
 use std::io::{Read, Write};
 
 /// Represents the active diagnostic session of the lidar module.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "clap", derive(clap::Parser))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Parser, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActiveDiagnosticSession {
     /// The current diagnostic session type.
     pub current_session: DiagnosticSessionType,
