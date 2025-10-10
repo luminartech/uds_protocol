@@ -61,12 +61,12 @@ impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identi
                 })
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.dtc_record.to_writer(writer)?;
-        self.status_mask.to_writer(writer)?;
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.dtc_record.encode(writer)?;
+        self.status_mask.encode(writer)?;
         for (record_number, record) in &self.snapshot_data {
-            record_number.to_writer(writer)?;
-            record.to_writer(writer)?;
+            record_number.encode(writer)?;
+            record.encode(writer)?;
         }
 
         Ok(self.required_size())
@@ -143,14 +143,14 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
     }
 
     // TODO: Must write the DIDs as well...
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // write 0x00 if the number of DIDs exceed 0xFF
         writer.write_u8(self.number_of_dids())?;
 
         let mut payload_written = 0;
         for payload in &self.data {
             // Assumes this writes the DID as well, I think that's safe?
-            payload_written += payload.to_writer(writer)?;
+            payload_written += payload.encode(writer)?;
         }
         Ok(1 + payload_written)
     }
@@ -211,7 +211,7 @@ impl WireFormat for DTCSnapshotRecordNumber {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.value())?;
         Ok(1)
     }
@@ -291,7 +291,7 @@ mod snapshot {
             }
         }
 
-        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             writer.write_u16::<byteorder::BigEndian>(self.value())?;
             let mut written = 2;
 
@@ -318,7 +318,7 @@ mod snapshot {
     fn snapshot_record() {
         let record = DTCSnapshotRecordNumber::new(0x01);
         let mut writer = Vec::new();
-        let written_number = record.to_writer(&mut writer).unwrap();
+        let written_number = record.encode(&mut writer).unwrap();
         assert_eq!(record.required_size(), 1);
         assert_eq!(written_number, 1);
     }
@@ -389,12 +389,12 @@ mod snapshot {
                         _ => panic!("Unexpected payload in bagging area"),
                     }
                     let mut writer = Vec::new();
-                    let written = payload.to_writer(&mut writer).unwrap();
+                    let written = payload.encode(&mut writer).unwrap();
                     assert_eq!(written, payload.required_size());
                 }
             });
         let mut writer = Vec::new();
-        let written = resp.to_writer(&mut writer).unwrap();
+        let written = resp.encode(&mut writer).unwrap();
         assert_eq!(written, resp.required_size());
         assert_eq!(
             written,

@@ -98,8 +98,8 @@ impl WireFormat for ProtocolPayload {
         2 + self.payload.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.identifier.to_writer(writer)?;
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.identifier.encode(writer)?;
         writer.write_all(&self.payload)?;
         Ok(self.required_size())
     }
@@ -132,14 +132,14 @@ mod tests {
         let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x01]);
         assert_eq!(format!("{payload:?}"), "0xF186 => 01");
         let mut buffer = Vec::new();
-        assert_eq!(3, payload.to_writer(&mut buffer).unwrap());
+        assert_eq!(3, payload.encode(&mut buffer).unwrap());
     }
 
     #[test]
     fn test_read_and_write() {
         let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x03]);
         let mut buffer = Vec::new();
-        assert_eq!(3, payload.to_writer(&mut buffer).unwrap());
+        assert_eq!(3, payload.encode(&mut buffer).unwrap());
         let deserialized_payload = ProtocolPayload::option_from_reader(&mut buffer.as_slice())
             .unwrap()
             .unwrap();

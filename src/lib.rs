@@ -107,7 +107,7 @@ impl WireFormat for Vec<u8> {
         self.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_all(self)?;
         Ok(self.len())
     }

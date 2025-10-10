@@ -46,7 +46,7 @@ impl WireFormat for BCD4ByteLE {
         4
     }
 
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let total_written = writer.write(&self.value.to_be_bytes())?;
         Ok(total_written)
     }

@@ -73,7 +73,7 @@ impl WireFormat for DiagnosticSessionControlRequest {
     }
 
     /// Serialization function to write a `DiagnosticSessionControlRequest` to a `Writer`
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.session_type))?;
         Ok(1)
     }
@@ -128,7 +128,7 @@ impl WireFormat for DiagnosticSessionControlResponse {
     }
 
     /// Write a `DiagnosticSessionControlResponse` to a `Writer`
-    fn to_writer<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.session_type))?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_server_max)?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_star_server_max)?;
@@ -156,7 +156,7 @@ mod request {
         );
 
         let mut buffer = Vec::new();
-        req.to_writer(&mut buffer).unwrap();
+        req.encode(&mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(req.required_size(), 1);
     }
@@ -177,7 +177,7 @@ mod response {
         assert_eq!(resp.p2_star_server_max, 0x3344);
 
         let mut buffer = Vec::new();
-        resp.to_writer(&mut buffer).unwrap();
+        resp.encode(&mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(resp.required_size(), 5);
     }

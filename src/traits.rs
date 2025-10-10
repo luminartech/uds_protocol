@@ -30,7 +30,7 @@ pub trait WireFormat: Sized {
     /// Returns the number of bytes written.
     /// # Errors
     /// - If the data cannot be written to the stream
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error>;
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error>;
 
     /// For some UDS messages, positive replies can be suppressed via the SPRMIB (bit 7 position) of the request.
     ///
@@ -181,7 +181,7 @@ where
         2
     }
 
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         writer.write_u16::<BigEndian>((*self).into())?;
         Ok(2)
     }
@@ -290,7 +290,7 @@ mod tests {
     fn test_identifier() {
         let mut buffer = Cursor::new(vec![0u8; 2]);
         let identifier = MyIdentifier::Identifier1;
-        identifier.to_writer(&mut buffer).unwrap();
+        identifier.encode(&mut buffer).unwrap();
         buffer.set_position(0);
         let read_identifier = MyIdentifier::parse_from_list(&mut buffer).unwrap();
         assert_eq!(identifier, read_identifier[0]);

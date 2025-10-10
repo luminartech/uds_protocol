@@ -38,8 +38,8 @@ impl WireFormat for ReadDTCInfoRequest {
         self.dtc_subfunction.required_size()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.dtc_subfunction.to_writer(writer)
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.dtc_subfunction.encode(writer)
     }
 }
 
@@ -72,8 +72,8 @@ impl WireFormat for DTCFaultDetectionCounterRecord {
         4
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.dtc_record.to_writer(writer)?;
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.dtc_record.encode(writer)?;
         writer.write_u8(self.dtc_fault_detection_counter)?;
         Ok(self.required_size())
     }
@@ -140,13 +140,13 @@ impl<UserPayload: IterableWireFormat> WireFormat
                 })
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.memory_selection)?;
-        self.dtc_record.to_writer(writer)?;
-        self.dtc_status_mask.to_writer(writer)?;
+        self.dtc_record.encode(writer)?;
+        self.dtc_status_mask.encode(writer)?;
         for (record_number, record) in &self.dtc_snapshot_record {
-            record_number.to_writer(writer)?;
-            record.to_writer(writer)?;
+            record_number.encode(writer)?;
+            record.encode(writer)?;
         }
         Ok(self.required_size())
     }
@@ -495,38 +495,38 @@ impl WireFormat for ReadDTCInfoSubFunction {
     }
 
     #[allow(clippy::match_same_arms)]
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the subfunction value
         writer.write_u8(self.value())?;
         match self {
             Self::ReportNumberOfDTC_ByStatusMask(mask) => {
-                mask.to_writer(writer)?;
+                mask.encode(writer)?;
             }
             Self::ReportDTC_ByStatusMask(mask) => {
-                mask.to_writer(writer)?;
+                mask.encode(writer)?;
             }
             Self::ReportDTCSnapshotIdentification => {}
             Self::ReportDTCSnapshotRecord_ByDTCNumber(mask, record_number) => {
-                mask.to_writer(writer)?;
-                record_number.to_writer(writer)?;
+                mask.encode(writer)?;
+                record_number.encode(writer)?;
             }
             Self::ReportDTCStoredData_ByRecordNumber(record_number) => {
-                record_number.to_writer(writer)?;
+                record_number.encode(writer)?;
             }
             Self::ReportDTCExtDataRecord_ByDTCNumber(mask, record_number) => {
-                mask.to_writer(writer)?;
-                record_number.to_writer(writer)?;
+                mask.encode(writer)?;
+                record_number.encode(writer)?;
             }
             Self::ReportNumberOfDTC_BySeverityMaskRecord(severity, status) => {
                 writer.write_u8(severity.bits())?;
-                status.to_writer(writer)?;
+                status.encode(writer)?;
             }
             Self::ReportDTC_BySeverityMaskRecord(severity, status) => {
                 writer.write_u8(severity.bits())?;
-                status.to_writer(writer)?;
+                status.encode(writer)?;
             }
             Self::ReportSeverityInfoOfDTC(mask) => {
-                mask.to_writer(writer)?;
+                mask.encode(writer)?;
             }
             Self::ReportSupportedDTC => {}
             Self::ReportFirstTestFailedDTC => {}
@@ -536,27 +536,27 @@ impl WireFormat for ReadDTCInfoSubFunction {
             Self::ReportDTCFaultDetectionCounter => {}
             Self::ReportDTCWithPermanentStatus => {}
             Self::ReportDTCExtDataRecord_ByRecordNumber(record_number) => {
-                record_number.to_writer(writer)?;
+                record_number.encode(writer)?;
             }
             Self::ReportUserDefMemoryDTC_ByStatusMask(mask) => {
-                mask.to_writer(writer)?;
+                mask.encode(writer)?;
             }
             Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(mask, number, selection) => {
-                mask.to_writer(writer)?;
-                number.to_writer(writer)?;
+                mask.encode(writer)?;
+                number.encode(writer)?;
                 writer.write_u8(*selection)?;
             }
             Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(mask, number, selection) => {
-                mask.to_writer(writer)?;
-                number.to_writer(writer)?;
+                mask.encode(writer)?;
+                number.encode(writer)?;
                 writer.write_u8(*selection)?;
             }
             Self::ReportSupportedDTCExtDataRecord(number) => {
-                number.to_writer(writer)?;
+                number.encode(writer)?;
             }
             Self::ReportWWHOBDDTC_ByMaskRecord(group, status, severity) => {
                 writer.write_u8(group.value())?;
-                status.to_writer(writer)?;
+                status.encode(writer)?;
                 writer.write_u8(severity.bits())?;
             }
             Self::ReportWWHOBDDTC_WithPermanentStatus(group) => {
@@ -1020,7 +1020,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
     }
 
     #[allow(clippy::too_many_lines)]
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         match self {
             Self::NumberOfDTCs(id, mask, count) => {
                 writer.write_u8(*id)?;
@@ -1031,36 +1031,36 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 writer.write_u8(*id)?;
                 writer.write_u8(mask.bits())?;
                 for (record, status) in list {
-                    record.to_writer(writer)?;
-                    status.to_writer(writer)?;
+                    record.encode(writer)?;
+                    status.encode(writer)?;
                 }
             }
             Self::DTCSnapshotList(list) => {
                 writer.write_u8(0x03)?;
                 for (record, number) in list {
-                    record.to_writer(writer)?;
-                    number.to_writer(writer)?;
+                    record.encode(writer)?;
+                    number.encode(writer)?;
                 }
             }
             Self::DTCSnapshotRecordList(list) => {
                 writer.write_u8(0x04)?;
-                list.to_writer(writer)?;
+                list.encode(writer)?;
             }
             Self::DTCExtDataRecordList(list) => {
                 writer.write_u8(0x06)?;
-                list.to_writer(writer)?;
+                list.encode(writer)?;
             }
             Self::DTCFaultDetectionCounterRecordList(list) => {
                 writer.write_u8(0x14)?;
                 for fault_detection_counter in list {
-                    fault_detection_counter.to_writer(writer)?;
+                    fault_detection_counter.encode(writer)?;
                 }
             }
             Self::DTCSeverityRecordList(id, status, list) => {
                 writer.write_u8(*id)?;
-                status.to_writer(writer)?;
+                status.encode(writer)?;
                 for dtcs in list {
-                    dtcs.to_writer(writer)?;
+                    dtcs.encode(writer)?;
                 }
             }
             Self::UserDefMemoryDTCByStatusMaskList(data_record_struct) => {
@@ -1068,59 +1068,59 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 writer.write_u8(data_record_struct.memory_selection)?;
                 data_record_struct
                     .status_availability_mask
-                    .to_writer(writer)?;
+                    .encode(writer)?;
                 for (data_record, status) in &data_record_struct.record_data {
-                    data_record.to_writer(writer)?;
-                    status.to_writer(writer)?;
+                    data_record.encode(writer)?;
+                    status.encode(writer)?;
                 }
             }
 
             Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(snapshot_struct) => {
                 writer.write_u8(0x18)?;
-                snapshot_struct.to_writer(writer)?;
+                snapshot_struct.encode(writer)?;
             }
             Self::SupportedDTCExtDataRecordList(response_struct) => {
                 writer.write_u8(0x1A)?;
-                response_struct.status_availability_mask.to_writer(writer)?;
+                response_struct.status_availability_mask.encode(writer)?;
                 if let Some(record_number) = &response_struct.ext_data_record_number {
-                    record_number.to_writer(writer)?;
+                    record_number.encode(writer)?;
                     for (record, status) in &response_struct.dtc_and_status_records {
-                        record.to_writer(writer)?;
-                        status.to_writer(writer)?;
+                        record.encode(writer)?;
+                        status.encode(writer)?;
                     }
                 }
             }
             Self::WWHOBDDTCByMaskRecordList(response_struct) => {
                 writer.write_u8(0x42)?;
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
-                response_struct.status_availability_mask.to_writer(writer)?;
+                response_struct.status_availability_mask.encode(writer)?;
                 writer.write_u8(response_struct.severity_availability_mask.into())?;
                 writer.write_u8(response_struct.format_identifier.into())?;
                 for (dtc_severity, dtc_record, dtc_status) in &response_struct.record_data {
                     writer.write_u8((*dtc_severity).into())?;
-                    dtc_record.to_writer(writer)?;
-                    dtc_status.to_writer(writer)?;
+                    dtc_record.encode(writer)?;
+                    dtc_status.encode(writer)?;
                 }
             }
             Self::WWHOBDDTCWithPermanentStatusList(response_struct) => {
                 writer.write_u8(0x55)?;
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
-                response_struct.status_availability_mask.to_writer(writer)?;
+                response_struct.status_availability_mask.encode(writer)?;
                 writer.write_u8(response_struct.format_identifier.into())?;
                 for (dtc_record, dtc_status) in &response_struct.record_data {
-                    dtc_record.to_writer(writer)?;
-                    dtc_status.to_writer(writer)?;
+                    dtc_record.encode(writer)?;
+                    dtc_status.encode(writer)?;
                 }
             }
             Self::DTCByReadinessGroupIdentifierList(response_struct) => {
                 writer.write_u8(0x56)?;
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
-                response_struct.status_availability_mask.to_writer(writer)?;
+                response_struct.status_availability_mask.encode(writer)?;
                 writer.write_u8(response_struct.format_identifier.into())?;
                 writer.write_u8(response_struct.readiness_group_identifier)?;
                 for (dtc_record, dtc_status) in &response_struct.record_data {
-                    dtc_record.to_writer(writer)?;
-                    dtc_status.to_writer(writer)?;
+                    dtc_record.encode(writer)?;
+                    dtc_status.encode(writer)?;
                 }
             }
         }
@@ -1162,7 +1162,7 @@ mod response {
             }
         }
 
-        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             writer.write_u16::<byteorder::BigEndian>(*self as u16)?;
             Ok(self.required_size())
         }
@@ -1198,7 +1198,7 @@ mod response {
             }
         }
 
-        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             let id_bytes: u16 = match self {
                 TestPayload::Abracadabra(_) => 0xBEEF,
             };
@@ -1254,7 +1254,7 @@ mod response {
 
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes);
         assert_eq!(written, bytes.len());
         assert_eq!(written, response.required_size());
@@ -1294,7 +1294,7 @@ mod response {
 
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes);
         assert_eq!(written, bytes.len());
         assert_eq!(written, response.required_size());
@@ -1316,7 +1316,7 @@ mod response {
 
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes);
         assert_eq!(written, bytes.len());
         assert_eq!(written, response.required_size());
@@ -1344,7 +1344,7 @@ mod response {
 
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes);
         assert_eq!(written, bytes.len());
         assert_eq!(written, response.required_size());
@@ -1364,7 +1364,7 @@ mod response {
 
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes);
         assert_eq!(written, bytes.len());
         assert_eq!(written, response.required_size());
@@ -1396,7 +1396,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1435,7 +1435,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1468,7 +1468,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1516,7 +1516,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1559,7 +1559,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1586,7 +1586,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1637,7 +1637,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1671,7 +1671,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1712,7 +1712,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1761,7 +1761,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1797,7 +1797,7 @@ mod response {
         );
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1831,7 +1831,7 @@ mod ext_data {
             1
         }
 
-        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             writer.write_u8(*self as u8)?;
             Ok(self.required_size())
         }
@@ -1869,7 +1869,7 @@ mod ext_data {
             }
         }
 
-        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             match self {
                 TestDTCExtData::WarmUpCycleCount(count) => {
                     writer.write_u8(TestDTCExtDataRecordNumber::WarmUpCycleCount as u8)?;
@@ -1908,7 +1908,7 @@ mod ext_data {
 
         // write
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());
@@ -1928,7 +1928,7 @@ mod request {
         ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTCStoredData_ByRecordNumber(
             DTCStoredDataRecordNumber::new(5).unwrap(),
         ))
-        .to_writer(&mut writer)
+        .encode(&mut writer)
         .unwrap();
         let request = ReadDTCInfoRequest::option_from_reader(&mut reader)
             .unwrap()
@@ -1947,7 +1947,7 @@ mod request {
     fn test_read_dtc_information_subfunction() {
         let mut writer = Vec::new();
         let b = ReadDTCInfoSubFunction::ReportDTCWithPermanentStatus;
-        b.to_writer(&mut writer).unwrap();
+        b.encode(&mut writer).unwrap();
 
         assert_eq!(writer, vec![0x15]);
 
@@ -1978,7 +1978,7 @@ mod request {
                 ),
                 _ => unreachable!("Invalid loop value"),
             };
-            let written = func.to_writer(&mut writer).unwrap();
+            let written = func.encode(&mut writer).unwrap();
             assert_eq!(written, func.required_size());
         }
     }

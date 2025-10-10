@@ -16,7 +16,7 @@ macro_rules! unsigned_primitive_wire_format {
             fn required_size(&self) -> usize {
                 std::mem::size_of::<$primitive>()
             }
-            fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+            fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
                 writer.write_uint128::<BigEndian>(u128::from(*self), self.required_size())?;
                 Ok(self.required_size())
             }
@@ -42,7 +42,7 @@ macro_rules! signed_primitive_wire_format {
             fn required_size(&self) -> usize {
                 std::mem::size_of::<$primitive>()
             }
-            fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+            fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
                 writer.write_int128::<BigEndian>(i128::from(*self), self.required_size())?;
                 Ok(self.required_size())
             }
@@ -61,7 +61,7 @@ impl WireFormat for f32 {
     fn required_size(&self) -> usize {
         4
     }
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         writer.write_f32::<BigEndian>(*self)?;
         Ok(self.required_size())
     }
@@ -75,7 +75,7 @@ impl WireFormat for f64 {
     fn required_size(&self) -> usize {
         8
     }
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         writer.write_f64::<BigEndian>(*self)?;
         Ok(self.required_size())
     }
@@ -96,7 +96,7 @@ mod tests {
         assert_eq!(u8_byte.required_size(), 1);
 
         let mut write_buffer = vec![];
-        u8_byte.to_writer(&mut write_buffer).unwrap();
+        u8_byte.encode(&mut write_buffer).unwrap();
         assert_eq!(write_buffer, data);
     }
 
@@ -111,7 +111,7 @@ mod tests {
         assert_eq!(u16_byte.required_size(), 2);
 
         let mut write_buffer = vec![];
-        u16_byte.to_writer(&mut write_buffer).unwrap();
+        u16_byte.encode(&mut write_buffer).unwrap();
         assert_eq!(write_buffer, data);
     }
 
@@ -126,7 +126,7 @@ mod tests {
         assert_eq!(u32_byte.required_size(), 4);
 
         let mut write_buffer = vec![];
-        u32_byte.to_writer(&mut write_buffer).unwrap();
+        u32_byte.encode(&mut write_buffer).unwrap();
         assert_eq!(write_buffer, data);
     }
 
@@ -141,7 +141,7 @@ mod tests {
         assert_eq!(u64_byte.required_size(), 8);
 
         let mut write_buffer = vec![];
-        u64_byte.to_writer(&mut write_buffer).unwrap();
+        u64_byte.encode(&mut write_buffer).unwrap();
         assert_eq!(write_buffer, data);
     }
 
@@ -159,7 +159,7 @@ mod tests {
         assert_eq!(u128_byte.required_size(), 16);
 
         let mut write_buffer = vec![];
-        u128_byte.to_writer(&mut write_buffer).unwrap();
+        u128_byte.encode(&mut write_buffer).unwrap();
         assert_eq!(write_buffer, data);
     }
 }

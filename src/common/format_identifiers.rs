@@ -170,7 +170,7 @@ impl WireFormat for DataFormatIdentifier {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(*self))?;
         Ok(1)
     }

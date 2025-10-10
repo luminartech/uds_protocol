@@ -99,7 +99,7 @@ impl WireFormat for SecurityAccessRequest {
     }
 
     /// Serialization function to write a [`SecurityAccessRequest`] to a `Writer`
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.access_type))?;
         writer.write_all(&self.request_data)?;
         Ok(self.required_size())
@@ -157,7 +157,7 @@ impl WireFormat for SecurityAccessResponse {
     }
 
     /// Serialization function to write a `SecurityAccessResponse` to a [`Writer`](std::io::Write)
-    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.access_type))?;
         writer.write_all(&self.security_seed)?;
         Ok(self.required_size())
@@ -184,7 +184,7 @@ mod request {
         );
 
         let mut buf = Vec::new();
-        let written = req.to_writer(&mut buf).unwrap();
+        let written = req.encode(&mut buf).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, req.required_size());
     }
@@ -206,7 +206,7 @@ mod response {
         assert_eq!(resp.security_seed, vec![0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();
-        let written = resp.to_writer(&mut buf).unwrap();
+        let written = resp.encode(&mut buf).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, resp.required_size());
     }

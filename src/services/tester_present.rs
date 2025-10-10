@@ -107,7 +107,7 @@ impl WireFormat for TesterPresentRequest {
     }
 
     /// Serialization function to write a `TesterPresentRequest` to a `Writer`
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.zero_sub_function))?;
         Ok(1)
     }
@@ -147,7 +147,7 @@ impl WireFormat for TesterPresentResponse {
     }
 
     /// Write the response as a sequence of bytes to a buffer
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.zero_sub_function))?;
         Ok(1)
     }
@@ -232,7 +232,7 @@ mod test {
     fn write_request_type() {
         let test_type = TesterPresentRequest::new(false);
         let mut buffer = Vec::new();
-        test_type.to_writer(&mut buffer).unwrap();
+        test_type.encode(&mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
@@ -251,7 +251,7 @@ mod test {
     fn write_response_type() {
         let test_type = TesterPresentResponse::new();
         let mut buffer = Vec::new();
-        test_type.to_writer(&mut buffer).unwrap();
+        test_type.encode(&mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);

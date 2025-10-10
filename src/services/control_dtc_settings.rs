@@ -37,7 +37,7 @@ impl WireFormat for ControlDTCSettingsRequest {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let request_byte =
             u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
         writer.write_u8(request_byte)?;
@@ -79,7 +79,7 @@ impl WireFormat for ControlDTCSettingsResponse {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.setting))?;
         Ok(1)
     }
@@ -96,7 +96,7 @@ mod request {
     fn simple_request() {
         let req = ControlDTCSettingsRequest::new(DtcSettings::On, true);
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
@@ -116,7 +116,7 @@ mod response {
     fn simple_response() {
         let req = ControlDTCSettingsResponse::new(DtcSettings::On);
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         assert_eq!(buffer, vec![0x01]);
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());

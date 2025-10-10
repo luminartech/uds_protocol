@@ -59,7 +59,7 @@ impl WireFormat for EcuResetRequest {
     }
 
     /// Serialization function to write a [`EcuResetRequest`] to a `Writer`
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.reset_type))?;
         Ok(1)
     }
@@ -106,7 +106,7 @@ impl WireFormat for EcuResetResponse {
     }
 
     /// Serialization function to write a [`EcuResetResponse`] to a `Writer`
-    fn to_writer<T: Write>(&self, buffer: &mut T) -> Result<usize, Error> {
+    fn encode<T: Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.reset_type))?;
         buffer.write_u8(self.power_down_time)?;
         Ok(2)
@@ -124,7 +124,7 @@ mod request {
         let bytes: [u8; 2] = [0x81, 0x00];
         let req = EcuResetRequest::new(true, ResetType::HardReset);
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         let result = EcuResetRequest::from_reader(&mut bytes.as_slice()).unwrap();
         assert_eq!(result, req);
 
@@ -142,7 +142,7 @@ mod response {
         let bytes: [u8; 2] = [0x01, 0x20];
         let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
         let mut buffer = Vec::new();
-        let written = resp.to_writer(&mut buffer).unwrap();
+        let written = resp.encode(&mut buffer).unwrap();
         let result = EcuResetResponse::from_reader(&mut bytes.as_slice()).unwrap();
         assert_eq!(result, resp);
 

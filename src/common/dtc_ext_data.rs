@@ -81,7 +81,7 @@ impl WireFormat for DTCExtDataRecordNumber {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.value())?;
         Ok(self.required_size())
     }
@@ -119,9 +119,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayloa
             .sum::<usize>()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         for d in &self.data {
-            d.to_writer(writer)?;
+            d.encode(writer)?;
         }
         Ok(self.required_size())
     }
@@ -164,11 +164,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPa
                 .sum::<usize>()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.mask_record.to_writer(writer)?;
-        self.status_mask.to_writer(writer)?;
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.mask_record.encode(writer)?;
+        self.status_mask.encode(writer)?;
         for record in &self.record_data {
-            record.to_writer(writer)?;
+            record.encode(writer)?;
         }
         Ok(self.required_size())
     }

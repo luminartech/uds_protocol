@@ -35,7 +35,7 @@ impl WireFormat for ActiveDiagnosticSession {
         1
     }
 
-    fn to_writer<W: Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let value = u8::from(self.current_session);
         writer.write_u8(value)?;
         Ok(1)
@@ -64,7 +64,7 @@ mod tests {
         assert_eq!(response.required_size(), 1);
 
         let mut writer = Vec::new();
-        let written = response.to_writer(&mut writer).unwrap();
+        let written = response.encode(&mut writer).unwrap();
         assert_eq!(writer, bytes, "Written: \n{writer:02X?}\n{bytes:02X?}");
         assert_eq!(written, bytes.len(), "Written: \n{writer:?}\n{bytes:?}");
         assert_eq!(written, response.required_size());

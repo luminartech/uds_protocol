@@ -236,27 +236,27 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
     }
 
     #[allow(clippy::match_same_arms)]
-    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the service byte
         writer.write_u8(self.service().response_to_byte())?;
         // Write the payload
         Ok(1 + match self {
             Self::ClearDiagnosticInfo => Ok(0),
-            Self::CommunicationControl(cc) => cc.to_writer(writer),
-            Self::ControlDTCSettings(dtc) => dtc.to_writer(writer),
-            Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
-            Self::EcuReset(reset) => reset.to_writer(writer),
-            Self::NegativeResponse(nr) => nr.to_writer(writer),
-            Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),
-            Self::ReadDTCInfo(rd) => rd.to_writer(writer),
-            Self::RequestDownload(rd) => rd.to_writer(writer),
-            Self::RequestFileTransfer(rft) => rft.to_writer(writer),
+            Self::CommunicationControl(cc) => cc.encode(writer),
+            Self::ControlDTCSettings(dtc) => dtc.encode(writer),
+            Self::DiagnosticSessionControl(ds) => ds.encode(writer),
+            Self::EcuReset(reset) => reset.encode(writer),
+            Self::NegativeResponse(nr) => nr.encode(writer),
+            Self::ReadDataByIdentifier(rd) => rd.encode(writer),
+            Self::ReadDTCInfo(rd) => rd.encode(writer),
+            Self::RequestDownload(rd) => rd.encode(writer),
+            Self::RequestFileTransfer(rft) => rft.encode(writer),
             Self::RequestTransferExit => Ok(0),
-            Self::RoutineControl(rc) => rc.to_writer(writer),
-            Self::SecurityAccess(sa) => sa.to_writer(writer),
-            Self::TesterPresent(tp) => tp.to_writer(writer),
-            Self::TransferData(td) => td.to_writer(writer),
-            Self::WriteDataByIdentifier(wdbi) => wdbi.to_writer(writer),
+            Self::RoutineControl(rc) => rc.encode(writer),
+            Self::SecurityAccess(sa) => sa.encode(writer),
+            Self::TesterPresent(tp) => tp.encode(writer),
+            Self::TransferData(td) => td.encode(writer),
+            Self::WriteDataByIdentifier(wdbi) => wdbi.encode(writer),
         }?)
     }
 }

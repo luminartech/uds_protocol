@@ -36,7 +36,7 @@ impl WireFormat for NegativeResponse {
     }
 
     /// Write the response as a sequence of bytes to a buffer
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.request_service.request_service_to_byte())?;
         writer.write_u8(u8::from(self.nrc))?;
         Ok(2)

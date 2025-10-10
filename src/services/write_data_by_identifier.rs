@@ -51,9 +51,9 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
     ///
     /// Note: The first two bytes of the writer will be the data identifier, immediately followed by the corresponding
     /// payload for that identifier.
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Payload must implement the extra bytes, because option_from_reader needs to know how to interpret payload message
-        self.payload.to_writer(writer)
+        self.payload.encode(writer)
     }
 }
 
@@ -91,9 +91,9 @@ impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<Da
     }
 
     /// Serialize a `WriteDataByIdentifierResponse` instance.
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Payload must implement the extra bytes, because option_from_reader needs to know how to interpret payload message
-        self.identifier.to_writer(writer)
+        self.identifier.encode(writer)
     }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -157,7 +157,7 @@ mod test {
             }
         }
 
-        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             let id_bytes: u16 = match self {
                 TestPayload::Abracadabra(_) => 0xBEEF,
             };
@@ -186,7 +186,7 @@ mod test {
         let request = WriteDataByIdentifierRequest::new(TestPayload::Abracadabra(42));
 
         let mut written_bytes = Vec::new();
-        let written = request.to_writer(&mut written_bytes).unwrap();
+        let written = request.encode(&mut written_bytes).unwrap();
         assert_eq!(written, request.required_size());
         assert_eq!(written, written_bytes.len());
 
@@ -203,7 +203,7 @@ mod test {
         let response = WriteDataByIdentifierResponse::new(TestIdentifier::Abracadabra);
 
         let mut written_bytes = Vec::new();
-        let written = response.to_writer(&mut written_bytes).unwrap();
+        let written = response.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, response.required_size());
     }

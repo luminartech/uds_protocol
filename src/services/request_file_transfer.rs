@@ -136,7 +136,7 @@ impl WireFormat for SizePayload {
         1 + (2 * self.file_size_parameter_length as usize)
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Always write the file size as 1 byte
         writer.write_u8(self.file_size_parameter_length)?;
         // write the file size only as many bytes as needed
@@ -208,7 +208,7 @@ impl WireFormat for NamePayload {
         1 + 2 + self.file_path_and_name.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the mode of operation
         writer.write_u8((self.mode_of_operation).into())?;
         // Write the file path and name length
@@ -313,24 +313,24 @@ impl WireFormat for RequestFileTransferRequest {
         }
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let mut len = 0;
         Ok(match self {
             Self::AddFile(name_payload, data_format_identifier, file_size_payload)
             | Self::ReplaceFile(name_payload, data_format_identifier, file_size_payload)
             | Self::ResumeFile(name_payload, data_format_identifier, file_size_payload) => {
-                len += name_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
-                len += file_size_payload.to_writer(writer)?;
+                len += name_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
+                len += file_size_payload.encode(writer)?;
                 len
             }
             Self::ReadFile(name_payload, data_format_identifier) => {
-                len += name_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
+                len += name_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
                 len
             }
             Self::DeleteFile(name_payload) | Self::ReadDir(name_payload) => {
-                len += name_payload.to_writer(writer)?;
+                len += name_payload.encode(writer)?;
                 len
             }
         })
@@ -394,7 +394,7 @@ impl WireFormat for SentDataPayload {
         1 + self.max_number_of_block_length.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.length_format_identifier)?;
         writer.write_all(&self.max_number_of_block_length)?;
         Ok(self.required_size())
@@ -454,7 +454,7 @@ impl WireFormat for FileSizePayload {
         2 + (2 * self.file_size_parameter_length as usize)
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Always write the file size as 1 byte
 
         writer.write_u16::<byteorder::BE>(self.file_size_parameter_length)?;
@@ -517,7 +517,7 @@ impl WireFormat for DirSizePayload {
         2 + self.dir_info_parameter_length as usize
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let mut len = 0;
         writer.write_u16::<byteorder::BigEndian>(self.dir_info_parameter_length)?;
         len += 2;
@@ -575,7 +575,7 @@ impl WireFormat for PositionPayload {
         8
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u64::<byteorder::BigEndian>(self.file_position)?;
         Ok(8)
     }
@@ -679,7 +679,7 @@ impl WireFormat for RequestFileTransferResponse {
             }
         }
     }
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Every variant has a mode of operation
         let mut len = 1;
 
@@ -687,8 +687,8 @@ impl WireFormat for RequestFileTransferResponse {
             Self::AddFile(mode_of_operation, sent_data_payload, data_format_identifier)
             | Self::ReplaceFile(mode_of_operation, sent_data_payload, data_format_identifier) => {
                 writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
+                len += sent_data_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
             }
             Self::DeleteFile(mode_of_operation) => {
                 writer.write_u8((*mode_of_operation).into())?;
@@ -700,9 +700,9 @@ impl WireFormat for RequestFileTransferResponse {
                 size_payload,
             ) => {
                 writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
-                len += size_payload.to_writer(writer)?;
+                len += sent_data_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
+                len += size_payload.encode(writer)?;
             }
             Self::ReadDir(
                 mode_of_operation,
@@ -711,9 +711,9 @@ impl WireFormat for RequestFileTransferResponse {
                 dir_size_payload,
             ) => {
                 writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
-                len += dir_size_payload.to_writer(writer)?;
+                len += sent_data_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
+                len += dir_size_payload.encode(writer)?;
             }
             Self::ResumeFile(
                 mode_of_operation,
@@ -722,9 +722,9 @@ impl WireFormat for RequestFileTransferResponse {
                 position_payload,
             ) => {
                 writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
-                len += position_payload.to_writer(writer)?;
+                len += sent_data_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
+                len += position_payload.encode(writer)?;
             }
         }
         Ok(len)
@@ -783,7 +783,7 @@ mod request_tests {
                 .unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -811,7 +811,7 @@ mod request_tests {
             .unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -836,7 +836,7 @@ mod request_tests {
             .unwrap();
 
         let mut bytes = Vec::new();
-        let written = req.to_writer(&mut bytes).unwrap();
+        let written = req.encode(&mut bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -855,7 +855,7 @@ mod request_tests {
             file_path_and_name: compare_string.to_string(),
         });
         let mut bytes = Vec::new();
-        let written = req.to_writer(&mut bytes).unwrap();
+        let written = req.encode(&mut bytes).unwrap();
         // Should be equivalent to our helper function
         let expected_bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
         assert_eq!(bytes, expected_bytes);
@@ -872,7 +872,7 @@ mod request_tests {
         let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -899,7 +899,7 @@ mod request_tests {
         let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -922,7 +922,7 @@ mod request_tests {
         let bytes = get_bytes(FileOperationMode::ResumeFile, compare_string, file_size);
         let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -1020,7 +1020,7 @@ mod response_tests {
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1043,7 +1043,7 @@ mod response_tests {
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1063,7 +1063,7 @@ mod response_tests {
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1086,7 +1086,7 @@ mod response_tests {
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1112,7 +1112,7 @@ mod response_tests {
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1143,7 +1143,7 @@ mod response_tests {
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 

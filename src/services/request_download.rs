@@ -117,7 +117,7 @@ impl WireFormat for RequestDownloadRequest {
         2 + self.address_and_length_format_identifier.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.data_format_identifier.into())?;
         writer.write_u8(self.address_and_length_format_identifier.into())?;
 
@@ -170,7 +170,7 @@ impl WireFormat for RequestDownloadResponse {
         1 + self.max_number_of_block_length.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.length_format_identifier.into())?;
         writer.write_all(&self.max_number_of_block_length)?;
         Ok(self.required_size())
@@ -249,7 +249,7 @@ mod tests {
         let req = RequestDownloadRequest::new(0x00.into(), 0xF0_FF_FF_67, 0x0A).unwrap();
 
         let mut vec = vec![];
-        req.to_writer(&mut vec).unwrap();
+        req.encode(&mut vec).unwrap();
 
         assert_eq!(vec.len(), req.required_size());
     }

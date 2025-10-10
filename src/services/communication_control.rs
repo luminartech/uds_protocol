@@ -106,7 +106,7 @@ impl WireFormat for CommunicationControlRequest {
         if self.node_id.is_some() { 4 } else { 2 }
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.control_type))?;
         writer.write_u8(u8::from(self.communication_type))?;
         if let Some(id) = self.node_id {
@@ -145,7 +145,7 @@ impl WireFormat for CommunicationControlResponse {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.control_type))?;
         Ok(1)
     }
@@ -169,7 +169,7 @@ mod request {
         assert_eq!(req.node_id, None);
 
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         assert_eq!(written, req.required_size());
         assert_eq!(buffer.len(), req.required_size());
     }
@@ -186,7 +186,7 @@ mod request {
         assert_eq!(req.node_id, Some(258));
 
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         assert_eq!(written, req.required_size());
         assert_eq!(buffer.len(), req.required_size());
     }
@@ -229,7 +229,7 @@ mod response {
         );
 
         let mut buffer = Vec::new();
-        let written = res.to_writer(&mut buffer).unwrap();
+        let written = res.encode(&mut buffer).unwrap();
         assert_eq!(written, 1);
         assert_eq!(buffer.len(), written);
     }

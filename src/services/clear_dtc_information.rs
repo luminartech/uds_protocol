@@ -61,9 +61,9 @@ impl WireFormat for ClearDiagnosticInfoRequest {
         self.group_of_dtc.required_size() + 1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
         let mut size = 0;
-        size += self.group_of_dtc.to_writer(writer)?;
+        size += self.group_of_dtc.encode(writer)?;
         writer.write_u8(self.memory_selection)?;
         size += 1;
         Ok(size)
@@ -85,7 +85,7 @@ mod request {
         assert_eq!(req, compare);
 
         let mut bytes = vec![];
-        let written = req.to_writer(&mut bytes).unwrap();
+        let written = req.encode(&mut bytes).unwrap();
         assert_eq!(bytes, [0xFF, 0xFF, 0xFF, 0x00]);
         assert_eq!(req.required_size(), written);
     }
