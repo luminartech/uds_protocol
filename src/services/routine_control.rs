@@ -36,10 +36,10 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat>
 impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
     for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
 {
-    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
-        let routine_id = RoutineIdentifier::option_from_reader(reader)?.unwrap();
-        let data = RoutinePayload::option_from_reader(reader)?;
+        let routine_id = RoutineIdentifier::decode(reader)?.unwrap();
+        let data = RoutinePayload::decode(reader)?;
         Ok(Some(Self {
             sub_function,
             routine_id,
@@ -112,10 +112,10 @@ impl<RoutineStatusRecord: WireFormat> RoutineControlResponse<RoutineStatusRecord
 }
 
 impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<RoutineStatusRecord> {
-    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let routine_control_type = RoutineControlSubFunction::from(reader.read_u8()?);
         // Reads the identifier, then can read 0 bytes, 1 byte, or more
-        let routine_status_record = RoutineStatusRecord::option_from_reader(reader)?.unwrap();
+        let routine_status_record = RoutineStatusRecord::decode(reader)?.unwrap();
         Ok(Some(Self {
             routine_control_type,
             routine_status_record,

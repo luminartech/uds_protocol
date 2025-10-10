@@ -38,7 +38,7 @@ impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
 
 impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<DataIdentifier> {
     /// Create a request from a sequence of bytes
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let dids = DataIdentifier::parse_from_list(reader)?;
         if dids.is_empty() {
             Err(Error::NoDataAvailable)
@@ -87,7 +87,7 @@ impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierResponse<UserPayload> {
     /// Create a response from a sequence of bytes
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
         for payload in UserPayload::from_reader_iterable(reader) {
             match payload {
@@ -231,7 +231,7 @@ mod test {
 
             for test_data in &test_data_sets {
                 let read_result =
-                    ReadDataByIdentifierRequest::<ProtocolIdentifier>::option_from_reader(
+                    ReadDataByIdentifierRequest::<ProtocolIdentifier>::decode(
                         &mut test_data.dids_bytes.as_slice(),
                     );
 
@@ -357,7 +357,7 @@ mod test {
                     }
                     0xFF02 => Ok(TestPayload::Bar),
                     0xFF03 => {
-                        let data = BazData::option_from_reader(reader)?.unwrap();
+                        let data = BazData::decode(reader)?.unwrap();
                         Ok(TestPayload::Baz(data))
                     }
                     _ => {
@@ -383,7 +383,7 @@ mod test {
         impl IterableWireFormat for TestPayload {}
 
         impl WireFormat for TestPayload {
-            fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
                 let mut identifier_data: [u8; 2] = [0; 2];
                 match reader.read(&mut identifier_data)? {
                     0 => return Ok(None),
@@ -428,7 +428,7 @@ mod test {
         }
 
         impl WireFormat for BazData {
-            fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
                 let mut data = [0u8; 16];
                 reader.read_exact(&mut data)?;
 
@@ -480,7 +480,7 @@ mod test {
             response.encode(&mut buffer).unwrap();
 
             let read_response: ReadDataByIdentifierResponse<TestPayload> =
-                ReadDataByIdentifierResponse::<TestPayload>::option_from_reader(
+                ReadDataByIdentifierResponse::<TestPayload>::decode(
                     &mut buffer.as_slice(),
                 )
                 .unwrap()

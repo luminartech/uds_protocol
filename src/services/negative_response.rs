@@ -22,7 +22,7 @@ impl NegativeResponse {
 
 impl WireFormat for NegativeResponse {
     /// Create a `TesterPresentResponse` from a sequence of bytes
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let request_service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         let nrc = NegativeResponseCode::from(reader.read_u8()?);
         Ok(Some(Self {

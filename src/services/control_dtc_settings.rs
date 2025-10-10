@@ -23,7 +23,7 @@ impl ControlDTCSettingsRequest {
 }
 
 impl WireFormat for ControlDTCSettingsRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let request_byte = reader.read_u8()?;
         let setting = DtcSettings::from(request_byte & !SUCCESS);
         let suppress_response = request_byte & SUCCESS != 0;
@@ -70,7 +70,7 @@ impl ControlDTCSettingsResponse {
 }
 
 impl WireFormat for ControlDTCSettingsResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let setting = DtcSettings::from(reader.read_u8()?);
         Ok(Some(Self { setting }))
     }

@@ -87,7 +87,7 @@ impl RequestDownloadRequest {
     }
 }
 impl WireFormat for RequestDownloadRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let data_format_identifier = DataFormatIdentifier::from(reader.read_u8()?);
         let memory_identifier = MemoryFormatIdentifier::try_from(reader.read_u8()?)?;
 
@@ -153,7 +153,7 @@ impl RequestDownloadResponse {
 }
 
 impl WireFormat for RequestDownloadResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let length_format_identifier = LengthFormatIdentifier::from(reader.read_u8()?);
 
         let mut max_number_of_block_length: Vec<u8> =
@@ -190,7 +190,7 @@ mod tests {
             0xF0, 0xFF, 0xFF, 0x67, // memory address
             0x0A,
         ];
-        let req = RequestDownloadRequest::option_from_reader(&mut bytes.as_slice())
+        let req = RequestDownloadRequest::decode(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
 
@@ -223,7 +223,7 @@ mod tests {
             0x11, // 1 byte for memory size, 1 byte for memory address
             0x67,
         ];
-        let req = RequestDownloadRequest::option_from_reader(&mut bytes.as_slice());
+        let req = RequestDownloadRequest::decode(&mut bytes.as_slice());
         assert!(matches!(req, Err(Error::IoError(_))));
     }
 

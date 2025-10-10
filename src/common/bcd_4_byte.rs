@@ -36,7 +36,7 @@ impl FromStr for BCD4ByteLE {
 }
 
 impl WireFormat for BCD4ByteLE {
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut bytes = [0u8; 4];
         reader.read_exact(&mut bytes)?;
         Ok(Some(BCD4ByteLE::from_be(bytes)))

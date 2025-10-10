@@ -21,7 +21,7 @@ pub trait WireFormat: Sized {
     /// # Errors
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
 
     /// Returns the number of bytes required to serialize this value.
     fn required_size(&self) -> usize;
@@ -51,7 +51,7 @@ struct WireFormatIterator<'a, T, R> {
 impl<T: WireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_, T, R> {
     type Item = Result<T, Error>;
     fn next(&mut self) -> Option<Self::Item> {
-        match T::option_from_reader(self.reader.by_ref()) {
+        match T::decode(self.reader.by_ref()) {
             Ok(Some(value)) => Some(Ok(value)),
             Ok(None) => None,
             Err(e) => Some(Err(e)),
@@ -75,7 +75,7 @@ pub trait SingleValueWireFormat: WireFormat {
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
     fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        Ok(Self::option_from_reader(reader)?.expect(
+        Ok(Self::decode(reader)?.expect(
             "SingleValueWireFormat is only valid to implement on types which never return none",
         ))
     }
@@ -149,7 +149,7 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
     fn parse_from_payload<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        Self::option_from_reader(reader)
+        Self::decode(reader)
     }
 }
 
@@ -160,7 +160,7 @@ impl<T> WireFormat for T
 where
     T: Identifier,
 {
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut identifier_data: [u8; 2] = [0; 2];
         match reader.read(&mut identifier_data)? {
             0 => return Ok(None),

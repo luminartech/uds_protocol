@@ -63,7 +63,7 @@ impl DiagnosticSessionControlRequest {
 }
 impl WireFormat for DiagnosticSessionControlRequest {
     /// Deserialization function to read a `DiagnosticSessionControlRequest` from a `Reader`
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { session_type }))
     }
@@ -112,7 +112,7 @@ impl DiagnosticSessionControlResponse {
 }
 impl WireFormat for DiagnosticSessionControlResponse {
     /// Read a `DiagnosticSessionControlResponse` from a `Reader`
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
         let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
         let p2_star_server_max = reader.read_u16::<byteorder::BigEndian>()?;

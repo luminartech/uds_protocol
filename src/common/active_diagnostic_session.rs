@@ -26,7 +26,7 @@ impl ActiveDiagnosticSession {
 }
 
 impl WireFormat for ActiveDiagnosticSession {
-    fn option_from_reader<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let value = reader.read_u8()?;
         Ok(Some(ActiveDiagnosticSession::new(value)?))
     }
@@ -53,7 +53,7 @@ mod tests {
         let bytes = [0x01]; // DiagnosticSessionType::DefaultSession
         let mut reader = &bytes[..];
 
-        let response = ActiveDiagnosticSession::option_from_reader(&mut reader)
+        let response = ActiveDiagnosticSession::decode(&mut reader)
             .unwrap()
             .unwrap();
 

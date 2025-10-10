@@ -28,7 +28,7 @@ impl ReadDTCInfoRequest {
 }
 
 impl WireFormat for ReadDTCInfoRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let dtc_subfunction = ReadDTCInfoSubFunction::from_reader(reader)?;
 
         Ok(Some(Self { dtc_subfunction }))
@@ -55,8 +55,8 @@ pub struct DTCFaultDetectionCounterRecord {
 
 impl WireFormat for DTCFaultDetectionCounterRecord {
     #[allow(clippy::match_same_arms)]
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let dtc_record = match DTCRecord::option_from_reader(reader) {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let dtc_record = match DTCRecord::decode(reader) {
             Ok(None) => return Ok(None),
             Ok(record) => record,
             Err(_) => return Ok(None),
@@ -108,16 +108,16 @@ pub struct UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload> {
 impl<UserPayload: IterableWireFormat> WireFormat
     for UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>
 {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let memory_selection = reader.read_u8()?;
-        let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
-        let dtc_status_mask = DTCStatusMask::option_from_reader(reader)?.unwrap();
+        let dtc_record = DTCRecord::decode(reader)?.unwrap();
+        let dtc_status_mask = DTCStatusMask::decode(reader)?.unwrap();
         let mut dtc_snapshot_record = Vec::new();
 
         while let Ok(Some(dtc_snapshot_record_number)) =
-            DTCSnapshotRecordNumber::option_from_reader(reader)
+            DTCSnapshotRecordNumber::decode(reader)
         {
-            let snapshot_record = DTCSnapshotRecord::option_from_reader(reader)?.unwrap();
+            let snapshot_record = DTCSnapshotRecord::decode(reader)?.unwrap();
             dtc_snapshot_record.push((dtc_snapshot_record_number, snapshot_record));
         }
 
@@ -380,7 +380,7 @@ impl ReadDTCInfoSubFunction {
 
 impl WireFormat for ReadDTCInfoSubFunction {
     #[allow(clippy::match_same_arms)]
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let report_type = reader.read_u8()?;
 
         let subfunction = match report_type {
@@ -780,7 +780,7 @@ pub enum ReadDTCInfoResponse<UserPayload> {
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
     #[allow(clippy::too_many_lines)]
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let subfunction_id = reader.read_u8()?;
 
         match subfunction_id {
@@ -794,7 +794,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let mut dtcs: Vec<(DTCRecord, DTCStatusMask)> = Vec::new();
 
                 // Loop until we're done with the reader and fill the DTC list
-                while let Some(record) = DTCRecord::option_from_reader(reader)? {
+                while let Some(record) = DTCRecord::decode(reader)? {
                     match reader.read_u8() {
                         Ok(status) => dtcs.push((record, DTCStatusMask::from(status))),
                         Err(_) => break,
@@ -807,8 +807,8 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let mut dtcs: Vec<(DTCRecord, DTCSnapshotRecordNumber)> = Vec::new();
 
                 // Loop until we're done with the reader and fill the DTC list
-                while let Some(record) = DTCRecord::option_from_reader(reader)? {
-                    match DTCSnapshotRecordNumber::option_from_reader(reader)? {
+                while let Some(record) = DTCRecord::decode(reader)? {
+                    match DTCSnapshotRecordNumber::decode(reader)? {
                         Some(number) => dtcs.push((record, number)),
                         None => break,
                     }
@@ -817,11 +817,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 Ok(Some(Self::DTCSnapshotList(dtcs)))
             }
             0x04 => {
-                let snapshot_list = DTCSnapshotRecordList::option_from_reader(reader)?.unwrap();
+                let snapshot_list = DTCSnapshotRecordList::decode(reader)?.unwrap();
                 Ok(Some(Self::DTCSnapshotRecordList(snapshot_list)))
             }
             0x06 => {
-                let ext_data_list = DTCExtDataRecordList::option_from_reader(reader)?.unwrap();
+                let ext_data_list = DTCExtDataRecordList::decode(reader)?.unwrap();
                 Ok(Some(Self::DTCExtDataRecordList(ext_data_list)))
             }
             0x08 | 0x09 => {
@@ -865,8 +865,8 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let status_availability_mask = DTCStatusMask::from_reader(reader)?;
                 let mut record_data = Vec::new();
 
-                while let Ok(Some(record)) = DTCRecord::option_from_reader(reader) {
-                    let status = DTCStatusMask::option_from_reader(reader)?;
+                while let Ok(Some(record)) = DTCRecord::decode(reader) {
+                    let status = DTCStatusMask::decode(reader)?;
                     record_data.push((record, status.unwrap()));
                 }
 
@@ -879,14 +879,14 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 )))
             }
             0x18 => Ok(Some(Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
-                UserDefMemoryDTCSnapshotRecordByDTCNumRecord::option_from_reader(reader)?.unwrap(),
+                UserDefMemoryDTCSnapshotRecordByDTCNumRecord::decode(reader)?.unwrap(),
             ))),
             0x1A => {
                 let status_availability_mask = DTCStatusAvailabilityMask::from_reader(reader)?;
                 let mut dtc_and_status_records = Vec::new();
-                let ext_data_record_number = DTCExtDataRecordNumber::option_from_reader(reader)?;
+                let ext_data_record_number = DTCExtDataRecordNumber::decode(reader)?;
                 if ext_data_record_number.is_some() {
-                    while let Some(dtc_record) = DTCRecord::option_from_reader(reader)? {
+                    while let Some(dtc_record) = DTCRecord::decode(reader)? {
                         let dtc_status = DTCStatusMask::from_reader(reader)?;
                         dtc_and_status_records.push((dtc_record, dtc_status));
                     }
@@ -935,7 +935,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
                 let status_availability_mask =
-                    DTCStatusAvailabilityMask::option_from_reader(reader)?.unwrap();
+                    DTCStatusAvailabilityMask::decode(reader)?.unwrap();
                 let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
                 if !matches!(
                     format_identifier,
@@ -947,8 +947,8 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     )));
                 }
                 let mut record_data = Vec::new();
-                while let Ok(Some(dtc_record)) = DTCRecord::option_from_reader(reader) {
-                    let dtc_status = DTCStatusMask::option_from_reader(reader)?.unwrap();
+                while let Ok(Some(dtc_record)) = DTCRecord::decode(reader) {
+                    let dtc_status = DTCStatusMask::decode(reader)?.unwrap();
                     record_data.push((dtc_record, dtc_status));
                 }
 
@@ -969,7 +969,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let readiness_group_identifier =
                     DTCReadinessGroupIdentifier::from(reader.read_u8()?);
                 let mut record_data = Vec::new();
-                while let Ok(Some(dtc_record)) = DTCRecord::option_from_reader(reader) {
+                while let Ok(Some(dtc_record)) = DTCRecord::decode(reader) {
                     let dtc_status = DTCStatusMask::from_reader(reader)?;
                     record_data.push((dtc_record, dtc_status));
                 }
@@ -1066,9 +1066,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             Self::UserDefMemoryDTCByStatusMaskList(data_record_struct) => {
                 writer.write_u8(0x17)?;
                 writer.write_u8(data_record_struct.memory_selection)?;
-                data_record_struct
-                    .status_availability_mask
-                    .encode(writer)?;
+                data_record_struct.status_availability_mask.encode(writer)?;
                 for (data_record, status) in &data_record_struct.record_data {
                     data_record.encode(writer)?;
                     status.encode(writer)?;
@@ -1150,7 +1148,7 @@ mod response {
     }
 
     impl WireFormat for TestIdentifier {
-        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
             let mut buf = [0u8; 2];
             reader.read_exact(&mut buf)?;
 
@@ -1183,7 +1181,7 @@ mod response {
     }
 
     impl WireFormat for TestPayload {
-        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
             let mut buf = [0u8; 2];
             reader.read_exact(&mut buf)?;
 
@@ -1817,7 +1815,7 @@ mod ext_data {
     }
 
     impl WireFormat for TestDTCExtDataRecordNumber {
-        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
             let id = reader.read_u8();
             match id {
                 Ok(0x04) => Ok(Some(TestDTCExtDataRecordNumber::WarmUpCycleCount)),
@@ -1847,8 +1845,8 @@ mod ext_data {
     }
 
     impl WireFormat for TestDTCExtData {
-        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-            let id = TestDTCExtDataRecordNumber::option_from_reader(reader)?;
+        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let id = TestDTCExtDataRecordNumber::decode(reader)?;
             match id {
                 Some(TestDTCExtDataRecordNumber::WarmUpCycleCount) => {
                     let count = reader.read_u16::<byteorder::BigEndian>()?;
@@ -1930,7 +1928,7 @@ mod request {
         ))
         .encode(&mut writer)
         .unwrap();
-        let request = ReadDTCInfoRequest::option_from_reader(&mut reader)
+        let request = ReadDTCInfoRequest::decode(&mut reader)
             .unwrap()
             .unwrap();
         assert_eq!(

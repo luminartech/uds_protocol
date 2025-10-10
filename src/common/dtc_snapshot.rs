@@ -18,23 +18,23 @@ pub struct DTCSnapshotRecordList<UserPayload> {
 }
 
 impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identifier> {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let dtc_record = DTCRecord::option_from_reader(reader)?;
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let dtc_record = DTCRecord::decode(reader)?;
         if dtc_record.is_none() {
             return Ok(None);
         }
-        let status_mask = DTCStatusMask::option_from_reader(reader)?;
+        let status_mask = DTCStatusMask::decode(reader)?;
 
         // Loop until we can't read any more records
         let mut snapshot_data = Vec::new();
         loop {
-            let record_number = match DTCSnapshotRecordNumber::option_from_reader(reader) {
+            let record_number = match DTCSnapshotRecordNumber::decode(reader) {
                 Ok(Some(record_number)) => record_number,
                 Ok(None) => break,
                 Err(e) => return Err(e),
             };
 
-            let record = match DTCSnapshotRecord::option_from_reader(reader) {
+            let record = match DTCSnapshotRecord::decode(reader) {
                 Ok(Some(record)) => record,
                 Ok(None) => break,
                 Err(e) => return Err(e),
@@ -109,7 +109,7 @@ impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPayload> {
     #[allow(clippy::cast_possible_truncation)]
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let number_of_dids = reader.read_u8()?;
         // Make sure we read the correct number of DIDs, 0 means unlimited (or at least more than 0xFF)
         let mut data = Vec::new();
@@ -200,7 +200,7 @@ impl PartialEq<u8> for DTCSnapshotRecordNumber {
 }
 
 impl WireFormat for DTCSnapshotRecordNumber {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let Ok(record_number) = reader.read_u8() else {
             return Ok(None);
         };
@@ -247,7 +247,7 @@ mod snapshot {
     }
 
     impl WireFormat for ProtocolPayload {
-        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
             let mut identifier_data: [u8; 2] = [0; 2];
             match reader.read(&mut identifier_data)? {
                 0 => return Ok(None),

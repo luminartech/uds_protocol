@@ -67,7 +67,7 @@ impl ProtocolPayload {
     }
 }
 impl WireFormat for ProtocolPayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut identifier_data: [u8; 2] = [0; 2];
         match reader.read(&mut identifier_data)? {
             0 => return Ok(None),
@@ -140,7 +140,7 @@ mod tests {
         let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x03]);
         let mut buffer = Vec::new();
         assert_eq!(3, payload.encode(&mut buffer).unwrap());
-        let deserialized_payload = ProtocolPayload::option_from_reader(&mut buffer.as_slice())
+        let deserialized_payload = ProtocolPayload::decode(&mut buffer.as_slice())
             .unwrap()
             .unwrap();
         assert_eq!(payload, deserialized_payload);

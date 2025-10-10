@@ -84,7 +84,7 @@ impl SecurityAccessRequest {
 
 impl WireFormat for SecurityAccessRequest {
     /// Deserialization function to read a [`SecurityAccessRequest`] from a `Reader`
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         let mut request_data: Vec<u8> = Vec::new();
         _ = reader.read_to_end(&mut request_data)?;
@@ -142,7 +142,7 @@ impl SecurityAccessResponse {
 
 impl WireFormat for SecurityAccessResponse {
     /// Deserialization function to read a `SecurityAccessResponse` from a [`Reader`](std::io::Read)
-    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
         let mut security_seed = Vec::new();
         let _ = reader.read_to_end(&mut security_seed)?;

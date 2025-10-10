@@ -107,7 +107,7 @@ pub struct SizePayload {
 }
 
 impl WireFormat for SizePayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let file_size_parameter_length = reader.read_u8()?;
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
         let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
@@ -187,7 +187,7 @@ pub struct NamePayload {
 }
 
 impl WireFormat for NamePayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
         let file_path_and_name_length = reader.read_u16::<byteorder::BigEndian>()?;
 
@@ -261,7 +261,7 @@ pub enum RequestFileTransferRequest {
 impl SingleValueWireFormat for RequestFileTransferRequest {}
 
 impl WireFormat for RequestFileTransferRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let name_payload = NamePayload::from_reader(reader)?;
 
         // read the filename
@@ -379,7 +379,7 @@ pub struct SentDataPayload {
 
 impl SingleValueWireFormat for SentDataPayload {}
 impl WireFormat for SentDataPayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let length_format_identifier = reader.read_u8()?;
 
         let mut max_number_of_block_length: Vec<u8> = vec![0; length_format_identifier as usize];
@@ -425,7 +425,7 @@ pub struct FileSizePayload {
 }
 
 impl WireFormat for FileSizePayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let file_size_parameter_length = reader.read_u16::<byteorder::BE>()?;
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
         let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
@@ -498,7 +498,7 @@ pub struct DirSizePayload {
 
 impl SingleValueWireFormat for DirSizePayload {}
 impl WireFormat for DirSizePayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let dir_info_parameter_length = reader.read_u16::<byteorder::BigEndian>()?;
         let mut dir_info_length = vec![0; dir_info_parameter_length as usize];
         reader.read_exact(&mut dir_info_length)?;
@@ -565,7 +565,7 @@ pub struct PositionPayload {
 
 impl SingleValueWireFormat for PositionPayload {}
 impl WireFormat for PositionPayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         Ok(Some(Self {
             file_position: reader.read_u64::<byteorder::BigEndian>()?,
         }))
@@ -615,7 +615,7 @@ pub enum RequestFileTransferResponse {
 
 impl SingleValueWireFormat for RequestFileTransferResponse {}
 impl WireFormat for RequestFileTransferResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         // Read the mode of operation
         let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
         Ok(Some(match mode_of_operation {
@@ -778,7 +778,7 @@ mod request_tests {
         let file_size: u128 = (u64::MAX as u128) + 1000u128;
         let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
         let req: crate::RequestFileTransferRequest =
-            RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
+            RequestFileTransferRequest::decode(&mut bytes.as_slice())
                 .unwrap()
                 .unwrap();
 
@@ -806,7 +806,7 @@ mod request_tests {
     fn delete_file() {
         let compare_string = "/var/tmp/delete_file.bin";
         let bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
-        let req = RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
+        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
 
@@ -831,7 +831,7 @@ mod request_tests {
         let compare_string = "test.txt";
         let file_size: u128 = 0x1234;
         let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
+        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
 

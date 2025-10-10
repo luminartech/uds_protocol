@@ -80,7 +80,7 @@ impl CommunicationControlRequest {
     }
 }
 impl WireFormat for CommunicationControlRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let enable_byte = reader.read_u8()?;
         let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
         let communication_type = CommunicationType::try_from(reader.read_u8()?)?;
@@ -136,7 +136,7 @@ impl CommunicationControlResponse {
 }
 
 impl WireFormat for CommunicationControlResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
         Ok(Some(Self::new(control_type)))
     }

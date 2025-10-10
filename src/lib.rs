@@ -97,7 +97,7 @@ impl From<u8> for RoutineControlSubFunction {
 }
 
 impl WireFormat for Vec<u8> {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
         reader.read_to_end(&mut data)?;
         Ok(Some(data))

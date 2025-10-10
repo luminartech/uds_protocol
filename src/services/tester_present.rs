@@ -97,7 +97,7 @@ impl TesterPresentRequest {
 
 impl WireFormat for TesterPresentRequest {
     /// Deserialization function to read a `TesterPresentRequest` from a `Reader`
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
     }
@@ -137,7 +137,7 @@ impl TesterPresentResponse {
 
 impl WireFormat for TesterPresentResponse {
     /// Create a `TesterPresentResponse` from a sequence of bytes
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
         Ok(Some(Self { zero_sub_function }))
     }
@@ -192,7 +192,7 @@ mod test {
 
     fn make_request(byte: u8) -> Result<Option<TesterPresentRequest>, Error> {
         let bytes = vec![byte];
-        TesterPresentRequest::option_from_reader(&mut bytes.as_slice())
+        TesterPresentRequest::decode(&mut bytes.as_slice())
     }
 
     #[test]
@@ -241,7 +241,7 @@ mod test {
     #[test]
     fn read_response_type() {
         let bytes = vec![0u8];
-        let test_type = TesterPresentResponse::option_from_reader(&mut bytes.as_slice())
+        let test_type = TesterPresentResponse::decode(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());

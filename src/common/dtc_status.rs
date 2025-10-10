@@ -108,7 +108,7 @@ pub enum DTCStatusMask {
 }
 
 impl WireFormat for DTCStatusMask {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
         let status_byte = reader.read_u8()?;
         Ok(Some(Self::from(status_byte)))
     }
@@ -229,7 +229,7 @@ impl From<DTCRecord> for u32 {
 }
 
 impl WireFormat for DTCRecord {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
         let Ok(high_byte) = reader.read_u8() else {
             return Ok(None);
         };
@@ -407,7 +407,7 @@ impl DTCStoredDataRecordNumber {
 }
 
 impl WireFormat for DTCStoredDataRecordNumber {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let value = reader.read_u8()?;
         if value == 0x00 {
             // Reserved for Legislative purposes
@@ -453,14 +453,14 @@ pub struct DTCSeverityRecord {
 }
 
 impl WireFormat for DTCSeverityRecord {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let Ok(sev) = reader.read_u8() else {
             return Ok(None);
         };
 
         let severity = DTCSeverityMask::from(sev);
         let functional_group_identifier = FunctionalGroupIdentifier::from(reader.read_u8()?);
-        let dtc_record = DTCRecord::option_from_reader(reader)?.unwrap();
+        let dtc_record = DTCRecord::decode(reader)?.unwrap();
         let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
 
         Ok(Some(Self {

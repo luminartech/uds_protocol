@@ -44,8 +44,8 @@ impl ClearDiagnosticInfoRequest {
 }
 
 impl WireFormat for ClearDiagnosticInfoRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
-        let group_of_dtc = DTCRecord::option_from_reader(reader)?;
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
+        let group_of_dtc = DTCRecord::decode(reader)?;
         if group_of_dtc.is_none() {
             return Ok(None);
         }

@@ -44,7 +44,7 @@ impl TransferDataRequest {
 }
 
 impl WireFormat for TransferDataRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let block_sequence_counter = reader.read_u8()?;
         let mut data = Vec::new();
         reader.read_to_end(&mut data)?;
@@ -100,7 +100,7 @@ impl TransferDataResponse {
 }
 
 impl WireFormat for TransferDataResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let block_sequence_counter = reader.read_u8()?;
         let mut data = Vec::new();
         reader.read_to_end(&mut data)?;

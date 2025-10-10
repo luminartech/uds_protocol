@@ -70,7 +70,7 @@ impl PartialEq<u8> for DTCExtDataRecordNumber {
 }
 
 impl WireFormat for DTCExtDataRecordNumber {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         match reader.read_u8() {
             Ok(ext_data_record_number) => Ok(Some(Self::new(ext_data_record_number))),
             Err(_) => Ok(None),
@@ -97,7 +97,7 @@ pub struct DTCExtDataRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayload> {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
         for payload in UserPayload::from_reader_iterable(reader) {
             match payload {
@@ -139,12 +139,12 @@ pub struct DTCExtDataRecordList<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPayload> {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mask_record = DTCRecord::from_reader(reader)?;
         let status_mask = DTCStatusMask::from_reader(reader)?;
         let mut record_data = Vec::new();
         // Read the record number, and then the payload
-        if let Some(record) = DTCExtDataRecord::option_from_reader(reader)? {
+        if let Some(record) = DTCExtDataRecord::decode(reader)? {
             record_data.push(record);
         }
         Ok(Some(Self {

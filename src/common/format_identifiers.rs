@@ -161,7 +161,7 @@ impl PartialEq<u8> for DataFormatIdentifier {
 }
 
 impl WireFormat for DataFormatIdentifier {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let value = reader.read_u8()?;
         Ok(Some(DataFormatIdentifier::from(value)))
     }

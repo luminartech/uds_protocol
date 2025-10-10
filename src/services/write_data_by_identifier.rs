@@ -38,8 +38,8 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
     ///
     /// Note: The first two bytes in the reader must represent the data identifier, immediately followed by the
     /// corresponding payload for that identifier.
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let payload = Payload::option_from_reader(reader)?.unwrap();
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+        let payload = Payload::decode(reader)?.unwrap();
         Ok(Some(Self { payload }))
     }
 
@@ -81,8 +81,8 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 
 impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<DataIdentifier> {
     /// Create a `WriteDataByIdentifierResponse` from a stream of bytes, i.e. deserialization.
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let identifier = DataIdentifier::option_from_reader(reader)?.unwrap();
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+        let identifier = DataIdentifier::decode(reader)?.unwrap();
         Ok(Some(Self::new(identifier)))
     }
 
@@ -142,7 +142,7 @@ mod test {
     }
 
     impl WireFormat for TestPayload {
-        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
             let mut buf = [0u8; 2];
             reader.read_exact(&mut buf)?;
 
@@ -190,7 +190,7 @@ mod test {
         assert_eq!(written, request.required_size());
         assert_eq!(written, written_bytes.len());
 
-        let request2 = WriteDataByIdentifierRequest::<TestPayload>::option_from_reader(
+        let request2 = WriteDataByIdentifierRequest::<TestPayload>::decode(
             &mut written_bytes.as_slice(),
         )
         .unwrap()
