@@ -70,7 +70,7 @@ impl PartialEq<u8> for DTCExtDataRecordNumber {
 }
 
 impl WireFormat for DTCExtDataRecordNumber {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         match reader.read_u8() {
             Ok(ext_data_record_number) => Ok(Some(Self::new(ext_data_record_number))),
             Err(_) => Ok(None),
@@ -81,7 +81,7 @@ impl WireFormat for DTCExtDataRecordNumber {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.value())?;
         Ok(self.required_size())
     }
@@ -97,9 +97,9 @@ pub struct DTCExtDataRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayload> {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
-        for payload in UserPayload::from_reader_iterable(reader) {
+        for payload in UserPayload::decode_iterable(reader) {
             match payload {
                 Err(_) => return Ok(None),
                 Ok(payload) => {
@@ -119,9 +119,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayloa
             .sum::<usize>()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         for d in &self.data {
-            d.to_writer(writer)?;
+            d.encode(writer)?;
         }
         Ok(self.required_size())
     }
@@ -139,12 +139,12 @@ pub struct DTCExtDataRecordList<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPayload> {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mask_record = DTCRecord::from_reader(reader)?;
-        let status_mask = DTCStatusMask::from_reader(reader)?;
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let mask_record = DTCRecord::decode_single_value(reader)?;
+        let status_mask = DTCStatusMask::decode_single_value(reader)?;
         let mut record_data = Vec::new();
         // Read the record number, and then the payload
-        if let Some(record) = DTCExtDataRecord::option_from_reader(reader)? {
+        if let Some(record) = DTCExtDataRecord::decode(reader)? {
             record_data.push(record);
         }
         Ok(Some(Self {
@@ -164,11 +164,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPa
                 .sum::<usize>()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.mask_record.to_writer(writer)?;
-        self.status_mask.to_writer(writer)?;
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.mask_record.encode(writer)?;
+        self.status_mask.encode(writer)?;
         for record in &self.record_data {
-            record.to_writer(writer)?;
+            record.encode(writer)?;
         }
         Ok(self.required_size())
     }

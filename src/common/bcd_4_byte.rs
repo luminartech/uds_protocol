@@ -36,7 +36,7 @@ impl FromStr for BCD4ByteLE {
 }
 
 impl WireFormat for BCD4ByteLE {
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut bytes = [0u8; 4];
         reader.read_exact(&mut bytes)?;
         Ok(Some(BCD4ByteLE::from_be(bytes)))
@@ -46,7 +46,7 @@ impl WireFormat for BCD4ByteLE {
         4
     }
 
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let total_written = writer.write(&self.value.to_be_bytes())?;
         Ok(total_written)
     }

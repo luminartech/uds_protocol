@@ -38,7 +38,7 @@ impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
 
 impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<DataIdentifier> {
     /// Create a request from a sequence of bytes
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let dids = DataIdentifier::parse_from_list(reader)?;
         if dids.is_empty() {
             Err(Error::NoDataAvailable)
@@ -52,10 +52,10 @@ impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<Data
     }
 
     /// Write the response as a sequence of bytes to a buffer
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let mut count = 0;
         for did in &self.dids {
-            did.to_writer(writer)?;
+            did.encode(writer)?;
             count += 2;
         }
         Ok(count)
@@ -87,9 +87,9 @@ impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierResponse<UserPayload> {
     /// Create a response from a sequence of bytes
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
-        for payload in UserPayload::from_reader_iterable(reader) {
+        for payload in UserPayload::decode_iterable(reader) {
             match payload {
                 Ok(p) => {
                     data.push(p);
@@ -111,10 +111,10 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
     }
 
     /// Write the response as a sequence of bytes to a buffer
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let mut total_written = 0;
         for payload in &self.data {
-            total_written += payload.to_writer(writer)?;
+            total_written += payload.encode(writer)?;
         }
         Ok(total_written)
     }
@@ -183,7 +183,7 @@ mod test {
             ids.iter()
                 .flat_map(|id: &ProtocolIdentifier| {
                     let mut buffer = Vec::new();
-                    id.to_writer(&mut buffer).unwrap();
+                    id.encode(&mut buffer).unwrap();
                     buffer
                 })
                 .collect()
@@ -230,15 +230,14 @@ mod test {
             ];
 
             for test_data in &test_data_sets {
-                let read_result =
-                    ReadDataByIdentifierRequest::<ProtocolIdentifier>::option_from_reader(
-                        &mut test_data.dids_bytes.as_slice(),
-                    );
+                let read_result = ReadDataByIdentifierRequest::<ProtocolIdentifier>::decode(
+                    &mut test_data.dids_bytes.as_slice(),
+                );
 
                 match read_result {
                     Ok(Some(response)) => {
                         let mut translated_bytes = Vec::new();
-                        response.to_writer(&mut translated_bytes).unwrap();
+                        response.encode(&mut translated_bytes).unwrap();
                         assert_eq!(
                             translated_bytes, *test_data.dids_bytes,
                             "Some: Failed: {}",
@@ -298,7 +297,7 @@ mod test {
             for test_data in &test_data_sets {
                 let request = ReadDataByIdentifierRequest::new(test_data.dids.clone());
                 let mut buffer = Vec::new();
-                let write_result = request.to_writer(&mut buffer);
+                let write_result = request.encode(&mut buffer);
 
                 match write_result {
                     Ok(bytes_read) => {
@@ -357,7 +356,7 @@ mod test {
                     }
                     0xFF02 => Ok(TestPayload::Bar),
                     0xFF03 => {
-                        let data = BazData::option_from_reader(reader)?.unwrap();
+                        let data = BazData::decode(reader)?.unwrap();
                         Ok(TestPayload::Baz(data))
                     }
                     _ => {
@@ -383,7 +382,7 @@ mod test {
         impl IterableWireFormat for TestPayload {}
 
         impl WireFormat for TestPayload {
-            fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
                 let mut identifier_data: [u8; 2] = [0; 2];
                 match reader.read(&mut identifier_data)? {
                     0 => return Ok(None),
@@ -407,7 +406,7 @@ mod test {
             }
 
             #[allow(clippy::match_same_arms)]
-            fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+            fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
                 let id_bytes = u16::from(self.clone()).to_be_bytes();
                 let did_len = writer.write(&id_bytes)?;
                 match self {
@@ -421,14 +420,14 @@ mod test {
                         Ok(did_len + bytes.len())
                     }
                     TestPayload::Bar => Ok(did_len),
-                    TestPayload::Baz(data) => data.to_writer(writer),
+                    TestPayload::Baz(data) => data.encode(writer),
                     TestPayload::UDSIdentifier(_) => Ok(did_len),
                 }
             }
         }
 
         impl WireFormat for BazData {
-            fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
                 let mut data = [0u8; 16];
                 reader.read_exact(&mut data)?;
 
@@ -447,7 +446,7 @@ mod test {
                 26
             }
 
-            fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+            fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
                 writer.write_all(&self.data)?;
                 let mut count = 16;
                 count += writer.write(&self.data2.to_be_bytes())?;
@@ -477,14 +476,12 @@ mod test {
 
             let response = ReadDataByIdentifierResponse::new(test_data);
             let mut buffer = Vec::new();
-            response.to_writer(&mut buffer).unwrap();
+            response.encode(&mut buffer).unwrap();
 
             let read_response: ReadDataByIdentifierResponse<TestPayload> =
-                ReadDataByIdentifierResponse::<TestPayload>::option_from_reader(
-                    &mut buffer.as_slice(),
-                )
-                .unwrap()
-                .unwrap();
+                ReadDataByIdentifierResponse::<TestPayload>::decode(&mut buffer.as_slice())
+                    .unwrap()
+                    .unwrap();
 
             assert_eq!(response, read_response);
         }
@@ -495,13 +492,13 @@ mod test {
 
             let response = ReadDataByIdentifierResponse::new(test_data.clone());
             let mut buffer = Vec::new();
-            let bytes_written = response.to_writer(&mut buffer).unwrap();
+            let bytes_written = response.encode(&mut buffer).unwrap();
 
             let expected_bytes: Vec<u8> = test_data
                 .iter()
                 .flat_map(|payload| {
                     let mut buf = Vec::new();
-                    payload.to_writer(&mut buf).unwrap();
+                    payload.encode(&mut buf).unwrap();
                     buf
                 })
                 .collect();

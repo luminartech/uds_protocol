@@ -107,7 +107,7 @@ pub struct SizePayload {
 }
 
 impl WireFormat for SizePayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let file_size_parameter_length = reader.read_u8()?;
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
         let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
@@ -136,7 +136,7 @@ impl WireFormat for SizePayload {
         1 + (2 * self.file_size_parameter_length as usize)
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Always write the file size as 1 byte
         writer.write_u8(self.file_size_parameter_length)?;
         // write the file size only as many bytes as needed
@@ -187,7 +187,7 @@ pub struct NamePayload {
 }
 
 impl WireFormat for NamePayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
         let file_path_and_name_length = reader.read_u16::<byteorder::BigEndian>()?;
 
@@ -208,7 +208,7 @@ impl WireFormat for NamePayload {
         1 + 2 + self.file_path_and_name.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the mode of operation
         writer.write_u8((self.mode_of_operation).into())?;
         // Write the file path and name length
@@ -261,30 +261,31 @@ pub enum RequestFileTransferRequest {
 impl SingleValueWireFormat for RequestFileTransferRequest {}
 
 impl WireFormat for RequestFileTransferRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let name_payload = NamePayload::from_reader(reader)?;
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let name_payload = NamePayload::decode_single_value(reader)?;
 
         // read the filename
         Ok(Some(match name_payload.mode_of_operation {
             // Complicated
             FileOperationMode::AddFile => Self::AddFile(
                 name_payload,
-                DataFormatIdentifier::from_reader(reader)?,
-                SizePayload::from_reader(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                SizePayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ReplaceFile => Self::ReplaceFile(
                 name_payload,
-                DataFormatIdentifier::from_reader(reader)?,
-                SizePayload::from_reader(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                SizePayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ResumeFile => Self::ResumeFile(
                 name_payload,
-                DataFormatIdentifier::from_reader(reader)?,
-                SizePayload::from_reader(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                SizePayload::decode_single_value(reader)?,
             ),
-            FileOperationMode::ReadFile => {
-                Self::ReadFile(name_payload, DataFormatIdentifier::from_reader(reader)?)
-            }
+            FileOperationMode::ReadFile => Self::ReadFile(
+                name_payload,
+                DataFormatIdentifier::decode_single_value(reader)?,
+            ),
             FileOperationMode::ReadDir => Self::ReadDir(name_payload),
             FileOperationMode::DeleteFile => Self::DeleteFile(name_payload),
             FileOperationMode::ISOSAEReserved(_) => {
@@ -313,24 +314,24 @@ impl WireFormat for RequestFileTransferRequest {
         }
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let mut len = 0;
         Ok(match self {
             Self::AddFile(name_payload, data_format_identifier, file_size_payload)
             | Self::ReplaceFile(name_payload, data_format_identifier, file_size_payload)
             | Self::ResumeFile(name_payload, data_format_identifier, file_size_payload) => {
-                len += name_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
-                len += file_size_payload.to_writer(writer)?;
+                len += name_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
+                len += file_size_payload.encode(writer)?;
                 len
             }
             Self::ReadFile(name_payload, data_format_identifier) => {
-                len += name_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
+                len += name_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
                 len
             }
             Self::DeleteFile(name_payload) | Self::ReadDir(name_payload) => {
-                len += name_payload.to_writer(writer)?;
+                len += name_payload.encode(writer)?;
                 len
             }
         })
@@ -379,7 +380,7 @@ pub struct SentDataPayload {
 
 impl SingleValueWireFormat for SentDataPayload {}
 impl WireFormat for SentDataPayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let length_format_identifier = reader.read_u8()?;
 
         let mut max_number_of_block_length: Vec<u8> = vec![0; length_format_identifier as usize];
@@ -394,7 +395,7 @@ impl WireFormat for SentDataPayload {
         1 + self.max_number_of_block_length.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.length_format_identifier)?;
         writer.write_all(&self.max_number_of_block_length)?;
         Ok(self.required_size())
@@ -425,7 +426,7 @@ pub struct FileSizePayload {
 }
 
 impl WireFormat for FileSizePayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let file_size_parameter_length = reader.read_u16::<byteorder::BE>()?;
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
         let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
@@ -454,7 +455,7 @@ impl WireFormat for FileSizePayload {
         2 + (2 * self.file_size_parameter_length as usize)
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Always write the file size as 1 byte
 
         writer.write_u16::<byteorder::BE>(self.file_size_parameter_length)?;
@@ -498,7 +499,7 @@ pub struct DirSizePayload {
 
 impl SingleValueWireFormat for DirSizePayload {}
 impl WireFormat for DirSizePayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let dir_info_parameter_length = reader.read_u16::<byteorder::BigEndian>()?;
         let mut dir_info_length = vec![0; dir_info_parameter_length as usize];
         reader.read_exact(&mut dir_info_length)?;
@@ -517,7 +518,7 @@ impl WireFormat for DirSizePayload {
         2 + self.dir_info_parameter_length as usize
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let mut len = 0;
         writer.write_u16::<byteorder::BigEndian>(self.dir_info_parameter_length)?;
         len += 2;
@@ -565,7 +566,7 @@ pub struct PositionPayload {
 
 impl SingleValueWireFormat for PositionPayload {}
 impl WireFormat for PositionPayload {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         Ok(Some(Self {
             file_position: reader.read_u64::<byteorder::BigEndian>()?,
         }))
@@ -575,7 +576,7 @@ impl WireFormat for PositionPayload {
         8
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u64::<byteorder::BigEndian>(self.file_position)?;
         Ok(8)
     }
@@ -615,38 +616,38 @@ pub enum RequestFileTransferResponse {
 
 impl SingleValueWireFormat for RequestFileTransferResponse {}
 impl WireFormat for RequestFileTransferResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         // Read the mode of operation
         let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
         Ok(Some(match mode_of_operation {
             FileOperationMode::AddFile => Self::AddFile(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
             ),
             FileOperationMode::DeleteFile => Self::DeleteFile(mode_of_operation),
             FileOperationMode::ReplaceFile => Self::ReplaceFile(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
             ),
             FileOperationMode::ReadFile => Self::ReadFile(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
-                FileSizePayload::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                FileSizePayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ReadDir => Self::ReadDir(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
-                DirSizePayload::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                DirSizePayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ResumeFile => Self::ResumeFile(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
-                PositionPayload::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                PositionPayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ISOSAEReserved(_) => {
                 return Err(Error::InvalidFileOperationMode(mode_of_operation.into()));
@@ -679,7 +680,7 @@ impl WireFormat for RequestFileTransferResponse {
             }
         }
     }
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Every variant has a mode of operation
         let mut len = 1;
 
@@ -687,8 +688,8 @@ impl WireFormat for RequestFileTransferResponse {
             Self::AddFile(mode_of_operation, sent_data_payload, data_format_identifier)
             | Self::ReplaceFile(mode_of_operation, sent_data_payload, data_format_identifier) => {
                 writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
+                len += sent_data_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
             }
             Self::DeleteFile(mode_of_operation) => {
                 writer.write_u8((*mode_of_operation).into())?;
@@ -700,9 +701,9 @@ impl WireFormat for RequestFileTransferResponse {
                 size_payload,
             ) => {
                 writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
-                len += size_payload.to_writer(writer)?;
+                len += sent_data_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
+                len += size_payload.encode(writer)?;
             }
             Self::ReadDir(
                 mode_of_operation,
@@ -711,9 +712,9 @@ impl WireFormat for RequestFileTransferResponse {
                 dir_size_payload,
             ) => {
                 writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
-                len += dir_size_payload.to_writer(writer)?;
+                len += sent_data_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
+                len += dir_size_payload.encode(writer)?;
             }
             Self::ResumeFile(
                 mode_of_operation,
@@ -722,9 +723,9 @@ impl WireFormat for RequestFileTransferResponse {
                 position_payload,
             ) => {
                 writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.to_writer(writer)?;
-                len += data_format_identifier.to_writer(writer)?;
-                len += position_payload.to_writer(writer)?;
+                len += sent_data_payload.encode(writer)?;
+                len += data_format_identifier.encode(writer)?;
+                len += position_payload.encode(writer)?;
             }
         }
         Ok(len)
@@ -778,12 +779,12 @@ mod request_tests {
         let file_size: u128 = (u64::MAX as u128) + 1000u128;
         let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
         let req: crate::RequestFileTransferRequest =
-            RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
+            RequestFileTransferRequest::decode(&mut bytes.as_slice())
                 .unwrap()
                 .unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -806,12 +807,12 @@ mod request_tests {
     fn delete_file() {
         let compare_string = "/var/tmp/delete_file.bin";
         let bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
-        let req = RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
+        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -831,12 +832,12 @@ mod request_tests {
         let compare_string = "test.txt";
         let file_size: u128 = 0x1234;
         let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::option_from_reader(&mut bytes.as_slice())
+        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice())
             .unwrap()
             .unwrap();
 
         let mut bytes = Vec::new();
-        let written = req.to_writer(&mut bytes).unwrap();
+        let written = req.encode(&mut bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -855,7 +856,7 @@ mod request_tests {
             file_path_and_name: compare_string.to_string(),
         });
         let mut bytes = Vec::new();
-        let written = req.to_writer(&mut bytes).unwrap();
+        let written = req.encode(&mut bytes).unwrap();
         // Should be equivalent to our helper function
         let expected_bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
         assert_eq!(bytes, expected_bytes);
@@ -869,10 +870,10 @@ mod request_tests {
         let compare_string = "/opt/testing/replace_file.bin";
         let file_size: u128 = 0x1234;
         let bytes = get_bytes(FileOperationMode::ReplaceFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = RequestFileTransferRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -896,10 +897,10 @@ mod request_tests {
         let compare_string = "/opt/testing/just_reading_stuff.txt";
         let file_size: u128 = 0x0;
         let bytes = get_bytes(FileOperationMode::ReadFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = RequestFileTransferRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -920,9 +921,9 @@ mod request_tests {
         let compare_string = "/var/tmp/resume_file.bin";
         let file_size = 0x1234;
         let bytes = get_bytes(FileOperationMode::ResumeFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = RequestFileTransferRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -1016,11 +1017,11 @@ mod response_tests {
     fn response_add() {
         let bytes = get_bytes(FileOperationMode::AddFile, 0x1234, 0x00, 0x1234, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1039,11 +1040,11 @@ mod response_tests {
     fn delete_file() {
         let bytes = get_bytes(FileOperationMode::DeleteFile, 0, 0, 0, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1059,11 +1060,11 @@ mod response_tests {
     fn replace_file() {
         let bytes = get_bytes(FileOperationMode::ReplaceFile, 0x1_1234, 0, 0, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1082,11 +1083,11 @@ mod response_tests {
     fn read_file() {
         let bytes = get_bytes(FileOperationMode::ReadFile, 0x1, 0x11, 0x11_1111_1111, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1108,11 +1109,11 @@ mod response_tests {
     fn read_dir() {
         let bytes = get_bytes(FileOperationMode::ReadDir, 0x1_1234, 0, 0x11_1111_1111, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 
@@ -1139,11 +1140,11 @@ mod response_tests {
             0x1234_5678_9ABC_DEF0,
         );
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(resp.required_size(), bytes.len());
 

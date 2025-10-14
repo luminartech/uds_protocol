@@ -23,7 +23,7 @@ impl ControlDTCSettingsRequest {
 }
 
 impl WireFormat for ControlDTCSettingsRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let request_byte = reader.read_u8()?;
         let setting = DtcSettings::from(request_byte & !SUCCESS);
         let suppress_response = request_byte & SUCCESS != 0;
@@ -37,7 +37,7 @@ impl WireFormat for ControlDTCSettingsRequest {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         let request_byte =
             u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
         writer.write_u8(request_byte)?;
@@ -70,7 +70,7 @@ impl ControlDTCSettingsResponse {
 }
 
 impl WireFormat for ControlDTCSettingsResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let setting = DtcSettings::from(reader.read_u8()?);
         Ok(Some(Self { setting }))
     }
@@ -79,7 +79,7 @@ impl WireFormat for ControlDTCSettingsResponse {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.setting))?;
         Ok(1)
     }
@@ -96,12 +96,13 @@ mod request {
     fn simple_request() {
         let req = ControlDTCSettingsRequest::new(DtcSettings::On, true);
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
 
-        let parsed = ControlDTCSettingsRequest::from_reader(&mut buffer.as_slice()).unwrap();
+        let parsed =
+            ControlDTCSettingsRequest::decode_single_value(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
         assert!(parsed.suppress_response);
     }
@@ -116,12 +117,13 @@ mod response {
     fn simple_response() {
         let req = ControlDTCSettingsResponse::new(DtcSettings::On);
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         assert_eq!(buffer, vec![0x01]);
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
 
-        let parsed = ControlDTCSettingsResponse::from_reader(&mut buffer.as_slice()).unwrap();
+        let parsed =
+            ControlDTCSettingsResponse::decode_single_value(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
     }
 }

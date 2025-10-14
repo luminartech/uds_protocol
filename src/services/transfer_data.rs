@@ -44,7 +44,7 @@ impl TransferDataRequest {
 }
 
 impl WireFormat for TransferDataRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let block_sequence_counter = reader.read_u8()?;
         let mut data = Vec::new();
         reader.read_to_end(&mut data)?;
@@ -58,7 +58,7 @@ impl WireFormat for TransferDataRequest {
         1 + self.data.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.block_sequence_counter)?;
         writer.write_all(&self.data)?;
         Ok(self.required_size())
@@ -100,7 +100,7 @@ impl TransferDataResponse {
 }
 
 impl WireFormat for TransferDataResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let block_sequence_counter = reader.read_u8()?;
         let mut data = Vec::new();
         reader.read_to_end(&mut data)?;
@@ -114,7 +114,7 @@ impl WireFormat for TransferDataResponse {
         1 + self.data.len()
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.block_sequence_counter)?;
         writer.write_all(&self.data)?;
         Ok(self.required_size())
@@ -139,10 +139,10 @@ mod request {
     #[test]
     fn read_request() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let req = TransferDataRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = TransferDataRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.to_writer(&mut written_bytes).unwrap();
+        let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.required_size());
     }
@@ -155,10 +155,10 @@ mod response {
     #[test]
     fn simple_response() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let resp = TransferDataResponse::from_reader(&mut bytes.as_slice()).unwrap();
+        let resp = TransferDataResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = resp.to_writer(&mut written_bytes).unwrap();
+        let written = resp.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, resp.required_size());
     }

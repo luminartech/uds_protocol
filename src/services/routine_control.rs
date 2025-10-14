@@ -36,10 +36,10 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat>
 impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
     for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
 {
-    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
-        let routine_id = RoutineIdentifier::option_from_reader(reader)?.unwrap();
-        let data = RoutinePayload::option_from_reader(reader)?;
+        let routine_id = RoutineIdentifier::decode(reader)?.unwrap();
+        let data = RoutinePayload::decode(reader)?;
         Ok(Some(Self {
             sub_function,
             routine_id,
@@ -54,11 +54,11 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
         }
     }
 
-    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.sub_function))?;
-        self.routine_id.to_writer(writer)?;
+        self.routine_id.encode(writer)?;
         if let Some(record) = &self.data {
-            record.to_writer(writer)?;
+            record.encode(writer)?;
         }
         Ok(self.required_size())
     }
@@ -105,17 +105,17 @@ impl<RoutineStatusRecord: WireFormat> RoutineControlResponse<RoutineStatusRecord
     /// - if the stream contains partial data
     pub fn status_record_data(&self) -> Result<Vec<u8>, Error> {
         let mut writer: Vec<u8> = Vec::new();
-        self.routine_status_record.to_writer(&mut writer)?;
+        self.routine_status_record.encode(&mut writer)?;
 
         Ok(writer)
     }
 }
 
 impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<RoutineStatusRecord> {
-    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let routine_control_type = RoutineControlSubFunction::from(reader.read_u8()?);
         // Reads the identifier, then can read 0 bytes, 1 byte, or more
-        let routine_status_record = RoutineStatusRecord::option_from_reader(reader)?.unwrap();
+        let routine_status_record = RoutineStatusRecord::decode(reader)?.unwrap();
         Ok(Some(Self {
             routine_control_type,
             routine_status_record,
@@ -128,9 +128,9 @@ impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<Rout
         1 + self.routine_status_record.required_size()
     }
 
-    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.routine_control_type.into())?;
-        self.routine_status_record.to_writer(writer)?;
+        self.routine_status_record.encode(writer)?;
         Ok(self.required_size())
     }
 }
@@ -168,7 +168,7 @@ mod request {
         // Fake data: StartRoutine, RoutineID of 0x8606 for "Start O2 Sensor Heater Test" or something
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
         let req: RoutineControlRequestType =
-            RoutineControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
+            RoutineControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.sub_function), 0x01);
         assert_eq!(req.routine_id, TestIdentifier::from(0x0001));
@@ -176,7 +176,7 @@ mod request {
         assert_eq!(data, vec![0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();
-        let written = req.to_writer(&mut buf).unwrap();
+        let written = req.encode(&mut buf).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, req.required_size());
 
@@ -194,7 +194,7 @@ mod request {
     fn simple_response() {
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
         let resp: RoutineControlResponse<Vec<u8>> =
-            RoutineControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
+            RoutineControlResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(
             resp.routine_control_type,
@@ -207,7 +207,7 @@ mod request {
         );
 
         let mut buf = Vec::new();
-        let written = resp.to_writer(&mut buf).unwrap();
+        let written = resp.encode(&mut buf).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, resp.required_size());
 

@@ -9,7 +9,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 /// as part of the UDS Protocol ecosystem.
 ///
 /// Some types need the ability to be deserialized without knowing the size of the data in advance.
-/// To support this, the `option_from_reader` function returns an `Option<Self>`.
+/// To support this, the `decode` function returns an `Option<Self>`.
 /// If the reader contains a complete value, it returns `Some(value)`.
 /// If the reader is completely empty, it returns `None`.
 /// Many types will never return `None`, and for these types, the `SingleValueWireFormat`,
@@ -21,7 +21,7 @@ pub trait WireFormat: Sized {
     /// # Errors
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
 
     /// Returns the number of bytes required to serialize this value.
     fn required_size(&self) -> usize;
@@ -30,7 +30,7 @@ pub trait WireFormat: Sized {
     /// Returns the number of bytes written.
     /// # Errors
     /// - If the data cannot be written to the stream
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error>;
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error>;
 
     /// For some UDS messages, positive replies can be suppressed via the SPRMIB (bit 7 position) of the request.
     ///
@@ -51,7 +51,7 @@ struct WireFormatIterator<'a, T, R> {
 impl<T: WireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_, T, R> {
     type Item = Result<T, Error>;
     fn next(&mut self) -> Option<Self::Item> {
-        match T::option_from_reader(self.reader.by_ref()) {
+        match T::decode(self.reader.by_ref()) {
             Ok(Some(value)) => Some(Ok(value)),
             Ok(None) => None,
             Err(e) => Some(Err(e)),
@@ -60,7 +60,7 @@ impl<T: WireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_, T, R> 
 }
 
 pub trait IterableWireFormat: WireFormat {
-    fn from_reader_iterable<T: std::io::Read>(
+    fn decode_iterable<T: std::io::Read>(
         reader: &mut T,
     ) -> impl Iterator<Item = Result<Self, Error>> {
         WireFormatIterator {
@@ -74,8 +74,8 @@ pub trait SingleValueWireFormat: WireFormat {
     /// # Errors
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        Ok(Self::option_from_reader(reader)?.expect(
+    fn decode_single_value<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        Ok(Self::decode(reader)?.expect(
             "SingleValueWireFormat is only valid to implement on types which never return none",
         ))
     }
@@ -136,7 +136,7 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     /// while let Some(identifier) = MyIdentifier::parse_from_payload(&mut buffer).unwrap() {
     ///     match identifier {
     ///        MyIdentifier::Identifier1 | MyIdentifier::Identifier2 => {
-    ///           let payload = MyPayload::from_reader(&mut buffer).unwrap();
+    ///           let payload = MyPayload::decode(&mut buffer).unwrap();
     ///         }
     ///        // No payload for Identifier3
     ///        MyIdentifier::MyIdentifier3 => (),
@@ -149,7 +149,7 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
     fn parse_from_payload<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        Self::option_from_reader(reader)
+        Self::decode(reader)
     }
 }
 
@@ -160,7 +160,7 @@ impl<T> WireFormat for T
 where
     T: Identifier,
 {
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut identifier_data: [u8; 2] = [0; 2];
         match reader.read(&mut identifier_data)? {
             0 => return Ok(None),
@@ -181,7 +181,7 @@ where
         2
     }
 
-    fn to_writer<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         writer.write_u16::<BigEndian>((*self).into())?;
         Ok(2)
     }
@@ -290,7 +290,7 @@ mod tests {
     fn test_identifier() {
         let mut buffer = Cursor::new(vec![0u8; 2]);
         let identifier = MyIdentifier::Identifier1;
-        identifier.to_writer(&mut buffer).unwrap();
+        identifier.encode(&mut buffer).unwrap();
         buffer.set_position(0);
         let read_identifier = MyIdentifier::parse_from_list(&mut buffer).unwrap();
         assert_eq!(identifier, read_identifier[0]);

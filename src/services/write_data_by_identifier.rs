@@ -38,8 +38,8 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
     ///
     /// Note: The first two bytes in the reader must represent the data identifier, immediately followed by the
     /// corresponding payload for that identifier.
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let payload = Payload::option_from_reader(reader)?.unwrap();
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+        let payload = Payload::decode(reader)?.unwrap();
         Ok(Some(Self { payload }))
     }
 
@@ -51,9 +51,9 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
     ///
     /// Note: The first two bytes of the writer will be the data identifier, immediately followed by the corresponding
     /// payload for that identifier.
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Payload must implement the extra bytes, because option_from_reader needs to know how to interpret payload message
-        self.payload.to_writer(writer)
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
+        self.payload.encode(writer)
     }
 }
 
@@ -81,8 +81,8 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 
 impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<DataIdentifier> {
     /// Create a `WriteDataByIdentifierResponse` from a stream of bytes, i.e. deserialization.
-    fn option_from_reader<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let identifier = DataIdentifier::option_from_reader(reader)?.unwrap();
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+        let identifier = DataIdentifier::decode(reader)?.unwrap();
         Ok(Some(Self::new(identifier)))
     }
 
@@ -91,9 +91,9 @@ impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<Da
     }
 
     /// Serialize a `WriteDataByIdentifierResponse` instance.
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Payload must implement the extra bytes, because option_from_reader needs to know how to interpret payload message
-        self.identifier.to_writer(writer)
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
+        self.identifier.encode(writer)
     }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -142,7 +142,7 @@ mod test {
     }
 
     impl WireFormat for TestPayload {
-        fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
             let mut buf = [0u8; 2];
             reader.read_exact(&mut buf)?;
 
@@ -157,7 +157,7 @@ mod test {
             }
         }
 
-        fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             let id_bytes: u16 = match self {
                 TestPayload::Abracadabra(_) => 0xBEEF,
             };
@@ -186,15 +186,14 @@ mod test {
         let request = WriteDataByIdentifierRequest::new(TestPayload::Abracadabra(42));
 
         let mut written_bytes = Vec::new();
-        let written = request.to_writer(&mut written_bytes).unwrap();
+        let written = request.encode(&mut written_bytes).unwrap();
         assert_eq!(written, request.required_size());
         assert_eq!(written, written_bytes.len());
 
-        let request2 = WriteDataByIdentifierRequest::<TestPayload>::option_from_reader(
-            &mut written_bytes.as_slice(),
-        )
-        .unwrap()
-        .unwrap();
+        let request2 =
+            WriteDataByIdentifierRequest::<TestPayload>::decode(&mut written_bytes.as_slice())
+                .unwrap()
+                .unwrap();
         assert_eq!(request, request2);
     }
 
@@ -203,7 +202,7 @@ mod test {
         let response = WriteDataByIdentifierResponse::new(TestIdentifier::Abracadabra);
 
         let mut written_bytes = Vec::new();
-        let written = response.to_writer(&mut written_bytes).unwrap();
+        let written = response.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, response.required_size());
     }

@@ -50,7 +50,7 @@ impl<D: DiagnosticDefinition> Request<D> {
             memory_selection,
         ))
     }
-
+    /// Create a `ClearDiagnosticInfo` request that clears all DTC information in one or more servers' memory
     #[must_use]
     pub fn clear_all_dtc_info(memory_selection: u8) -> Self {
         Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::clear_all(memory_selection))
@@ -269,44 +269,46 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
     /// Some services allow for custom byte arrays at the end of the request
     /// It is important that only the request data is passed to this function
     /// or the deserialization could read unexpected data
-    fn option_from_reader<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         Ok(Some(match service {
-            UdsServiceType::CommunicationControl => {
-                Self::CommunicationControl(CommunicationControlRequest::from_reader(reader)?)
-            }
+            UdsServiceType::CommunicationControl => Self::CommunicationControl(
+                CommunicationControlRequest::decode_single_value(reader)?,
+            ),
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettingsRequest::from_reader(reader)?)
+                Self::ControlDTCSettings(ControlDTCSettingsRequest::decode_single_value(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlRequest::from_reader(reader)?,
+                DiagnosticSessionControlRequest::decode_single_value(reader)?,
             ),
-            UdsServiceType::EcuReset => Self::EcuReset(EcuResetRequest::from_reader(reader)?),
-            UdsServiceType::ReadDataByIdentifier => {
-                Self::ReadDataByIdentifier(ReadDataByIdentifierRequest::from_reader(reader)?)
+            UdsServiceType::EcuReset => {
+                Self::EcuReset(EcuResetRequest::decode_single_value(reader)?)
             }
+            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
+                ReadDataByIdentifierRequest::decode_single_value(reader)?,
+            ),
             UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(ReadDTCInfoRequest::from_reader(reader)?)
+                Self::ReadDTCInfo(ReadDTCInfoRequest::decode_single_value(reader)?)
             }
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownloadRequest::from_reader(reader)?)
+                Self::RequestDownload(RequestDownloadRequest::decode_single_value(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
-                Self::RoutineControl(RoutineControlRequest::from_reader(reader)?)
+                Self::RoutineControl(RoutineControlRequest::decode_single_value(reader)?)
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(SecurityAccessRequest::from_reader(reader)?)
+                Self::SecurityAccess(SecurityAccessRequest::decode_single_value(reader)?)
             }
             UdsServiceType::TesterPresent => {
-                Self::TesterPresent(TesterPresentRequest::from_reader(reader)?)
+                Self::TesterPresent(TesterPresentRequest::decode_single_value(reader)?)
             }
             UdsServiceType::TransferData => {
-                Self::TransferData(TransferDataRequest::from_reader(reader)?)
+                Self::TransferData(TransferDataRequest::decode_single_value(reader)?)
             }
-            UdsServiceType::WriteDataByIdentifier => {
-                Self::WriteDataByIdentifier(WriteDataByIdentifierRequest::from_reader(reader)?)
-            }
+            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
+                WriteDataByIdentifierRequest::decode_single_value(reader)?,
+            ),
             UdsServiceType::Authentication => todo!(),
             UdsServiceType::AccessTimingParameters => todo!(),
             UdsServiceType::SecuredDataTransmission => todo!(),
@@ -348,25 +350,25 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
     /// Serialization function to write a [`Request`] to a [`Writer`](std::io::Write)
     /// This function writes the service byte and then calls the appropriate
     /// serialization function for the service represented by self.
-    fn to_writer<W: Write>(&self, writer: &mut W) -> Result<usize, Error> {
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<usize, Error> {
         // Write the service byte
         writer.write_u8(self.service().request_service_to_byte())?;
         // Write the payload
         Ok(1 + match self {
-            Self::ClearDiagnosticInfo(cdi) => cdi.to_writer(writer),
-            Self::CommunicationControl(cc) => cc.to_writer(writer),
-            Self::ControlDTCSettings(ct) => ct.to_writer(writer),
-            Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
-            Self::EcuReset(er) => er.to_writer(writer),
-            Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),
-            Self::ReadDTCInfo(rd) => rd.to_writer(writer),
-            Self::RequestDownload(rd) => rd.to_writer(writer),
+            Self::ClearDiagnosticInfo(cdi) => cdi.encode(writer),
+            Self::CommunicationControl(cc) => cc.encode(writer),
+            Self::ControlDTCSettings(ct) => ct.encode(writer),
+            Self::DiagnosticSessionControl(ds) => ds.encode(writer),
+            Self::EcuReset(er) => er.encode(writer),
+            Self::ReadDataByIdentifier(rd) => rd.encode(writer),
+            Self::ReadDTCInfo(rd) => rd.encode(writer),
+            Self::RequestDownload(rd) => rd.encode(writer),
             Self::RequestTransferExit => Ok(0),
-            Self::RoutineControl(rc) => rc.to_writer(writer),
-            Self::SecurityAccess(sa) => sa.to_writer(writer),
-            Self::TesterPresent(tp) => tp.to_writer(writer),
-            Self::TransferData(td) => td.to_writer(writer),
-            Self::WriteDataByIdentifier(wd) => wd.to_writer(writer),
+            Self::RoutineControl(rc) => rc.encode(writer),
+            Self::SecurityAccess(sa) => sa.encode(writer),
+            Self::TesterPresent(tp) => tp.encode(writer),
+            Self::TransferData(td) => td.encode(writer),
+            Self::WriteDataByIdentifier(wd) => wd.encode(writer),
         }?)
     }
 

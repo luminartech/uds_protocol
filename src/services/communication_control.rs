@@ -33,7 +33,7 @@ impl CommunicationControlRequest {
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
     ) -> Self {
-        assert!(!control_type.is_extended_address_variant());
+        debug_assert!(!control_type.is_extended_address_variant());
         Self {
             control_type: SuppressablePositiveResponse::new(
                 suppress_positive_response,
@@ -80,7 +80,7 @@ impl CommunicationControlRequest {
     }
 }
 impl WireFormat for CommunicationControlRequest {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let enable_byte = reader.read_u8()?;
         let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
         let communication_type = CommunicationType::try_from(reader.read_u8()?)?;
@@ -106,7 +106,7 @@ impl WireFormat for CommunicationControlRequest {
         if self.node_id.is_some() { 4 } else { 2 }
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.control_type))?;
         writer.write_u8(u8::from(self.communication_type))?;
         if let Some(id) = self.node_id {
@@ -136,7 +136,7 @@ impl CommunicationControlResponse {
 }
 
 impl WireFormat for CommunicationControlResponse {
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
         Ok(Some(Self::new(control_type)))
     }
@@ -145,7 +145,7 @@ impl WireFormat for CommunicationControlResponse {
         1
     }
 
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.control_type))?;
         Ok(1)
     }
@@ -160,7 +160,7 @@ mod request {
     #[test]
     fn simple_request() {
         let bytes: [u8; 3] = [0x01, 0x02, 0x03];
-        let req = CommunicationControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = CommunicationControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndDisableTx
@@ -169,7 +169,7 @@ mod request {
         assert_eq!(req.node_id, None);
 
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         assert_eq!(written, req.required_size());
         assert_eq!(buffer.len(), req.required_size());
     }
@@ -177,7 +177,7 @@ mod request {
     #[test]
     fn node_id() {
         let bytes: [u8; 4] = [0x05, 0x02, 0x01, 0x02];
-        let req = CommunicationControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = CommunicationControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
@@ -186,7 +186,7 @@ mod request {
         assert_eq!(req.node_id, Some(258));
 
         let mut buffer = Vec::new();
-        let written = req.to_writer(&mut buffer).unwrap();
+        let written = req.encode(&mut buffer).unwrap();
         assert_eq!(written, req.required_size());
         assert_eq!(buffer.len(), req.required_size());
     }
@@ -222,14 +222,14 @@ mod response {
     #[test]
     fn simple_response() {
         let bytes: [u8; 1] = [0x01];
-        let res = CommunicationControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
+        let res = CommunicationControlResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             res.control_type,
             CommunicationControlType::EnableRxAndDisableTx
         );
 
         let mut buffer = Vec::new();
-        let written = res.to_writer(&mut buffer).unwrap();
+        let written = res.encode(&mut buffer).unwrap();
         assert_eq!(written, 1);
         assert_eq!(buffer.len(), written);
     }

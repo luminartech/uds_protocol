@@ -19,6 +19,7 @@ pub struct UdsResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Response<D: DiagnosticDefinition> {
+    /// Response to a [`ClearDiagnosticInfoRequest`](crate::ClearDiagnosticInfoRequest)
     ClearDiagnosticInfo,
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
@@ -30,18 +31,25 @@ pub enum Response<D: DiagnosticDefinition> {
     EcuReset(EcuResetResponse),
     /// Negative response to any request
     NegativeResponse(NegativeResponse),
+    /// Response to a [`ReadDataByIdentifierRequest`](crate::ReadDataByIdentifierRequest)
     ReadDataByIdentifier(ReadDataByIdentifierResponse<D::DiagnosticPayload>),
+    /// Response to a [`ReadDTCInfoRequest`](crate::ReadDTCInfoRequest)
     ReadDTCInfo(ReadDTCInfoResponse<D::DiagnosticPayload>),
     /// Response to a [`RequestDownload`](crate::RequestDownload)
     RequestDownload(RequestDownloadResponse),
+    /// Response to a [`RequestFileTransfer`](crate::RequestFileTransfer)
     RequestFileTransfer(RequestFileTransferResponse),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
     RoutineControl(RoutineControlResponse<D::RoutinePayload>),
+    /// Response to a [`SecurityAccessRequest`](crate::SecurityAccessRequest)
     SecurityAccess(SecurityAccessResponse),
+    /// Response to a [`TesterPresentRequest`](crate::TesterPresentRequest)
     TesterPresent(TesterPresentResponse),
+    /// Response to a [`TransferDataRequest`](crate::TransferDataRequest)
     TransferData(TransferDataResponse),
+    /// Response to a [`WriteDataByIdentifierRequest`](crate::WriteDataByIdentifierRequest)
     WriteDataByIdentifier(WriteDataByIdentifierResponse<D::DID>),
 }
 
@@ -152,47 +160,49 @@ impl<D: DiagnosticDefinition> Response<D> {
 }
 
 impl<D: DiagnosticDefinition> WireFormat for Response<D> {
-    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
-            UdsServiceType::CommunicationControl => {
-                Self::CommunicationControl(CommunicationControlResponse::from_reader(reader)?)
-            }
+            UdsServiceType::CommunicationControl => Self::CommunicationControl(
+                CommunicationControlResponse::decode_single_value(reader)?,
+            ),
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettingsResponse::from_reader(reader)?)
+                Self::ControlDTCSettings(ControlDTCSettingsResponse::decode_single_value(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlResponse::from_reader(reader)?,
+                DiagnosticSessionControlResponse::decode_single_value(reader)?,
             ),
-            UdsServiceType::EcuReset => Self::EcuReset(EcuResetResponse::from_reader(reader)?),
-            UdsServiceType::ReadDataByIdentifier => {
-                Self::ReadDataByIdentifier(ReadDataByIdentifierResponse::from_reader(reader)?)
+            UdsServiceType::EcuReset => {
+                Self::EcuReset(EcuResetResponse::decode_single_value(reader)?)
             }
+            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
+                ReadDataByIdentifierResponse::decode_single_value(reader)?,
+            ),
             UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(ReadDTCInfoResponse::from_reader(reader)?)
+                Self::ReadDTCInfo(ReadDTCInfoResponse::decode_single_value(reader)?)
             }
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownloadResponse::from_reader(reader)?)
+                Self::RequestDownload(RequestDownloadResponse::decode_single_value(reader)?)
             }
             UdsServiceType::RequestFileTransfer => {
-                Self::RequestFileTransfer(RequestFileTransferResponse::from_reader(reader)?)
+                Self::RequestFileTransfer(RequestFileTransferResponse::decode_single_value(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
-                Self::RoutineControl(RoutineControlResponse::from_reader(reader)?)
+                Self::RoutineControl(RoutineControlResponse::decode_single_value(reader)?)
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(SecurityAccessResponse::from_reader(reader)?)
+                Self::SecurityAccess(SecurityAccessResponse::decode_single_value(reader)?)
             }
             UdsServiceType::TesterPresent => {
-                Self::TesterPresent(TesterPresentResponse::from_reader(reader)?)
+                Self::TesterPresent(TesterPresentResponse::decode_single_value(reader)?)
             }
             UdsServiceType::NegativeResponse => {
-                Self::NegativeResponse(NegativeResponse::from_reader(reader)?)
+                Self::NegativeResponse(NegativeResponse::decode_single_value(reader)?)
             }
-            UdsServiceType::WriteDataByIdentifier => {
-                Self::WriteDataByIdentifier(WriteDataByIdentifierResponse::from_reader(reader)?)
-            }
+            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
+                WriteDataByIdentifierResponse::decode_single_value(reader)?,
+            ),
             UdsServiceType::Authentication => todo!(),
             UdsServiceType::AccessTimingParameters => todo!(),
             UdsServiceType::SecuredDataTransmission => todo!(),
@@ -207,7 +217,7 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
             UdsServiceType::InputOutputControlByIdentifier => todo!(),
             UdsServiceType::RequestUpload => todo!(),
             UdsServiceType::TransferData => {
-                Self::TransferData(TransferDataResponse::from_reader(reader)?)
+                Self::TransferData(TransferDataResponse::decode_single_value(reader)?)
             }
             UdsServiceType::UnsupportedDiagnosticService => todo!(),
         }))
@@ -236,27 +246,27 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
     }
 
     #[allow(clippy::match_same_arms)]
-    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Write the service byte
         writer.write_u8(self.service().response_to_byte())?;
         // Write the payload
         Ok(1 + match self {
             Self::ClearDiagnosticInfo => Ok(0),
-            Self::CommunicationControl(cc) => cc.to_writer(writer),
-            Self::ControlDTCSettings(dtc) => dtc.to_writer(writer),
-            Self::DiagnosticSessionControl(ds) => ds.to_writer(writer),
-            Self::EcuReset(reset) => reset.to_writer(writer),
-            Self::NegativeResponse(nr) => nr.to_writer(writer),
-            Self::ReadDataByIdentifier(rd) => rd.to_writer(writer),
-            Self::ReadDTCInfo(rd) => rd.to_writer(writer),
-            Self::RequestDownload(rd) => rd.to_writer(writer),
-            Self::RequestFileTransfer(rft) => rft.to_writer(writer),
+            Self::CommunicationControl(cc) => cc.encode(writer),
+            Self::ControlDTCSettings(dtc) => dtc.encode(writer),
+            Self::DiagnosticSessionControl(ds) => ds.encode(writer),
+            Self::EcuReset(reset) => reset.encode(writer),
+            Self::NegativeResponse(nr) => nr.encode(writer),
+            Self::ReadDataByIdentifier(rd) => rd.encode(writer),
+            Self::ReadDTCInfo(rd) => rd.encode(writer),
+            Self::RequestDownload(rd) => rd.encode(writer),
+            Self::RequestFileTransfer(rft) => rft.encode(writer),
             Self::RequestTransferExit => Ok(0),
-            Self::RoutineControl(rc) => rc.to_writer(writer),
-            Self::SecurityAccess(sa) => sa.to_writer(writer),
-            Self::TesterPresent(tp) => tp.to_writer(writer),
-            Self::TransferData(td) => td.to_writer(writer),
-            Self::WriteDataByIdentifier(wdbi) => wdbi.to_writer(writer),
+            Self::RoutineControl(rc) => rc.encode(writer),
+            Self::SecurityAccess(sa) => sa.encode(writer),
+            Self::TesterPresent(tp) => tp.encode(writer),
+            Self::TransferData(td) => td.encode(writer),
+            Self::WriteDataByIdentifier(wdbi) => wdbi.encode(writer),
         }?)
     }
 }

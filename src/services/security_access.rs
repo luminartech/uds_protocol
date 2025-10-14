@@ -84,7 +84,7 @@ impl SecurityAccessRequest {
 
 impl WireFormat for SecurityAccessRequest {
     /// Deserialization function to read a [`SecurityAccessRequest`] from a `Reader`
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         let mut request_data: Vec<u8> = Vec::new();
         _ = reader.read_to_end(&mut request_data)?;
@@ -99,7 +99,7 @@ impl WireFormat for SecurityAccessRequest {
     }
 
     /// Serialization function to write a [`SecurityAccessRequest`] to a `Writer`
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.access_type))?;
         writer.write_all(&self.request_data)?;
         Ok(self.required_size())
@@ -142,7 +142,7 @@ impl SecurityAccessResponse {
 
 impl WireFormat for SecurityAccessResponse {
     /// Deserialization function to read a `SecurityAccessResponse` from a [`Reader`](std::io::Read)
-    fn option_from_reader<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
         let mut security_seed = Vec::new();
         let _ = reader.read_to_end(&mut security_seed)?;
@@ -157,7 +157,7 @@ impl WireFormat for SecurityAccessResponse {
     }
 
     /// Serialization function to write a `SecurityAccessResponse` to a [`Writer`](std::io::Write)
-    fn to_writer<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.access_type))?;
         writer.write_all(&self.security_seed)?;
         Ok(self.required_size())
@@ -176,7 +176,7 @@ mod request {
             0x01, // aka SecurityAccessType::RequestSeed(0x01)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let req = SecurityAccessRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = SecurityAccessRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(
             req.access_type,
@@ -184,7 +184,7 @@ mod request {
         );
 
         let mut buf = Vec::new();
-        let written = req.to_writer(&mut buf).unwrap();
+        let written = req.encode(&mut buf).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, req.required_size());
     }
@@ -200,13 +200,13 @@ mod response {
             0x02, // aka SecurityAccessType::SendKey(0x02)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let resp = SecurityAccessResponse::from_reader(&mut bytes.as_slice()).unwrap();
+        let resp = SecurityAccessResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(resp.access_type, SecurityAccessType::SendKey(0x02));
         assert_eq!(resp.security_seed, vec![0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();
-        let written = resp.to_writer(&mut buf).unwrap();
+        let written = resp.encode(&mut buf).unwrap();
         assert_eq!(written, bytes.len());
         assert_eq!(written, resp.required_size());
     }

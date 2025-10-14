@@ -63,7 +63,7 @@ impl DiagnosticSessionControlRequest {
 }
 impl WireFormat for DiagnosticSessionControlRequest {
     /// Deserialization function to read a `DiagnosticSessionControlRequest` from a `Reader`
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
         Ok(Some(Self { session_type }))
     }
@@ -73,7 +73,7 @@ impl WireFormat for DiagnosticSessionControlRequest {
     }
 
     /// Serialization function to write a `DiagnosticSessionControlRequest` to a `Writer`
-    fn to_writer<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(u8::from(self.session_type))?;
         Ok(1)
     }
@@ -112,7 +112,7 @@ impl DiagnosticSessionControlResponse {
 }
 impl WireFormat for DiagnosticSessionControlResponse {
     /// Read a `DiagnosticSessionControlResponse` from a `Reader`
-    fn option_from_reader<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
         let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
         let p2_star_server_max = reader.read_u16::<byteorder::BigEndian>()?;
@@ -128,7 +128,7 @@ impl WireFormat for DiagnosticSessionControlResponse {
     }
 
     /// Write a `DiagnosticSessionControlResponse` to a `Writer`
-    fn to_writer<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
+    fn encode<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.session_type))?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_server_max)?;
         buffer.write_u16::<byteorder::BigEndian>(self.p2_star_server_max)?;
@@ -148,7 +148,7 @@ mod request {
     fn test_diagnostic_session_control_request() {
         let bytes: [u8; 1] = [0x02];
         let req: DiagnosticSessionControlRequest =
-            DiagnosticSessionControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
+            DiagnosticSessionControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
         assert!(!req.suppress_positive_response());
         assert_eq!(
             req.session_type(),
@@ -156,7 +156,7 @@ mod request {
         );
 
         let mut buffer = Vec::new();
-        req.to_writer(&mut buffer).unwrap();
+        req.encode(&mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(req.required_size(), 1);
     }
@@ -171,13 +171,13 @@ mod response {
     fn test_diagnostic_session_control_response() {
         let bytes = [0x02, 0x11, 0x22, 0x33, 0x44];
         let resp: DiagnosticSessionControlResponse =
-            DiagnosticSessionControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
+            DiagnosticSessionControlResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
         assert_eq!(resp.session_type, DiagnosticSessionType::ProgrammingSession);
         assert_eq!(resp.p2_server_max, 0x1122);
         assert_eq!(resp.p2_star_server_max, 0x3344);
 
         let mut buffer = Vec::new();
-        resp.to_writer(&mut buffer).unwrap();
+        resp.encode(&mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(resp.required_size(), 5);
     }
