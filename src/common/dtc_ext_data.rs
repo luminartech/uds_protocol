@@ -99,7 +99,7 @@ pub struct DTCExtDataRecord<UserPayload> {
 impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayload> {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
-        for payload in UserPayload::from_reader_iterable(reader) {
+        for payload in UserPayload::decode_iterable(reader) {
             match payload {
                 Err(_) => return Ok(None),
                 Ok(payload) => {

@@ -113,7 +113,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
         let number_of_dids = reader.read_u8()?;
         // Make sure we read the correct number of DIDs, 0 means unlimited (or at least more than 0xFF)
         let mut data = Vec::new();
-        for payload in UserPayload::from_reader_iterable(reader) {
+        for payload in UserPayload::decode_iterable(reader) {
             match payload {
                 Ok(did) => {
                     data.push(did);

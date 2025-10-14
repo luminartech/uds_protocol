@@ -826,7 +826,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
                 let mut dtcs = Vec::new();
 
-                for dtc_severity_record in DTCSeverityRecord::from_reader_iterable(reader) {
+                for dtc_severity_record in DTCSeverityRecord::decode_iterable(reader) {
                     match dtc_severity_record {
                         Ok(p) => {
                             dtcs.push(p);
@@ -845,8 +845,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             }
             0x14 => {
                 let mut dtcs = Vec::new();
-                for dtc_fault_record in DTCFaultDetectionCounterRecord::from_reader_iterable(reader)
-                {
+                for dtc_fault_record in DTCFaultDetectionCounterRecord::decode_iterable(reader) {
                     match dtc_fault_record {
                         Ok(p) => {
                             dtcs.push(p);

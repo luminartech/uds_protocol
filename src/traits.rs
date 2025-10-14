@@ -60,7 +60,7 @@ impl<T: WireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_, T, R> 
 }
 
 pub trait IterableWireFormat: WireFormat {
-    fn from_reader_iterable<T: std::io::Read>(
+    fn decode_iterable<T: std::io::Read>(
         reader: &mut T,
     ) -> impl Iterator<Item = Result<Self, Error>> {
         WireFormatIterator {

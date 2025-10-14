@@ -89,7 +89,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
     /// Create a response from a sequence of bytes
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
-        for payload in UserPayload::from_reader_iterable(reader) {
+        for payload in UserPayload::decode_iterable(reader) {
             match payload {
                 Ok(p) => {
                     data.push(p);
