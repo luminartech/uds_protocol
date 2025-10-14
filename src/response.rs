@@ -15,10 +15,12 @@ pub struct UdsResponse {
     pub data: Vec<u8>,
 }
 
+/// A UDS response to a UDS request
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Response<D: DiagnosticDefinition> {
+    /// Response to a [`ClearDiagnosticInfoRequest`](crate::ClearDiagnosticInfoRequest)
     ClearDiagnosticInfo,
     /// Response to a [`CommunicationControlRequest`](crate::CommunicationControlRequest)
     CommunicationControl(CommunicationControlResponse),
@@ -30,18 +32,25 @@ pub enum Response<D: DiagnosticDefinition> {
     EcuReset(EcuResetResponse),
     /// Negative response to any request
     NegativeResponse(NegativeResponse),
+    /// Response to a [`ReadDataByIdentifierRequest`](crate::ReadDataByIdentifierRequest)
     ReadDataByIdentifier(ReadDataByIdentifierResponse<D::DiagnosticPayload>),
+    /// Response to a [`ReadDTCInfoRequest`](crate::ReadDTCInfoRequest)
     ReadDTCInfo(ReadDTCInfoResponse<D::DiagnosticPayload>),
     /// Response to a [`RequestDownload`](crate::RequestDownload)
     RequestDownload(RequestDownloadResponse),
+    /// Response to a [`RequestFileTransfer`](crate::RequestFileTransfer)
     RequestFileTransfer(RequestFileTransferResponse),
     /// Response to a [`RequestTransferExit`](crate::RequestTransferExit)
     RequestTransferExit,
     /// Response to a [`RoutineControl` request](crate::RoutineControlRequest)
     RoutineControl(RoutineControlResponse<D::RoutinePayload>),
+    /// Response to a [`SecurityAccessRequest`](crate::SecurityAccessRequest)
     SecurityAccess(SecurityAccessResponse),
+    /// Response to a [`TesterPresentRequest`](crate::TesterPresentRequest)
     TesterPresent(TesterPresentResponse),
+    /// Response to a [`TransferDataRequest`](crate::TransferDataRequest)
     TransferData(TransferDataResponse),
+    /// Response to a [`WriteDataByIdentifierRequest`](crate::WriteDataByIdentifierRequest)
     WriteDataByIdentifier(WriteDataByIdentifierResponse<D::DID>),
 }
 
