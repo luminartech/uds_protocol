@@ -52,7 +52,7 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
     /// Note: The first two bytes of the writer will be the data identifier, immediately followed by the corresponding
     /// payload for that identifier.
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Payload must implement the extra bytes, because option_from_reader needs to know how to interpret payload message
+        // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
         self.payload.encode(writer)
     }
 }
@@ -92,7 +92,7 @@ impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<Da
 
     /// Serialize a `WriteDataByIdentifierResponse` instance.
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Payload must implement the extra bytes, because option_from_reader needs to know how to interpret payload message
+        // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
         self.identifier.encode(writer)
     }
 }

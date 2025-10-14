@@ -9,7 +9,7 @@ use byteorder::{BigEndian, WriteBytesExt};
 /// as part of the UDS Protocol ecosystem.
 ///
 /// Some types need the ability to be deserialized without knowing the size of the data in advance.
-/// To support this, the `option_from_reader` function returns an `Option<Self>`.
+/// To support this, the `decode` function returns an `Option<Self>`.
 /// If the reader contains a complete value, it returns `Some(value)`.
 /// If the reader is completely empty, it returns `None`.
 /// Many types will never return `None`, and for these types, the `SingleValueWireFormat`,
@@ -136,7 +136,7 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     /// while let Some(identifier) = MyIdentifier::parse_from_payload(&mut buffer).unwrap() {
     ///     match identifier {
     ///        MyIdentifier::Identifier1 | MyIdentifier::Identifier2 => {
-    ///           let payload = MyPayload::from_reader(&mut buffer).unwrap();
+    ///           let payload = MyPayload::decode(&mut buffer).unwrap();
     ///         }
     ///        // No payload for Identifier3
     ///        MyIdentifier::MyIdentifier3 => (),
