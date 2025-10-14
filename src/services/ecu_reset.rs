@@ -125,7 +125,7 @@ mod request {
         let req = EcuResetRequest::new(true, ResetType::HardReset);
         let mut buffer = Vec::new();
         let written = req.encode(&mut buffer).unwrap();
-        let result = EcuResetRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let result = EcuResetRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
         assert_eq!(result, req);
 
         assert_eq!(written, 1);
@@ -143,7 +143,7 @@ mod response {
         let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
         let mut buffer = Vec::new();
         let written = resp.encode(&mut buffer).unwrap();
-        let result = EcuResetResponse::from_reader(&mut bytes.as_slice()).unwrap();
+        let result = EcuResetResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
         assert_eq!(result, resp);
 
         assert_eq!(written, 2);

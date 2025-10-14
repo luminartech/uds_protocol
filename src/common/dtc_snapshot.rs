@@ -364,7 +364,7 @@ mod snapshot {
             0xA6, 0x66, 0x07, 0x50, 0x20,
         ];
 
-        let resp = DTCSnapshotRecordList::from_reader(&mut bytes.as_slice()).unwrap();
+        let resp = DTCSnapshotRecordList::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(resp.dtc_record, DTCRecord::from(0x0012_3456));
         let mut number: u8 = 1;

@@ -262,29 +262,30 @@ impl SingleValueWireFormat for RequestFileTransferRequest {}
 
 impl WireFormat for RequestFileTransferRequest {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let name_payload = NamePayload::from_reader(reader)?;
+        let name_payload = NamePayload::decode_single_value(reader)?;
 
         // read the filename
         Ok(Some(match name_payload.mode_of_operation {
             // Complicated
             FileOperationMode::AddFile => Self::AddFile(
                 name_payload,
-                DataFormatIdentifier::from_reader(reader)?,
-                SizePayload::from_reader(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                SizePayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ReplaceFile => Self::ReplaceFile(
                 name_payload,
-                DataFormatIdentifier::from_reader(reader)?,
-                SizePayload::from_reader(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                SizePayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ResumeFile => Self::ResumeFile(
                 name_payload,
-                DataFormatIdentifier::from_reader(reader)?,
-                SizePayload::from_reader(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                SizePayload::decode_single_value(reader)?,
             ),
-            FileOperationMode::ReadFile => {
-                Self::ReadFile(name_payload, DataFormatIdentifier::from_reader(reader)?)
-            }
+            FileOperationMode::ReadFile => Self::ReadFile(
+                name_payload,
+                DataFormatIdentifier::decode_single_value(reader)?,
+            ),
             FileOperationMode::ReadDir => Self::ReadDir(name_payload),
             FileOperationMode::DeleteFile => Self::DeleteFile(name_payload),
             FileOperationMode::ISOSAEReserved(_) => {
@@ -621,32 +622,32 @@ impl WireFormat for RequestFileTransferResponse {
         Ok(Some(match mode_of_operation {
             FileOperationMode::AddFile => Self::AddFile(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
             ),
             FileOperationMode::DeleteFile => Self::DeleteFile(mode_of_operation),
             FileOperationMode::ReplaceFile => Self::ReplaceFile(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
             ),
             FileOperationMode::ReadFile => Self::ReadFile(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
-                FileSizePayload::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                FileSizePayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ReadDir => Self::ReadDir(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
-                DirSizePayload::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                DirSizePayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ResumeFile => Self::ResumeFile(
                 mode_of_operation,
-                SentDataPayload::from_reader(reader)?,
-                DataFormatIdentifier::from_reader(reader)?,
-                PositionPayload::from_reader(reader)?,
+                SentDataPayload::decode_single_value(reader)?,
+                DataFormatIdentifier::decode_single_value(reader)?,
+                PositionPayload::decode_single_value(reader)?,
             ),
             FileOperationMode::ISOSAEReserved(_) => {
                 return Err(Error::InvalidFileOperationMode(mode_of_operation.into()));
@@ -869,7 +870,7 @@ mod request_tests {
         let compare_string = "/opt/testing/replace_file.bin";
         let file_size: u128 = 0x1234;
         let bytes = get_bytes(FileOperationMode::ReplaceFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = RequestFileTransferRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
         let written = req.encode(&mut written_bytes).unwrap();
@@ -896,7 +897,7 @@ mod request_tests {
         let compare_string = "/opt/testing/just_reading_stuff.txt";
         let file_size: u128 = 0x0;
         let bytes = get_bytes(FileOperationMode::ReadFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = RequestFileTransferRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
         let written = req.encode(&mut written_bytes).unwrap();
@@ -920,7 +921,7 @@ mod request_tests {
         let compare_string = "/var/tmp/resume_file.bin";
         let file_size = 0x1234;
         let bytes = get_bytes(FileOperationMode::ResumeFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = RequestFileTransferRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
         let mut written_bytes = Vec::new();
         let written = req.encode(&mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
@@ -1016,7 +1017,7 @@ mod response_tests {
     fn response_add() {
         let bytes = get_bytes(FileOperationMode::AddFile, 0x1234, 0x00, 0x1234, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
@@ -1039,7 +1040,7 @@ mod response_tests {
     fn delete_file() {
         let bytes = get_bytes(FileOperationMode::DeleteFile, 0, 0, 0, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
@@ -1059,7 +1060,7 @@ mod response_tests {
     fn replace_file() {
         let bytes = get_bytes(FileOperationMode::ReplaceFile, 0x1_1234, 0, 0, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
@@ -1082,7 +1083,7 @@ mod response_tests {
     fn read_file() {
         let bytes = get_bytes(FileOperationMode::ReadFile, 0x1, 0x11, 0x11_1111_1111, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
@@ -1108,7 +1109,7 @@ mod response_tests {
     fn read_dir() {
         let bytes = get_bytes(FileOperationMode::ReadDir, 0x1_1234, 0, 0x11_1111_1111, 0);
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();
@@ -1139,7 +1140,7 @@ mod response_tests {
             0x1234_5678_9ABC_DEF0,
         );
         let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::from_reader(reader).unwrap();
+        let resp = RequestFileTransferResponse::decode_single_value(reader).unwrap();
         assert!(reader.is_empty());
 
         let mut written_bytes = Vec::new();

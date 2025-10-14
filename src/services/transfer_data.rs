@@ -139,7 +139,7 @@ mod request {
     #[test]
     fn read_request() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let req = TransferDataRequest::from_reader(&mut bytes.as_slice()).unwrap();
+        let req = TransferDataRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
         let written = req.encode(&mut written_bytes).unwrap();
@@ -155,7 +155,7 @@ mod response {
     #[test]
     fn simple_response() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let resp = TransferDataResponse::from_reader(&mut bytes.as_slice()).unwrap();
+        let resp = TransferDataResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
         let written = resp.encode(&mut written_bytes).unwrap();

@@ -168,7 +168,7 @@ mod request {
         // Fake data: StartRoutine, RoutineID of 0x8606 for "Start O2 Sensor Heater Test" or something
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
         let req: RoutineControlRequestType =
-            RoutineControlRequest::from_reader(&mut bytes.as_slice()).unwrap();
+            RoutineControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.sub_function), 0x01);
         assert_eq!(req.routine_id, TestIdentifier::from(0x0001));
@@ -194,7 +194,7 @@ mod request {
     fn simple_response() {
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
         let resp: RoutineControlResponse<Vec<u8>> =
-            RoutineControlResponse::from_reader(&mut bytes.as_slice()).unwrap();
+            RoutineControlResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(
             resp.routine_control_type,

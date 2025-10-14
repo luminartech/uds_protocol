@@ -140,8 +140,8 @@ pub struct DTCExtDataRecordList<UserPayload> {
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPayload> {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mask_record = DTCRecord::from_reader(reader)?;
-        let status_mask = DTCStatusMask::from_reader(reader)?;
+        let mask_record = DTCRecord::decode_single_value(reader)?;
+        let status_mask = DTCStatusMask::decode_single_value(reader)?;
         let mut record_data = Vec::new();
         // Read the record number, and then the payload
         if let Some(record) = DTCExtDataRecord::decode(reader)? {

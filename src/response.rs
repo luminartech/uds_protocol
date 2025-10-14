@@ -15,7 +15,6 @@ pub struct UdsResponse {
     pub data: Vec<u8>,
 }
 
-/// A UDS response to a UDS request
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
@@ -164,44 +163,46 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
     fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
-            UdsServiceType::CommunicationControl => {
-                Self::CommunicationControl(CommunicationControlResponse::from_reader(reader)?)
-            }
+            UdsServiceType::CommunicationControl => Self::CommunicationControl(
+                CommunicationControlResponse::decode_single_value(reader)?,
+            ),
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettingsResponse::from_reader(reader)?)
+                Self::ControlDTCSettings(ControlDTCSettingsResponse::decode_single_value(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlResponse::from_reader(reader)?,
+                DiagnosticSessionControlResponse::decode_single_value(reader)?,
             ),
-            UdsServiceType::EcuReset => Self::EcuReset(EcuResetResponse::from_reader(reader)?),
-            UdsServiceType::ReadDataByIdentifier => {
-                Self::ReadDataByIdentifier(ReadDataByIdentifierResponse::from_reader(reader)?)
+            UdsServiceType::EcuReset => {
+                Self::EcuReset(EcuResetResponse::decode_single_value(reader)?)
             }
+            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
+                ReadDataByIdentifierResponse::decode_single_value(reader)?,
+            ),
             UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(ReadDTCInfoResponse::from_reader(reader)?)
+                Self::ReadDTCInfo(ReadDTCInfoResponse::decode_single_value(reader)?)
             }
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownloadResponse::from_reader(reader)?)
+                Self::RequestDownload(RequestDownloadResponse::decode_single_value(reader)?)
             }
             UdsServiceType::RequestFileTransfer => {
-                Self::RequestFileTransfer(RequestFileTransferResponse::from_reader(reader)?)
+                Self::RequestFileTransfer(RequestFileTransferResponse::decode_single_value(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
-                Self::RoutineControl(RoutineControlResponse::from_reader(reader)?)
+                Self::RoutineControl(RoutineControlResponse::decode_single_value(reader)?)
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(SecurityAccessResponse::from_reader(reader)?)
+                Self::SecurityAccess(SecurityAccessResponse::decode_single_value(reader)?)
             }
             UdsServiceType::TesterPresent => {
-                Self::TesterPresent(TesterPresentResponse::from_reader(reader)?)
+                Self::TesterPresent(TesterPresentResponse::decode_single_value(reader)?)
             }
             UdsServiceType::NegativeResponse => {
-                Self::NegativeResponse(NegativeResponse::from_reader(reader)?)
+                Self::NegativeResponse(NegativeResponse::decode_single_value(reader)?)
             }
-            UdsServiceType::WriteDataByIdentifier => {
-                Self::WriteDataByIdentifier(WriteDataByIdentifierResponse::from_reader(reader)?)
-            }
+            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
+                WriteDataByIdentifierResponse::decode_single_value(reader)?,
+            ),
             UdsServiceType::Authentication => todo!(),
             UdsServiceType::AccessTimingParameters => todo!(),
             UdsServiceType::SecuredDataTransmission => todo!(),
@@ -216,7 +217,7 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
             UdsServiceType::InputOutputControlByIdentifier => todo!(),
             UdsServiceType::RequestUpload => todo!(),
             UdsServiceType::TransferData => {
-                Self::TransferData(TransferDataResponse::from_reader(reader)?)
+                Self::TransferData(TransferDataResponse::decode_single_value(reader)?)
             }
             UdsServiceType::UnsupportedDiagnosticService => todo!(),
         }))

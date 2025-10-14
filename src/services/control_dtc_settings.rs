@@ -101,7 +101,8 @@ mod request {
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
 
-        let parsed = ControlDTCSettingsRequest::from_reader(&mut buffer.as_slice()).unwrap();
+        let parsed =
+            ControlDTCSettingsRequest::decode_single_value(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
         assert!(parsed.suppress_response);
     }
@@ -121,7 +122,8 @@ mod response {
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
 
-        let parsed = ControlDTCSettingsResponse::from_reader(&mut buffer.as_slice()).unwrap();
+        let parsed =
+            ControlDTCSettingsResponse::decode_single_value(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
     }
 }

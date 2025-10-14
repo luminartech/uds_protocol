@@ -81,7 +81,7 @@ mod request {
     fn decode_clear_dtc_info_request() {
         let bytes = [0xFF, 0xFF, 0xFF, 0x00];
         let compare = ClearDiagnosticInfoRequest::new(CLEAR_ALL_DTCS, 0);
-        let req = ClearDiagnosticInfoRequest::from_reader(&mut &bytes[..]).unwrap();
+        let req = ClearDiagnosticInfoRequest::decode_single_value(&mut &bytes[..]).unwrap();
         assert_eq!(req, compare);
 
         let mut bytes = vec![];

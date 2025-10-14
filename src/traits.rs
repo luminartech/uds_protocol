@@ -74,7 +74,7 @@ pub trait SingleValueWireFormat: WireFormat {
     /// # Errors
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
-    fn from_reader<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+    fn decode_single_value<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         Ok(Self::decode(reader)?.expect(
             "SingleValueWireFormat is only valid to implement on types which never return none",
         ))

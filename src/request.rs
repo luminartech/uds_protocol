@@ -50,7 +50,7 @@ impl<D: DiagnosticDefinition> Request<D> {
             memory_selection,
         ))
     }
-
+    /// Create a `ClearDiagnosticInfo` request that clears all DTC information in one or more servers' memory
     #[must_use]
     pub fn clear_all_dtc_info(memory_selection: u8) -> Self {
         Request::ClearDiagnosticInfo(ClearDiagnosticInfoRequest::clear_all(memory_selection))
@@ -272,41 +272,43 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
     fn decode<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         Ok(Some(match service {
-            UdsServiceType::CommunicationControl => {
-                Self::CommunicationControl(CommunicationControlRequest::from_reader(reader)?)
-            }
+            UdsServiceType::CommunicationControl => Self::CommunicationControl(
+                CommunicationControlRequest::decode_single_value(reader)?,
+            ),
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettingsRequest::from_reader(reader)?)
+                Self::ControlDTCSettings(ControlDTCSettingsRequest::decode_single_value(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlRequest::from_reader(reader)?,
+                DiagnosticSessionControlRequest::decode_single_value(reader)?,
             ),
-            UdsServiceType::EcuReset => Self::EcuReset(EcuResetRequest::from_reader(reader)?),
-            UdsServiceType::ReadDataByIdentifier => {
-                Self::ReadDataByIdentifier(ReadDataByIdentifierRequest::from_reader(reader)?)
+            UdsServiceType::EcuReset => {
+                Self::EcuReset(EcuResetRequest::decode_single_value(reader)?)
             }
+            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
+                ReadDataByIdentifierRequest::decode_single_value(reader)?,
+            ),
             UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(ReadDTCInfoRequest::from_reader(reader)?)
+                Self::ReadDTCInfo(ReadDTCInfoRequest::decode_single_value(reader)?)
             }
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownloadRequest::from_reader(reader)?)
+                Self::RequestDownload(RequestDownloadRequest::decode_single_value(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
-                Self::RoutineControl(RoutineControlRequest::from_reader(reader)?)
+                Self::RoutineControl(RoutineControlRequest::decode_single_value(reader)?)
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(SecurityAccessRequest::from_reader(reader)?)
+                Self::SecurityAccess(SecurityAccessRequest::decode_single_value(reader)?)
             }
             UdsServiceType::TesterPresent => {
-                Self::TesterPresent(TesterPresentRequest::from_reader(reader)?)
+                Self::TesterPresent(TesterPresentRequest::decode_single_value(reader)?)
             }
             UdsServiceType::TransferData => {
-                Self::TransferData(TransferDataRequest::from_reader(reader)?)
+                Self::TransferData(TransferDataRequest::decode_single_value(reader)?)
             }
-            UdsServiceType::WriteDataByIdentifier => {
-                Self::WriteDataByIdentifier(WriteDataByIdentifierRequest::from_reader(reader)?)
-            }
+            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
+                WriteDataByIdentifierRequest::decode_single_value(reader)?,
+            ),
             UdsServiceType::Authentication => todo!(),
             UdsServiceType::AccessTimingParameters => todo!(),
             UdsServiceType::SecuredDataTransmission => todo!(),
