@@ -59,38 +59,43 @@ pub type ProtocolResponse = Response<UdsSpec>;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum RoutineControlSubFunction {
     /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message
     /// which indicates that the routine has already been performed, or is in progress
     ///
     /// It might be necessary to switch the server to a specific Diagnostic Session via [`DiagnosticSessionControlRequest`] before starting the routine,
     /// or unlock the server using [`SecurityAccessRequest`] before starting the routine.
-    StartRoutine,
+    StartRoutine = Self::START_ROUTINE,
 
     /// The server routine shall be stopped in the server's memory sometime between the completion of the `StopRoutine` request and the completion of the 1st response message
     /// which indicates that the routine has already been stopped, or is in progress
-    StopRoutine,
+    StopRoutine = Self::STOP_ROUTINE,
 
     /// Request results for the specified routineIdentifier
-    RequestRoutineResults,
+    RequestRoutineResults = Self::REQUEST_ROUTINE_RESULTS,
+}
+
+impl RoutineControlSubFunction {
+    pub const START_ROUTINE: u8 = 0x01;
+    pub const STOP_ROUTINE: u8 = 0x02;
+    pub const REQUEST_ROUTINE_RESULTS: u8 = 0x03;
 }
 
 impl From<RoutineControlSubFunction> for u8 {
     fn from(value: RoutineControlSubFunction) -> Self {
-        match value {
-            RoutineControlSubFunction::StartRoutine => 0x01,
-            RoutineControlSubFunction::StopRoutine => 0x02,
-            RoutineControlSubFunction::RequestRoutineResults => 0x03,
-        }
+        value as u8
     }
 }
 
 impl From<u8> for RoutineControlSubFunction {
     fn from(value: u8) -> Self {
         match value {
-            0x01 => RoutineControlSubFunction::StartRoutine,
-            0x02 => RoutineControlSubFunction::StopRoutine,
-            0x03 => RoutineControlSubFunction::RequestRoutineResults,
+            RoutineControlSubFunction::START_ROUTINE => RoutineControlSubFunction::StartRoutine,
+            RoutineControlSubFunction::STOP_ROUTINE => RoutineControlSubFunction::StopRoutine,
+            RoutineControlSubFunction::REQUEST_ROUTINE_RESULTS => {
+                RoutineControlSubFunction::RequestRoutineResults
+            }
             _ => panic!("Invalid routine control subfunction: {value}"),
         }
     }
@@ -141,5 +146,27 @@ impl From<u8> for DtcSettings {
             0x02 => Self::Off,
             _ => panic!("Invalid DTC setting: {value}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_discriminant() {
+        let raw_disciminant: u8 = 0x01;
+        assert_eq!(
+            RoutineControlSubFunction::from(raw_disciminant),
+            RoutineControlSubFunction::StartRoutine
+        );
+
+        assert_eq!(
+            RoutineControlSubFunction::from(RoutineControlSubFunction::StartRoutine) as u8,
+            raw_disciminant
+        );
+
+        assert_eq!(RoutineControlSubFunction::START_ROUTINE, raw_disciminant);
     }
 }
