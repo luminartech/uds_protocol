@@ -230,10 +230,9 @@ mod test {
             ];
 
             for test_data in &test_data_sets {
-                let read_result =
-                    ReadDataByIdentifierRequest::<ProtocolIdentifier>::decode(
-                        &mut test_data.dids_bytes.as_slice(),
-                    );
+                let read_result = ReadDataByIdentifierRequest::<ProtocolIdentifier>::decode(
+                    &mut test_data.dids_bytes.as_slice(),
+                );
 
                 match read_result {
                     Ok(Some(response)) => {
@@ -480,11 +479,9 @@ mod test {
             response.encode(&mut buffer).unwrap();
 
             let read_response: ReadDataByIdentifierResponse<TestPayload> =
-                ReadDataByIdentifierResponse::<TestPayload>::decode(
-                    &mut buffer.as_slice(),
-                )
-                .unwrap()
-                .unwrap();
+                ReadDataByIdentifierResponse::<TestPayload>::decode(&mut buffer.as_slice())
+                    .unwrap()
+                    .unwrap();
 
             assert_eq!(response, read_response);
         }

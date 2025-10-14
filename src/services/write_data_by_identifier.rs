@@ -190,11 +190,10 @@ mod test {
         assert_eq!(written, request.required_size());
         assert_eq!(written, written_bytes.len());
 
-        let request2 = WriteDataByIdentifierRequest::<TestPayload>::decode(
-            &mut written_bytes.as_slice(),
-        )
-        .unwrap()
-        .unwrap();
+        let request2 =
+            WriteDataByIdentifierRequest::<TestPayload>::decode(&mut written_bytes.as_slice())
+                .unwrap()
+                .unwrap();
         assert_eq!(request, request2);
     }
 

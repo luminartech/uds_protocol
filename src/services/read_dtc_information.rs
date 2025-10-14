@@ -114,9 +114,7 @@ impl<UserPayload: IterableWireFormat> WireFormat
         let dtc_status_mask = DTCStatusMask::decode(reader)?.unwrap();
         let mut dtc_snapshot_record = Vec::new();
 
-        while let Ok(Some(dtc_snapshot_record_number)) =
-            DTCSnapshotRecordNumber::decode(reader)
-        {
+        while let Ok(Some(dtc_snapshot_record_number)) = DTCSnapshotRecordNumber::decode(reader) {
             let snapshot_record = DTCSnapshotRecord::decode(reader)?.unwrap();
             dtc_snapshot_record.push((dtc_snapshot_record_number, snapshot_record));
         }
@@ -934,8 +932,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             0x55 => {
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
-                let status_availability_mask =
-                    DTCStatusAvailabilityMask::decode(reader)?.unwrap();
+                let status_availability_mask = DTCStatusAvailabilityMask::decode(reader)?.unwrap();
                 let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
                 if !matches!(
                     format_identifier,
@@ -1928,9 +1925,7 @@ mod request {
         ))
         .encode(&mut writer)
         .unwrap();
-        let request = ReadDTCInfoRequest::decode(&mut reader)
-            .unwrap()
-            .unwrap();
+        let request = ReadDTCInfoRequest::decode(&mut reader).unwrap().unwrap();
         assert_eq!(
             request,
             ReadDTCInfoRequest {
