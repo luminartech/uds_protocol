@@ -29,3 +29,4 @@ serde = { version = "1", optional = true, features = ["derive"] }
 serde_bytes = { version = "0.11", optional = true }
 utoipa = { version = "5", optional = true }
 clap = { version = "4", optional = true, features = ["derive"] }
+num_enum = "0.7.4"
