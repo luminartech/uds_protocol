@@ -6,6 +6,7 @@ pub use common::*;
 mod error;
 pub use error::Error;
 
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 // Export the Identifier derive macro
 pub use uds_protocol_derive::Identifier;
 
@@ -58,42 +59,22 @@ pub type ProtocolResponse = Response<UdsSpec>;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[num_enum(error_type(name = crate::Error, constructor = Error::InvalidUDSMessageValue))]
+#[repr(u8)]
 pub enum RoutineControlSubFunction {
-    /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message
-    /// which indicates that the routine has already been performed, or is in progress
+    /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message which indicates that the routine has already been performed, or is in progress
     ///
     /// It might be necessary to switch the server to a specific Diagnostic Session via [`DiagnosticSessionControlRequest`] before starting the routine,
     /// or unlock the server using [`SecurityAccessRequest`] before starting the routine.
-    StartRoutine,
+    StartRoutine = 0x01,
 
     /// The server routine shall be stopped in the server's memory sometime between the completion of the `StopRoutine` request and the completion of the 1st response message
     /// which indicates that the routine has already been stopped, or is in progress
-    StopRoutine,
+    StopRoutine = 0x02,
 
     /// Request results for the specified routineIdentifier
-    RequestRoutineResults,
-}
-
-impl From<RoutineControlSubFunction> for u8 {
-    fn from(value: RoutineControlSubFunction) -> Self {
-        match value {
-            RoutineControlSubFunction::StartRoutine => 0x01,
-            RoutineControlSubFunction::StopRoutine => 0x02,
-            RoutineControlSubFunction::RequestRoutineResults => 0x03,
-        }
-    }
-}
-
-impl From<u8> for RoutineControlSubFunction {
-    fn from(value: u8) -> Self {
-        match value {
-            0x01 => RoutineControlSubFunction::StartRoutine,
-            0x02 => RoutineControlSubFunction::StopRoutine,
-            0x03 => RoutineControlSubFunction::RequestRoutineResults,
-            _ => panic!("Invalid routine control subfunction: {value}"),
-        }
-    }
+    RequestRoutineResults = 0x03,
 }
 
 impl WireFormat for Vec<u8> {
@@ -119,27 +100,46 @@ impl IterableWireFormat for Vec<u8> {}
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[num_enum(error_type(name = crate::Error, constructor = Error::InvalidUDSMessageValue))]
+#[repr(u8)]
 pub enum DtcSettings {
-    On,
-    Off,
+    On = 0x01,
+    Off = 0x02,
 }
 
-impl From<DtcSettings> for u8 {
-    fn from(value: DtcSettings) -> Self {
-        match value {
-            DtcSettings::On => 0x01,
-            DtcSettings::Off => 0x02,
-        }
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+
+    #[test]
+    fn test_correct_discriminant() {
+        let raw_disciminant: u8 = 0x01;
+        let discriminant_from_id: u8 = RoutineControlSubFunction::StartRoutine.into();
+
+        let id_from_discriminant: RoutineControlSubFunction =
+            RoutineControlSubFunction::try_from(raw_disciminant).unwrap();
+
+        assert_eq!(discriminant_from_id, raw_disciminant);
+        assert_eq!(
+            id_from_discriminant,
+            RoutineControlSubFunction::StartRoutine
+        );
     }
-}
 
-impl From<u8> for DtcSettings {
-    fn from(value: u8) -> Self {
-        match value {
-            0x01 => Self::On,
-            0x02 => Self::Off,
-            _ => panic!("Invalid DTC setting: {value}"),
-        }
+    #[test]
+    fn test_incorrect_discriminant() {
+        let raw_disciminant: u8 = 0x04;
+
+        let id_from_discriminant = RoutineControlSubFunction::try_from(raw_disciminant)
+            .err()
+            .unwrap()
+            .to_string();
+
+        assert_eq!(
+            id_from_discriminant,
+            Error::InvalidUDSMessageValue(raw_disciminant).to_string()
+        );
     }
 }

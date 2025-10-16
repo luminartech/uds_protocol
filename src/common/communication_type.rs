@@ -1,4 +1,5 @@
 use crate::Error;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 /// `CommunicationType` is used to specify the type of communication behavior to be modified.
 ///
@@ -11,40 +12,18 @@ use crate::Error;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[num_enum(error_type(name = crate::Error, constructor = Error::InvalidCommunicationType))]
+#[repr(u8)]
 pub enum CommunicationType {
     /// This value is reserved by the ISO 14229-1 Specification
-    ISOSAEReserved,
+    ISOSAEReserved = 0x00,
     /// This value represents all application related communication.
-    Normal,
+    Normal = 0x01,
     /// This value represents all network management related communication.
-    NetworkManagement,
+    NetworkManagement = 0x02,
     /// This value represents all application and network management related communication.
-    NormalAndNetworkManagement,
-}
-
-impl From<CommunicationType> for u8 {
-    fn from(value: CommunicationType) -> Self {
-        match value {
-            CommunicationType::ISOSAEReserved => 0x00,
-            CommunicationType::Normal => 0x01,
-            CommunicationType::NetworkManagement => 0x02,
-            CommunicationType::NormalAndNetworkManagement => 0x03,
-        }
-    }
-}
-
-impl TryFrom<u8> for CommunicationType {
-    type Error = Error;
-    fn try_from(value: u8) -> Result<Self, Error> {
-        match value {
-            0x00 => Ok(Self::ISOSAEReserved),
-            0x01 => Ok(Self::Normal),
-            0x02 => Ok(CommunicationType::NetworkManagement),
-            0x03 => Ok(CommunicationType::NormalAndNetworkManagement),
-            val => Err(Error::InvalidCommunicationType(val)),
-        }
-    }
+    NormalAndNetworkManagement = 0x03,
 }
 
 #[cfg(test)]

@@ -38,6 +38,8 @@ pub enum Error {
     InvalidDtcSubfunctionType(u8),
     #[error("Invalid DTC Format Identifier: {0}")]
     InvalidDtcFormatIdentifier(u8),
+    #[error("Invalid UDS Message Value in WireFormat: {0}")]
+    InvalidUDSMessageValue(u8),
     #[error("Reserved for legislative use: {0} ({1})")]
     ReservedForLegislativeUse(String, u8),
 }

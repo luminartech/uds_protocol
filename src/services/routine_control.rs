@@ -37,7 +37,8 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
     for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
 {
     fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
+        let sub_function = RoutineControlSubFunction::try_from(reader.read_u8()?)
+            .expect("Expected Valid UDS Message");
         let routine_id = RoutineIdentifier::decode(reader)?.unwrap();
         let data = RoutinePayload::decode(reader)?;
         Ok(Some(Self {
@@ -113,7 +114,8 @@ impl<RoutineStatusRecord: WireFormat> RoutineControlResponse<RoutineStatusRecord
 
 impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<RoutineStatusRecord> {
     fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let routine_control_type = RoutineControlSubFunction::from(reader.read_u8()?);
+        let routine_control_type = RoutineControlSubFunction::try_from(reader.read_u8()?)
+            .expect("Expected Valid UDS Message ID");
         // Reads the identifier, then can read 0 bytes, 1 byte, or more
         let routine_status_record = RoutineStatusRecord::decode(reader)?.unwrap();
         Ok(Some(Self {
