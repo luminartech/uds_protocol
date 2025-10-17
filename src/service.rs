@@ -280,6 +280,8 @@ impl UdsServiceType {
             _ => Self::NEGATIVE_RESPONSE,
         }
     }
+
+    #[allow(clippy::match_same_arms)]
     #[must_use]
     pub fn response_from_byte(value: u8) -> Self {
         match value {

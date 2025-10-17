@@ -896,6 +896,8 @@ impl<UserPayload> ReadDTCInfoResponse<UserPayload> {
     pub const DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER: u8 =
         ReadDTCInfoSubFunction::REPORT_DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER;
 
+    #[allow(clippy::match_same_arms)]
+    #[must_use]
     pub fn response_id(&self) -> u8 {
         match self {
             Self::NumberOfDTCs(subfunction, ..) => *subfunction,
@@ -1136,7 +1138,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             }
             ReadDTCInfoSubFunction::ISO_SAE_RESERVED_START
                 ..=ReadDTCInfoSubFunction::ISO_SAE_RESERVED_AFTER_PERMANENT_END => {
-                return Err(Error::InvalidDtcSubfunctionType(subfunction_id));
+                Err(Error::InvalidDtcSubfunctionType(subfunction_id))
             }
             _ => todo!(),
         }
