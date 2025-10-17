@@ -10,27 +10,29 @@ use crate::Error;
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum CommunicationControlType {
     /// This value indicates that the reception and transmission of messages
     /// shall be enabled for the specified [`CommunicationType`](crate::CommunicationType)
-    EnableRxAndTx,
+    EnableRxAndTx = Self::ENABLE_RX_AND_TX,
     /// This value indicates that the reception of messages shall be enabled
     /// and the transmission of messages shall be disabled for the specified [`CommunicationType`](crate::CommunicationType)
-    EnableRxAndDisableTx,
+    EnableRxAndDisableTx = Self::ENABLE_RX_AND_DISABLE_TX,
     /// This value indicates that the reception of messages shall be disabled
     /// and the transmission of messages shall be enabled for the specified [`CommunicationType`](crate::CommunicationType)
-    DisableRxAndEnableTx,
+    DisableRxAndEnableTx = Self::DISABLE_RX_AND_ENABLE_TX,
     /// This value indicates that the reception and transmission of messages
     /// shall be disabled for the specified [`CommunicationType`](crate::CommunicationType)
-    DisableRxAndTx,
+    DisableRxAndTx = Self::DISABLE_RX_AND_TX,
     /// This value indicates that the reception of messages shall be enabled
     /// and the transmission of messages shall be disabled for the specified [`CommunicationType`](crate::CommunicationType)
     /// Additionally, enhanced address information shall be included in the request
-    EnableRxAndDisableTxWithEnhancedAddressInfo,
+    EnableRxAndDisableTxWithEnhancedAddressInfo =
+        Self::ENABLE_RX_AND_DISABLE_TX_WITH_ENHANCED_ADDRESS_INFO,
     /// This value indicates that the reception and transmission of messages
     /// shall be enabled for the specified [`CommunicationType`](crate::CommunicationType)
     /// Additionally, enhanced address information shall be included in the request
-    EnableRxAndTxWithEnhancedAddressInfo,
+    EnableRxAndTxWithEnhancedAddressInfo = Self::ENABLE_RX_AND_TX_WITH_ENHANCED_ADDRESS_INFO,
     /// These values are reserved by the ISO 14229-1 Specification
     #[cfg_attr(feature = "clap", clap(skip))]
     ISOSAEReserved(u8),
@@ -40,6 +42,22 @@ pub enum CommunicationControlType {
     /// Values reserved for use by system suppliers
     #[cfg_attr(feature = "clap", clap(skip))]
     SystemSupplierSpecific(u8),
+}
+
+impl CommunicationControlType {
+    pub const ENABLE_RX_AND_TX: u8 = 0x00;
+    pub const ENABLE_RX_AND_DISABLE_TX: u8 = 0x01;
+    pub const DISABLE_RX_AND_ENABLE_TX: u8 = 0x02;
+    pub const DISABLE_RX_AND_TX: u8 = 0x03;
+    pub const ENABLE_RX_AND_DISABLE_TX_WITH_ENHANCED_ADDRESS_INFO: u8 = 0x04;
+    pub const ENABLE_RX_AND_TX_WITH_ENHANCED_ADDRESS_INFO: u8 = 0x05;
+    pub const ISO_RESERVED_START: u8 = 0x06;
+    pub const ISO_RESERVED_END: u8 = 0x3F;
+    pub const VEHICLE_MANUFACTURER_START: u8 = 0x40;
+    pub const VEHICLE_MANUFACTURER_END: u8 = 0x5F;
+    pub const SYSTEM_SUPPLIER_START: u8 = 0x60;
+    pub const SYSTEM_SUPPLIER_END: u8 = 0x7E;
+    pub const ISO_RESERVED_EXTENSION: u8 = 0x7F;
 }
 
 impl CommunicationControlType {
@@ -57,12 +75,20 @@ impl From<CommunicationControlType> for u8 {
     #[allow(clippy::match_same_arms)]
     fn from(value: CommunicationControlType) -> Self {
         match value {
-            CommunicationControlType::EnableRxAndTx => 0x00,
-            CommunicationControlType::EnableRxAndDisableTx => 0x01,
-            CommunicationControlType::DisableRxAndEnableTx => 0x02,
-            CommunicationControlType::DisableRxAndTx => 0x03,
-            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo => 0x04,
-            CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => 0x05,
+            CommunicationControlType::EnableRxAndTx => CommunicationControlType::ENABLE_RX_AND_TX,
+            CommunicationControlType::EnableRxAndDisableTx => {
+                CommunicationControlType::ENABLE_RX_AND_DISABLE_TX
+            }
+            CommunicationControlType::DisableRxAndEnableTx => {
+                CommunicationControlType::DISABLE_RX_AND_ENABLE_TX
+            }
+            CommunicationControlType::DisableRxAndTx => CommunicationControlType::DISABLE_RX_AND_TX,
+            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo => {
+                CommunicationControlType::ENABLE_RX_AND_DISABLE_TX_WITH_ENHANCED_ADDRESS_INFO
+            }
+            CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => {
+                CommunicationControlType::ENABLE_RX_AND_TX_WITH_ENHANCED_ADDRESS_INFO
+            }
             CommunicationControlType::ISOSAEReserved(val) => val,
             CommunicationControlType::VehicleManufacturerSpecific(val) => val,
             CommunicationControlType::SystemSupplierSpecific(val) => val,
@@ -74,15 +100,25 @@ impl TryFrom<u8> for CommunicationControlType {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(Self::EnableRxAndTx),
-            0x01 => Ok(Self::EnableRxAndDisableTx),
-            0x02 => Ok(Self::DisableRxAndEnableTx),
-            0x03 => Ok(Self::DisableRxAndTx),
-            0x04 => Ok(Self::EnableRxAndDisableTxWithEnhancedAddressInfo),
-            0x05 => Ok(Self::EnableRxAndTxWithEnhancedAddressInfo),
-            0x06..=0x3F | 0x7F => Ok(Self::ISOSAEReserved(value)),
-            0x40..=0x5F => Ok(Self::VehicleManufacturerSpecific(value)),
-            0x60..=0x7E => Ok(Self::SystemSupplierSpecific(value)),
+            Self::ENABLE_RX_AND_TX => Ok(Self::EnableRxAndTx),
+            Self::ENABLE_RX_AND_DISABLE_TX => Ok(Self::EnableRxAndDisableTx),
+            Self::DISABLE_RX_AND_ENABLE_TX => Ok(Self::DisableRxAndEnableTx),
+            Self::DISABLE_RX_AND_TX => Ok(Self::DisableRxAndTx),
+            Self::ENABLE_RX_AND_DISABLE_TX_WITH_ENHANCED_ADDRESS_INFO => {
+                Ok(Self::EnableRxAndDisableTxWithEnhancedAddressInfo)
+            }
+            Self::ENABLE_RX_AND_TX_WITH_ENHANCED_ADDRESS_INFO => {
+                Ok(Self::EnableRxAndTxWithEnhancedAddressInfo)
+            }
+            Self::ISO_RESERVED_START..=Self::ISO_RESERVED_END | Self::ISO_RESERVED_EXTENSION => {
+                Ok(Self::ISOSAEReserved(value))
+            }
+            Self::VEHICLE_MANUFACTURER_START..=Self::VEHICLE_MANUFACTURER_END => {
+                Ok(Self::VehicleManufacturerSpecific(value))
+            }
+            Self::SYSTEM_SUPPLIER_START..=Self::SYSTEM_SUPPLIER_END => {
+                Ok(Self::SystemSupplierSpecific(value))
+            }
             _ => Err(Error::InvalidCommunicationControlType(value)),
         }
     }

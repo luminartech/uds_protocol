@@ -12,6 +12,7 @@ use crate::Error;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum SecurityAccessType {
     /// This value is reserved for future definition
     ISOSAEReserved(u8),
@@ -21,11 +22,26 @@ pub enum SecurityAccessType {
     SendKey(u8),
     /// `RequestSeed` with different levels of security defined for end of life
     /// activation of on-board pyrotechnic devices
-    ISO26021_2Values,
+    ISO26021_2Values = Self::ISO26021_2_VALUES,
     /// `SendKey` with different levels of security defined for end of life activation
-    ISO26021_2SendKeyValues,
+    ISO26021_2SendKeyValues = Self::ISO26021_2_SEND_KEY_VALUES,
     /// This range of values is reserved for system supplier specific use
     SystemSupplierSpecific(u8),
+}
+
+impl SecurityAccessType {
+    pub const ISO_RESERVED: u8 = 0x00;
+    pub const REQUEST_SEED_MIN: u8 = 0x01;
+    pub const REQUEST_SEED_MAX: u8 = 0x41;
+    pub const SEND_KEY_MIN: u8 = 0x02;
+    pub const SEND_KEY_MAX: u8 = 0x42;
+    pub const ISO_RESERVED_RANGE_START: u8 = 0x43;
+    pub const ISO_RESERVED_RANGE_END: u8 = 0x5E;
+    pub const ISO26021_2_VALUES: u8 = 0x5F;
+    pub const ISO26021_2_SEND_KEY_VALUES: u8 = 0x60;
+    pub const SYSTEM_SUPPLIER_START: u8 = 0x61;
+    pub const SYSTEM_SUPPLIER_END: u8 = 0x7E;
+    pub const ISO_RESERVED_EXTENSION: u8 = 0x7F;
 }
 
 impl From<SecurityAccessType> for u8 {
@@ -35,8 +51,10 @@ impl From<SecurityAccessType> for u8 {
             SecurityAccessType::ISOSAEReserved(val) => val,
             SecurityAccessType::RequestSeed(val) => val,
             SecurityAccessType::SendKey(val) => val,
-            SecurityAccessType::ISO26021_2Values => 0x5F,
-            SecurityAccessType::ISO26021_2SendKeyValues => 0x60,
+            SecurityAccessType::ISO26021_2Values => SecurityAccessType::ISO26021_2_VALUES,
+            SecurityAccessType::ISO26021_2SendKeyValues => {
+                SecurityAccessType::ISO26021_2_SEND_KEY_VALUES
+            }
             SecurityAccessType::SystemSupplierSpecific(val) => val,
         }
     }
@@ -46,19 +64,23 @@ impl TryFrom<u8> for SecurityAccessType {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 | 0x43..=0x5E | 0x7F => Ok(Self::ISOSAEReserved(value)),
+            Self::ISO_RESERVED
+            | Self::ISO_RESERVED_RANGE_START..=Self::ISO_RESERVED_RANGE_END
+            | Self::ISO_RESERVED_EXTENSION => Ok(Self::ISOSAEReserved(value)),
             // Security requests alternate, with odd numbers being seed requests,
             // and even numbers being send key requests
-            0x01..=0x42 => {
+            Self::REQUEST_SEED_MIN..=Self::SEND_KEY_MAX => {
                 if value % 2 == 1 {
                     Ok(Self::RequestSeed(value))
                 } else {
                     Ok(Self::SendKey(value))
                 }
             }
-            0x5F => Ok(Self::ISO26021_2Values),
-            0x60 => Ok(Self::ISO26021_2SendKeyValues),
-            0x61..=0x7E => Ok(Self::SystemSupplierSpecific(value)),
+            Self::ISO26021_2_VALUES => Ok(Self::ISO26021_2Values),
+            Self::ISO26021_2_SEND_KEY_VALUES => Ok(Self::ISO26021_2SendKeyValues),
+            Self::SYSTEM_SUPPLIER_START..=Self::SYSTEM_SUPPLIER_END => {
+                Ok(Self::SystemSupplierSpecific(value))
+            }
             _ => Err(Error::InvalidSecurityAccessType(value)),
         }
     }

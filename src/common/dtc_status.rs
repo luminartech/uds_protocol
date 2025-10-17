@@ -45,7 +45,7 @@ pub enum DTCStatusMask {
     /// * 1 shall indicate the last matured test **failed**
     ///
     /// Will be 0 after a successful [`ClearDiagnosticInformation`](crate::services::ClearDiagnosticInformation) service
-    TestFailed,
+    TestFailed = Self::TEST_FAILED,
     /// Whether or not a diagnostic test has reported a test failed result during the current operation cycle,
     /// or that it's been reported during this operation and after `ClearDiagnosticInformation`
     ///
@@ -54,7 +54,7 @@ pub enum DTCStatusMask {
     /// * 1 shall indicate that a test failed during the current operation cycle or after a `ClearDiagnosticInformation`
     ///
     /// Shall remain a 1 until a new operation cycle is started
-    TestFailedThisOperationCycle,
+    TestFailedThisOperationCycle = Self::TEST_FAILED_THIS_OPERATION_CYCLE,
 
     /// Similar to [`Self::TestFailedThisOperationCycle`], but will only clear after
     /// a cycle is finished and there is a passed test w/ no failure
@@ -62,7 +62,7 @@ pub enum DTCStatusMask {
     /// Bit state definition:
     /// * 0 -  Test passed **with no failure** after completing a cycle
     /// * 1 -  Test failed during the current operation cycle
-    PendingDTC,
+    PendingDTC = Self::PENDING_DTC,
 
     /// Indicates whether a malfunction was detected enough times to warrant the DTC being stored
     /// in long term memory. This doesn't mean that the DTC failure is present at the time of the request.
@@ -71,7 +71,7 @@ pub enum DTCStatusMask {
     /// Bit state definition:
     /// * 0 - DTC has **never been confirmed** since last `ClearDiagnosticInformation`, or after aging criteria have been met
     /// * 1 - DTC has been confirmed at least once
-    ConfirmedDTC,
+    ConfirmedDTC = Self::CONFIRMED_DTC,
 
     /// Indicates whether a test has run and completed since last `ClearDiagnosticInformation`
     /// Will not reset to 1 by any method other than calling `ClearDiagnosticInformation`
@@ -79,7 +79,7 @@ pub enum DTCStatusMask {
     /// Bit state definition:
     /// * 0 - Test has returned passed or failed at least once since last `ClearDiagnosticInformation`
     /// * 1 - Test has **not** run to completion
-    TestNotCompletedSinceLastClear,
+    TestNotCompletedSinceLastClear = Self::TEST_NOT_COMPLETED_SINCE_LAST_CLEAR,
 
     /// Indicates whether a test has failed since the last `ClearDiagnosticInformation`
     /// This is a latched [`Self::TestFailedThisOperationCycle`]
@@ -88,7 +88,7 @@ pub enum DTCStatusMask {
     /// Bit state definition:
     /// * 0 - Test has **not** failed since last `ClearDiagnosticInformation`
     /// * 1 - Test has failed at least once since last `ClearDiagnosticInformation`
-    TestFailedSinceLastClear,
+    TestFailedSinceLastClear = Self::TEST_FAILED_SINCE_LAST_CLEAR,
 
     /// Indicates whether a test has run and completed during the current operation cycle,
     ///     or whether is has run and completed after the last `ClearDiagnosticInformation` during the current operation cycle
@@ -96,7 +96,7 @@ pub enum DTCStatusMask {
     /// Bit state definition:
     /// * 0 - Test has run and completed during the current operation cycle
     /// * 1 - Test has **not** run to completion during the current operation cycle
-    TestNotCompletedThisOperationCycle,
+    TestNotCompletedThisOperationCycle = Self::TEST_NOT_COMPLETED_THIS_OPERATION_CYCLE,
 
     /// Shall report the status of any warning indicators associated with a certain DTC. Warning outputs may consist
     /// of indicator lamp(s), displayed text information, etc.
@@ -104,7 +104,18 @@ pub enum DTCStatusMask {
     /// Bit state definition:
     /// * 0 - Server is **not** requesting a warningIndicator to be active
     /// * 1 - Server is requesting a warningIndicator to be active
-    WarningIndicatorRequested,
+    WarningIndicatorRequested = Self::WARNING_INDICATOR_REQUESTED,
+}
+
+impl DTCStatusMask {
+    pub const TEST_FAILED: u8 = 0b0000_0001;
+    pub const TEST_FAILED_THIS_OPERATION_CYCLE: u8 = 0b0000_0010;
+    pub const PENDING_DTC: u8 = 0b0000_0100;
+    pub const CONFIRMED_DTC: u8 = 0b0000_1000;
+    pub const TEST_NOT_COMPLETED_SINCE_LAST_CLEAR: u8 = 0b0001_0000;
+    pub const TEST_FAILED_SINCE_LAST_CLEAR: u8 = 0b0010_0000;
+    pub const TEST_NOT_COMPLETED_THIS_OPERATION_CYCLE: u8 = 0b0100_0000;
+    pub const WARNING_INDICATOR_REQUESTED: u8 = 0b1000_0000;
 }
 
 impl WireFormat for DTCStatusMask {
@@ -136,34 +147,50 @@ impl SingleValueWireFormat for DTCStatusMask {}
 #[repr(u8)]
 pub enum DTCFormatIdentifier {
     /// Defined in [SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>) DTC Format
-    SAE_J2012_DA_DTCFormat_00 = 0x00,
+    SAE_J2012_DA_DTCFormat_00 = Self::SAE_J2012_DA_DTC_FORMAT_00,
 
     /// reported for `DTCAndStatusRecord`
-    ISO_14229_1_DTCFormat = 0x01,
+    ISO_14229_1_DTCFormat = Self::ISO_14229_1_DTC_FORMAT,
 
     /// Defined in [SAE J1939-73](<https://www.sae.org/standards/content/j1939/73_202208/>)
-    SAE_J1939_73_DTCFormat = 0x02,
+    SAE_J1939_73_DTCFormat = Self::SAE_J1939_73_DTC_FORMAT,
 
     /// Defined in [ISO-11992](<https://www.iso.org/standard/33992.html>)
-    ISO_11992_4_DTCFormat = 0x03,
+    ISO_11992_4_DTCFormat = Self::ISO_11992_4_DTC_FORMAT,
 
     /// Defined in SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>)
-    SAE_J2012_DA_DTCFormat_04 = 0x04,
+    SAE_J2012_DA_DTCFormat_04 = Self::SAE_J2012_DA_DTC_FORMAT_04,
 
     /// Reserved for future usage
     /// 0x05 - 0xFF
     ISOSAEReserved(u8),
 }
 
-impl DTCFormatIdentifier {}
+impl DTCFormatIdentifier {
+    pub const SAE_J2012_DA_DTC_FORMAT_00: u8 = 0x00;
+    pub const ISO_14229_1_DTC_FORMAT: u8 = 0x01;
+    pub const SAE_J1939_73_DTC_FORMAT: u8 = 0x02;
+    pub const ISO_11992_4_DTC_FORMAT: u8 = 0x03;
+    pub const SAE_J2012_DA_DTC_FORMAT_04: u8 = 0x04;
+}
 impl From<u8> for DTCFormatIdentifier {
     fn from(value: u8) -> Self {
         match value {
-            0x00 => DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_00,
-            0x01 => DTCFormatIdentifier::ISO_14229_1_DTCFormat,
-            0x02 => DTCFormatIdentifier::SAE_J1939_73_DTCFormat,
-            0x03 => DTCFormatIdentifier::ISO_11992_4_DTCFormat,
-            0x04 => DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04,
+            DTCFormatIdentifier::SAE_J2012_DA_DTC_FORMAT_00 => {
+                DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_00
+            }
+            DTCFormatIdentifier::ISO_14229_1_DTC_FORMAT => {
+                DTCFormatIdentifier::ISO_14229_1_DTCFormat
+            }
+            DTCFormatIdentifier::SAE_J1939_73_DTC_FORMAT => {
+                DTCFormatIdentifier::SAE_J1939_73_DTCFormat
+            }
+            DTCFormatIdentifier::ISO_11992_4_DTC_FORMAT => {
+                DTCFormatIdentifier::ISO_11992_4_DTCFormat
+            }
+            DTCFormatIdentifier::SAE_J2012_DA_DTC_FORMAT_04 => {
+                DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
+            }
             val => DTCFormatIdentifier::ISOSAEReserved(val),
         }
     }
@@ -172,11 +199,21 @@ impl From<u8> for DTCFormatIdentifier {
 impl From<DTCFormatIdentifier> for u8 {
     fn from(val: DTCFormatIdentifier) -> Self {
         match val {
-            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_00 => 0x00,
-            DTCFormatIdentifier::ISO_14229_1_DTCFormat => 0x01,
-            DTCFormatIdentifier::SAE_J1939_73_DTCFormat => 0x02,
-            DTCFormatIdentifier::ISO_11992_4_DTCFormat => 0x03,
-            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04 => 0x04,
+            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_00 => {
+                DTCFormatIdentifier::SAE_J2012_DA_DTC_FORMAT_00
+            }
+            DTCFormatIdentifier::ISO_14229_1_DTCFormat => {
+                DTCFormatIdentifier::ISO_14229_1_DTC_FORMAT
+            }
+            DTCFormatIdentifier::SAE_J1939_73_DTCFormat => {
+                DTCFormatIdentifier::SAE_J1939_73_DTC_FORMAT
+            }
+            DTCFormatIdentifier::ISO_11992_4_DTCFormat => {
+                DTCFormatIdentifier::ISO_11992_4_DTC_FORMAT
+            }
+            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04 => {
+                DTCFormatIdentifier::SAE_J2012_DA_DTC_FORMAT_04
+            }
             DTCFormatIdentifier::ISOSAEReserved(value) => value, // Default value for reserved
         }
     }
@@ -264,6 +301,7 @@ impl SingleValueWireFormat for DTCRecord {}
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
+#[repr(u8)]
 pub enum FunctionalGroupIdentifier {
     /// 0x00 to 0x32
     /// 0x34 to 0xCF
@@ -271,25 +309,35 @@ pub enum FunctionalGroupIdentifier {
     /// 0xFF
     ISOSAEReserved(u8),
     /// 0x33
-    EmissionsSystemGroup,
+    EmissionsSystemGroup = Self::EMISSIONS_SYSTEM_GROUP,
     /// 0xD0
-    SafetySystemGroup,
+    SafetySystemGroup = Self::SAFETY_SYSTEM_GROUP,
 
     /// 0xD1 to 0xDF
     /// For future use
     LegislativeSystemGroup(u8),
 
     /// 0xFE
-    VODBSystem,
+    VODBSystem = Self::VODB_SYSTEM,
 }
 
 impl FunctionalGroupIdentifier {
+    pub const EMISSIONS_SYSTEM_GROUP: u8 = 0x33;
+    pub const SAFETY_SYSTEM_GROUP: u8 = 0xD0;
+    pub const LEGISLATIVE_SYSTEM_GROUP_START: u8 = 0xD1;
+    pub const LEGISLATIVE_SYSTEM_GROUP_END: u8 = 0xDF;
+    pub const VODB_SYSTEM: u8 = 0xFE;
+
     #[must_use]
     pub fn value(&self) -> u8 {
         match self {
-            FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
-            FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,
-            FunctionalGroupIdentifier::VODBSystem => 0xFE,
+            FunctionalGroupIdentifier::EmissionsSystemGroup => {
+                FunctionalGroupIdentifier::EMISSIONS_SYSTEM_GROUP
+            }
+            FunctionalGroupIdentifier::SafetySystemGroup => {
+                FunctionalGroupIdentifier::SAFETY_SYSTEM_GROUP
+            }
+            FunctionalGroupIdentifier::VODBSystem => FunctionalGroupIdentifier::VODB_SYSTEM,
             FunctionalGroupIdentifier::LegislativeSystemGroup(value) => {
                 todo!(
                     "FunctionalGroupIdentifiers::LegislativeSystemGroup is not a valid value {}",
@@ -309,10 +357,17 @@ impl FunctionalGroupIdentifier {
 impl From<u8> for FunctionalGroupIdentifier {
     fn from(value: u8) -> Self {
         match value {
-            0x33 => FunctionalGroupIdentifier::EmissionsSystemGroup,
-            0xD0 => FunctionalGroupIdentifier::SafetySystemGroup,
-            0xFE => FunctionalGroupIdentifier::VODBSystem,
-            0xD1..=0xDF => FunctionalGroupIdentifier::LegislativeSystemGroup(value),
+            FunctionalGroupIdentifier::EMISSIONS_SYSTEM_GROUP => {
+                FunctionalGroupIdentifier::EmissionsSystemGroup
+            }
+            FunctionalGroupIdentifier::SAFETY_SYSTEM_GROUP => {
+                FunctionalGroupIdentifier::SafetySystemGroup
+            }
+            FunctionalGroupIdentifier::VODB_SYSTEM => FunctionalGroupIdentifier::VODBSystem,
+            FunctionalGroupIdentifier::LEGISLATIVE_SYSTEM_GROUP_START
+                ..=FunctionalGroupIdentifier::LEGISLATIVE_SYSTEM_GROUP_END => {
+                FunctionalGroupIdentifier::LegislativeSystemGroup(value)
+            }
             _ => FunctionalGroupIdentifier::ISOSAEReserved(value),
         }
     }
@@ -337,38 +392,47 @@ impl From<FunctionalGroupIdentifier> for u8 {
 pub enum DTCSeverityMask {
     // GtrDtcClassInfo
     /// Unclassified
-    DTCClass_0,
+    DTCClass_0 = Self::DTC_CLASS_0,
 
     /// Matches GTR module B Class A definition
     /// Malfunction is Class A when On-Board Diagnostic (OBD) threshold limits (OTL) are assumed to be exceeded
     /// It is accepted that the emissions may not be above the OTLs when this class of malfunction occurs
-    DTCClass_1,
+    DTCClass_1 = Self::DTC_CLASS_1,
 
     /// Matches GTR module B Class B1 definition
-    DTCClass_2,
+    DTCClass_2 = Self::DTC_CLASS_2,
     /// Matches GTR module B Class B2 definition
-    DTCClass_3,
+    DTCClass_3 = Self::DTC_CLASS_3,
     /// Matches GTR module B Class C definition
-    DTCClass_4,
+    DTCClass_4 = Self::DTC_CLASS_4,
 
     // DTCSeverityInfo section
     /// Failure requests maintenance only
     ///
     /// MO
-    MaintenanceOnly = 0b0010_0000, // bit 5
+    MaintenanceOnly = Self::MAINTENANCE_ONLY,
 
     /// Indicates to the failure that a check of the vehicle is required at the next halt
     ///
     /// CHKANH
-    CheckAtNextHalt = 0b0100_0000, // bit 6
+    CheckAtNextHalt = Self::CHECK_AT_NEXT_HALT,
 
     /// Immediate check of the vehicle is required,
     ///
     /// CHKI
-    CheckImmediately = 0b1000_0000, // bit 7
+    CheckImmediately = Self::CHECK_IMMEDIATELY,
 }
 
 impl DTCSeverityMask {
+    pub const DTC_CLASS_0: u8 = 0b0000_0001;
+    pub const DTC_CLASS_1: u8 = 0b0000_0010;
+    pub const DTC_CLASS_2: u8 = 0b0000_0100;
+    pub const DTC_CLASS_3: u8 = 0b0000_1000;
+    pub const DTC_CLASS_4: u8 = 0b0001_0000;
+    pub const MAINTENANCE_ONLY: u8 = 0b0010_0000;
+    pub const CHECK_AT_NEXT_HALT: u8 = 0b0100_0000;
+    pub const CHECK_IMMEDIATELY: u8 = 0b1000_0000;
+
     // Validate that at least one of the DTCClass bits is set
     // Multiple Class bits may be set to get info for multiple DTC classes
     #[must_use]

@@ -11,6 +11,7 @@ use crate::Error;
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum ResetType {
     /// This value is reserved
     #[cfg_attr(feature = "clap", clap(skip))]
@@ -19,18 +20,18 @@ pub enum ResetType {
     /// typically performed after a server has been previously disconnected from its power supply (i.e. battery).
     /// The performed action is implementation specific and not defined by the spec.
     /// It might result in the re-initialization of both volatile memory and non-volatile memory locations to predetermined values.
-    HardReset,
+    HardReset = Self::HARD_RESET,
     /// This `SubFunction` identifies a condition similar to the driver turning the ignition key off and back on.
     /// This reset condition should simulate a key-off-on sequence (i.e. interrupting the switched power supply).
     /// The performed action is implementation specific and not defined by this document.
     /// Typically the values of non-volatile mmemory locations are preserved;
     /// volatile memory will be initialized.
-    KeyOffOnReset,
+    KeyOffOnReset = Self::KEY_OFF_ON_RESET,
     /// This `SubFunction` identifies a "soft reset" condition, which causes the server to immediately restart the application program if applicable.
     /// The performed action is implementation specific and not defined by the spec.
     /// A typical action is to restart the application without reinitializing of previously applied configuration data,
     /// adaptive factors and other long-term adjustments.
-    SoftReset,
+    SoftReset = Self::SOFT_RESET,
     /// This `SubFunction` applies to ECUs which are not ignition powered but battery powered only.
     /// Therefore a shutdown forces the sleep mode rather than a power off.
     /// Sleep means power off but still ready for wake-up (battery powered).
@@ -43,9 +44,9 @@ pub enum ResetType {
     /// the server shall send the positive response message prior to the start of the "rapid power shut down" function.
     /// The next occurrence of a "key on" or "ignition on" signal terminates the "rapid power shut down" function.
     /// **NOTE** This `SubFunction` is only applicable to a server supporting a stand-by-mode.
-    EnableRapidPowerShutDown,
+    EnableRapidPowerShutDown = Self::ENABLE_RAPID_POWER_SHUTDOWN,
     /// This `SubFunction` requests the server to disable the previously enabled "rapid power shut down" function.
-    DisableRapidPowerShutDown,
+    DisableRapidPowerShutDown = Self::DISABLE_RAPID_POWER_SHUTDOWN,
     /// Reserved for use by vehicle manufacturers
     #[cfg_attr(feature = "clap", clap(skip))]
     VehicleManufacturerSpecific(u8),
@@ -54,16 +55,32 @@ pub enum ResetType {
     SystemSupplierSpecific(u8),
 }
 
+impl ResetType {
+    pub const ISO_RESERVED: u8 = 0x00;
+    pub const HARD_RESET: u8 = 0x01;
+    pub const KEY_OFF_ON_RESET: u8 = 0x02;
+    pub const SOFT_RESET: u8 = 0x03;
+    pub const ENABLE_RAPID_POWER_SHUTDOWN: u8 = 0x04;
+    pub const DISABLE_RAPID_POWER_SHUTDOWN: u8 = 0x05;
+    pub const ISO_RESERVED_START: u8 = 0x06;
+    pub const ISO_RESERVED_END: u8 = 0x3F;
+    pub const VEHICLE_MANUFACTURER_START: u8 = 0x40;
+    pub const VEHICLE_MANUFACTURER_END: u8 = 0x5F;
+    pub const SYSTEM_SUPPLIER_START: u8 = 0x60;
+    pub const SYSTEM_SUPPLIER_END: u8 = 0x7E;
+    pub const ISO_RESERVED_EXTENSION: u8 = 0x7F;
+}
+
 impl From<ResetType> for u8 {
     #[allow(clippy::match_same_arms)]
     fn from(value: ResetType) -> Self {
         match value {
             ResetType::ISOSAEReserved(val) => val,
-            ResetType::HardReset => 0x01,
-            ResetType::KeyOffOnReset => 0x02,
-            ResetType::SoftReset => 0x03,
-            ResetType::EnableRapidPowerShutDown => 0x04,
-            ResetType::DisableRapidPowerShutDown => 0x05,
+            ResetType::HardReset => ResetType::HARD_RESET,
+            ResetType::KeyOffOnReset => ResetType::KEY_OFF_ON_RESET,
+            ResetType::SoftReset => ResetType::SOFT_RESET,
+            ResetType::EnableRapidPowerShutDown => ResetType::ENABLE_RAPID_POWER_SHUTDOWN,
+            ResetType::DisableRapidPowerShutDown => ResetType::DISABLE_RAPID_POWER_SHUTDOWN,
             ResetType::VehicleManufacturerSpecific(val) => val,
             ResetType::SystemSupplierSpecific(val) => val,
         }
@@ -75,16 +92,20 @@ impl TryFrom<u8> for ResetType {
     #[allow(clippy::match_same_arms)]
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(Self::ISOSAEReserved(0)),
-            0x01 => Ok(Self::HardReset),
-            0x02 => Ok(Self::KeyOffOnReset),
-            0x03 => Ok(Self::SoftReset),
-            0x04 => Ok(Self::EnableRapidPowerShutDown),
-            0x05 => Ok(Self::DisableRapidPowerShutDown),
-            0x06..=0x3F => Ok(Self::ISOSAEReserved(value)),
-            0x40..=0x5F => Ok(Self::VehicleManufacturerSpecific(value)),
-            0x60..=0x7E => Ok(Self::SystemSupplierSpecific(value)),
-            0x7F => Ok(Self::ISOSAEReserved(value)),
+            Self::ISO_RESERVED => Ok(Self::ISOSAEReserved(value)),
+            Self::HARD_RESET => Ok(Self::HardReset),
+            Self::KEY_OFF_ON_RESET => Ok(Self::KeyOffOnReset),
+            Self::SOFT_RESET => Ok(Self::SoftReset),
+            Self::ENABLE_RAPID_POWER_SHUTDOWN => Ok(Self::EnableRapidPowerShutDown),
+            Self::DISABLE_RAPID_POWER_SHUTDOWN => Ok(Self::DisableRapidPowerShutDown),
+            Self::ISO_RESERVED_START..=Self::ISO_RESERVED_END => Ok(Self::ISOSAEReserved(value)),
+            Self::VEHICLE_MANUFACTURER_START..=Self::VEHICLE_MANUFACTURER_END => {
+                Ok(Self::VehicleManufacturerSpecific(value))
+            }
+            Self::SYSTEM_SUPPLIER_START..=Self::SYSTEM_SUPPLIER_END => {
+                Ok(Self::SystemSupplierSpecific(value))
+            }
+            Self::ISO_RESERVED_EXTENSION => Ok(Self::ISOSAEReserved(value)),
             _ => Err(Error::InvalidEcuResetType(value)),
         }
     }

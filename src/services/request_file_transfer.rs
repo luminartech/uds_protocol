@@ -12,31 +12,43 @@ pub enum FileOperationMode {
     // 0x00, 0x07-0xFF Reserved for future definition by ISO
     ISOSAEReserved(u8),
     /// Add a file to the server
-    AddFile = 0x01,
+    AddFile = Self::ADD_FILE,
     /// Delete the specified file from the server
-    DeleteFile = 0x02,
+    DeleteFile = Self::DELETE_FILE,
     /// Replace the specified file on the server, if it does not exist, add it
-    ReplaceFile = 0x03,
+    ReplaceFile = Self::REPLACE_FILE,
     /// Read the specified file from the server (upload)
-    ReadFile = 0x04,
+    ReadFile = Self::READ_FILE,
     /// Read the directory from the server
     /// Implies that the request does not include a `fileName`
-    ReadDir = 0x05,
+    ReadDir = Self::READ_DIR,
     /// Resume a file transfer at the returned `filePosition` indicator
     /// The file must already exist in the ECU's filesystem
-    ResumeFile = 0x06,
+    ResumeFile = Self::RESUME_FILE,
+}
+
+impl FileOperationMode {
+    pub const RESERVED: u8 = 0x00;
+    pub const ADD_FILE: u8 = 0x01;
+    pub const DELETE_FILE: u8 = 0x02;
+    pub const REPLACE_FILE: u8 = 0x03;
+    pub const READ_FILE: u8 = 0x04;
+    pub const READ_DIR: u8 = 0x05;
+    pub const RESUME_FILE: u8 = 0x06;
+    pub const RESERVED_START: u8 = 0x07;
+    pub const RESERVED_END: u8 = 0xFF;
 }
 
 impl From<FileOperationMode> for u8 {
     fn from(value: FileOperationMode) -> Self {
         match value {
             FileOperationMode::ISOSAEReserved(value) => value,
-            FileOperationMode::AddFile => 0x01,
-            FileOperationMode::DeleteFile => 0x02,
-            FileOperationMode::ReplaceFile => 0x03,
-            FileOperationMode::ReadFile => 0x04,
-            FileOperationMode::ReadDir => 0x05,
-            FileOperationMode::ResumeFile => 0x06,
+            FileOperationMode::AddFile => FileOperationMode::ADD_FILE,
+            FileOperationMode::DeleteFile => FileOperationMode::DELETE_FILE,
+            FileOperationMode::ReplaceFile => FileOperationMode::REPLACE_FILE,
+            FileOperationMode::ReadFile => FileOperationMode::READ_FILE,
+            FileOperationMode::ReadDir => FileOperationMode::READ_DIR,
+            FileOperationMode::ResumeFile => FileOperationMode::RESUME_FILE,
         }
     }
 }
@@ -46,13 +58,15 @@ impl TryFrom<u8> for FileOperationMode {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0x01 => Ok(Self::AddFile),
-            0x02 => Ok(Self::DeleteFile),
-            0x03 => Ok(Self::ReplaceFile),
-            0x04 => Ok(Self::ReadFile),
-            0x05 => Ok(Self::ReadDir),
-            0x06 => Ok(Self::ResumeFile),
-            0x00 | 0x07..=0xFF => Ok(Self::ISOSAEReserved(value)),
+            Self::ADD_FILE => Ok(Self::AddFile),
+            Self::DELETE_FILE => Ok(Self::DeleteFile),
+            Self::REPLACE_FILE => Ok(Self::ReplaceFile),
+            Self::READ_FILE => Ok(Self::ReadFile),
+            Self::READ_DIR => Ok(Self::ReadDir),
+            Self::RESUME_FILE => Ok(Self::ResumeFile),
+            Self::RESERVED | Self::RESERVED_START..=Self::RESERVED_END => {
+                Ok(Self::ISOSAEReserved(value))
+            }
         }
     }
 }

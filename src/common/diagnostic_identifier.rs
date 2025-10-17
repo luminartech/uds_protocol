@@ -16,52 +16,99 @@ pub enum UDSIdentifier {
     VehicleManufacturerSpecific(u16),
     #[cfg_attr(feature = "clap", clap(skip))]
     SystemSupplierSpecific(u16),
-    BootSoftwareIdentification = 0xF180,
-    ApplicationSoftwareIdentification = 0xF181,
-    ApplicationDataIdentification = 0xF182,
-    BootSoftwareFingerprint = 0xF183,
-    ApplicationSoftwareFingerprint = 0xF184,
-    ApplicationDataFingerprint = 0xF185,
-    ActiveDiagnosticSession = 0xF186,
-    VehicleManufacturerSparePartNumber = 0xF187,
-    VehicleManufacturerECUSoftwareNumber = 0xF188,
-    VehicleManufacturerECUSoftwareVersionNumber = 0xF189,
-    SystemSupplierIdentifier = 0xF18A,
+    BootSoftwareIdentification = Self::BOOT_SOFTWARE_IDENTIFICATION,
+    ApplicationSoftwareIdentification = Self::APPLICATION_SOFTWARE_IDENTIFICATION,
+    ApplicationDataIdentification = Self::APPLICATION_DATA_IDENTIFICATION,
+    BootSoftwareFingerprint = Self::BOOT_SOFTWARE_FINGERPRINT,
+    ApplicationSoftwareFingerprint = Self::APPLICATION_SOFTWARE_FINGERPRINT,
+    ApplicationDataFingerprint = Self::APPLICATION_DATA_FINGERPRINT,
+    ActiveDiagnosticSession = Self::ACTIVE_DIAGNOSTIC_SESSION,
+    VehicleManufacturerSparePartNumber = Self::VEHICLE_MANUFACTURER_SPARE_PART_NUMBER,
+    VehicleManufacturerECUSoftwareNumber = Self::VEHICLE_MANUFACTURER_ECU_SOFTWARE_NUMBER,
+    VehicleManufacturerECUSoftwareVersionNumber =
+        Self::VEHICLE_MANUFACTURER_ECU_SOFTWARE_VERSION_NUMBER,
+    SystemSupplierIdentifier = Self::SYSTEM_SUPPLIER_IDENTIFIER,
     /// This value shall be used to reference the ECU (server) manufacturing date. Record data content and format shall be
     /// unsigned numeric, ASCII or BCD, and shall be ordered as Year, Month, Day.
-    ECUManufacturingData = 0xF18B,
+    ECUManufacturingData = Self::ECU_MANUFACTURING_DATA,
     /// Get the serial number of the ECU, format shall be server specific.
-    ECUSerialNumber = 0xF18C,
+    ECUSerialNumber = Self::ECU_SERIAL_NUMBER,
     /// Request the supported functional units of the ECU.
-    SupportedFunctionalUnits = 0xF18D,
+    SupportedFunctionalUnits = Self::SUPPORTED_FUNCTIONAL_UNITS,
     /// This value shall be used to reference the vehicle manufacturer order number for a kit (assembled parts bought as a whole for
     /// production e.g. cockpit), when the spare part number designates only the server (e.g. for aftersales). The record data content and
     /// format shall be server specific and defined by the vehicle manufacturer.
-    VehicleManufacturerKitAssemblyPartNumber = 0xF18E,
+    VehicleManufacturerKitAssemblyPartNumber = Self::VEHICLE_MANUFACTURER_KIT_ASSEMBLY_PART_NUMBER,
     /// See 14229-1 C.1 for details on Regulation X information.
     /// Recurive ASCII string
-    RegulationXSoftwareIdentificationNumbers = 0xF18F,
-    VIN = 0xF190,
-    VehicleManufacturerECUHardwareNumber = 0xF191,
-    SystemSupplierECUHardwareNumber = 0xF192,
-    SystemSupplierECUHardwareVersionNumber = 0xF193,
-    SystemSupplierECUSoftwareNumber = 0xF194,
-    SystemSupplierECUSoftwareVersionNumber = 0xF195,
-    ExhaustRegulationOrTypeApprovalNumber = 0xF196,
-    SystemNameOrEngineType = 0xF197,
-    RepairShopOrTesterSerialNumber = 0xF198,
+    RegulationXSoftwareIdentificationNumbers = Self::REGULATION_X_SOFTWARE_IDENTIFICATION_NUMBERS,
+    VehicleIdentificationNumber = Self::VEHICLE_IDENTIFICATION_NUMBER,
+    VehicleManufacturerECUHardwareNumber = Self::VEHICLE_MANUFACTURER_ECU_HARDWARE_NUMBER,
+    SystemSupplierECUHardwareNumber = Self::SYSTEM_SUPPLIER_ECU_HARDWARE_NUMBER,
+    SystemSupplierECUHardwareVersionNumber = Self::SYSTEM_SUPPLIER_ECU_HARDWARE_VERSION_NUMBER,
+    SystemSupplierECUSoftwareNumber = Self::SYSTEM_SUPPLIER_ECU_SOFTWARE_NUMBER,
+    SystemSupplierECUSoftwareVersionNumber = Self::SYSTEM_SUPPLIER_ECU_SOFTWARE_VERSION_NUMBER,
+    ExhaustRegulationOrTypeApprovalNumber = Self::EXHAUST_REGULATION_OR_TYPE_APPROVAL_NUMBER,
+    SystemNameOrEngineType = Self::SYSTEM_NAME_OR_ENGINE_TYPE,
+    RepairShopOrTesterSerialNumber = Self::REPAIR_SHOP_OR_TESTER_SERIAL_NUMBER,
     /// When the server was last programmed, the record data content and format shall be
     /// unsigned numeric, ASCII or BCD, and shall be ordered as Year, Month, Day.
-    ProgrammingDate = 0xF199,
-    CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber = 0xF19A,
-    CalibrationDate = 0xF19B,
-    CalibrationEquipmentSoftwareNumber = 0xF19C,
-    ECUInstallationDate = 0xF19D,
-    ODXFile = 0xF19E,
+    ProgrammingDate = Self::PROGRAMMING_DATE,
+    CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber =
+        Self::CALIBRATION_REPAIR_SHOP_CODE_OR_CALIBRATION_EQUIPMENT_SERIAL_NUMBER,
+    CalibrationDate = Self::CALIBRATION_DATE,
+    CalibrationEquipmentSoftwareNumber = Self::CALIBRATION_EQUIPMENT_SOFTWARE_NUMBER,
+    ECUInstallationDate = Self::ECU_INSTALLATION_DATE,
+    ODXFile = Self::ODX_FILE,
     /// Used to reference the entity data identifier for a secured data transfer
-    Entity = 0xF19F,
-    UDSVersionData = 0xFF00,
-    ReservedForISO15765_5 = 0xFF01,
+    Entity = Self::ENTITY,
+    UDSVersionData = Self::UDS_VERSION_DATA,
+    ReservedForISO15765_5 = Self::RESERVED_FOR_ISO15765_5,
+}
+
+impl UDSIdentifier {
+    pub const ISO_SAE_RESERVED_START: u16 = 0x0000;
+    pub const ISO_SAE_RESERVED_END: u16 = 0x00FF;
+    pub const VEHICLE_MANUFACTURER_SPECIFIC_START: u16 = 0xF100;
+    pub const VEHICLE_MANUFACTURER_SPECIFIC_END: u16 = 0xF17F;
+    pub const BOOT_SOFTWARE_IDENTIFICATION: u16 = 0xF180;
+    pub const APPLICATION_SOFTWARE_IDENTIFICATION: u16 = 0xF181;
+    pub const APPLICATION_DATA_IDENTIFICATION: u16 = 0xF182;
+    pub const BOOT_SOFTWARE_FINGERPRINT: u16 = 0xF183;
+    pub const APPLICATION_SOFTWARE_FINGERPRINT: u16 = 0xF184;
+    pub const APPLICATION_DATA_FINGERPRINT: u16 = 0xF185;
+    pub const ACTIVE_DIAGNOSTIC_SESSION: u16 = 0xF186;
+    pub const VEHICLE_MANUFACTURER_SPARE_PART_NUMBER: u16 = 0xF187;
+    pub const VEHICLE_MANUFACTURER_ECU_SOFTWARE_NUMBER: u16 = 0xF188;
+    pub const VEHICLE_MANUFACTURER_ECU_SOFTWARE_VERSION_NUMBER: u16 = 0xF189;
+    pub const SYSTEM_SUPPLIER_IDENTIFIER: u16 = 0xF18A;
+    pub const ECU_MANUFACTURING_DATA: u16 = 0xF18B;
+    pub const ECU_SERIAL_NUMBER: u16 = 0xF18C;
+    pub const SUPPORTED_FUNCTIONAL_UNITS: u16 = 0xF18D;
+    pub const VEHICLE_MANUFACTURER_KIT_ASSEMBLY_PART_NUMBER: u16 = 0xF18E;
+    pub const REGULATION_X_SOFTWARE_IDENTIFICATION_NUMBERS: u16 = 0xF18F;
+    pub const VEHICLE_IDENTIFICATION_NUMBER: u16 = 0xF190;
+    pub const VEHICLE_MANUFACTURER_ECU_HARDWARE_NUMBER: u16 = 0xF191;
+    pub const SYSTEM_SUPPLIER_ECU_HARDWARE_NUMBER: u16 = 0xF192;
+    pub const SYSTEM_SUPPLIER_ECU_HARDWARE_VERSION_NUMBER: u16 = 0xF193;
+    pub const SYSTEM_SUPPLIER_ECU_SOFTWARE_NUMBER: u16 = 0xF194;
+    pub const SYSTEM_SUPPLIER_ECU_SOFTWARE_VERSION_NUMBER: u16 = 0xF195;
+    pub const EXHAUST_REGULATION_OR_TYPE_APPROVAL_NUMBER: u16 = 0xF196;
+    pub const SYSTEM_NAME_OR_ENGINE_TYPE: u16 = 0xF197;
+    pub const REPAIR_SHOP_OR_TESTER_SERIAL_NUMBER: u16 = 0xF198;
+    pub const PROGRAMMING_DATE: u16 = 0xF199;
+    pub const CALIBRATION_REPAIR_SHOP_CODE_OR_CALIBRATION_EQUIPMENT_SERIAL_NUMBER: u16 = 0xF19A;
+    pub const CALIBRATION_DATE: u16 = 0xF19B;
+    pub const CALIBRATION_EQUIPMENT_SOFTWARE_NUMBER: u16 = 0xF19C;
+    pub const ECU_INSTALLATION_DATE: u16 = 0xF19D;
+    pub const ODX_FILE: u16 = 0xF19E;
+    pub const ENTITY: u16 = 0xF19F;
+    pub const UDS_VERSION_DATA: u16 = 0xFF00;
+    pub const RESERVED_FOR_ISO15765_5: u16 = 0xFF01;
+    pub const SYSTEM_SUPPLIER_SPECIFIC_START: u16 = 0xFD00;
+    pub const SYSTEM_SUPPLIER_SPECIFIC_END: u16 = 0xFEFF;
+    pub const ISO_RESERVED_START: u16 = 0xFF02;
+    pub const ISO_RESERVED_END: u16 = 0xFFFF;
 }
 
 impl TryFrom<u16> for UDSIdentifier {
@@ -70,43 +117,93 @@ impl TryFrom<u16> for UDSIdentifier {
     #[allow(clippy::match_same_arms)]
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         Ok(match value {
-            0x0000..=0x00FF => Self::ISOSAEReserved(value),
-            0xF100..=0xF17F => Self::VehicleManufacturerSpecific(value),
+            UDSIdentifier::ISO_SAE_RESERVED_START..=UDSIdentifier::ISO_SAE_RESERVED_END => {
+                UDSIdentifier::ISOSAEReserved(value)
+            }
+            UDSIdentifier::VEHICLE_MANUFACTURER_SPECIFIC_START
+                ..=UDSIdentifier::VEHICLE_MANUFACTURER_SPECIFIC_END => {
+                UDSIdentifier::VehicleManufacturerSpecific(value)
+            }
             // 0x0100..0xA5FF => Manufacturer Specific,
-            0xF180 => Self::BootSoftwareIdentification,
-            0xF181 => Self::ApplicationSoftwareIdentification,
-            0xF182 => Self::ApplicationDataIdentification,
-            0xF183 => Self::BootSoftwareFingerprint,
-            0xF184 => Self::ApplicationSoftwareFingerprint,
-            0xF185 => Self::ApplicationDataFingerprint,
-            0xF186 => Self::ActiveDiagnosticSession,
-            0xF187 => Self::VehicleManufacturerSparePartNumber,
-            0xF188 => Self::VehicleManufacturerECUSoftwareNumber,
-            0xF189 => Self::VehicleManufacturerECUSoftwareVersionNumber,
-            0xF18A => Self::SystemSupplierIdentifier,
-            0xF18B => Self::ECUManufacturingData,
-            0xF18C => Self::ECUSerialNumber,
-            0xF18D => Self::SupportedFunctionalUnits,
-            0xF18E => Self::VehicleManufacturerKitAssemblyPartNumber,
-            0xF18F => Self::RegulationXSoftwareIdentificationNumbers,
-            0xF190 => Self::VIN,
-            0xF191 => Self::VehicleManufacturerECUHardwareNumber,
-            0xF192 => Self::SystemSupplierECUHardwareNumber,
-            0xF193 => Self::SystemSupplierECUHardwareVersionNumber,
-            0xF194 => Self::SystemSupplierECUSoftwareNumber,
-            0xF195 => Self::SystemSupplierECUSoftwareVersionNumber,
-            0xF196 => Self::ExhaustRegulationOrTypeApprovalNumber,
-            0xF197 => Self::SystemNameOrEngineType,
-            0xF198 => Self::RepairShopOrTesterSerialNumber,
-            0xF199 => Self::ProgrammingDate,
-            0xF19A => Self::CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber,
-            0xF19B => Self::CalibrationDate,
-            0xF19C => Self::CalibrationEquipmentSoftwareNumber,
-            0xF19D => Self::ECUInstallationDate,
-            0xF19E => Self::ODXFile,
-            0xF19F => Self::Entity,
-            0xFD00..=0xFEFF => Self::SystemSupplierSpecific(value),
-            0xFF02..=0xFFFF => Self::ISOSAEReserved(value),
+            UDSIdentifier::BOOT_SOFTWARE_IDENTIFICATION => {
+                UDSIdentifier::BootSoftwareIdentification
+            }
+            UDSIdentifier::APPLICATION_SOFTWARE_IDENTIFICATION => {
+                UDSIdentifier::ApplicationSoftwareIdentification
+            }
+            UDSIdentifier::APPLICATION_DATA_IDENTIFICATION => {
+                UDSIdentifier::ApplicationDataIdentification
+            }
+            UDSIdentifier::BOOT_SOFTWARE_FINGERPRINT => UDSIdentifier::BootSoftwareFingerprint,
+            UDSIdentifier::APPLICATION_SOFTWARE_FINGERPRINT => {
+                UDSIdentifier::ApplicationSoftwareFingerprint
+            }
+            UDSIdentifier::APPLICATION_DATA_FINGERPRINT => {
+                UDSIdentifier::ApplicationDataFingerprint
+            }
+            UDSIdentifier::ACTIVE_DIAGNOSTIC_SESSION => UDSIdentifier::ActiveDiagnosticSession,
+            UDSIdentifier::VEHICLE_MANUFACTURER_SPARE_PART_NUMBER => {
+                UDSIdentifier::VehicleManufacturerSparePartNumber
+            }
+            UDSIdentifier::VEHICLE_MANUFACTURER_ECU_SOFTWARE_NUMBER => {
+                UDSIdentifier::VehicleManufacturerECUSoftwareNumber
+            }
+            UDSIdentifier::VEHICLE_MANUFACTURER_ECU_SOFTWARE_VERSION_NUMBER => {
+                UDSIdentifier::VehicleManufacturerECUSoftwareVersionNumber
+            }
+            UDSIdentifier::SYSTEM_SUPPLIER_IDENTIFIER => UDSIdentifier::SystemSupplierIdentifier,
+            UDSIdentifier::ECU_MANUFACTURING_DATA => UDSIdentifier::ECUManufacturingData,
+            UDSIdentifier::ECU_SERIAL_NUMBER => UDSIdentifier::ECUSerialNumber,
+            UDSIdentifier::SUPPORTED_FUNCTIONAL_UNITS => UDSIdentifier::SupportedFunctionalUnits,
+            UDSIdentifier::VEHICLE_MANUFACTURER_KIT_ASSEMBLY_PART_NUMBER => {
+                UDSIdentifier::VehicleManufacturerKitAssemblyPartNumber
+            }
+            UDSIdentifier::REGULATION_X_SOFTWARE_IDENTIFICATION_NUMBERS => {
+                UDSIdentifier::RegulationXSoftwareIdentificationNumbers
+            }
+            UDSIdentifier::VEHICLE_IDENTIFICATION_NUMBER => {
+                UDSIdentifier::VehicleIdentificationNumber
+            }
+            UDSIdentifier::VEHICLE_MANUFACTURER_ECU_HARDWARE_NUMBER => {
+                UDSIdentifier::VehicleManufacturerECUHardwareNumber
+            }
+            UDSIdentifier::SYSTEM_SUPPLIER_ECU_HARDWARE_NUMBER => {
+                UDSIdentifier::SystemSupplierECUHardwareNumber
+            }
+            UDSIdentifier::SYSTEM_SUPPLIER_ECU_HARDWARE_VERSION_NUMBER => {
+                UDSIdentifier::SystemSupplierECUHardwareVersionNumber
+            }
+            UDSIdentifier::SYSTEM_SUPPLIER_ECU_SOFTWARE_NUMBER => {
+                UDSIdentifier::SystemSupplierECUSoftwareNumber
+            }
+            UDSIdentifier::SYSTEM_SUPPLIER_ECU_SOFTWARE_VERSION_NUMBER => {
+                UDSIdentifier::SystemSupplierECUSoftwareVersionNumber
+            }
+            UDSIdentifier::EXHAUST_REGULATION_OR_TYPE_APPROVAL_NUMBER => {
+                UDSIdentifier::ExhaustRegulationOrTypeApprovalNumber
+            }
+            UDSIdentifier::SYSTEM_NAME_OR_ENGINE_TYPE => UDSIdentifier::SystemNameOrEngineType,
+            UDSIdentifier::REPAIR_SHOP_OR_TESTER_SERIAL_NUMBER => {
+                UDSIdentifier::RepairShopOrTesterSerialNumber
+            }
+            UDSIdentifier::PROGRAMMING_DATE => UDSIdentifier::ProgrammingDate,
+            UDSIdentifier::CALIBRATION_REPAIR_SHOP_CODE_OR_CALIBRATION_EQUIPMENT_SERIAL_NUMBER => {
+                UDSIdentifier::CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber
+            }
+            UDSIdentifier::CALIBRATION_DATE => UDSIdentifier::CalibrationDate,
+            UDSIdentifier::CALIBRATION_EQUIPMENT_SOFTWARE_NUMBER => {
+                UDSIdentifier::CalibrationEquipmentSoftwareNumber
+            }
+            UDSIdentifier::ECU_INSTALLATION_DATE => UDSIdentifier::ECUInstallationDate,
+            UDSIdentifier::ODX_FILE => UDSIdentifier::ODXFile,
+            UDSIdentifier::ENTITY => UDSIdentifier::Entity,
+            UDSIdentifier::SYSTEM_SUPPLIER_SPECIFIC_START
+                ..=UDSIdentifier::SYSTEM_SUPPLIER_SPECIFIC_END => {
+                UDSIdentifier::SystemSupplierSpecific(value)
+            }
+            UDSIdentifier::ISO_RESERVED_START..=UDSIdentifier::ISO_RESERVED_END => {
+                UDSIdentifier::ISOSAEReserved(value)
+            }
 
             _ => return Err(Error::InvalidDiagnosticIdentifier(value)),
         })
@@ -120,40 +217,80 @@ impl From<UDSIdentifier> for u16 {
             UDSIdentifier::ISOSAEReserved(identifier) => identifier,
             UDSIdentifier::VehicleManufacturerSpecific(identifier) => identifier,
             UDSIdentifier::SystemSupplierSpecific(identifier) => identifier,
-            UDSIdentifier::BootSoftwareIdentification => 0xF180,
-            UDSIdentifier::ApplicationSoftwareIdentification => 0xF181,
-            UDSIdentifier::ApplicationDataIdentification => 0xF182,
-            UDSIdentifier::BootSoftwareFingerprint => 0xF183,
-            UDSIdentifier::ApplicationSoftwareFingerprint => 0xF184,
-            UDSIdentifier::ApplicationDataFingerprint => 0xF185,
-            UDSIdentifier::ActiveDiagnosticSession => 0xF186,
-            UDSIdentifier::VehicleManufacturerSparePartNumber => 0xF187,
-            UDSIdentifier::VehicleManufacturerECUSoftwareNumber => 0xF188,
-            UDSIdentifier::VehicleManufacturerECUSoftwareVersionNumber => 0xF189,
-            UDSIdentifier::SystemSupplierIdentifier => 0xF18A,
-            UDSIdentifier::ECUManufacturingData => 0xF18B,
-            UDSIdentifier::ECUSerialNumber => 0xF18C,
-            UDSIdentifier::SupportedFunctionalUnits => 0xF18D,
-            UDSIdentifier::VehicleManufacturerKitAssemblyPartNumber => 0xF18E,
-            UDSIdentifier::RegulationXSoftwareIdentificationNumbers => 0xF18F,
-            UDSIdentifier::VIN => 0xF190,
-            UDSIdentifier::VehicleManufacturerECUHardwareNumber => 0xF191,
-            UDSIdentifier::SystemSupplierECUHardwareNumber => 0xF192,
-            UDSIdentifier::SystemSupplierECUHardwareVersionNumber => 0xF193,
-            UDSIdentifier::SystemSupplierECUSoftwareNumber => 0xF194,
-            UDSIdentifier::SystemSupplierECUSoftwareVersionNumber => 0xF195,
-            UDSIdentifier::ExhaustRegulationOrTypeApprovalNumber => 0xF196,
-            UDSIdentifier::SystemNameOrEngineType => 0xF197,
-            UDSIdentifier::RepairShopOrTesterSerialNumber => 0xF198,
-            UDSIdentifier::ProgrammingDate => 0xF199,
-            UDSIdentifier::CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber => 0xF19A,
-            UDSIdentifier::CalibrationDate => 0xF19B,
-            UDSIdentifier::CalibrationEquipmentSoftwareNumber => 0xF19C,
-            UDSIdentifier::ECUInstallationDate => 0xF19D,
-            UDSIdentifier::ODXFile => 0xF19E,
-            UDSIdentifier::Entity => 0xF19F,
-            UDSIdentifier::UDSVersionData => 0xFF00,
-            UDSIdentifier::ReservedForISO15765_5 => 0xFF01,
+            UDSIdentifier::BootSoftwareIdentification => {
+                UDSIdentifier::BOOT_SOFTWARE_IDENTIFICATION
+            }
+            UDSIdentifier::ApplicationSoftwareIdentification => {
+                UDSIdentifier::APPLICATION_SOFTWARE_IDENTIFICATION
+            }
+            UDSIdentifier::ApplicationDataIdentification => {
+                UDSIdentifier::APPLICATION_DATA_IDENTIFICATION
+            }
+            UDSIdentifier::BootSoftwareFingerprint => UDSIdentifier::BOOT_SOFTWARE_FINGERPRINT,
+            UDSIdentifier::ApplicationSoftwareFingerprint => {
+                UDSIdentifier::APPLICATION_SOFTWARE_FINGERPRINT
+            }
+            UDSIdentifier::ApplicationDataFingerprint => {
+                UDSIdentifier::APPLICATION_DATA_FINGERPRINT
+            }
+            UDSIdentifier::ActiveDiagnosticSession => UDSIdentifier::ACTIVE_DIAGNOSTIC_SESSION,
+            UDSIdentifier::VehicleManufacturerSparePartNumber => {
+                UDSIdentifier::VEHICLE_MANUFACTURER_SPARE_PART_NUMBER
+            }
+            UDSIdentifier::VehicleManufacturerECUSoftwareNumber => {
+                UDSIdentifier::VEHICLE_MANUFACTURER_ECU_SOFTWARE_NUMBER
+            }
+            UDSIdentifier::VehicleManufacturerECUSoftwareVersionNumber => {
+                UDSIdentifier::VEHICLE_MANUFACTURER_ECU_SOFTWARE_VERSION_NUMBER
+            }
+            UDSIdentifier::SystemSupplierIdentifier => UDSIdentifier::SYSTEM_SUPPLIER_IDENTIFIER,
+            UDSIdentifier::ECUManufacturingData => UDSIdentifier::ECU_MANUFACTURING_DATA,
+            UDSIdentifier::ECUSerialNumber => UDSIdentifier::ECU_SERIAL_NUMBER,
+            UDSIdentifier::SupportedFunctionalUnits => UDSIdentifier::SUPPORTED_FUNCTIONAL_UNITS,
+            UDSIdentifier::VehicleManufacturerKitAssemblyPartNumber => {
+                UDSIdentifier::VEHICLE_MANUFACTURER_KIT_ASSEMBLY_PART_NUMBER
+            }
+            UDSIdentifier::RegulationXSoftwareIdentificationNumbers => {
+                UDSIdentifier::REGULATION_X_SOFTWARE_IDENTIFICATION_NUMBERS
+            }
+            UDSIdentifier::VehicleIdentificationNumber => {
+                UDSIdentifier::VEHICLE_IDENTIFICATION_NUMBER
+            }
+            UDSIdentifier::VehicleManufacturerECUHardwareNumber => {
+                UDSIdentifier::VEHICLE_MANUFACTURER_ECU_HARDWARE_NUMBER
+            }
+            UDSIdentifier::SystemSupplierECUHardwareNumber => {
+                UDSIdentifier::SYSTEM_SUPPLIER_ECU_HARDWARE_NUMBER
+            }
+            UDSIdentifier::SystemSupplierECUHardwareVersionNumber => {
+                UDSIdentifier::SYSTEM_SUPPLIER_ECU_HARDWARE_VERSION_NUMBER
+            }
+            UDSIdentifier::SystemSupplierECUSoftwareNumber => {
+                UDSIdentifier::SYSTEM_SUPPLIER_ECU_SOFTWARE_NUMBER
+            }
+            UDSIdentifier::SystemSupplierECUSoftwareVersionNumber => {
+                UDSIdentifier::SYSTEM_SUPPLIER_ECU_SOFTWARE_VERSION_NUMBER
+            }
+            UDSIdentifier::ExhaustRegulationOrTypeApprovalNumber => {
+                UDSIdentifier::EXHAUST_REGULATION_OR_TYPE_APPROVAL_NUMBER
+            }
+            UDSIdentifier::SystemNameOrEngineType => UDSIdentifier::SYSTEM_NAME_OR_ENGINE_TYPE,
+            UDSIdentifier::RepairShopOrTesterSerialNumber => {
+                UDSIdentifier::REPAIR_SHOP_OR_TESTER_SERIAL_NUMBER
+            }
+            UDSIdentifier::ProgrammingDate => UDSIdentifier::PROGRAMMING_DATE,
+            UDSIdentifier::CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber => {
+                UDSIdentifier::CALIBRATION_REPAIR_SHOP_CODE_OR_CALIBRATION_EQUIPMENT_SERIAL_NUMBER
+            }
+            UDSIdentifier::CalibrationDate => UDSIdentifier::CALIBRATION_DATE,
+            UDSIdentifier::CalibrationEquipmentSoftwareNumber => {
+                UDSIdentifier::CALIBRATION_EQUIPMENT_SOFTWARE_NUMBER
+            }
+            UDSIdentifier::ECUInstallationDate => UDSIdentifier::ECU_INSTALLATION_DATE,
+            UDSIdentifier::ODXFile => UDSIdentifier::ODX_FILE,
+            UDSIdentifier::Entity => UDSIdentifier::ENTITY,
+            UDSIdentifier::UDSVersionData => UDSIdentifier::UDS_VERSION_DATA,
+            UDSIdentifier::ReservedForISO15765_5 => UDSIdentifier::RESERVED_FOR_ISO15765_5,
         }
     }
 }

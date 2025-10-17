@@ -226,6 +226,7 @@ type DTCReadinessGroupIdentifier = u8; // RGID
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum ReadDTCInfoSubFunction {
     /// * Parameter: `DTCStatusMask`
     ///
@@ -237,7 +238,7 @@ pub enum ReadDTCInfoSubFunction {
     ReportDTC_ByStatusMask(DTCStatusMask),
 
     /// 0x03
-    ReportDTCSnapshotIdentification,
+    ReportDTCSnapshotIdentification = Self::REPORT_DTC_SNAPSHOT_IDENTIFICATION,
 
     /// Parameter: `DTCRecord` (3 bytes)
     /// Parameter DTCSnapshotRecordNumber(1)
@@ -271,19 +272,19 @@ pub enum ReadDTCInfoSubFunction {
     ReportSeverityInfoOfDTC(DTCRecord),
 
     /// 0x0A
-    ReportSupportedDTC,
+    ReportSupportedDTC = Self::REPORT_SUPPORTED_DTC,
     /// 0x0B
-    ReportFirstTestFailedDTC,
+    ReportFirstTestFailedDTC = Self::REPORT_FIRST_TEST_FAILED_DTC,
     /// 0x0C
-    ReportFirstConfirmedDTC,
+    ReportFirstConfirmedDTC = Self::REPORT_FIRST_CONFIRMED_DTC,
     /// 0x0D
-    ReportMostRecentTestFailedDTC,
+    ReportMostRecentTestFailedDTC = Self::REPORT_MOST_RECENT_TEST_FAILED_DTC,
     /// 0x0E
-    ReportMostRecentConfirmedDTC,
+    ReportMostRecentConfirmedDTC = Self::REPORT_MOST_RECENT_CONFIRMED_DTC,
     /// 0x14
-    ReportDTCFaultDetectionCounter,
+    ReportDTCFaultDetectionCounter = Self::REPORT_DTC_FAULT_DETECTION_COUNTER,
     /// 0x15
-    ReportDTCWithPermanentStatus,
+    ReportDTCWithPermanentStatus = Self::REPORT_DTC_WITH_PERMANENT_STATUS,
 
     /// * Parameter: DTCExtDataRecordNumber(1)
     ///
@@ -344,33 +345,82 @@ pub enum ReadDTCInfoSubFunction {
 }
 
 impl ReadDTCInfoSubFunction {
+    pub const REPORT_NUMBER_OF_DTC_BY_STATUS_MASK: u8 = 0x01;
+    pub const REPORT_DTC_BY_STATUS_MASK: u8 = 0x02;
+    pub const REPORT_DTC_SNAPSHOT_IDENTIFICATION: u8 = 0x03;
+    pub const REPORT_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER: u8 = 0x04;
+    pub const REPORT_DTC_STORED_DATA_BY_RECORD_NUMBER: u8 = 0x05;
+    pub const REPORT_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER: u8 = 0x06;
+    pub const REPORT_NUMBER_OF_DTC_BY_SEVERITY_MASK_RECORD: u8 = 0x07;
+    pub const REPORT_DTC_BY_SEVERITY_MASK_RECORD: u8 = 0x08;
+    pub const REPORT_SEVERITY_INFO_OF_DTC: u8 = 0x09;
+    pub const REPORT_SUPPORTED_DTC: u8 = 0x0A;
+    pub const REPORT_FIRST_TEST_FAILED_DTC: u8 = 0x0B;
+    pub const REPORT_FIRST_CONFIRMED_DTC: u8 = 0x0C;
+    pub const REPORT_MOST_RECENT_TEST_FAILED_DTC: u8 = 0x0D;
+    pub const REPORT_MOST_RECENT_CONFIRMED_DTC: u8 = 0x0E;
+    pub const REPORT_DTC_FAULT_DETECTION_COUNTER: u8 = 0x14;
+    pub const REPORT_DTC_WITH_PERMANENT_STATUS: u8 = 0x15;
+    pub const REPORT_DTC_EXT_DATA_RECORD_BY_RECORD_NUMBER: u8 = 0x16;
+    pub const REPORT_USER_DEF_MEMORY_DTC_BY_STATUS_MASK: u8 = 0x17;
+    pub const REPORT_USER_DEF_MEMORY_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER: u8 = 0x18;
+    pub const REPORT_USER_DEF_MEMORY_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER: u8 = 0x19;
+    pub const REPORT_SUPPORTED_DTC_EXT_DATA_RECORD: u8 = 0x1A;
+    pub const REPORT_WWH_OBD_DTC_BY_MASK_RECORD: u8 = 0x42;
+    pub const REPORT_WWH_OBD_DTC_WITH_PERMANENT_STATUS: u8 = 0x55;
+    pub const REPORT_DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER: u8 = 0x56;
+    pub const ISO_SAE_RESERVED_START: u8 = 0x43;
+    pub const ISO_SAE_RESERVED_BEFORE_PERMANENT_END: u8 = 0x54;
+    pub const ISO_SAE_RESERVED_AFTER_PERMANENT_START: u8 = 0x57;
+    pub const ISO_SAE_RESERVED_AFTER_PERMANENT_END: u8 = 0x7F;
+
     #[must_use]
     pub fn value(&self) -> u8 {
         match self {
-            Self::ReportNumberOfDTC_ByStatusMask(_) => 0x01,
-            Self::ReportDTC_ByStatusMask(_) => 0x02,
-            Self::ReportDTCSnapshotIdentification => 0x03,
-            Self::ReportDTCSnapshotRecord_ByDTCNumber(_, _) => 0x04,
-            Self::ReportDTCStoredData_ByRecordNumber(_) => 0x05,
-            Self::ReportDTCExtDataRecord_ByDTCNumber(_, _) => 0x06,
-            Self::ReportNumberOfDTC_BySeverityMaskRecord(_, _) => 0x07,
-            Self::ReportDTC_BySeverityMaskRecord(_, _) => 0x08,
-            Self::ReportSeverityInfoOfDTC(_) => 0x09,
-            Self::ReportSupportedDTC => 0x0A,
-            Self::ReportFirstTestFailedDTC => 0x0B,
-            Self::ReportFirstConfirmedDTC => 0x0C,
-            Self::ReportMostRecentTestFailedDTC => 0x0D,
-            Self::ReportMostRecentConfirmedDTC => 0x0E,
-            Self::ReportDTCFaultDetectionCounter => 0x14,
-            Self::ReportDTCWithPermanentStatus => 0x15,
-            Self::ReportDTCExtDataRecord_ByRecordNumber(_) => 0x16,
-            Self::ReportUserDefMemoryDTC_ByStatusMask(_) => 0x17,
-            Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(_, _, _) => 0x18,
-            Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(_, _, _) => 0x19,
-            Self::ReportSupportedDTCExtDataRecord(_) => 0x1A,
-            Self::ReportWWHOBDDTC_ByMaskRecord(_, _, _) => 0x42,
-            Self::ReportWWHOBDDTC_WithPermanentStatus(_) => 0x55,
-            Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(_, _) => 0x56,
+            Self::ReportNumberOfDTC_ByStatusMask(_) => Self::REPORT_NUMBER_OF_DTC_BY_STATUS_MASK,
+            Self::ReportDTC_ByStatusMask(_) => Self::REPORT_DTC_BY_STATUS_MASK,
+            Self::ReportDTCSnapshotIdentification => Self::REPORT_DTC_SNAPSHOT_IDENTIFICATION,
+            Self::ReportDTCSnapshotRecord_ByDTCNumber(_, _) => {
+                Self::REPORT_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER
+            }
+            Self::ReportDTCStoredData_ByRecordNumber(_) => {
+                Self::REPORT_DTC_STORED_DATA_BY_RECORD_NUMBER
+            }
+            Self::ReportDTCExtDataRecord_ByDTCNumber(_, _) => {
+                Self::REPORT_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER
+            }
+            Self::ReportNumberOfDTC_BySeverityMaskRecord(_, _) => {
+                Self::REPORT_NUMBER_OF_DTC_BY_SEVERITY_MASK_RECORD
+            }
+            Self::ReportDTC_BySeverityMaskRecord(_, _) => Self::REPORT_DTC_BY_SEVERITY_MASK_RECORD,
+            Self::ReportSeverityInfoOfDTC(_) => Self::REPORT_SEVERITY_INFO_OF_DTC,
+            Self::ReportSupportedDTC => Self::REPORT_SUPPORTED_DTC,
+            Self::ReportFirstTestFailedDTC => Self::REPORT_FIRST_TEST_FAILED_DTC,
+            Self::ReportFirstConfirmedDTC => Self::REPORT_FIRST_CONFIRMED_DTC,
+            Self::ReportMostRecentTestFailedDTC => Self::REPORT_MOST_RECENT_TEST_FAILED_DTC,
+            Self::ReportMostRecentConfirmedDTC => Self::REPORT_MOST_RECENT_CONFIRMED_DTC,
+            Self::ReportDTCFaultDetectionCounter => Self::REPORT_DTC_FAULT_DETECTION_COUNTER,
+            Self::ReportDTCWithPermanentStatus => Self::REPORT_DTC_WITH_PERMANENT_STATUS,
+            Self::ReportDTCExtDataRecord_ByRecordNumber(_) => {
+                Self::REPORT_DTC_EXT_DATA_RECORD_BY_RECORD_NUMBER
+            }
+            Self::ReportUserDefMemoryDTC_ByStatusMask(_) => {
+                Self::REPORT_USER_DEF_MEMORY_DTC_BY_STATUS_MASK
+            }
+            Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(_, _, _) => {
+                Self::REPORT_USER_DEF_MEMORY_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER
+            }
+            Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(_, _, _) => {
+                Self::REPORT_USER_DEF_MEMORY_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER
+            }
+            Self::ReportSupportedDTCExtDataRecord(_) => Self::REPORT_SUPPORTED_DTC_EXT_DATA_RECORD,
+            Self::ReportWWHOBDDTC_ByMaskRecord(_, _, _) => Self::REPORT_WWH_OBD_DTC_BY_MASK_RECORD,
+            Self::ReportWWHOBDDTC_WithPermanentStatus(_) => {
+                Self::REPORT_WWH_OBD_DTC_WITH_PERMANENT_STATUS
+            }
+            Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(_, _) => {
+                Self::REPORT_DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER
+            }
             Self::ISOSAEReserved(value) => *value,
         }
     }
@@ -382,77 +432,102 @@ impl WireFormat for ReadDTCInfoSubFunction {
         let report_type = reader.read_u8()?;
 
         let subfunction = match report_type {
-            0x01 | 0x02 => {
+            Self::REPORT_NUMBER_OF_DTC_BY_STATUS_MASK | Self::REPORT_DTC_BY_STATUS_MASK => {
                 let status = DTCStatusMask::from(reader.read_u8()?);
                 match report_type {
-                    0x01 => Self::ReportNumberOfDTC_ByStatusMask(status),
-                    0x02 => Self::ReportDTC_ByStatusMask(status),
+                    Self::REPORT_NUMBER_OF_DTC_BY_STATUS_MASK => {
+                        Self::ReportNumberOfDTC_ByStatusMask(status)
+                    }
+                    Self::REPORT_DTC_BY_STATUS_MASK => Self::ReportDTC_ByStatusMask(status),
                     _ => unreachable!(),
                 }
             }
-            0x03 => Self::ReportDTCSnapshotIdentification,
-            0x04 => Self::ReportDTCSnapshotRecord_ByDTCNumber(
-                DTCRecord::decode_single_value(reader)?,
-                DTCSnapshotRecordNumber::decode_single_value(reader)?,
-            ),
-            0x05 => Self::ReportDTCStoredData_ByRecordNumber(
-                DTCStoredDataRecordNumber::decode_single_value(reader)?,
-            ),
+            Self::REPORT_DTC_SNAPSHOT_IDENTIFICATION => Self::ReportDTCSnapshotIdentification,
+            Self::REPORT_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER => {
+                Self::ReportDTCSnapshotRecord_ByDTCNumber(
+                    DTCRecord::decode_single_value(reader)?,
+                    DTCSnapshotRecordNumber::decode_single_value(reader)?,
+                )
+            }
+            Self::REPORT_DTC_STORED_DATA_BY_RECORD_NUMBER => {
+                Self::ReportDTCStoredData_ByRecordNumber(
+                    DTCStoredDataRecordNumber::decode_single_value(reader)?,
+                )
+            }
             // 0xFF for all records, 0xFE for all OBD records
-            0x06 => Self::ReportDTCExtDataRecord_ByDTCNumber(
-                DTCRecord::decode_single_value(reader)?,
-                DTCExtDataRecordNumber::decode_single_value(reader)?,
-            ),
-            0x07 => Self::ReportNumberOfDTC_BySeverityMaskRecord(
+            Self::REPORT_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER => {
+                Self::ReportDTCExtDataRecord_ByDTCNumber(
+                    DTCRecord::decode_single_value(reader)?,
+                    DTCExtDataRecordNumber::decode_single_value(reader)?,
+                )
+            }
+            Self::REPORT_NUMBER_OF_DTC_BY_SEVERITY_MASK_RECORD => {
+                Self::ReportNumberOfDTC_BySeverityMaskRecord(
+                    DTCSeverityMask::from(reader.read_u8()?),
+                    DTCStatusMask::from(reader.read_u8()?),
+                )
+            }
+            Self::REPORT_DTC_BY_SEVERITY_MASK_RECORD => Self::ReportDTC_BySeverityMaskRecord(
                 DTCSeverityMask::from(reader.read_u8()?),
                 DTCStatusMask::from(reader.read_u8()?),
             ),
-            0x08 => Self::ReportDTC_BySeverityMaskRecord(
-                DTCSeverityMask::from(reader.read_u8()?),
-                DTCStatusMask::from(reader.read_u8()?),
-            ),
-            0x09 => Self::ReportSeverityInfoOfDTC(DTCRecord::decode_single_value(reader)?),
-            0x0A => Self::ReportSupportedDTC,
-            0x0B => Self::ReportFirstTestFailedDTC,
-            0x0C => Self::ReportFirstConfirmedDTC,
-            0x0D => Self::ReportMostRecentTestFailedDTC,
-            0x0E => Self::ReportMostRecentConfirmedDTC,
-            0x14 => Self::ReportDTCFaultDetectionCounter,
-            0x15 => Self::ReportDTCWithPermanentStatus,
-            0x16 => Self::ReportDTCExtDataRecord_ByRecordNumber(
-                DTCExtDataRecordNumber::decode_single_value(reader)?,
-            ),
-            0x17 => {
+            Self::REPORT_SEVERITY_INFO_OF_DTC => {
+                Self::ReportSeverityInfoOfDTC(DTCRecord::decode_single_value(reader)?)
+            }
+            Self::REPORT_SUPPORTED_DTC => Self::ReportSupportedDTC,
+            Self::REPORT_FIRST_TEST_FAILED_DTC => Self::ReportFirstTestFailedDTC,
+            Self::REPORT_FIRST_CONFIRMED_DTC => Self::ReportFirstConfirmedDTC,
+            Self::REPORT_MOST_RECENT_TEST_FAILED_DTC => Self::ReportMostRecentTestFailedDTC,
+            Self::REPORT_MOST_RECENT_CONFIRMED_DTC => Self::ReportMostRecentConfirmedDTC,
+            Self::REPORT_DTC_FAULT_DETECTION_COUNTER => Self::ReportDTCFaultDetectionCounter,
+            Self::REPORT_DTC_WITH_PERMANENT_STATUS => Self::ReportDTCWithPermanentStatus,
+            Self::REPORT_DTC_EXT_DATA_RECORD_BY_RECORD_NUMBER => {
+                Self::ReportDTCExtDataRecord_ByRecordNumber(
+                    DTCExtDataRecordNumber::decode_single_value(reader)?,
+                )
+            }
+            Self::REPORT_USER_DEF_MEMORY_DTC_BY_STATUS_MASK => {
                 Self::ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask::from(reader.read_u8()?))
             }
             // 0xFF for all records
-            0x18 => Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
-                DTCRecord::decode_single_value(reader)?,
-                UserDefDTCSnapshotRecordNumber::decode_single_value(reader)?,
-                reader.read_u8()?,
-            ),
-            0x19 => Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
-                DTCRecord::decode_single_value(reader)?,
+            Self::REPORT_USER_DEF_MEMORY_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER => {
+                Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
+                    DTCRecord::decode_single_value(reader)?,
+                    UserDefDTCSnapshotRecordNumber::decode_single_value(reader)?,
+                    reader.read_u8()?,
+                )
+            }
+            Self::REPORT_USER_DEF_MEMORY_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER => {
+                Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
+                    DTCRecord::decode_single_value(reader)?,
+                    DTCExtDataRecordNumber::decode_single_value(reader)?,
+                    reader.read_u8()?,
+                )
+            }
+            Self::REPORT_SUPPORTED_DTC_EXT_DATA_RECORD => Self::ReportSupportedDTCExtDataRecord(
                 DTCExtDataRecordNumber::decode_single_value(reader)?,
-                reader.read_u8()?,
             ),
-            0x1A => Self::ReportSupportedDTCExtDataRecord(
-                DTCExtDataRecordNumber::decode_single_value(reader)?,
-            ),
-            0x42 => Self::ReportWWHOBDDTC_ByMaskRecord(
+            Self::REPORT_WWH_OBD_DTC_BY_MASK_RECORD => Self::ReportWWHOBDDTC_ByMaskRecord(
                 FunctionalGroupIdentifier::from(reader.read_u8()?),
                 DTCStatusMask::from(reader.read_u8()?),
                 DTCSeverityMask::from(reader.read_u8()?),
             ),
-            0x43..=0x54 => Self::ISOSAEReserved(report_type),
-            0x55 => Self::ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier::from(
-                reader.read_u8()?,
-            )),
-            0x56 => Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(
-                FunctionalGroupIdentifier::from(reader.read_u8()?),
-                reader.read_u8()?,
-            ),
-            0x57..=0x7F => Self::ISOSAEReserved(report_type),
+            Self::ISO_SAE_RESERVED_START..=Self::ISO_SAE_RESERVED_BEFORE_PERMANENT_END => {
+                Self::ISOSAEReserved(report_type)
+            }
+            Self::REPORT_WWH_OBD_DTC_WITH_PERMANENT_STATUS => {
+                Self::ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier::from(
+                    reader.read_u8()?,
+                ))
+            }
+            Self::REPORT_DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER => {
+                Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(
+                    FunctionalGroupIdentifier::from(reader.read_u8()?),
+                    reader.read_u8()?,
+                )
+            }
+            Self::ISO_SAE_RESERVED_AFTER_PERMANENT_START
+                ..=Self::ISO_SAE_RESERVED_AFTER_PERMANENT_END => Self::ISOSAEReserved(report_type),
             _ => return Err(Error::InvalidDtcSubfunctionType(report_type)),
         };
         Ok(Some(subfunction))
@@ -776,18 +851,92 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     DTCByReadinessGroupIdentifierList(DTCByReadinessGroupIdentifierRecord),
 }
 
+impl<UserPayload> ReadDTCInfoResponse<UserPayload> {
+    pub const NUMBER_OF_DTC_BY_STATUS_MASK: u8 =
+        ReadDTCInfoSubFunction::REPORT_NUMBER_OF_DTC_BY_STATUS_MASK;
+    pub const NUMBER_OF_DTC_BY_SEVERITY_MASK_RECORD: u8 =
+        ReadDTCInfoSubFunction::REPORT_NUMBER_OF_DTC_BY_SEVERITY_MASK_RECORD;
+    pub const DTC_BY_STATUS_MASK: u8 = ReadDTCInfoSubFunction::REPORT_DTC_BY_STATUS_MASK;
+    pub const SUPPORTED_DTC: u8 = ReadDTCInfoSubFunction::REPORT_SUPPORTED_DTC;
+    pub const FIRST_TEST_FAILED_DTC: u8 = ReadDTCInfoSubFunction::REPORT_FIRST_TEST_FAILED_DTC;
+    pub const FIRST_CONFIRMED_DTC: u8 = ReadDTCInfoSubFunction::REPORT_FIRST_CONFIRMED_DTC;
+    pub const MOST_RECENT_TEST_FAILED_DTC: u8 =
+        ReadDTCInfoSubFunction::REPORT_MOST_RECENT_TEST_FAILED_DTC;
+    pub const MOST_RECENT_CONFIRMED_DTC: u8 =
+        ReadDTCInfoSubFunction::REPORT_MOST_RECENT_CONFIRMED_DTC;
+    pub const DTC_SEVERITY_MASK_RECORD: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_BY_SEVERITY_MASK_RECORD;
+    pub const SEVERITY_INFO_OF_DTC: u8 = ReadDTCInfoSubFunction::REPORT_SEVERITY_INFO_OF_DTC;
+    pub const DTC_SNAPSHOT_IDENTIFICATION: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_SNAPSHOT_IDENTIFICATION;
+    pub const DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER;
+    pub const DTC_STORED_DATA_BY_RECORD_NUMBER: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_STORED_DATA_BY_RECORD_NUMBER;
+    pub const DTC_EXT_DATA_RECORD_BY_DTC_NUMBER: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER;
+    pub const DTC_FAULT_DETECTION_COUNTER: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_FAULT_DETECTION_COUNTER;
+    pub const DTC_WITH_PERMANENT_STATUS: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_WITH_PERMANENT_STATUS;
+    pub const DTC_EXT_DATA_RECORD_BY_RECORD_NUMBER: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_EXT_DATA_RECORD_BY_RECORD_NUMBER;
+    pub const USER_DEF_MEMORY_DTC_BY_STATUS_MASK: u8 =
+        ReadDTCInfoSubFunction::REPORT_USER_DEF_MEMORY_DTC_BY_STATUS_MASK;
+    pub const USER_DEF_MEMORY_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER: u8 =
+        ReadDTCInfoSubFunction::REPORT_USER_DEF_MEMORY_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER;
+    pub const USER_DEF_MEMORY_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER: u8 =
+        ReadDTCInfoSubFunction::REPORT_USER_DEF_MEMORY_DTC_EXT_DATA_RECORD_BY_DTC_NUMBER;
+    pub const SUPPORTED_DTC_EXT_DATA_RECORD: u8 =
+        ReadDTCInfoSubFunction::REPORT_SUPPORTED_DTC_EXT_DATA_RECORD;
+    pub const WWH_OBD_DTC_BY_MASK_RECORD: u8 =
+        ReadDTCInfoSubFunction::REPORT_WWH_OBD_DTC_BY_MASK_RECORD;
+    pub const WWH_OBD_DTC_WITH_PERMANENT_STATUS: u8 =
+        ReadDTCInfoSubFunction::REPORT_WWH_OBD_DTC_WITH_PERMANENT_STATUS;
+    pub const DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER: u8 =
+        ReadDTCInfoSubFunction::REPORT_DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER;
+
+    pub fn response_id(&self) -> u8 {
+        match self {
+            Self::NumberOfDTCs(subfunction, ..) => *subfunction,
+            Self::DTCList(subfunction, ..) => *subfunction,
+            Self::DTCSnapshotList(..) => Self::DTC_SNAPSHOT_IDENTIFICATION,
+            Self::DTCSnapshotRecordList(..) => Self::DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER,
+            Self::DTCExtDataRecordList(..) => Self::DTC_EXT_DATA_RECORD_BY_DTC_NUMBER,
+            Self::DTCSeverityRecordList(subfunction, ..) => *subfunction,
+            Self::DTCFaultDetectionCounterRecordList(..) => Self::DTC_FAULT_DETECTION_COUNTER,
+            Self::UserDefMemoryDTCByStatusMaskList(..) => Self::USER_DEF_MEMORY_DTC_BY_STATUS_MASK,
+            Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(..) => {
+                Self::USER_DEF_MEMORY_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER
+            }
+            Self::SupportedDTCExtDataRecordList(..) => Self::SUPPORTED_DTC_EXT_DATA_RECORD,
+            Self::WWHOBDDTCByMaskRecordList(..) => Self::WWH_OBD_DTC_BY_MASK_RECORD,
+            Self::WWHOBDDTCWithPermanentStatusList(..) => Self::WWH_OBD_DTC_WITH_PERMANENT_STATUS,
+            Self::DTCByReadinessGroupIdentifierList(..) => {
+                Self::DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER
+            }
+        }
+    }
+}
+
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
     #[allow(clippy::too_many_lines)]
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let subfunction_id = reader.read_u8()?;
 
         match subfunction_id {
-            0x01 | 0x07 => {
+            Self::NUMBER_OF_DTC_BY_STATUS_MASK | Self::NUMBER_OF_DTC_BY_SEVERITY_MASK_RECORD => {
                 let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
                 let count = reader.read_u16::<byteorder::BigEndian>()?;
                 Ok(Some(Self::NumberOfDTCs(subfunction_id, status, count)))
             }
-            0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
+            Self::DTC_BY_STATUS_MASK
+            | Self::SUPPORTED_DTC
+            | Self::FIRST_TEST_FAILED_DTC
+            | Self::FIRST_CONFIRMED_DTC
+            | Self::MOST_RECENT_TEST_FAILED_DTC
+            | Self::MOST_RECENT_CONFIRMED_DTC
+            | Self::DTC_WITH_PERMANENT_STATUS => {
                 let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
                 let mut dtcs: Vec<(DTCRecord, DTCStatusMask)> = Vec::new();
 
@@ -801,7 +950,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
 
                 Ok(Some(Self::DTCList(subfunction_id, status, dtcs)))
             }
-            0x03 => {
+            Self::DTC_SNAPSHOT_IDENTIFICATION => {
                 let mut dtcs: Vec<(DTCRecord, DTCSnapshotRecordNumber)> = Vec::new();
 
                 // Loop until we're done with the reader and fill the DTC list
@@ -814,15 +963,15 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
 
                 Ok(Some(Self::DTCSnapshotList(dtcs)))
             }
-            0x04 => {
+            Self::DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER => {
                 let snapshot_list = DTCSnapshotRecordList::decode(reader)?.unwrap();
                 Ok(Some(Self::DTCSnapshotRecordList(snapshot_list)))
             }
-            0x06 => {
+            Self::DTC_EXT_DATA_RECORD_BY_DTC_NUMBER => {
                 let ext_data_list = DTCExtDataRecordList::decode(reader)?.unwrap();
                 Ok(Some(Self::DTCExtDataRecordList(ext_data_list)))
             }
-            0x08 | 0x09 => {
+            Self::DTC_SEVERITY_MASK_RECORD | Self::SEVERITY_INFO_OF_DTC => {
                 let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
                 let mut dtcs = Vec::new();
 
@@ -843,7 +992,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     dtcs,
                 )))
             }
-            0x14 => {
+            Self::DTC_FAULT_DETECTION_COUNTER => {
                 let mut dtcs = Vec::new();
                 for dtc_fault_record in DTCFaultDetectionCounterRecord::decode_iterable(reader) {
                     match dtc_fault_record {
@@ -857,7 +1006,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 }
                 Ok(Some(Self::DTCFaultDetectionCounterRecordList(dtcs)))
             }
-            0x17 => {
+            Self::USER_DEF_MEMORY_DTC_BY_STATUS_MASK => {
                 let memory_selection = reader.read_u8()?;
                 let status_availability_mask = DTCStatusMask::decode_single_value(reader)?;
                 let mut record_data = Vec::new();
@@ -875,10 +1024,12 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     },
                 )))
             }
-            0x18 => Ok(Some(Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
-                UserDefMemoryDTCSnapshotRecordByDTCNumRecord::decode(reader)?.unwrap(),
-            ))),
-            0x1A => {
+            Self::USER_DEF_MEMORY_DTC_SNAPSHOT_RECORD_BY_DTC_NUMBER => {
+                Ok(Some(Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
+                    UserDefMemoryDTCSnapshotRecordByDTCNumRecord::decode(reader)?.unwrap(),
+                )))
+            }
+            Self::SUPPORTED_DTC_EXT_DATA_RECORD => {
                 let status_availability_mask =
                     DTCStatusAvailabilityMask::decode_single_value(reader)?;
                 let mut dtc_and_status_records = Vec::new();
@@ -898,7 +1049,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 )))
             }
 
-            0x42 => {
+            Self::WWH_OBD_DTC_BY_MASK_RECORD => {
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
                 let status_availability_mask =
@@ -930,7 +1081,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     },
                 )))
             }
-            0x55 => {
+            Self::WWH_OBD_DTC_WITH_PERMANENT_STATUS => {
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
                 let status_availability_mask = DTCStatusAvailabilityMask::decode(reader)?.unwrap();
@@ -959,7 +1110,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     },
                 )))
             }
-            0x56 => {
+            Self::DTC_INFORMATION_BY_DTC_READINESS_GROUP_IDENTIFIER => {
                 let functional_group_identifier =
                     FunctionalGroupIdentifier::from(reader.read_u8()?);
                 let status_availability_mask =
@@ -983,7 +1134,11 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                     },
                 )))
             }
-            _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
+            ReadDTCInfoSubFunction::ISO_SAE_RESERVED_START
+                ..=ReadDTCInfoSubFunction::ISO_SAE_RESERVED_AFTER_PERMANENT_END => {
+                return Err(Error::InvalidDtcSubfunctionType(subfunction_id));
+            }
+            _ => todo!(),
         }
     }
 
@@ -1020,14 +1175,13 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
 
     #[allow(clippy::too_many_lines)]
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        writer.write_u8(self.response_id())?;
         match self {
-            Self::NumberOfDTCs(id, mask, count) => {
-                writer.write_u8(*id)?;
+            Self::NumberOfDTCs(_, mask, count) => {
                 writer.write_u8(mask.bits())?;
                 writer.write_u16::<byteorder::BigEndian>(*count)?;
             }
-            Self::DTCList(id, mask, list) => {
-                writer.write_u8(*id)?;
+            Self::DTCList(_, mask, list) => {
                 writer.write_u8(mask.bits())?;
                 for (record, status) in list {
                     record.encode(writer)?;
@@ -1035,35 +1189,29 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 }
             }
             Self::DTCSnapshotList(list) => {
-                writer.write_u8(0x03)?;
                 for (record, number) in list {
                     record.encode(writer)?;
                     number.encode(writer)?;
                 }
             }
             Self::DTCSnapshotRecordList(list) => {
-                writer.write_u8(0x04)?;
                 list.encode(writer)?;
             }
             Self::DTCExtDataRecordList(list) => {
-                writer.write_u8(0x06)?;
                 list.encode(writer)?;
             }
             Self::DTCFaultDetectionCounterRecordList(list) => {
-                writer.write_u8(0x14)?;
                 for fault_detection_counter in list {
                     fault_detection_counter.encode(writer)?;
                 }
             }
-            Self::DTCSeverityRecordList(id, status, list) => {
-                writer.write_u8(*id)?;
+            Self::DTCSeverityRecordList(_, status, list) => {
                 status.encode(writer)?;
                 for dtcs in list {
                     dtcs.encode(writer)?;
                 }
             }
             Self::UserDefMemoryDTCByStatusMaskList(data_record_struct) => {
-                writer.write_u8(0x17)?;
                 writer.write_u8(data_record_struct.memory_selection)?;
                 data_record_struct.status_availability_mask.encode(writer)?;
                 for (data_record, status) in &data_record_struct.record_data {
@@ -1073,11 +1221,9 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
             }
 
             Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(snapshot_struct) => {
-                writer.write_u8(0x18)?;
                 snapshot_struct.encode(writer)?;
             }
             Self::SupportedDTCExtDataRecordList(response_struct) => {
-                writer.write_u8(0x1A)?;
                 response_struct.status_availability_mask.encode(writer)?;
                 if let Some(record_number) = &response_struct.ext_data_record_number {
                     record_number.encode(writer)?;
@@ -1088,7 +1234,6 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 }
             }
             Self::WWHOBDDTCByMaskRecordList(response_struct) => {
-                writer.write_u8(0x42)?;
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
                 response_struct.status_availability_mask.encode(writer)?;
                 writer.write_u8(response_struct.severity_availability_mask.into())?;
@@ -1100,7 +1245,6 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 }
             }
             Self::WWHOBDDTCWithPermanentStatusList(response_struct) => {
-                writer.write_u8(0x55)?;
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
                 response_struct.status_availability_mask.encode(writer)?;
                 writer.write_u8(response_struct.format_identifier.into())?;
@@ -1110,7 +1254,6 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 }
             }
             Self::DTCByReadinessGroupIdentifierList(response_struct) => {
-                writer.write_u8(0x56)?;
                 writer.write_u8(response_struct.functional_group_identifier.value())?;
                 response_struct.status_availability_mask.encode(writer)?;
                 writer.write_u8(response_struct.format_identifier.into())?;

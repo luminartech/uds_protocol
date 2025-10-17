@@ -10,6 +10,7 @@ use crate::Error;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum DiagnosticSessionType {
     /// This value is reserved by the ISO 14229-1 Specification
     #[cfg_attr(feature = "clap", clap(skip))]
@@ -19,15 +20,15 @@ pub enum DiagnosticSessionType {
     /// - Any other diagnostic sessions are stopped upon succesful entry into this session
     /// - Any security authorization is revoked
     /// - This session is initialized on startup
-    DefaultSession,
+    DefaultSession = Self::DEFAULT_SESSION,
     /// The `ProgrammingSession` (0x02) enables services required to support writing server memory
     /// - Upon timeout the server shall return to the `DefaultSession`
     /// - Success response may be sent before or after session is actually entered
-    ProgrammingSession,
+    ProgrammingSession = Self::PROGRAMMING_SESSION,
     /// The `ExtendedDiagnosticSession` (0x03) enables additional diagnostics functionality which can modify server behavior
-    ExtendedDiagnosticSession,
+    ExtendedDiagnosticSession = Self::EXTENDED_SESSION,
     /// The `SafetySystemDiagnosticSession` (0x04) enables diagnostics functionality for safety systems
-    SafetySystemDiagnosticSession,
+    SafetySystemDiagnosticSession = Self::SAFETY_SYSTEM_SESSION,
     /// Value reserved for use by vehicle manufacturers
     #[cfg_attr(feature = "clap", clap(skip))]
     VehicleManufacturerSpecificSession(u8),
@@ -36,15 +37,34 @@ pub enum DiagnosticSessionType {
     SystemSupplierSpecificSession(u8),
 }
 
+impl DiagnosticSessionType {
+    pub const ISO_RESERVED: u8 = 0x00;
+    pub const DEFAULT_SESSION: u8 = 0x01;
+    pub const PROGRAMMING_SESSION: u8 = 0x02;
+    pub const EXTENDED_SESSION: u8 = 0x03;
+    pub const SAFETY_SYSTEM_SESSION: u8 = 0x04;
+    pub const RESERVED_START: u8 = 0x05;
+    pub const RESERVED_END: u8 = 0x3F;
+    pub const VEHICLE_MANUFACTURER_START: u8 = 0x40;
+    pub const VEHICLE_MANUFACTURER_END: u8 = 0x5F;
+    pub const SYSTEM_SUPPLIER_START: u8 = 0x60;
+    pub const SYSTEM_SUPPLIER_END: u8 = 0x7E;
+    pub const ISO_RESERVED_EXTENSION: u8 = 0x7F;
+}
+
 impl From<DiagnosticSessionType> for u8 {
     #[allow(clippy::match_same_arms)]
     fn from(value: DiagnosticSessionType) -> Self {
         match value {
             DiagnosticSessionType::ISOSAEReserved(value) => value,
-            DiagnosticSessionType::DefaultSession => 0x01,
-            DiagnosticSessionType::ProgrammingSession => 0x02,
-            DiagnosticSessionType::ExtendedDiagnosticSession => 0x03,
-            DiagnosticSessionType::SafetySystemDiagnosticSession => 0x04,
+            DiagnosticSessionType::DefaultSession => DiagnosticSessionType::DEFAULT_SESSION,
+            DiagnosticSessionType::ProgrammingSession => DiagnosticSessionType::PROGRAMMING_SESSION,
+            DiagnosticSessionType::ExtendedDiagnosticSession => {
+                DiagnosticSessionType::EXTENDED_SESSION
+            }
+            DiagnosticSessionType::SafetySystemDiagnosticSession => {
+                DiagnosticSessionType::SAFETY_SYSTEM_SESSION
+            }
             DiagnosticSessionType::VehicleManufacturerSpecificSession(value) => value,
             DiagnosticSessionType::SystemSupplierSpecificSession(value) => value,
         }
@@ -56,17 +76,21 @@ impl TryFrom<u8> for DiagnosticSessionType {
     #[allow(clippy::match_same_arms)]
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
-            0x01 => Ok(DiagnosticSessionType::DefaultSession),
-            0x02 => Ok(DiagnosticSessionType::ProgrammingSession),
-            0x03 => Ok(DiagnosticSessionType::ExtendedDiagnosticSession),
-            0x04 => Ok(DiagnosticSessionType::SafetySystemDiagnosticSession),
-            0x05..=0x3F => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
-            0x40..=0x5F => Ok(DiagnosticSessionType::VehicleManufacturerSpecificSession(
-                value,
-            )),
-            0x60..=0x7E => Ok(DiagnosticSessionType::SystemSupplierSpecificSession(value)),
-            0x7F => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
+            Self::ISO_RESERVED => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
+            Self::DEFAULT_SESSION => Ok(DiagnosticSessionType::DefaultSession),
+            Self::PROGRAMMING_SESSION => Ok(DiagnosticSessionType::ProgrammingSession),
+            Self::EXTENDED_SESSION => Ok(DiagnosticSessionType::ExtendedDiagnosticSession),
+            Self::SAFETY_SYSTEM_SESSION => Ok(DiagnosticSessionType::SafetySystemDiagnosticSession),
+            Self::RESERVED_START..=Self::RESERVED_END => {
+                Ok(DiagnosticSessionType::ISOSAEReserved(value))
+            }
+            Self::VEHICLE_MANUFACTURER_START..=Self::VEHICLE_MANUFACTURER_END => Ok(
+                DiagnosticSessionType::VehicleManufacturerSpecificSession(value),
+            ),
+            Self::SYSTEM_SUPPLIER_START..=Self::SYSTEM_SUPPLIER_END => {
+                Ok(DiagnosticSessionType::SystemSupplierSpecificSession(value))
+            }
+            Self::ISO_RESERVED_EXTENSION => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
             _ => Err(Error::InvalidDiagnosticSessionType(value)),
         }
     }

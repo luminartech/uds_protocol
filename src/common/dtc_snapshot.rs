@@ -163,22 +163,27 @@ pub type UserDefDTCSnapshotRecordNumber = DTCSnapshotRecordNumber;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum DTCSnapshotRecordNumber {
     /// Reserved for Legislative purposes
     Reserved(u8),
     /// Indicates the number of the specific `DTCSnapshot` data record requested
     Number(u8),
     /// Requests that the server report all `DTCSnapshot` data records at once
-    All,
+    All = Self::ALL,
 }
 
 impl DTCSnapshotRecordNumber {
+    pub const RESERVED_START: u8 = 0x00;
+    pub const RESERVED_STOP: u8 = 0xF0;
+    pub const ALL: u8 = 0xFF;
+
     /// Create a new `DTCSnapshotRecordNumber` validating that it is in the range we expect
     #[must_use]
     pub fn new(record_number: u8) -> Self {
         match record_number {
-            0x00 | 0xF0 => Self::Reserved(record_number),
-            0xFF => Self::All,
+            Self::RESERVED_START | Self::RESERVED_STOP => Self::Reserved(record_number),
+            Self::ALL => Self::All,
             _ => Self::Number(record_number),
         }
     }
@@ -188,7 +193,7 @@ impl DTCSnapshotRecordNumber {
         match self {
             DTCSnapshotRecordNumber::Reserved(value) => *value,
             DTCSnapshotRecordNumber::Number(value) => *value,
-            DTCSnapshotRecordNumber::All => 0xFF,
+            DTCSnapshotRecordNumber::All => Self::ALL,
         }
     }
 }
