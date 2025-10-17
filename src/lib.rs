@@ -59,7 +59,7 @@ pub type ProtocolResponse = Response<UdsSpec>;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, IntoPrimitive, PartialEq, TryFromPrimitive)]
 #[num_enum(error_type(name = crate::Error, constructor = Error::InvalidUDSMessageValue))]
 #[repr(u8)]
 pub enum RoutineControlSubFunction {
@@ -100,7 +100,7 @@ impl IterableWireFormat for Vec<u8> {}
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(Clone, Copy, Debug, Eq, IntoPrimitive, PartialEq, TryFromPrimitive)]
 #[num_enum(error_type(name = crate::Error, constructor = Error::InvalidUDSMessageValue))]
 #[repr(u8)]
 pub enum DtcSettings {
