@@ -115,13 +115,13 @@ mod tests {
 
     #[test]
     fn test_correct_discriminant() {
-        let raw_disciminant: u8 = 0x01;
+        let raw_discriminant: u8 = 0x01;
         let discriminant_from_id: u8 = RoutineControlSubFunction::StartRoutine.into();
 
         let id_from_discriminant: RoutineControlSubFunction =
-            RoutineControlSubFunction::try_from(raw_disciminant).unwrap();
+            RoutineControlSubFunction::try_from(raw_discriminant).unwrap();
 
-        assert_eq!(discriminant_from_id, raw_disciminant);
+        assert_eq!(discriminant_from_id, raw_discriminant);
         assert_eq!(
             id_from_discriminant,
             RoutineControlSubFunction::StartRoutine
@@ -130,16 +130,16 @@ mod tests {
 
     #[test]
     fn test_incorrect_discriminant() {
-        let raw_disciminant: u8 = 0x04;
+        let raw_discriminant: u8 = 0x04;
 
-        let id_from_discriminant = RoutineControlSubFunction::try_from(raw_disciminant)
+        let id_from_discriminant = RoutineControlSubFunction::try_from(raw_discriminant)
             .err()
             .unwrap()
             .to_string();
 
         assert_eq!(
             id_from_discriminant,
-            Error::InvalidUDSMessageValue(raw_disciminant).to_string()
+            Error::InvalidUDSMessageValue(raw_discriminant).to_string()
         );
     }
 }
