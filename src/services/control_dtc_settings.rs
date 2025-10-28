@@ -1,4 +1,4 @@
-use crate::{DtcSettings, Error, SUCCESS, SingleValueWireFormat, WireFormat};
+use crate::{DtcSettings, Error, SingleValueWireFormat, SuppressablePositiveResponse, WireFormat};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 /// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
@@ -8,29 +8,32 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 #[non_exhaustive]
 pub struct ControlDTCSettingsRequest {
     /// The requested DTC logging setting
-    pub setting: DtcSettings,
-    /// Whether the ECU should suppress a response
-    pub suppress_response: bool,
+    setting: SuppressablePositiveResponse<DtcSettings>,
 }
 
 impl ControlDTCSettingsRequest {
-    pub(crate) fn new(setting: DtcSettings, suppress_response: bool) -> Self {
+    pub(crate) fn new(suppress_positive_response: bool, setting: DtcSettings) -> Self {
         Self {
-            setting,
-            suppress_response,
+            setting: SuppressablePositiveResponse::new(suppress_positive_response, setting),
         }
+    }
+    /// Getter for whether a positive response should be suppressed
+    #[must_use]
+    pub fn suppress_positive_response(&self) -> bool {
+        self.setting.suppress_positive_response()
+    }
+
+    /// Getter for the setting
+    #[must_use]
+    pub fn setting(&self) -> DtcSettings {
+        self.setting.value()
     }
 }
 
 impl WireFormat for ControlDTCSettingsRequest {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let request_byte = reader.read_u8()?;
-        let setting = DtcSettings::from(request_byte & !SUCCESS);
-        let suppress_response = request_byte & SUCCESS != 0;
-        Ok(Some(Self {
-            setting,
-            suppress_response,
-        }))
+        let setting = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
+        Ok(Some(Self { setting }))
     }
 
     fn required_size(&self) -> usize {
@@ -38,14 +41,12 @@ impl WireFormat for ControlDTCSettingsRequest {
     }
 
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        let request_byte =
-            u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
-        writer.write_u8(request_byte)?;
+        writer.write_u8(u8::from(self.setting))?;
         Ok(1)
     }
 
     fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_response
+        self.suppress_positive_response()
     }
 }
 
@@ -71,7 +72,7 @@ impl ControlDTCSettingsResponse {
 
 impl WireFormat for ControlDTCSettingsResponse {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let setting = DtcSettings::from(reader.read_u8()?);
+        let setting = DtcSettings::try_from(reader.read_u8()?)?;
         Ok(Some(Self { setting }))
     }
 
@@ -94,7 +95,7 @@ mod request {
 
     #[test]
     fn simple_request() {
-        let req = ControlDTCSettingsRequest::new(DtcSettings::On, true);
+        let req = ControlDTCSettingsRequest::new(true, DtcSettings::On);
         let mut buffer = Vec::new();
         let written = req.encode(&mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
@@ -103,8 +104,8 @@ mod request {
 
         let parsed =
             ControlDTCSettingsRequest::decode_single_value(&mut buffer.as_slice()).unwrap();
-        assert_eq!(parsed.setting, DtcSettings::On);
-        assert!(parsed.suppress_response);
+        assert_eq!(parsed.setting(), DtcSettings::On);
+        assert!(parsed.suppress_positive_response());
     }
 }
 

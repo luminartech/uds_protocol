@@ -133,13 +133,14 @@ impl From<DtcSettings> for u8 {
         }
     }
 }
+impl TryFrom<u8> for DtcSettings {
+    type Error = Error;
 
-impl From<u8> for DtcSettings {
-    fn from(value: u8) -> Self {
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0x01 => Self::On,
-            0x02 => Self::Off,
-            _ => panic!("Invalid DTC setting: {value}"),
+            0x01 => Ok(Self::On),
+            0x02 => Ok(Self::Off),
+            _ => Err(Error::InvalidDtcSubfunctionType(value)),
         }
     }
 }
