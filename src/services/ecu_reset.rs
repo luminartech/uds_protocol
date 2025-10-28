@@ -77,12 +77,20 @@ impl SingleValueWireFormat for EcuResetRequest {}
 #[non_exhaustive]
 pub struct EcuResetResponse {
     pub reset_type: ResetType,
-    pub power_down_time: u8,
+    /// Optional power down time in seconds for [ResetType::EnableRapidPowerShutDown]
+    pub power_down_time: Option<u8>,
 }
 
 impl EcuResetResponse {
     /// Create a new '`EcuResetResponse`'
-    pub(crate) fn new(reset_type: ResetType, power_down_time: u8) -> Self {
+    ///
+    /// `power_down_time` is only valid for [ResetType::EnableRapidPowerShutDown], will be set to None otherwise
+    pub(crate) fn new(reset_type: ResetType, power_down_time: Option<u8>) -> Self {
+        let power_down_time = if reset_type == ResetType::EnableRapidPowerShutDown {
+            power_down_time
+        } else {
+            None
+        };
         Self {
             reset_type,
             power_down_time,
@@ -94,7 +102,10 @@ impl WireFormat for EcuResetResponse {
     /// Deserialization function to read a [`EcuResetResponse`] from a `Reader`
     fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let reset_type = ResetType::try_from(reader.read_u8()?)?;
-        let power_down_time = reader.read_u8()?;
+        let mut power_down_time = None;
+        if reset_type == ResetType::EnableRapidPowerShutDown {
+            power_down_time = Some(reader.read_u8()?);
+        }
         Ok(Some(Self {
             reset_type,
             power_down_time,
@@ -102,14 +113,27 @@ impl WireFormat for EcuResetResponse {
     }
 
     fn required_size(&self) -> usize {
-        2
+        if self.reset_type == ResetType::EnableRapidPowerShutDown {
+            2
+        } else {
+            1
+        }
     }
 
     /// Serialization function to write a [`EcuResetResponse`] to a `Writer`
     fn encode<T: Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.reset_type))?;
-        buffer.write_u8(self.power_down_time)?;
-        Ok(2)
+        if self.reset_type == ResetType::EnableRapidPowerShutDown {
+            if let Some(power_down_time) = self.power_down_time {
+                buffer.write_u8(power_down_time)?;
+            } else {
+                return Err(Error::SerializationError(
+                    "ECUReset: Power down time must be set for EnableRapidPowerShutDown"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(self.required_size())
     }
 }
 
@@ -139,8 +163,8 @@ mod response {
 
     #[test]
     fn ecu_reset_response() {
-        let bytes: [u8; 2] = [0x01, 0x20];
-        let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
+        let bytes: [u8; 2] = [0x04, 0x20];
+        let resp = EcuResetResponse::new(ResetType::EnableRapidPowerShutDown, Some(0x20));
         let mut buffer = Vec::new();
         let written = resp.encode(&mut buffer).unwrap();
         let result = EcuResetResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
@@ -148,5 +172,17 @@ mod response {
 
         assert_eq!(written, 2);
         assert_eq!(written, resp.required_size());
+    }
+
+    #[test]
+    // Test that power down time is ignored for other reset types
+    fn ecu_reset_response_no_power_down_time() {
+        let bytes: [u8; 1] = [0x01];
+        let resp = EcuResetResponse::new(ResetType::HardReset, Some(0x20));
+        let mut buffer = Vec::new();
+        let written = resp.encode(&mut buffer).unwrap();
+        assert_eq!(written, 1);
+        let result = EcuResetResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
+        assert_eq!(result, EcuResetResponse::new(ResetType::HardReset, None));
     }
 }

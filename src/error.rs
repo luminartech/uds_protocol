@@ -40,4 +40,6 @@ pub enum Error {
     InvalidDtcFormatIdentifier(u8),
     #[error("Reserved for legislative use: {0} ({1})")]
     ReservedForLegislativeUse(String, u8),
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }

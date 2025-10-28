@@ -82,7 +82,7 @@ impl<D: DiagnosticDefinition> Response<D> {
     }
 
     #[must_use]
-    pub fn ecu_reset(reset_type: ResetType, power_down_time: u8) -> Self {
+    pub fn ecu_reset(reset_type: ResetType, power_down_time: Option<u8>) -> Self {
         Response::EcuReset(EcuResetResponse::new(reset_type, power_down_time))
     }
 
