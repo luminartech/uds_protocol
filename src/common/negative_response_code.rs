@@ -49,10 +49,10 @@ pub enum NegativeResponseCode {
     /// component fails to respond, the server shall use this negative response to inform the client about the failure of the subnet component.
     ///
     /// This NRC is in general supported by each diagnostic service, as not otherwise stated in the data link specific implementation document, therefore it is not
-    /// listed FailurePreventsExecutionOfRequestedAction in the list of applicable response codes of the diagnostic services. `NegativeResponseCode` is a shared error mechanism
+    /// listed `FailurePreventsExecutionOfRequestedAction` in the list of applicable response codes of the diagnostic services. `NegativeResponseCode` is a shared error mechanism
     NoResponseFromSubnetComponent = 0x25,
     /// This NRC indicates that the requested action will not be taken because a failure condition, identified by a DTC (with at least one DTC status bit for
-    /// TestFailed, Pending, Confirmed or TestFailedSinceLastClear set to 1), has occurred and that this failure condition prevents the server from performing the requested action.
+    /// `TestFailed`, `Pending`, `Confirmed` or `TestFailedSinceLastClear` set to 1), has occurred and that this failure condition prevents the server from performing the requested action.
     ///
     /// This NRC can, for example, direct the technician to read DTCs in order to identify and fix the problem.
     FailurePreventsExecutionOfRequestedAction = 0x26,

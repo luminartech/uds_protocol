@@ -77,14 +77,14 @@ impl SingleValueWireFormat for EcuResetRequest {}
 #[non_exhaustive]
 pub struct EcuResetResponse {
     pub reset_type: ResetType,
-    /// Optional power down time in seconds for [ResetType::EnableRapidPowerShutDown]
+    /// Optional power down time in seconds for [`ResetType::EnableRapidPowerShutDown`]
     pub power_down_time: Option<u8>,
 }
 
 impl EcuResetResponse {
     /// Create a new '`EcuResetResponse`'
     ///
-    /// `power_down_time` is only valid for [ResetType::EnableRapidPowerShutDown], will be set to None otherwise
+    /// `power_down_time` is only valid for [`ResetType::EnableRapidPowerShutDown`], will be set to None otherwise
     pub(crate) fn new(reset_type: ResetType, power_down_time: Option<u8>) -> Self {
         let power_down_time = if reset_type == ResetType::EnableRapidPowerShutDown {
             power_down_time
