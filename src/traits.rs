@@ -171,9 +171,15 @@ where
 
         match Self::try_from(u16::from_be_bytes(identifier_data)) {
             Ok(identifier) => Ok(Some(identifier)),
-            Err(_) => Err(Error::InvalidDiagnosticIdentifier(u16::from_be_bytes(
-                identifier_data,
-            ))),
+            Err(_) => {
+                tracing::error!(
+                    "Invalid identifier value: {:#X}",
+                    u16::from_be_bytes(identifier_data)
+                );
+                Err(Error::InvalidDiagnosticIdentifier(u16::from_be_bytes(
+                    identifier_data,
+                )))
+            }
         }
     }
 
