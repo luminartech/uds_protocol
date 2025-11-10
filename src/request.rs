@@ -65,10 +65,10 @@ impl<D: DiagnosticDefinition> Request<D> {
     pub fn communication_control(
         communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
-        suppress_response: bool,
+        suppress_positive_response: bool,
     ) -> Self {
         Request::CommunicationControl(CommunicationControlRequest::new(
-            suppress_response,
+            suppress_positive_response,
             communication_enable,
             communication_type,
         ))
@@ -86,10 +86,10 @@ impl<D: DiagnosticDefinition> Request<D> {
         communication_enable: CommunicationControlType,
         communication_type: CommunicationType,
         node_id: u16,
-        suppress_response: bool,
+        suppress_positive_response: bool,
     ) -> Self {
         Request::CommunicationControl(CommunicationControlRequest::new_with_node_id(
-            suppress_response,
+            suppress_positive_response,
             communication_enable,
             communication_type,
             node_id,
@@ -98,8 +98,11 @@ impl<D: DiagnosticDefinition> Request<D> {
 
     /// Create a new `ControlDTCSettings` request
     #[must_use]
-    pub fn control_dtc_settings(setting: DtcSettings, suppress_response: bool) -> Self {
-        Request::ControlDTCSettings(ControlDTCSettingsRequest::new(setting, suppress_response))
+    pub fn control_dtc_settings(suppress_positive_response: bool, setting: DtcSettings) -> Self {
+        Request::ControlDTCSettings(ControlDTCSettingsRequest::new(
+            suppress_positive_response,
+            setting,
+        ))
     }
 
     /// Create a new `DiagnosticSessionControl` request
@@ -271,6 +274,7 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
     /// or the deserialization could read unexpected data
     fn decode<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
+        tracing::debug!("Deserializing UDS Request for service: {:?}", service);
         Ok(Some(match service {
             UdsServiceType::CommunicationControl => Self::CommunicationControl(
                 CommunicationControlRequest::decode_single_value(reader)?,
@@ -404,7 +408,7 @@ mod tests {
         assert!(communication_control_request.is_positive_response_suppressed());
 
         let control_dtc_settings_request =
-            ProtocolRequest::control_dtc_settings(DtcSettings::On, true);
+            ProtocolRequest::control_dtc_settings(true, DtcSettings::On);
         assert!(control_dtc_settings_request.is_positive_response_suppressed());
 
         let diagnostic_session_control_request = ProtocolRequest::diagnostic_session_control(

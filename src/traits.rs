@@ -169,11 +169,16 @@ where
             _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
         }
 
-        match Self::try_from(u16::from_be_bytes(identifier_data)) {
-            Ok(identifier) => Ok(Some(identifier)),
-            Err(_) => Err(Error::InvalidDiagnosticIdentifier(u16::from_be_bytes(
+        if let Ok(identifier) = Self::try_from(u16::from_be_bytes(identifier_data)) {
+            Ok(Some(identifier))
+        } else {
+            tracing::error!(
+                "Invalid identifier value: {:#X}",
+                u16::from_be_bytes(identifier_data)
+            );
+            Err(Error::InvalidDiagnosticIdentifier(u16::from_be_bytes(
                 identifier_data,
-            ))),
+            )))
         }
     }
 

@@ -6,9 +6,9 @@ pub enum Error {
     IoError(#[from] std::io::Error),
     #[error("Insufficient data. Expected {0} bytes.")]
     InsufficientData(usize),
-    #[error("Invalid Diagnostic Identifier: {0:X}")]
+    #[error("Invalid Diagnostic Identifier: {0:#X}")]
     InvalidDiagnosticIdentifier(u16),
-    #[error("Invalid Diagnostic Identifier: {0:X} with payload {1:?}")]
+    #[error("Invalid Diagnostic Identifier: {0:#X} with payload {1:?}")]
     InvalidDiagnosticIdentifierPayload(u16, Vec<u8>),
     #[error("Invalid diagnostic session type: {0}")]
     InvalidDiagnosticSessionType(u8),
@@ -40,4 +40,6 @@ pub enum Error {
     InvalidDtcFormatIdentifier(u8),
     #[error("Reserved for legislative use: {0} ({1})")]
     ReservedForLegislativeUse(String, u8),
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }
