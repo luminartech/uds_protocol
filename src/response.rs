@@ -207,37 +207,57 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
                 return Err(Error::ServiceNotImplemented(UdsServiceType::Authentication));
             }
             UdsServiceType::AccessTimingParameters => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::AccessTimingParameters));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::AccessTimingParameters,
+                ));
             }
             UdsServiceType::SecuredDataTransmission => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::SecuredDataTransmission));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::SecuredDataTransmission,
+                ));
             }
             UdsServiceType::ResponseOnEvent => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::ResponseOnEvent));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::ResponseOnEvent,
+                ));
             }
             UdsServiceType::LinkControl => {
                 return Err(Error::ServiceNotImplemented(UdsServiceType::LinkControl));
             }
             UdsServiceType::ReadMemoryByAddress => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::ReadMemoryByAddress));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::ReadMemoryByAddress,
+                ));
             }
             UdsServiceType::ReadScalingDataByIdentifier => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::ReadScalingDataByIdentifier));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::ReadScalingDataByIdentifier,
+                ));
             }
             UdsServiceType::ReadDataByIdentifierPeriodic => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::ReadDataByIdentifierPeriodic));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::ReadDataByIdentifierPeriodic,
+                ));
             }
             UdsServiceType::DynamicallyDefinedDataIdentifier => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::DynamicallyDefinedDataIdentifier));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::DynamicallyDefinedDataIdentifier,
+                ));
             }
             UdsServiceType::WriteMemoryByAddress => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::WriteMemoryByAddress));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::WriteMemoryByAddress,
+                ));
             }
             UdsServiceType::ClearDiagnosticInfo => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::ClearDiagnosticInfo));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::ClearDiagnosticInfo,
+                ));
             }
             UdsServiceType::InputOutputControlByIdentifier => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::InputOutputControlByIdentifier));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::InputOutputControlByIdentifier,
+                ));
             }
             UdsServiceType::RequestUpload => {
                 return Err(Error::ServiceNotImplemented(UdsServiceType::RequestUpload));
@@ -246,7 +266,9 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
                 Self::TransferData(TransferDataResponse::decode_single_value(reader)?)
             }
             UdsServiceType::UnsupportedDiagnosticService => {
-                return Err(Error::ServiceNotImplemented(UdsServiceType::UnsupportedDiagnosticService));
+                return Err(Error::ServiceNotImplemented(
+                    UdsServiceType::UnsupportedDiagnosticService,
+                ));
             }
         }))
     }
