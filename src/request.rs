@@ -269,6 +269,7 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
     /// Some services allow for custom byte arrays at the end of the request
     /// It is important that only the request data is passed to this function
     /// or the deserialization could read unexpected data
+    #[allow(clippy::too_many_lines)]
     fn decode<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
         Ok(Some(match service {

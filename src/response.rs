@@ -160,6 +160,7 @@ impl<D: DiagnosticDefinition> Response<D> {
 }
 
 impl<D: DiagnosticDefinition> WireFormat for Response<D> {
+    #[allow(clippy::too_many_lines)]
     fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(Some(match service {
