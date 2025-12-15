@@ -309,22 +309,54 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
             UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
                 WriteDataByIdentifierRequest::decode_single_value(reader)?,
             ),
-            UdsServiceType::Authentication => todo!(),
-            UdsServiceType::AccessTimingParameters => todo!(),
-            UdsServiceType::SecuredDataTransmission => todo!(),
-            UdsServiceType::ResponseOnEvent => todo!(),
-            UdsServiceType::LinkControl => todo!(),
-            UdsServiceType::ReadMemoryByAddress => todo!(),
-            UdsServiceType::ReadScalingDataByIdentifier => todo!(),
-            UdsServiceType::ReadDataByIdentifierPeriodic => todo!(),
-            UdsServiceType::DynamicallyDefinedDataIdentifier => todo!(),
-            UdsServiceType::WriteMemoryByAddress => todo!(),
-            UdsServiceType::ClearDiagnosticInfo => todo!(),
-            UdsServiceType::InputOutputControlByIdentifier => todo!(),
-            UdsServiceType::RequestUpload => todo!(),
-            UdsServiceType::RequestFileTransfer => todo!(),
-            UdsServiceType::NegativeResponse => todo!(),
-            UdsServiceType::UnsupportedDiagnosticService => todo!(),
+            UdsServiceType::Authentication => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::Authentication));
+            }
+            UdsServiceType::AccessTimingParameters => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::AccessTimingParameters));
+            }
+            UdsServiceType::SecuredDataTransmission => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::SecuredDataTransmission));
+            }
+            UdsServiceType::ResponseOnEvent => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::ResponseOnEvent));
+            }
+            UdsServiceType::LinkControl => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::LinkControl));
+            }
+            UdsServiceType::ReadMemoryByAddress => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::ReadMemoryByAddress));
+            }
+            UdsServiceType::ReadScalingDataByIdentifier => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::ReadScalingDataByIdentifier));
+            }
+            UdsServiceType::ReadDataByIdentifierPeriodic => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::ReadDataByIdentifierPeriodic));
+            }
+            UdsServiceType::DynamicallyDefinedDataIdentifier => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::DynamicallyDefinedDataIdentifier));
+            }
+            UdsServiceType::WriteMemoryByAddress => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::WriteMemoryByAddress));
+            }
+            UdsServiceType::ClearDiagnosticInfo => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::ClearDiagnosticInfo));
+            }
+            UdsServiceType::InputOutputControlByIdentifier => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::InputOutputControlByIdentifier));
+            }
+            UdsServiceType::RequestUpload => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::RequestUpload));
+            }
+            UdsServiceType::RequestFileTransfer => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::RequestFileTransfer));
+            }
+            UdsServiceType::NegativeResponse => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::NegativeResponse));
+            }
+            UdsServiceType::UnsupportedDiagnosticService => {
+                return Err(Error::ServiceNotImplemented(UdsServiceType::UnsupportedDiagnosticService));
+            }
         }))
     }
 
