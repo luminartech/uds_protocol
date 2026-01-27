@@ -71,9 +71,7 @@ pub trait IterableWireFormat: WireFormat {
     /// - if the stream contains partial or invalid data
     fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
 
-    fn decode_iter<T: std::io::Read>(
-        reader: &mut T,
-    ) -> impl Iterator<Item = Result<Self, Error>> {
+    fn decode_iter<T: std::io::Read>(reader: &mut T) -> impl Iterator<Item = Result<Self, Error>> {
         WireFormatIterator {
             reader,
             _phantom: std::marker::PhantomData,

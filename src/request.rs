@@ -260,6 +260,64 @@ impl<D: DiagnosticDefinition> Request<D> {
 }
 
 impl<T: DiagnosticDefinition> WireFormat for Request<T> {
+    fn required_size(&self) -> usize {
+        1 + match self {
+            Self::ClearDiagnosticInfo(cdi) => cdi.required_size(),
+            Self::CommunicationControl(cc) => cc.required_size(),
+            Self::ControlDTCSettings(ct) => ct.required_size(),
+            Self::DiagnosticSessionControl(ds) => ds.required_size(),
+            Self::EcuReset(er) => er.required_size(),
+            Self::ReadDataByIdentifier(rd) => rd.required_size(),
+            Self::ReadDTCInfo(rd) => rd.required_size(),
+            Self::RequestDownload(rd) => rd.required_size(),
+            Self::RequestTransferExit => 0,
+            Self::RoutineControl(rc) => rc.required_size(),
+            Self::SecurityAccess(sa) => sa.required_size(),
+            Self::TesterPresent(tp) => tp.required_size(),
+            Self::TransferData(td) => td.required_size(),
+            Self::WriteDataByIdentifier(wd) => wd.required_size(),
+        }
+    }
+
+    /// Serialization function to write a [`Request`] to a [`Writer`](std::io::Write)
+    /// This function writes the service byte and then calls the appropriate
+    /// serialization function for the service represented by self.
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<usize, Error> {
+        // Write the service byte
+        writer.write_u8(self.service().request_service_to_byte())?;
+        // Write the payload
+        Ok(1 + match self {
+            Self::ClearDiagnosticInfo(cdi) => cdi.encode(writer),
+            Self::CommunicationControl(cc) => cc.encode(writer),
+            Self::ControlDTCSettings(ct) => ct.encode(writer),
+            Self::DiagnosticSessionControl(ds) => ds.encode(writer),
+            Self::EcuReset(er) => er.encode(writer),
+            Self::ReadDataByIdentifier(rd) => rd.encode(writer),
+            Self::ReadDTCInfo(rd) => rd.encode(writer),
+            Self::RequestDownload(rd) => rd.encode(writer),
+            Self::RequestTransferExit => Ok(0),
+            Self::RoutineControl(rc) => rc.encode(writer),
+            Self::SecurityAccess(sa) => sa.encode(writer),
+            Self::TesterPresent(tp) => tp.encode(writer),
+            Self::TransferData(td) => td.encode(writer),
+            Self::WriteDataByIdentifier(wd) => wd.encode(writer),
+        }?)
+    }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        match self {
+            Self::CommunicationControl(cc) => cc.suppress_positive_response(),
+            Self::ControlDTCSettings(ct) => ct.is_positive_response_suppressed(),
+            Self::DiagnosticSessionControl(ds) => ds.suppress_positive_response(),
+            Self::EcuReset(er) => er.suppress_positive_response(),
+            Self::SecurityAccess(sa) => sa.suppress_positive_response(),
+            Self::TesterPresent(tp) => tp.suppress_positive_response(),
+            _ => false,
+        }
+    }
+}
+
+impl<D: DiagnosticDefinition> SingleValueWireFormat for Request<D> {
     /// Deserialization function to read a [`Request`] from a [`Reader`](std::io::Read)
     /// This function reads the service byte and then calls the appropriate
     /// deserialization function for the service in question
@@ -270,46 +328,42 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
     /// It is important that only the request data is passed to this function
     /// or the deserialization could read unexpected data
     #[allow(clippy::too_many_lines)]
-    fn decode<R: Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, Error> {
         let service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
-        Ok(Some(match service {
-            UdsServiceType::CommunicationControl => Self::CommunicationControl(
-                CommunicationControlRequest::decode_single_value(reader)?,
-            ),
+        Ok(match service {
+            UdsServiceType::CommunicationControl => {
+                Self::CommunicationControl(CommunicationControlRequest::decode(reader)?)
+            }
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettingsRequest::decode_single_value(reader)?)
+                Self::ControlDTCSettings(ControlDTCSettingsRequest::decode(reader)?)
             }
-            UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlRequest::decode_single_value(reader)?,
-            ),
-            UdsServiceType::EcuReset => {
-                Self::EcuReset(EcuResetRequest::decode_single_value(reader)?)
+            UdsServiceType::DiagnosticSessionControl => {
+                Self::DiagnosticSessionControl(DiagnosticSessionControlRequest::decode(reader)?)
             }
-            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
-                ReadDataByIdentifierRequest::decode_single_value(reader)?,
-            ),
-            UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(ReadDTCInfoRequest::decode_single_value(reader)?)
+            UdsServiceType::EcuReset => Self::EcuReset(EcuResetRequest::decode(reader)?),
+            UdsServiceType::ReadDataByIdentifier => {
+                Self::ReadDataByIdentifier(ReadDataByIdentifierRequest::decode(reader)?)
             }
+            UdsServiceType::ReadDTCInfo => Self::ReadDTCInfo(ReadDTCInfoRequest::decode(reader)?),
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownloadRequest::decode_single_value(reader)?)
+                Self::RequestDownload(RequestDownloadRequest::decode(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
-                Self::RoutineControl(RoutineControlRequest::decode_single_value(reader)?)
+                Self::RoutineControl(RoutineControlRequest::decode(reader)?)
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(SecurityAccessRequest::decode_single_value(reader)?)
+                Self::SecurityAccess(SecurityAccessRequest::decode(reader)?)
             }
             UdsServiceType::TesterPresent => {
-                Self::TesterPresent(TesterPresentRequest::decode_single_value(reader)?)
+                Self::TesterPresent(TesterPresentRequest::decode(reader)?)
             }
             UdsServiceType::TransferData => {
-                Self::TransferData(TransferDataRequest::decode_single_value(reader)?)
+                Self::TransferData(TransferDataRequest::decode(reader)?)
             }
-            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
-                WriteDataByIdentifierRequest::decode_single_value(reader)?,
-            ),
+            UdsServiceType::WriteDataByIdentifier => {
+                Self::WriteDataByIdentifier(WriteDataByIdentifierRequest::decode(reader)?)
+            }
             UdsServiceType::Authentication => {
                 return Err(Error::ServiceNotImplemented(UdsServiceType::Authentication));
             }
@@ -384,67 +438,9 @@ impl<T: DiagnosticDefinition> WireFormat for Request<T> {
                     UdsServiceType::UnsupportedDiagnosticService,
                 ));
             }
-        }))
-    }
-
-    fn required_size(&self) -> usize {
-        1 + match self {
-            Self::ClearDiagnosticInfo(cdi) => cdi.required_size(),
-            Self::CommunicationControl(cc) => cc.required_size(),
-            Self::ControlDTCSettings(ct) => ct.required_size(),
-            Self::DiagnosticSessionControl(ds) => ds.required_size(),
-            Self::EcuReset(er) => er.required_size(),
-            Self::ReadDataByIdentifier(rd) => rd.required_size(),
-            Self::ReadDTCInfo(rd) => rd.required_size(),
-            Self::RequestDownload(rd) => rd.required_size(),
-            Self::RequestTransferExit => 0,
-            Self::RoutineControl(rc) => rc.required_size(),
-            Self::SecurityAccess(sa) => sa.required_size(),
-            Self::TesterPresent(tp) => tp.required_size(),
-            Self::TransferData(td) => td.required_size(),
-            Self::WriteDataByIdentifier(wd) => wd.required_size(),
-        }
-    }
-
-    /// Serialization function to write a [`Request`] to a [`Writer`](std::io::Write)
-    /// This function writes the service byte and then calls the appropriate
-    /// serialization function for the service represented by self.
-    fn encode<W: Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        // Write the service byte
-        writer.write_u8(self.service().request_service_to_byte())?;
-        // Write the payload
-        Ok(1 + match self {
-            Self::ClearDiagnosticInfo(cdi) => cdi.encode(writer),
-            Self::CommunicationControl(cc) => cc.encode(writer),
-            Self::ControlDTCSettings(ct) => ct.encode(writer),
-            Self::DiagnosticSessionControl(ds) => ds.encode(writer),
-            Self::EcuReset(er) => er.encode(writer),
-            Self::ReadDataByIdentifier(rd) => rd.encode(writer),
-            Self::ReadDTCInfo(rd) => rd.encode(writer),
-            Self::RequestDownload(rd) => rd.encode(writer),
-            Self::RequestTransferExit => Ok(0),
-            Self::RoutineControl(rc) => rc.encode(writer),
-            Self::SecurityAccess(sa) => sa.encode(writer),
-            Self::TesterPresent(tp) => tp.encode(writer),
-            Self::TransferData(td) => td.encode(writer),
-            Self::WriteDataByIdentifier(wd) => wd.encode(writer),
-        }?)
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        match self {
-            Self::CommunicationControl(cc) => cc.suppress_positive_response(),
-            Self::ControlDTCSettings(ct) => ct.is_positive_response_suppressed(),
-            Self::DiagnosticSessionControl(ds) => ds.suppress_positive_response(),
-            Self::EcuReset(er) => er.suppress_positive_response(),
-            Self::SecurityAccess(sa) => sa.suppress_positive_response(),
-            Self::TesterPresent(tp) => tp.suppress_positive_response(),
-            _ => false,
-        }
+        })
     }
 }
-
-impl<D: DiagnosticDefinition> SingleValueWireFormat for Request<D> {}
 
 #[cfg(test)]
 mod tests {

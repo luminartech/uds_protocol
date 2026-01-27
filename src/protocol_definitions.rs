@@ -1,4 +1,6 @@
-use crate::{Error, Identifier, IterableWireFormat, UDSIdentifier, WireFormat};
+use crate::{
+    Error, Identifier, IterableWireFormat, SingleValueWireFormat, UDSIdentifier, WireFormat,
+};
 use std::ops::Deref;
 use tracing::error;
 
@@ -67,7 +69,43 @@ impl ProtocolPayload {
     }
 }
 impl WireFormat for ProtocolPayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn required_size(&self) -> usize {
+        2 + self.payload.len()
+    }
+
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.identifier.encode(writer)?;
+        writer.write_all(&self.payload)?;
+        Ok(self.required_size())
+    }
+}
+
+impl SingleValueWireFormat for ProtocolPayload {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let mut identifier_data: [u8; 2] = [0; 2];
+        match reader.read(&mut identifier_data)? {
+            0 | 1 => {
+                error!(
+                    "Only read 0 or 1 byte of identifier, need 2: read byte was: {}",
+                    identifier_data[0]
+                );
+                return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+            }
+            2 => (),
+            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
+        }
+        let identifier = UDSIdentifier::try_from(u16::from_be_bytes(identifier_data))?;
+        let mut payload: Vec<u8> = Vec::new();
+        reader.read_to_end(&mut payload)?;
+        Ok(ProtocolPayload {
+            identifier,
+            payload,
+        })
+    }
+}
+
+impl IterableWireFormat for ProtocolPayload {
+    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut identifier_data: [u8; 2] = [0; 2];
         match reader.read(&mut identifier_data)? {
             0 => return Ok(None),
@@ -93,19 +131,7 @@ impl WireFormat for ProtocolPayload {
             payload,
         }))
     }
-
-    fn required_size(&self) -> usize {
-        2 + self.payload.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.identifier.encode(writer)?;
-        writer.write_all(&self.payload)?;
-        Ok(self.required_size())
-    }
 }
-
-impl IterableWireFormat for ProtocolPayload {}
 
 impl std::fmt::Debug for ProtocolPayload {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -140,9 +166,7 @@ mod tests {
         let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x03]);
         let mut buffer = Vec::new();
         assert_eq!(3, payload.encode(&mut buffer).unwrap());
-        let deserialized_payload = ProtocolPayload::decode(&mut buffer.as_slice())
-            .unwrap()
-            .unwrap();
+        let deserialized_payload = ProtocolPayload::decode(&mut buffer.as_slice()).unwrap();
         assert_eq!(payload, deserialized_payload);
     }
 }

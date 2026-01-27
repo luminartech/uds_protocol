@@ -62,11 +62,6 @@ impl DiagnosticSessionControlRequest {
     }
 }
 impl WireFormat for DiagnosticSessionControlRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        Ok(Some(Self { session_type }))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -81,7 +76,12 @@ impl WireFormat for DiagnosticSessionControlRequest {
     }
 }
 
-impl SingleValueWireFormat for DiagnosticSessionControlRequest {}
+impl SingleValueWireFormat for DiagnosticSessionControlRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
+        Ok(Self { session_type })
+    }
+}
 
 /// Positive response to a `DiagnosticSessionControlRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -109,17 +109,6 @@ impl DiagnosticSessionControlResponse {
     }
 }
 impl WireFormat for DiagnosticSessionControlResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
-        let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
-        let p2_star_server_max = reader.read_u16::<byteorder::BigEndian>()?;
-        Ok(Some(Self {
-            session_type,
-            p2_server_max,
-            p2_star_server_max,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         5
     }
@@ -133,7 +122,18 @@ impl WireFormat for DiagnosticSessionControlResponse {
     }
 }
 
-impl SingleValueWireFormat for DiagnosticSessionControlResponse {}
+impl SingleValueWireFormat for DiagnosticSessionControlResponse {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
+        let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
+        let p2_star_server_max = reader.read_u16::<byteorder::BigEndian>()?;
+        Ok(Self {
+            session_type,
+            p2_server_max,
+            p2_star_server_max,
+        })
+    }
+}
 
 #[cfg(test)]
 mod request {
@@ -144,7 +144,7 @@ mod request {
     fn test_diagnostic_session_control_request() {
         let bytes: [u8; 1] = [0x02];
         let req: DiagnosticSessionControlRequest =
-            DiagnosticSessionControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
+            DiagnosticSessionControlRequest::decode(&mut bytes.as_slice()).unwrap();
         assert!(!req.suppress_positive_response());
         assert_eq!(
             req.session_type(),
@@ -167,7 +167,7 @@ mod response {
     fn test_diagnostic_session_control_response() {
         let bytes = [0x02, 0x11, 0x22, 0x33, 0x44];
         let resp: DiagnosticSessionControlResponse =
-            DiagnosticSessionControlResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
+            DiagnosticSessionControlResponse::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(resp.session_type, DiagnosticSessionType::ProgrammingSession);
         assert_eq!(resp.p2_server_max, 0x1122);
         assert_eq!(resp.p2_star_server_max, 0x3344);

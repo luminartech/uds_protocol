@@ -81,28 +81,6 @@ impl CommunicationControlRequest {
     }
 }
 impl WireFormat for CommunicationControlRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let enable_byte = reader.read_u8()?;
-        let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
-        let communication_type = CommunicationType::try_from(reader.read_u8()?)?;
-        match communication_enable.value() {
-            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
-            | CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => {
-                let node_id = Some(reader.read_u16::<BigEndian>()?);
-                Ok(Some(Self {
-                    control_type: communication_enable,
-                    communication_type,
-                    node_id,
-                }))
-            }
-            _ => Ok(Some(Self {
-                control_type: communication_enable,
-                communication_type,
-                node_id: None,
-            })),
-        }
-    }
-
     fn required_size(&self) -> usize {
         if self.node_id.is_some() { 4 } else { 2 }
     }
@@ -119,7 +97,29 @@ impl WireFormat for CommunicationControlRequest {
     }
 }
 
-impl SingleValueWireFormat for CommunicationControlRequest {}
+impl SingleValueWireFormat for CommunicationControlRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let enable_byte = reader.read_u8()?;
+        let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
+        let communication_type = CommunicationType::try_from(reader.read_u8()?)?;
+        match communication_enable.value() {
+            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
+            | CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => {
+                let node_id = Some(reader.read_u16::<BigEndian>()?);
+                Ok(Self {
+                    control_type: communication_enable,
+                    communication_type,
+                    node_id,
+                })
+            }
+            _ => Ok(Self {
+                control_type: communication_enable,
+                communication_type,
+                node_id: None,
+            }),
+        }
+    }
+}
 
 /// Positive response from the server to change communication behavior
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -137,11 +137,6 @@ impl CommunicationControlResponse {
 }
 
 impl WireFormat for CommunicationControlResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
-        Ok(Some(Self::new(control_type)))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -152,7 +147,12 @@ impl WireFormat for CommunicationControlResponse {
     }
 }
 
-impl SingleValueWireFormat for CommunicationControlResponse {}
+impl SingleValueWireFormat for CommunicationControlResponse {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
+        Ok(Self::new(control_type))
+    }
+}
 
 #[cfg(test)]
 mod request {
@@ -161,7 +161,7 @@ mod request {
     #[test]
     fn simple_request() {
         let bytes: [u8; 3] = [0x01, 0x02, 0x03];
-        let req = CommunicationControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let req = CommunicationControlRequest::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndDisableTx
@@ -178,7 +178,7 @@ mod request {
     #[test]
     fn node_id() {
         let bytes: [u8; 4] = [0x05, 0x02, 0x01, 0x02];
-        let req = CommunicationControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let req = CommunicationControlRequest::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
@@ -223,7 +223,7 @@ mod response {
     #[test]
     fn simple_response() {
         let bytes: [u8; 1] = [0x01];
-        let res = CommunicationControlResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let res = CommunicationControlResponse::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             res.control_type,
             CommunicationControlType::EnableRxAndDisableTx

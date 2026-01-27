@@ -97,12 +97,6 @@ impl From<u8> for RoutineControlSubFunction {
 }
 
 impl WireFormat for Vec<u8> {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Some(data))
-    }
-
     fn required_size(&self) -> usize {
         self.len()
     }
@@ -113,8 +107,21 @@ impl WireFormat for Vec<u8> {
     }
 }
 
-impl SingleValueWireFormat for Vec<u8> {}
-impl IterableWireFormat for Vec<u8> {}
+impl SingleValueWireFormat for Vec<u8> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data)?;
+        Ok(data)
+    }
+}
+
+impl IterableWireFormat for Vec<u8> {
+    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data)?;
+        Ok(Some(data))
+    }
+}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]

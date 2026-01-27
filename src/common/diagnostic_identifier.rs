@@ -1,5 +1,5 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
-use crate::{Error, Identifier, SingleValueWireFormat, traits::RoutineIdentifier};
+use crate::{Error, Identifier, traits::RoutineIdentifier};
 
 /// C.1 DID - Diagnostic Data Identifier specified in ISO 14229-1
 ///
@@ -263,5 +263,4 @@ impl From<UDSRoutineIdentifier> for u16 {
     }
 }
 
-impl SingleValueWireFormat for UDSRoutineIdentifier {}
 impl RoutineIdentifier for UDSRoutineIdentifier {}

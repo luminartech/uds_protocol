@@ -108,11 +108,6 @@ pub enum DTCStatusMask {
 }
 
 impl WireFormat for DTCStatusMask {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
-        let status_byte = reader.read_u8()?;
-        Ok(Some(Self::from(status_byte)))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -123,7 +118,12 @@ impl WireFormat for DTCStatusMask {
     }
 }
 
-impl SingleValueWireFormat for DTCStatusMask {}
+impl SingleValueWireFormat for DTCStatusMask {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
+        let status_byte = reader.read_u8()?;
+        Ok(Self::from(status_byte))
+    }
+}
 
 /// Specifies the format of the DTC reported by the server.
 ///
@@ -229,7 +229,31 @@ impl From<DTCRecord> for u32 {
 }
 
 impl WireFormat for DTCRecord {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
+    fn required_size(&self) -> usize {
+        3
+    }
+
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
+        writer.write_all(&[self.high_byte, self.middle_byte, self.low_byte])?;
+        Ok(3)
+    }
+}
+
+impl SingleValueWireFormat for DTCRecord {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
+        let high_byte = reader.read_u8()?;
+        let middle_byte = reader.read_u8()?;
+        let low_byte = reader.read_u8()?;
+        Ok(Self {
+            high_byte,
+            middle_byte,
+            low_byte,
+        })
+    }
+}
+
+impl IterableWireFormat for DTCRecord {
+    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
         let Ok(high_byte) = reader.read_u8() else {
             return Ok(None);
         };
@@ -241,18 +265,7 @@ impl WireFormat for DTCRecord {
             low_byte,
         }))
     }
-
-    fn required_size(&self) -> usize {
-        3
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
-        writer.write_all(&[self.high_byte, self.middle_byte, self.low_byte])?;
-        Ok(3)
-    }
 }
-
-impl SingleValueWireFormat for DTCRecord {}
 
 /// Used to distinguish commands sent by the test equipment between different functional system groups
 /// within an electrical architecture which consists of many different servers.
@@ -407,18 +420,6 @@ impl DTCStoredDataRecordNumber {
 }
 
 impl WireFormat for DTCStoredDataRecordNumber {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let value = reader.read_u8()?;
-        if value == 0x00 {
-            // Reserved for Legislative purposes
-            return Err(Error::ReservedForLegislativeUse(
-                "DTCStoredDataRecordNumber".to_string(),
-                value,
-            ));
-        }
-        Ok(Some(Self(value)))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -429,7 +430,19 @@ impl WireFormat for DTCStoredDataRecordNumber {
     }
 }
 
-impl SingleValueWireFormat for DTCStoredDataRecordNumber {}
+impl SingleValueWireFormat for DTCStoredDataRecordNumber {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let value = reader.read_u8()?;
+        if value == 0x00 {
+            // Reserved for Legislative purposes
+            return Err(Error::ReservedForLegislativeUse(
+                "DTCStoredDataRecordNumber".to_string(),
+                value,
+            ));
+        }
+        Ok(Self(value))
+    }
+}
 
 impl From<u8> for DTCStoredDataRecordNumber {
     fn from(value: u8) -> Self {
@@ -453,24 +466,6 @@ pub struct DTCSeverityRecord {
 }
 
 impl WireFormat for DTCSeverityRecord {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let Ok(sev) = reader.read_u8() else {
-            return Ok(None);
-        };
-
-        let severity = DTCSeverityMask::from(sev);
-        let functional_group_identifier = FunctionalGroupIdentifier::from(reader.read_u8()?);
-        let dtc_record = DTCRecord::decode(reader)?.unwrap();
-        let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
-
-        Ok(Some(Self {
-            severity,
-            functional_group_identifier,
-            dtc_record,
-            dtc_status_mask,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         6
     }
@@ -484,7 +479,25 @@ impl WireFormat for DTCSeverityRecord {
     }
 }
 
-impl IterableWireFormat for DTCSeverityRecord {}
+impl IterableWireFormat for DTCSeverityRecord {
+    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let Ok(sev) = reader.read_u8() else {
+            return Ok(None);
+        };
+
+        let severity = DTCSeverityMask::from(sev);
+        let functional_group_identifier = FunctionalGroupIdentifier::from(reader.read_u8()?);
+        let dtc_record = DTCRecord::decode(reader)?;
+        let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
+
+        Ok(Some(Self {
+            severity,
+            functional_group_identifier,
+            dtc_record,
+            dtc_status_mask,
+        }))
+    }
+}
 
 #[cfg(test)]
 mod dtc_status_tests {

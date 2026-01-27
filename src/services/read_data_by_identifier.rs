@@ -38,15 +38,6 @@ impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
 }
 
 impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<DataIdentifier> {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let dids = DataIdentifier::parse_from_list(reader)?;
-        if dids.is_empty() {
-            Err(Error::NoDataAvailable)
-        } else {
-            Ok(Some(ReadDataByIdentifierRequest::new(dids)))
-        }
-    }
-
     fn required_size(&self) -> usize {
         self.dids.len() * 2
     }
@@ -64,6 +55,14 @@ impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<Data
 impl<DataIdentifier: Identifier> SingleValueWireFormat
     for ReadDataByIdentifierRequest<DataIdentifier>
 {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
+        let dids = DataIdentifier::parse_from_list(reader)?;
+        if dids.is_empty() {
+            Err(Error::NoDataAvailable)
+        } else {
+            Ok(ReadDataByIdentifierRequest::new(dids))
+        }
+    }
 }
 
 /// See ISO-14229-1:2020, Table 11.2.3 for format information
@@ -85,25 +84,6 @@ impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierResponse<UserPayload> {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let mut data = Vec::new();
-        for payload in UserPayload::decode_iterable(reader) {
-            match payload {
-                Ok(p) => {
-                    data.push(p);
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-        }
-        if data.is_empty() {
-            Err(Error::NoDataAvailable)
-        } else {
-            Ok(Some(ReadDataByIdentifierResponse::new(data)))
-        }
-    }
-
     fn required_size(&self) -> usize {
         self.data.iter().map(WireFormat::required_size).sum()
     }
@@ -120,6 +100,24 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierRespons
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat
     for ReadDataByIdentifierResponse<UserPayload>
 {
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
+        let mut data = Vec::new();
+        for payload in UserPayload::decode_iter(reader) {
+            match payload {
+                Ok(p) => {
+                    data.push(p);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+        if data.is_empty() {
+            Err(Error::NoDataAvailable)
+        } else {
+            Ok(ReadDataByIdentifierResponse::new(data))
+        }
+    }
 }
 
 impl<UserPayload: std::fmt::Debug> std::fmt::Debug for ReadDataByIdentifierResponse<UserPayload> {
@@ -232,20 +230,12 @@ mod test {
                 );
 
                 match read_result {
-                    Ok(Some(response)) => {
+                    Ok(response) => {
                         let mut translated_bytes = Vec::new();
                         response.encode(&mut translated_bytes).unwrap();
                         assert_eq!(
                             translated_bytes, *test_data.dids_bytes,
-                            "Some: Failed: {}",
-                            test_data.test_name
-                        );
-                    }
-                    Ok(None) => {
-                        // No data read
-                        assert!(
-                            test_data.dids_bytes.is_empty(),
-                            "None: Failed {}",
+                            "Ok: Failed: {}",
                             test_data.test_name
                         );
                     }
@@ -353,7 +343,7 @@ mod test {
                     }
                     0xFF02 => Ok(TestPayload::Bar),
                     0xFF03 => {
-                        let data = BazData::decode(reader)?.unwrap();
+                        let data = BazData::decode(reader)?;
                         Ok(TestPayload::Baz(data))
                     }
                     _ => {
@@ -376,21 +366,7 @@ mod test {
             }
         }
 
-        impl IterableWireFormat for TestPayload {}
-
         impl WireFormat for TestPayload {
-            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-                let mut identifier_data: [u8; 2] = [0; 2];
-                match reader.read(&mut identifier_data)? {
-                    0 => return Ok(None),
-                    1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
-                    2 => (),
-                    _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-                }
-                let did = u16::from_be_bytes(identifier_data);
-                Ok(Some(TestPayload::new(did, reader)?))
-            }
-
             #[allow(clippy::match_same_arms)]
             fn required_size(&self) -> usize {
                 match self {
@@ -423,22 +399,21 @@ mod test {
             }
         }
 
-        impl WireFormat for BazData {
-            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-                let mut data = [0u8; 16];
-                reader.read_exact(&mut data)?;
-
-                let mut data2_bytes = [0u8; 8];
-                reader.read_exact(&mut data2_bytes)?;
-                let data2 = u64::from_be_bytes(data2_bytes);
-
-                let mut data3_bytes = [0u8; 2];
-                reader.read_exact(&mut data3_bytes)?;
-                let data3 = u16::from_be_bytes(data3_bytes);
-
-                Ok(Some(BazData { data, data2, data3 }))
+        impl IterableWireFormat for TestPayload {
+            fn decode_next<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+                let mut identifier_data: [u8; 2] = [0; 2];
+                match reader.read(&mut identifier_data)? {
+                    0 => return Ok(None),
+                    1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
+                    2 => (),
+                    _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
+                }
+                let did = u16::from_be_bytes(identifier_data);
+                Ok(Some(TestPayload::new(did, reader)?))
             }
+        }
 
+        impl WireFormat for BazData {
             fn required_size(&self) -> usize {
                 26
             }
@@ -450,6 +425,23 @@ mod test {
                 count += writer.write(&self.data3.to_be_bytes())?;
                 // 2 for the initial did bytes
                 Ok(2 + count)
+            }
+        }
+
+        impl SingleValueWireFormat for BazData {
+            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
+                let mut data = [0u8; 16];
+                reader.read_exact(&mut data)?;
+
+                let mut data2_bytes = [0u8; 8];
+                reader.read_exact(&mut data2_bytes)?;
+                let data2 = u64::from_be_bytes(data2_bytes);
+
+                let mut data3_bytes = [0u8; 2];
+                reader.read_exact(&mut data3_bytes)?;
+                let data3 = u16::from_be_bytes(data3_bytes);
+
+                Ok(BazData { data, data2, data3 })
             }
         }
 
@@ -477,7 +469,6 @@ mod test {
 
             let read_response: ReadDataByIdentifierResponse<TestPayload> =
                 ReadDataByIdentifierResponse::<TestPayload>::decode(&mut buffer.as_slice())
-                    .unwrap()
                     .unwrap();
 
             assert_eq!(response, read_response);

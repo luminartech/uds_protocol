@@ -1,7 +1,5 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
-use crate::{
-    Error, Identifier, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat,
-};
+use crate::{Error, Identifier, NegativeResponseCode, SingleValueWireFormat, WireFormat};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -20,7 +18,7 @@ pub struct WriteDataByIdentifierRequest<Payload> {
     pub payload: Payload,
 }
 
-impl<Payload: IterableWireFormat> WriteDataByIdentifierRequest<Payload> {
+impl<Payload: SingleValueWireFormat> WriteDataByIdentifierRequest<Payload> {
     pub fn new(payload: Payload) -> Self {
         Self { payload }
     }
@@ -32,14 +30,7 @@ impl<Payload: IterableWireFormat> WriteDataByIdentifierRequest<Payload> {
     }
 }
 
-impl<Payload: IterableWireFormat> SingleValueWireFormat for WriteDataByIdentifierRequest<Payload> {}
-
-impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Payload> {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let payload = Payload::decode(reader)?.unwrap();
-        Ok(Some(Self { payload }))
-    }
-
+impl<Payload: WireFormat> WireFormat for WriteDataByIdentifierRequest<Payload> {
     fn required_size(&self) -> usize {
         self.payload.required_size()
     }
@@ -47,6 +38,15 @@ impl<Payload: IterableWireFormat> WireFormat for WriteDataByIdentifierRequest<Pa
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
         self.payload.encode(writer)
+    }
+}
+
+impl<Payload: SingleValueWireFormat> SingleValueWireFormat
+    for WriteDataByIdentifierRequest<Payload>
+{
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
+        let payload = Payload::decode(reader)?;
+        Ok(Self { payload })
     }
 }
 
@@ -67,17 +67,7 @@ impl<DataIdentifier: Identifier> WriteDataByIdentifierResponse<DataIdentifier> {
     }
 }
 
-impl<DataIdentifier: Identifier> SingleValueWireFormat
-    for WriteDataByIdentifierResponse<DataIdentifier>
-{
-}
-
 impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<DataIdentifier> {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        let identifier = DataIdentifier::decode(reader)?.unwrap();
-        Ok(Some(Self::new(identifier)))
-    }
-
     fn required_size(&self) -> usize {
         self.identifier.required_size()
     }
@@ -85,6 +75,15 @@ impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<Da
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
         self.identifier.encode(writer)
+    }
+}
+
+impl<DataIdentifier: Identifier> SingleValueWireFormat
+    for WriteDataByIdentifierResponse<DataIdentifier>
+{
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
+        let identifier = DataIdentifier::decode(reader)?;
+        Ok(Self::new(identifier))
     }
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -133,21 +132,6 @@ mod test {
     }
 
     impl WireFormat for TestPayload {
-        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-            let mut buf = [0u8; 2];
-            reader.read_exact(&mut buf)?;
-
-            let value = u16::from_be_bytes(buf);
-
-            if value == TestIdentifier::Abracadabra as u16 {
-                let mut byte = [0u8; 1];
-                reader.read_exact(&mut byte)?;
-                Ok(Some(TestPayload::Abracadabra(byte[0])))
-            } else {
-                Err(Error::NoDataAvailable)
-            }
-        }
-
         fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             let id_bytes: u16 = match self {
                 TestPayload::Abracadabra(_) => 0xBEEF,
@@ -168,7 +152,22 @@ mod test {
         }
     }
 
-    impl IterableWireFormat for TestPayload {}
+    impl SingleValueWireFormat for TestPayload {
+        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+            let mut buf = [0u8; 2];
+            reader.read_exact(&mut buf)?;
+
+            let value = u16::from_be_bytes(buf);
+
+            if value == TestIdentifier::Abracadabra as u16 {
+                let mut byte = [0u8; 1];
+                reader.read_exact(&mut byte)?;
+                Ok(TestPayload::Abracadabra(byte[0]))
+            } else {
+                Err(Error::NoDataAvailable)
+            }
+        }
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -183,7 +182,6 @@ mod test {
 
         let request2 =
             WriteDataByIdentifierRequest::<TestPayload>::decode(&mut written_bytes.as_slice())
-                .unwrap()
                 .unwrap();
         assert_eq!(request, request2);
     }

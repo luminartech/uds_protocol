@@ -2,7 +2,10 @@
 //!
 //! It can also be used to check the ECU’s health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
-use crate::{Error, Identifier, RoutineControlSubFunction, SingleValueWireFormat, WireFormat};
+use crate::{
+    Error, Identifier, IterableWireFormat, RoutineControlSubFunction, SingleValueWireFormat,
+    WireFormat,
+};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
@@ -36,17 +39,6 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat>
 impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
     for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
 {
-    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
-        let routine_id = RoutineIdentifier::decode(reader)?.unwrap();
-        let data = RoutinePayload::decode(reader)?;
-        Ok(Some(Self {
-            sub_function,
-            routine_id,
-            data,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         3 + match &self.data {
             Some(record) => record.required_size(),
@@ -64,9 +56,19 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
     }
 }
 
-impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> SingleValueWireFormat
+impl<RoutineIdentifier: Identifier, RoutinePayload: IterableWireFormat> SingleValueWireFormat
     for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
 {
+    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
+        let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
+        let routine_id = RoutineIdentifier::decode(reader)?;
+        let data = RoutinePayload::decode_next(reader)?;
+        Ok(Self {
+            sub_function,
+            routine_id,
+            data,
+        })
+    }
 }
 
 /// `RoutineControlResponse` is a variable length field that can contain the status of the routine
@@ -112,16 +114,6 @@ impl<RoutineStatusRecord: WireFormat> RoutineControlResponse<RoutineStatusRecord
 }
 
 impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<RoutineStatusRecord> {
-    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let routine_control_type = RoutineControlSubFunction::from(reader.read_u8()?);
-        // Reads the identifier, then can read 0 bytes, 1 byte, or more
-        let routine_status_record = RoutineStatusRecord::decode(reader)?.unwrap();
-        Ok(Some(Self {
-            routine_control_type,
-            routine_status_record,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         // control type + (routine identifier + routine info + status record)
         1 + self.routine_status_record.required_size()
@@ -134,9 +126,18 @@ impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<Rout
     }
 }
 
-impl<RoutineStatusRecord: WireFormat> SingleValueWireFormat
+impl<RoutineStatusRecord: SingleValueWireFormat> SingleValueWireFormat
     for RoutineControlResponse<RoutineStatusRecord>
 {
+    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
+        let routine_control_type = RoutineControlSubFunction::from(reader.read_u8()?);
+        // Reads the identifier, then can read 0 bytes, 1 byte, or more
+        let routine_status_record = RoutineStatusRecord::decode(reader)?;
+        Ok(Self {
+            routine_control_type,
+            routine_status_record,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -167,7 +168,7 @@ mod request {
         // Fake data: StartRoutine, RoutineID of 0x8606 for "Start O2 Sensor Heater Test" or something
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
         let req: RoutineControlRequestType =
-            RoutineControlRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
+            RoutineControlRequest::decode(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.sub_function), 0x01);
         assert_eq!(req.routine_id, TestIdentifier::from(0x0001));
@@ -193,7 +194,7 @@ mod request {
     fn simple_response() {
         let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
         let resp: RoutineControlResponse<Vec<u8>> =
-            RoutineControlResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
+            RoutineControlResponse::decode(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(
             resp.routine_control_type,

@@ -100,11 +100,6 @@ impl TesterPresentRequest {
 }
 
 impl WireFormat for TesterPresentRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        Ok(Some(Self { zero_sub_function }))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -119,7 +114,12 @@ impl WireFormat for TesterPresentRequest {
     }
 }
 
-impl SingleValueWireFormat for TesterPresentRequest {}
+impl SingleValueWireFormat for TesterPresentRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
+        Ok(Self { zero_sub_function })
+    }
+}
 
 /// Positive response to a `TesterPresentRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -139,11 +139,6 @@ impl TesterPresentResponse {
 }
 
 impl WireFormat for TesterPresentResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
-        Ok(Some(Self { zero_sub_function }))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -154,7 +149,12 @@ impl WireFormat for TesterPresentResponse {
     }
 }
 
-impl SingleValueWireFormat for TesterPresentResponse {}
+impl SingleValueWireFormat for TesterPresentResponse {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
+        Ok(Self { zero_sub_function })
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -191,7 +191,7 @@ mod test {
         }
     }
 
-    fn make_request(byte: u8) -> Result<Option<TesterPresentRequest>, Error> {
+    fn make_request(byte: u8) -> Result<TesterPresentRequest, Error> {
         let bytes = vec![byte];
         TesterPresentRequest::decode(&mut bytes.as_slice())
     }
@@ -203,10 +203,10 @@ mod test {
             match i {
                 0x00 => {
                     let expected = TesterPresentRequest::new(false);
-                    assert_eq!(result.unwrap().unwrap(), expected);
+                    assert_eq!(result.unwrap(), expected);
                 }
                 0x01..=0x7F => {
-                    let result = result.unwrap().unwrap();
+                    let result = result.unwrap();
                     assert!(!result.suppress_positive_response());
                     assert!(matches!(
                         result.zero_sub_function.value(),
@@ -215,10 +215,10 @@ mod test {
                 }
                 0x80 => {
                     let expected = TesterPresentRequest::new(true);
-                    assert_eq!(result.unwrap().unwrap(), expected);
+                    assert_eq!(result.unwrap(), expected);
                 }
                 0x81..=0xFF => {
-                    let result = result.unwrap().unwrap();
+                    let result = result.unwrap();
                     assert!(result.suppress_positive_response());
                     assert!(matches!(
                         result.zero_sub_function.value(),
@@ -242,9 +242,7 @@ mod test {
     #[test]
     fn read_response_type() {
         let bytes = vec![0u8];
-        let test_type = TesterPresentResponse::decode(&mut bytes.as_slice())
-            .unwrap()
-            .unwrap();
+        let test_type = TesterPresentResponse::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());
     }
 

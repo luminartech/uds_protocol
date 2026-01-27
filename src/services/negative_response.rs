@@ -23,15 +23,6 @@ impl NegativeResponse {
 }
 
 impl WireFormat for NegativeResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let request_service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
-        let nrc = NegativeResponseCode::from(reader.read_u8()?);
-        Ok(Some(Self {
-            request_service,
-            nrc,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         2
     }
@@ -43,4 +34,13 @@ impl WireFormat for NegativeResponse {
     }
 }
 
-impl SingleValueWireFormat for NegativeResponse {}
+impl SingleValueWireFormat for NegativeResponse {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let request_service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
+        let nrc = NegativeResponseCode::from(reader.read_u8()?);
+        Ok(Self {
+            request_service,
+            nrc,
+        })
+    }
+}

@@ -29,12 +29,6 @@ impl ReadDTCInfoRequest {
 }
 
 impl WireFormat for ReadDTCInfoRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let dtc_subfunction = ReadDTCInfoSubFunction::decode_single_value(reader)?;
-
-        Ok(Some(Self { dtc_subfunction }))
-    }
-
     fn required_size(&self) -> usize {
         self.dtc_subfunction.required_size()
     }
@@ -44,7 +38,13 @@ impl WireFormat for ReadDTCInfoRequest {
     }
 }
 
-impl SingleValueWireFormat for ReadDTCInfoRequest {}
+impl SingleValueWireFormat for ReadDTCInfoRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let dtc_subfunction = ReadDTCInfoSubFunction::decode(reader)?;
+
+        Ok(Self { dtc_subfunction })
+    }
+}
 
 /// A DTC paired with its fault detection counter value
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -56,20 +56,6 @@ pub struct DTCFaultDetectionCounterRecord {
 }
 
 impl WireFormat for DTCFaultDetectionCounterRecord {
-    #[allow(clippy::match_same_arms)]
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let dtc_record = match DTCRecord::decode(reader) {
-            Ok(None) => return Ok(None),
-            Ok(record) => record,
-            Err(_) => return Ok(None),
-        };
-        let dtc_fault_detection_counter = reader.read_u8()?;
-        Ok(Some(Self {
-            dtc_record: dtc_record.unwrap(),
-            dtc_fault_detection_counter,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         4
     }
@@ -81,7 +67,21 @@ impl WireFormat for DTCFaultDetectionCounterRecord {
     }
 }
 
-impl IterableWireFormat for DTCFaultDetectionCounterRecord {}
+impl IterableWireFormat for DTCFaultDetectionCounterRecord {
+    #[allow(clippy::match_same_arms)]
+    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let dtc_record = match DTCRecord::decode_next(reader) {
+            Ok(None) => return Ok(None),
+            Ok(Some(record)) => record,
+            Err(_) => return Ok(None),
+        };
+        let dtc_fault_detection_counter = reader.read_u8()?;
+        Ok(Some(Self {
+            dtc_record,
+            dtc_fault_detection_counter,
+        }))
+    }
+}
 
 /// Record containing user-defined memory DTC information filtered by status mask
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -111,25 +111,6 @@ pub struct UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload> {
 impl<UserPayload: IterableWireFormat> WireFormat
     for UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>
 {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let memory_selection = reader.read_u8()?;
-        let dtc_record = DTCRecord::decode(reader)?.unwrap();
-        let dtc_status_mask = DTCStatusMask::decode(reader)?.unwrap();
-        let mut dtc_snapshot_record = Vec::new();
-
-        while let Ok(Some(dtc_snapshot_record_number)) = DTCSnapshotRecordNumber::decode(reader) {
-            let snapshot_record = DTCSnapshotRecord::decode(reader)?.unwrap();
-            dtc_snapshot_record.push((dtc_snapshot_record_number, snapshot_record));
-        }
-
-        Ok(Some(UserDefMemoryDTCSnapshotRecordByDTCNumRecord {
-            memory_selection,
-            dtc_record,
-            dtc_status_mask,
-            dtc_snapshot_record,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         1 + self.dtc_record.required_size()
             + self.dtc_status_mask.required_size()
@@ -156,6 +137,26 @@ impl<UserPayload: IterableWireFormat> WireFormat
 impl<UserPayload: IterableWireFormat> SingleValueWireFormat
     for UserDefMemoryDTCSnapshotRecordByDTCNumRecord<UserPayload>
 {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let memory_selection = reader.read_u8()?;
+        let dtc_record = DTCRecord::decode(reader)?;
+        let dtc_status_mask = DTCStatusMask::decode(reader)?;
+        let mut dtc_snapshot_record = Vec::new();
+
+        while let Ok(Some(dtc_snapshot_record_number)) =
+            DTCSnapshotRecordNumber::decode_next(reader)
+        {
+            let snapshot_record = DTCSnapshotRecord::decode(reader)?;
+            dtc_snapshot_record.push((dtc_snapshot_record_number, snapshot_record));
+        }
+
+        Ok(UserDefMemoryDTCSnapshotRecordByDTCNumRecord {
+            memory_selection,
+            dtc_record,
+            dtc_status_mask,
+            dtc_snapshot_record,
+        })
+    }
 }
 
 /// List of WWH OBD DTCs and corresponding status and severity information matching a client defined status mask and severity mask record
@@ -382,87 +383,6 @@ impl ReadDTCInfoSubFunction {
 
 impl WireFormat for ReadDTCInfoSubFunction {
     #[allow(clippy::match_same_arms)]
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let report_type = reader.read_u8()?;
-
-        let subfunction = match report_type {
-            0x01 | 0x02 => {
-                let status = DTCStatusMask::from(reader.read_u8()?);
-                match report_type {
-                    0x01 => Self::ReportNumberOfDTC_ByStatusMask(status),
-                    0x02 => Self::ReportDTC_ByStatusMask(status),
-                    _ => unreachable!(),
-                }
-            }
-            0x03 => Self::ReportDTCSnapshotIdentification,
-            0x04 => Self::ReportDTCSnapshotRecord_ByDTCNumber(
-                DTCRecord::decode_single_value(reader)?,
-                DTCSnapshotRecordNumber::decode_single_value(reader)?,
-            ),
-            0x05 => Self::ReportDTCStoredData_ByRecordNumber(
-                DTCStoredDataRecordNumber::decode_single_value(reader)?,
-            ),
-            // 0xFF for all records, 0xFE for all OBD records
-            0x06 => Self::ReportDTCExtDataRecord_ByDTCNumber(
-                DTCRecord::decode_single_value(reader)?,
-                DTCExtDataRecordNumber::decode_single_value(reader)?,
-            ),
-            0x07 => Self::ReportNumberOfDTC_BySeverityMaskRecord(
-                DTCSeverityMask::from(reader.read_u8()?),
-                DTCStatusMask::from(reader.read_u8()?),
-            ),
-            0x08 => Self::ReportDTC_BySeverityMaskRecord(
-                DTCSeverityMask::from(reader.read_u8()?),
-                DTCStatusMask::from(reader.read_u8()?),
-            ),
-            0x09 => Self::ReportSeverityInfoOfDTC(DTCRecord::decode_single_value(reader)?),
-            0x0A => Self::ReportSupportedDTC,
-            0x0B => Self::ReportFirstTestFailedDTC,
-            0x0C => Self::ReportFirstConfirmedDTC,
-            0x0D => Self::ReportMostRecentTestFailedDTC,
-            0x0E => Self::ReportMostRecentConfirmedDTC,
-            0x14 => Self::ReportDTCFaultDetectionCounter,
-            0x15 => Self::ReportDTCWithPermanentStatus,
-            0x16 => Self::ReportDTCExtDataRecord_ByRecordNumber(
-                DTCExtDataRecordNumber::decode_single_value(reader)?,
-            ),
-            0x17 => {
-                Self::ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask::from(reader.read_u8()?))
-            }
-            // 0xFF for all records
-            0x18 => Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
-                DTCRecord::decode_single_value(reader)?,
-                DTCSnapshotRecordNumber::decode_single_value(reader)?,
-                reader.read_u8()?,
-            ),
-            0x19 => Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
-                DTCRecord::decode_single_value(reader)?,
-                DTCExtDataRecordNumber::decode_single_value(reader)?,
-                reader.read_u8()?,
-            ),
-            0x1A => Self::ReportSupportedDTCExtDataRecord(
-                DTCExtDataRecordNumber::decode_single_value(reader)?,
-            ),
-            0x42 => Self::ReportWWHOBDDTC_ByMaskRecord(
-                FunctionalGroupIdentifier::from(reader.read_u8()?),
-                DTCStatusMask::from(reader.read_u8()?),
-                DTCSeverityMask::from(reader.read_u8()?),
-            ),
-            0x43..=0x54 => Self::ISOSAEReserved(report_type),
-            0x55 => Self::ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier::from(
-                reader.read_u8()?,
-            )),
-            0x56 => Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(
-                FunctionalGroupIdentifier::from(reader.read_u8()?),
-                reader.read_u8()?,
-            ),
-            0x57..=0x7F => Self::ISOSAEReserved(report_type),
-            _ => return Err(Error::InvalidDtcSubfunctionType(report_type)),
-        };
-        Ok(Some(subfunction))
-    }
-
-    #[allow(clippy::match_same_arms)]
     fn required_size(&self) -> usize {
         1 + match self {
             Self::ReportNumberOfDTC_ByStatusMask(_) => 1,
@@ -574,7 +494,86 @@ impl WireFormat for ReadDTCInfoSubFunction {
     }
 }
 
-impl SingleValueWireFormat for ReadDTCInfoSubFunction {}
+impl SingleValueWireFormat for ReadDTCInfoSubFunction {
+    #[allow(clippy::match_same_arms)]
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let report_type = reader.read_u8()?;
+
+        let subfunction = match report_type {
+            0x01 | 0x02 => {
+                let status = DTCStatusMask::from(reader.read_u8()?);
+                match report_type {
+                    0x01 => Self::ReportNumberOfDTC_ByStatusMask(status),
+                    0x02 => Self::ReportDTC_ByStatusMask(status),
+                    _ => unreachable!(),
+                }
+            }
+            0x03 => Self::ReportDTCSnapshotIdentification,
+            0x04 => Self::ReportDTCSnapshotRecord_ByDTCNumber(
+                DTCRecord::decode(reader)?,
+                DTCSnapshotRecordNumber::decode(reader)?,
+            ),
+            0x05 => {
+                Self::ReportDTCStoredData_ByRecordNumber(DTCStoredDataRecordNumber::decode(reader)?)
+            }
+            // 0xFF for all records, 0xFE for all OBD records
+            0x06 => Self::ReportDTCExtDataRecord_ByDTCNumber(
+                DTCRecord::decode(reader)?,
+                DTCExtDataRecordNumber::decode(reader)?,
+            ),
+            0x07 => Self::ReportNumberOfDTC_BySeverityMaskRecord(
+                DTCSeverityMask::from(reader.read_u8()?),
+                DTCStatusMask::from(reader.read_u8()?),
+            ),
+            0x08 => Self::ReportDTC_BySeverityMaskRecord(
+                DTCSeverityMask::from(reader.read_u8()?),
+                DTCStatusMask::from(reader.read_u8()?),
+            ),
+            0x09 => Self::ReportSeverityInfoOfDTC(DTCRecord::decode(reader)?),
+            0x0A => Self::ReportSupportedDTC,
+            0x0B => Self::ReportFirstTestFailedDTC,
+            0x0C => Self::ReportFirstConfirmedDTC,
+            0x0D => Self::ReportMostRecentTestFailedDTC,
+            0x0E => Self::ReportMostRecentConfirmedDTC,
+            0x14 => Self::ReportDTCFaultDetectionCounter,
+            0x15 => Self::ReportDTCWithPermanentStatus,
+            0x16 => {
+                Self::ReportDTCExtDataRecord_ByRecordNumber(DTCExtDataRecordNumber::decode(reader)?)
+            }
+            0x17 => {
+                Self::ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask::from(reader.read_u8()?))
+            }
+            // 0xFF for all records
+            0x18 => Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
+                DTCRecord::decode(reader)?,
+                DTCSnapshotRecordNumber::decode(reader)?,
+                reader.read_u8()?,
+            ),
+            0x19 => Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
+                DTCRecord::decode(reader)?,
+                DTCExtDataRecordNumber::decode(reader)?,
+                reader.read_u8()?,
+            ),
+            0x1A => Self::ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber::decode(reader)?),
+            0x42 => Self::ReportWWHOBDDTC_ByMaskRecord(
+                FunctionalGroupIdentifier::from(reader.read_u8()?),
+                DTCStatusMask::from(reader.read_u8()?),
+                DTCSeverityMask::from(reader.read_u8()?),
+            ),
+            0x43..=0x54 => Self::ISOSAEReserved(report_type),
+            0x55 => Self::ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier::from(
+                reader.read_u8()?,
+            )),
+            0x56 => Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(
+                FunctionalGroupIdentifier::from(reader.read_u8()?),
+                reader.read_u8()?,
+            ),
+            0x57..=0x7F => Self::ISOSAEReserved(report_type),
+            _ => return Err(Error::InvalidDtcSubfunctionType(report_type)),
+        };
+        Ok(subfunction)
+    }
+}
 
 type NumberOfDTCs = u16;
 /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
@@ -779,216 +778,6 @@ pub enum ReadDTCInfoResponse<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPayload> {
-    #[allow(clippy::too_many_lines)]
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let subfunction_id = reader.read_u8()?;
-
-        match subfunction_id {
-            0x01 | 0x07 => {
-                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
-                let count = reader.read_u16::<byteorder::BigEndian>()?;
-                Ok(Some(Self::NumberOfDTCs(subfunction_id, status, count)))
-            }
-            0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
-                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
-                let mut dtcs: Vec<(DTCRecord, DTCStatusMask)> = Vec::new();
-
-                // Loop until we're done with the reader and fill the DTC list
-                while let Some(record) = DTCRecord::decode(reader)? {
-                    match reader.read_u8() {
-                        Ok(status) => dtcs.push((record, DTCStatusMask::from(status))),
-                        Err(_) => break,
-                    }
-                }
-
-                Ok(Some(Self::DTCList(subfunction_id, status, dtcs)))
-            }
-            0x03 => {
-                let mut dtcs: Vec<(DTCRecord, DTCSnapshotRecordNumber)> = Vec::new();
-
-                // Loop until we're done with the reader and fill the DTC list
-                while let Some(record) = DTCRecord::decode(reader)? {
-                    match DTCSnapshotRecordNumber::decode(reader)? {
-                        Some(number) => dtcs.push((record, number)),
-                        None => break,
-                    }
-                }
-
-                Ok(Some(Self::DTCSnapshotList(dtcs)))
-            }
-            0x04 => {
-                let snapshot_list = DTCSnapshotRecordList::decode(reader)?.unwrap();
-                Ok(Some(Self::DTCSnapshotRecordList(snapshot_list)))
-            }
-            0x06 => {
-                let ext_data_list = DTCExtDataRecordList::decode(reader)?.unwrap();
-                Ok(Some(Self::DTCExtDataRecordList(ext_data_list)))
-            }
-            0x08 | 0x09 => {
-                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
-                let mut dtcs = Vec::new();
-
-                for dtc_severity_record in DTCSeverityRecord::decode_iterable(reader) {
-                    match dtc_severity_record {
-                        Ok(p) => {
-                            dtcs.push(p);
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    }
-                }
-
-                Ok(Some(Self::DTCSeverityRecordList(
-                    subfunction_id,
-                    status,
-                    dtcs,
-                )))
-            }
-            0x14 => {
-                let mut dtcs = Vec::new();
-                for dtc_fault_record in DTCFaultDetectionCounterRecord::decode_iterable(reader) {
-                    match dtc_fault_record {
-                        Ok(p) => {
-                            dtcs.push(p);
-                        }
-                        Err(e) => {
-                            return Err(e);
-                        }
-                    }
-                }
-                Ok(Some(Self::DTCFaultDetectionCounterRecordList(dtcs)))
-            }
-            0x17 => {
-                let memory_selection = reader.read_u8()?;
-                let status_availability_mask = DTCStatusMask::decode_single_value(reader)?;
-                let mut record_data = Vec::new();
-
-                while let Ok(Some(record)) = DTCRecord::decode(reader) {
-                    let status = DTCStatusMask::decode(reader)?;
-                    record_data.push((record, status.unwrap()));
-                }
-
-                Ok(Some(Self::UserDefMemoryDTCByStatusMaskList(
-                    UserDefMemoryDTCByStatusMaskRecord {
-                        memory_selection,
-                        status_availability_mask,
-                        record_data,
-                    },
-                )))
-            }
-            0x18 => Ok(Some(Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
-                UserDefMemoryDTCSnapshotRecordByDTCNumRecord::decode(reader)?.unwrap(),
-            ))),
-            0x1A => {
-                let status_availability_mask =
-                    DTCStatusAvailabilityMask::decode_single_value(reader)?;
-                let mut dtc_and_status_records = Vec::new();
-                let ext_data_record_number = DTCExtDataRecordNumber::decode(reader)?;
-                if ext_data_record_number.is_some() {
-                    while let Some(dtc_record) = DTCRecord::decode(reader)? {
-                        let dtc_status = DTCStatusMask::decode_single_value(reader)?;
-                        dtc_and_status_records.push((dtc_record, dtc_status));
-                    }
-                }
-                Ok(Some(Self::SupportedDTCExtDataRecordList(
-                    SupportedDTCExtDataRecord {
-                        status_availability_mask,
-                        ext_data_record_number,
-                        dtc_and_status_records,
-                    },
-                )))
-            }
-
-            0x42 => {
-                let functional_group_identifier =
-                    FunctionalGroupIdentifier::from(reader.read_u8()?);
-                let status_availability_mask =
-                    DTCStatusAvailabilityMask::decode_single_value(reader)?;
-                let severity_availability_mask = DTCSeverityMask::from(reader.read_u8()?);
-                let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
-                if (format_identifier != DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04)
-                    && (format_identifier != DTCFormatIdentifier::SAE_J1939_73_DTCFormat)
-                {
-                    return Err(Error::InvalidDtcFormatIdentifier(u8::from(
-                        format_identifier,
-                    )));
-                }
-                let mut record_data = Vec::new();
-                while let Ok(dtc_severity_mask) = reader.read_u8() {
-                    let dtc_severity_mask = DTCSeverityMask::from(dtc_severity_mask);
-                    let dtc_record = DTCRecord::decode_single_value(reader)?;
-                    let dtc_status = DTCStatusMask::decode_single_value(reader)?;
-                    record_data.push((dtc_severity_mask, dtc_record, dtc_status));
-                }
-
-                Ok(Some(Self::WWHOBDDTCByMaskRecordList(
-                    WWHOBDDTCByMaskRecord {
-                        functional_group_identifier,
-                        status_availability_mask,
-                        severity_availability_mask,
-                        format_identifier,
-                        record_data,
-                    },
-                )))
-            }
-            0x55 => {
-                let functional_group_identifier =
-                    FunctionalGroupIdentifier::from(reader.read_u8()?);
-                let status_availability_mask = DTCStatusAvailabilityMask::decode(reader)?.unwrap();
-                let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
-                if !matches!(
-                    format_identifier,
-                    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
-                        | DTCFormatIdentifier::SAE_J1939_73_DTCFormat
-                ) {
-                    return Err(Error::InvalidDtcFormatIdentifier(u8::from(
-                        format_identifier,
-                    )));
-                }
-                let mut record_data = Vec::new();
-                while let Ok(Some(dtc_record)) = DTCRecord::decode(reader) {
-                    let dtc_status = DTCStatusMask::decode(reader)?.unwrap();
-                    record_data.push((dtc_record, dtc_status));
-                }
-
-                Ok(Some(Self::WWHOBDDTCWithPermanentStatusList(
-                    WWHOBDDTCWithPermanentStatusRecord {
-                        functional_group_identifier,
-                        status_availability_mask,
-                        format_identifier,
-                        record_data,
-                    },
-                )))
-            }
-            0x56 => {
-                let functional_group_identifier =
-                    FunctionalGroupIdentifier::from(reader.read_u8()?);
-                let status_availability_mask =
-                    DTCStatusAvailabilityMask::decode_single_value(reader)?;
-                let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
-                let readiness_group_identifier =
-                    DTCReadinessGroupIdentifier::from(reader.read_u8()?);
-                let mut record_data = Vec::new();
-                while let Ok(Some(dtc_record)) = DTCRecord::decode(reader) {
-                    let dtc_status = DTCStatusMask::decode_single_value(reader)?;
-                    record_data.push((dtc_record, dtc_status));
-                }
-
-                Ok(Some(Self::DTCByReadinessGroupIdentifierList(
-                    DTCByReadinessGroupIdentifierRecord {
-                        functional_group_identifier,
-                        status_availability_mask,
-                        format_identifier,
-                        readiness_group_identifier,
-                        record_data,
-                    },
-                )))
-            }
-            _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
-        }
-    }
-
     fn required_size(&self) -> usize {
         // subfunction ID + subfunction contents
         1 + match self {
@@ -1127,7 +916,208 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
     }
 }
 
-impl<UserPayload: IterableWireFormat> SingleValueWireFormat for ReadDTCInfoResponse<UserPayload> {}
+impl<UserPayload: IterableWireFormat> SingleValueWireFormat for ReadDTCInfoResponse<UserPayload> {
+    #[allow(clippy::too_many_lines)]
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let subfunction_id = reader.read_u8()?;
+
+        match subfunction_id {
+            0x01 | 0x07 => {
+                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                let count = reader.read_u16::<byteorder::BigEndian>()?;
+                Ok(Self::NumberOfDTCs(subfunction_id, status, count))
+            }
+            0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
+                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                let mut dtcs: Vec<(DTCRecord, DTCStatusMask)> = Vec::new();
+
+                // Loop until we're done with the reader and fill the DTC list
+                while let Ok(Some(record)) = DTCRecord::decode_next(reader) {
+                    match reader.read_u8() {
+                        Ok(status) => dtcs.push((record, DTCStatusMask::from(status))),
+                        Err(_) => break,
+                    }
+                }
+
+                Ok(Self::DTCList(subfunction_id, status, dtcs))
+            }
+            0x03 => {
+                let mut dtcs: Vec<(DTCRecord, DTCSnapshotRecordNumber)> = Vec::new();
+
+                // Loop until we're done with the reader and fill the DTC list
+                while let Ok(Some(record)) = DTCRecord::decode_next(reader) {
+                    match DTCSnapshotRecordNumber::decode_next(reader)? {
+                        Some(number) => dtcs.push((record, number)),
+                        None => break,
+                    }
+                }
+
+                Ok(Self::DTCSnapshotList(dtcs))
+            }
+            0x04 => {
+                let snapshot_list = DTCSnapshotRecordList::decode(reader)?;
+                Ok(Self::DTCSnapshotRecordList(snapshot_list))
+            }
+            0x06 => {
+                let ext_data_list = DTCExtDataRecordList::decode(reader)?;
+                Ok(Self::DTCExtDataRecordList(ext_data_list))
+            }
+            0x08 | 0x09 => {
+                let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                let mut dtcs = Vec::new();
+
+                for dtc_severity_record in DTCSeverityRecord::decode_iter(reader) {
+                    match dtc_severity_record {
+                        Ok(p) => {
+                            dtcs.push(p);
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                }
+
+                Ok(Self::DTCSeverityRecordList(subfunction_id, status, dtcs))
+            }
+            0x14 => {
+                let mut dtcs = Vec::new();
+                for dtc_fault_record in DTCFaultDetectionCounterRecord::decode_iter(reader) {
+                    match dtc_fault_record {
+                        Ok(p) => {
+                            dtcs.push(p);
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                }
+                Ok(Self::DTCFaultDetectionCounterRecordList(dtcs))
+            }
+            0x17 => {
+                let memory_selection = reader.read_u8()?;
+                let status_availability_mask = DTCStatusMask::decode(reader)?;
+                let mut record_data = Vec::new();
+
+                while let Ok(Some(record)) = DTCRecord::decode_next(reader) {
+                    let status = DTCStatusMask::decode(reader)?;
+                    record_data.push((record, status));
+                }
+
+                Ok(Self::UserDefMemoryDTCByStatusMaskList(
+                    UserDefMemoryDTCByStatusMaskRecord {
+                        memory_selection,
+                        status_availability_mask,
+                        record_data,
+                    },
+                ))
+            }
+            0x18 => Ok(Self::UserDefMemoryDTCSnapshotRecordByDTCNumberList(
+                UserDefMemoryDTCSnapshotRecordByDTCNumRecord::decode(reader)?,
+            )),
+            0x1A => {
+                let status_availability_mask = DTCStatusAvailabilityMask::decode(reader)?;
+                let mut dtc_and_status_records = Vec::new();
+                let ext_data_record_number = DTCExtDataRecordNumber::decode_next(reader)?;
+                if ext_data_record_number.is_some() {
+                    while let Ok(Some(dtc_record)) = DTCRecord::decode_next(reader) {
+                        let dtc_status = DTCStatusMask::decode(reader)?;
+                        dtc_and_status_records.push((dtc_record, dtc_status));
+                    }
+                }
+                Ok(Self::SupportedDTCExtDataRecordList(
+                    SupportedDTCExtDataRecord {
+                        status_availability_mask,
+                        ext_data_record_number,
+                        dtc_and_status_records,
+                    },
+                ))
+            }
+
+            0x42 => {
+                let functional_group_identifier =
+                    FunctionalGroupIdentifier::from(reader.read_u8()?);
+                let status_availability_mask = DTCStatusAvailabilityMask::decode(reader)?;
+                let severity_availability_mask = DTCSeverityMask::from(reader.read_u8()?);
+                let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
+                if (format_identifier != DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04)
+                    && (format_identifier != DTCFormatIdentifier::SAE_J1939_73_DTCFormat)
+                {
+                    return Err(Error::InvalidDtcFormatIdentifier(u8::from(
+                        format_identifier,
+                    )));
+                }
+                let mut record_data = Vec::new();
+                while let Ok(dtc_severity_mask) = reader.read_u8() {
+                    let dtc_severity_mask = DTCSeverityMask::from(dtc_severity_mask);
+                    let dtc_record = DTCRecord::decode(reader)?;
+                    let dtc_status = DTCStatusMask::decode(reader)?;
+                    record_data.push((dtc_severity_mask, dtc_record, dtc_status));
+                }
+
+                Ok(Self::WWHOBDDTCByMaskRecordList(WWHOBDDTCByMaskRecord {
+                    functional_group_identifier,
+                    status_availability_mask,
+                    severity_availability_mask,
+                    format_identifier,
+                    record_data,
+                }))
+            }
+            0x55 => {
+                let functional_group_identifier =
+                    FunctionalGroupIdentifier::from(reader.read_u8()?);
+                let status_availability_mask = DTCStatusAvailabilityMask::decode(reader)?;
+                let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
+                if !matches!(
+                    format_identifier,
+                    DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04
+                        | DTCFormatIdentifier::SAE_J1939_73_DTCFormat
+                ) {
+                    return Err(Error::InvalidDtcFormatIdentifier(u8::from(
+                        format_identifier,
+                    )));
+                }
+                let mut record_data = Vec::new();
+                while let Ok(Some(dtc_record)) = DTCRecord::decode_next(reader) {
+                    let dtc_status = DTCStatusMask::decode(reader)?;
+                    record_data.push((dtc_record, dtc_status));
+                }
+
+                Ok(Self::WWHOBDDTCWithPermanentStatusList(
+                    WWHOBDDTCWithPermanentStatusRecord {
+                        functional_group_identifier,
+                        status_availability_mask,
+                        format_identifier,
+                        record_data,
+                    },
+                ))
+            }
+            0x56 => {
+                let functional_group_identifier =
+                    FunctionalGroupIdentifier::from(reader.read_u8()?);
+                let status_availability_mask = DTCStatusAvailabilityMask::decode(reader)?;
+                let format_identifier = DTCFormatIdentifier::from(reader.read_u8()?);
+                let readiness_group_identifier =
+                    DTCReadinessGroupIdentifier::from(reader.read_u8()?);
+                let mut record_data = Vec::new();
+                while let Ok(Some(dtc_record)) = DTCRecord::decode_next(reader) {
+                    let dtc_status = DTCStatusMask::decode(reader)?;
+                    record_data.push((dtc_record, dtc_status));
+                }
+
+                Ok(Self::DTCByReadinessGroupIdentifierList(
+                    DTCByReadinessGroupIdentifierRecord {
+                        functional_group_identifier,
+                        status_availability_mask,
+                        format_identifier,
+                        readiness_group_identifier,
+                        record_data,
+                    },
+                ))
+            }
+            _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
+        }
+    }
+}
 
 #[cfg(test)]
 mod response {
@@ -1149,18 +1139,6 @@ mod response {
     }
 
     impl WireFormat for TestIdentifier {
-        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-            let mut buf = [0u8; 2];
-            reader.read_exact(&mut buf)?;
-
-            let id = u16::from_be_bytes(buf);
-            if TestIdentifier::Abracadabra == id {
-                Ok(Some(TestIdentifier::Abracadabra))
-            } else {
-                Err(Error::NoDataAvailable)
-            }
-        }
-
         fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             writer.write_u16::<byteorder::BigEndian>(*self as u16)?;
             Ok(self.required_size())
@@ -1171,7 +1149,19 @@ mod response {
         }
     }
 
-    impl IterableWireFormat for TestIdentifier {}
+    impl IterableWireFormat for TestIdentifier {
+        fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let mut buf = [0u8; 2];
+            reader.read_exact(&mut buf)?;
+
+            let id = u16::from_be_bytes(buf);
+            if TestIdentifier::Abracadabra == id {
+                Ok(Some(TestIdentifier::Abracadabra))
+            } else {
+                Err(Error::NoDataAvailable)
+            }
+        }
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1182,21 +1172,6 @@ mod response {
     }
 
     impl WireFormat for TestPayload {
-        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-            let mut buf = [0u8; 2];
-            reader.read_exact(&mut buf)?;
-
-            let value = u16::from_be_bytes(buf);
-
-            if value == TestIdentifier::Abracadabra as u16 {
-                let mut byte = [0u8; 1];
-                reader.read_exact(&mut byte)?;
-                Ok(Some(TestPayload::Abracadabra(byte[0])))
-            } else {
-                Err(Error::NoDataAvailable)
-            }
-        }
-
         fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
             let id_bytes: u16 = match self {
                 TestPayload::Abracadabra(_) => 0xBEEF,
@@ -1216,7 +1191,22 @@ mod response {
             3
         }
     }
-    impl IterableWireFormat for TestPayload {}
+    impl IterableWireFormat for TestPayload {
+        fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let mut buf = [0u8; 2];
+            reader.read_exact(&mut buf)?;
+
+            let value = u16::from_be_bytes(buf);
+
+            if value == TestIdentifier::Abracadabra as u16 {
+                let mut byte = [0u8; 1];
+                reader.read_exact(&mut byte)?;
+                Ok(Some(TestPayload::Abracadabra(byte[0])))
+            } else {
+                Err(Error::NoDataAvailable)
+            }
+        }
+    }
 
     #[test]
     fn dtc_list() {
@@ -1232,7 +1222,7 @@ mod response {
         ];
         let mut reader = &bytes[..];
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
         assert_eq!(
             response,
             ReadDTCInfoResponse::DTCList(
@@ -1273,7 +1263,7 @@ mod response {
         ];
         let mut reader = &bytes[..];
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
         assert_eq!(
             response,
             ReadDTCInfoResponse::DTCSeverityRecordList(
@@ -1307,7 +1297,7 @@ mod response {
         ];
         let mut reader = &bytes[..];
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
         assert_eq!(
             response,
             ReadDTCInfoResponse::DTCSeverityRecordList(0x08, DTCStatusMask::TestFailed, vec![])
@@ -1330,7 +1320,7 @@ mod response {
         ];
         let mut reader = &bytes[..];
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
         assert_eq!(
             response,
             ReadDTCInfoResponse::DTCFaultDetectionCounterRecordList(vec![
@@ -1355,7 +1345,7 @@ mod response {
         ];
         let mut reader = &bytes[..];
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
         assert_eq!(
             response,
             ReadDTCInfoResponse::DTCFaultDetectionCounterRecordList(vec![])
@@ -1381,7 +1371,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1417,7 +1407,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1452,7 +1442,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1492,7 +1482,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1537,7 +1527,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1574,7 +1564,7 @@ mod response {
         ];
         let mut reader = &bytes[..];
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
         assert_eq!(
             response,
             ReadDTCInfoResponse::SupportedDTCExtDataRecordList(SupportedDTCExtDataRecord {
@@ -1611,7 +1601,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1656,7 +1646,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1693,7 +1683,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1735,7 +1725,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1780,7 +1770,7 @@ mod response {
         let mut reader = &bytes[..];
 
         let response: ReadDTCInfoResponse<TestPayload> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         assert_eq!(
             response,
@@ -1816,16 +1806,6 @@ mod ext_data {
     }
 
     impl WireFormat for TestDTCExtDataRecordNumber {
-        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-            let id = reader.read_u8();
-            match id {
-                Ok(0x04) => Ok(Some(TestDTCExtDataRecordNumber::WarmUpCycleCount)),
-                Ok(0x05) => Ok(Some(TestDTCExtDataRecordNumber::FaultDetectionCounter)),
-                Err(_) => Ok(None),
-                _ => Err(Error::NoDataAvailable),
-            }
-        }
-
         fn required_size(&self) -> usize {
             1
         }
@@ -1836,7 +1816,17 @@ mod ext_data {
         }
     }
 
-    impl IterableWireFormat for TestDTCExtDataRecordNumber {}
+    impl IterableWireFormat for TestDTCExtDataRecordNumber {
+        fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let id = reader.read_u8();
+            match id {
+                Ok(0x04) => Ok(Some(TestDTCExtDataRecordNumber::WarmUpCycleCount)),
+                Ok(0x05) => Ok(Some(TestDTCExtDataRecordNumber::FaultDetectionCounter)),
+                Err(_) => Ok(None),
+                _ => Err(Error::NoDataAvailable),
+            }
+        }
+    }
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
     #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1846,21 +1836,6 @@ mod ext_data {
     }
 
     impl WireFormat for TestDTCExtData {
-        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-            let id = TestDTCExtDataRecordNumber::decode(reader)?;
-            match id {
-                Some(TestDTCExtDataRecordNumber::WarmUpCycleCount) => {
-                    let count = reader.read_u16::<byteorder::BigEndian>()?;
-                    Ok(Some(TestDTCExtData::WarmUpCycleCount(count)))
-                }
-                Some(TestDTCExtDataRecordNumber::FaultDetectionCounter) => {
-                    let count = reader.read_u8()?;
-                    Ok(Some(TestDTCExtData::FaultDetectionCounter(count)))
-                }
-                None => Ok(None),
-            }
-        }
-
         fn required_size(&self) -> usize {
             match self {
                 TestDTCExtData::WarmUpCycleCount(_) => 3,
@@ -1883,7 +1858,22 @@ mod ext_data {
         }
     }
 
-    impl IterableWireFormat for TestDTCExtData {}
+    impl IterableWireFormat for TestDTCExtData {
+        fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+            let id = TestDTCExtDataRecordNumber::decode_next(reader)?;
+            match id {
+                Some(TestDTCExtDataRecordNumber::WarmUpCycleCount) => {
+                    let count = reader.read_u16::<byteorder::BigEndian>()?;
+                    Ok(Some(TestDTCExtData::WarmUpCycleCount(count)))
+                }
+                Some(TestDTCExtDataRecordNumber::FaultDetectionCounter) => {
+                    let count = reader.read_u8()?;
+                    Ok(Some(TestDTCExtData::FaultDetectionCounter(count)))
+                }
+                None => Ok(None),
+            }
+        }
+    }
 
     #[test]
     fn ext_data_list() {
@@ -1903,7 +1893,7 @@ mod ext_data {
         ];
         let mut reader = &bytes[..];
         let response: ReadDTCInfoResponse<TestDTCExtData> =
-            ReadDTCInfoResponse::decode_single_value(&mut reader).unwrap();
+            ReadDTCInfoResponse::decode(&mut reader).unwrap();
 
         // write
         let mut writer = Vec::new();
@@ -1929,7 +1919,7 @@ mod request {
         ))
         .encode(&mut writer)
         .unwrap();
-        let request = ReadDTCInfoRequest::decode(&mut reader).unwrap().unwrap();
+        let request = ReadDTCInfoRequest::decode(&mut reader).unwrap();
         assert_eq!(
             request,
             ReadDTCInfoRequest {

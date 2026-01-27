@@ -88,32 +88,6 @@ impl RequestDownloadRequest {
     }
 }
 impl WireFormat for RequestDownloadRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let data_format_identifier = DataFormatIdentifier::from(reader.read_u8()?);
-        let memory_identifier = MemoryFormatIdentifier::try_from(reader.read_u8()?)?;
-
-        let mut memory_address: Vec<u8> = vec![0; memory_identifier.memory_address_length as usize];
-        let mut memory_size: Vec<u8> = vec![0; memory_identifier.memory_size_length as usize];
-
-        reader.read_exact(&mut memory_address)?;
-        reader.read_exact(&mut memory_size)?;
-
-        Ok(Some(Self {
-            data_format_identifier,
-            address_and_length_format_identifier: memory_identifier,
-            memory_address: u64::from_be_bytes({
-                let mut bytes = [0; 8];
-                bytes[8 - memory_address.len()..].copy_from_slice(&memory_address);
-                bytes
-            }),
-            memory_size: u32::from_be_bytes({
-                let mut bytes = [0; 4];
-                bytes[4 - memory_size.len()..].copy_from_slice(&memory_size);
-                bytes
-            }),
-        }))
-    }
-
     fn required_size(&self) -> usize {
         2 + self.address_and_length_format_identifier.len()
     }
@@ -129,7 +103,33 @@ impl WireFormat for RequestDownloadRequest {
     }
 }
 
-impl SingleValueWireFormat for RequestDownloadRequest {}
+impl SingleValueWireFormat for RequestDownloadRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let data_format_identifier = DataFormatIdentifier::from(reader.read_u8()?);
+        let memory_identifier = MemoryFormatIdentifier::try_from(reader.read_u8()?)?;
+
+        let mut memory_address: Vec<u8> = vec![0; memory_identifier.memory_address_length as usize];
+        let mut memory_size: Vec<u8> = vec![0; memory_identifier.memory_size_length as usize];
+
+        reader.read_exact(&mut memory_address)?;
+        reader.read_exact(&mut memory_size)?;
+
+        Ok(Self {
+            data_format_identifier,
+            address_and_length_format_identifier: memory_identifier,
+            memory_address: u64::from_be_bytes({
+                let mut bytes = [0; 8];
+                bytes[8 - memory_address.len()..].copy_from_slice(&memory_address);
+                bytes
+            }),
+            memory_size: u32::from_be_bytes({
+                let mut bytes = [0; 4];
+                bytes[4 - memory_size.len()..].copy_from_slice(&memory_size);
+                bytes
+            }),
+        })
+    }
+}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -154,19 +154,6 @@ impl RequestDownloadResponse {
 }
 
 impl WireFormat for RequestDownloadResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let length_format_identifier = LengthFormatIdentifier::from(reader.read_u8()?);
-
-        let mut max_number_of_block_length: Vec<u8> =
-            vec![0; length_format_identifier.max_number_of_block_length as usize];
-        reader.read_exact(&mut max_number_of_block_length)?;
-
-        Ok(Some(Self {
-            length_format_identifier,
-            max_number_of_block_length,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         1 + self.max_number_of_block_length.len()
     }
@@ -178,7 +165,20 @@ impl WireFormat for RequestDownloadResponse {
     }
 }
 
-impl SingleValueWireFormat for RequestDownloadResponse {}
+impl SingleValueWireFormat for RequestDownloadResponse {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let length_format_identifier = LengthFormatIdentifier::from(reader.read_u8()?);
+
+        let mut max_number_of_block_length: Vec<u8> =
+            vec![0; length_format_identifier.max_number_of_block_length as usize];
+        reader.read_exact(&mut max_number_of_block_length)?;
+
+        Ok(Self {
+            length_format_identifier,
+            max_number_of_block_length,
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -191,9 +191,7 @@ mod tests {
             0xF0, 0xFF, 0xFF, 0x67, // memory address
             0x0A,
         ];
-        let req = RequestDownloadRequest::decode(&mut bytes.as_slice())
-            .unwrap()
-            .unwrap();
+        let req = RequestDownloadRequest::decode(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.data_format_identifier), 0);
         assert_eq!(u8::from(req.address_and_length_format_identifier), 0x14);

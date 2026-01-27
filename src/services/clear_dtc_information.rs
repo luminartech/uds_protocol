@@ -46,19 +46,6 @@ impl ClearDiagnosticInfoRequest {
 }
 
 impl WireFormat for ClearDiagnosticInfoRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
-        let group_of_dtc = DTCRecord::decode(reader)?;
-        if group_of_dtc.is_none() {
-            return Ok(None);
-        }
-        let memory_selection = reader.read_u8()?;
-
-        Ok(Some(Self {
-            group_of_dtc: group_of_dtc.unwrap(),
-            memory_selection,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         self.group_of_dtc.required_size() + 1
     }
@@ -72,7 +59,17 @@ impl WireFormat for ClearDiagnosticInfoRequest {
     }
 }
 
-impl SingleValueWireFormat for ClearDiagnosticInfoRequest {}
+impl SingleValueWireFormat for ClearDiagnosticInfoRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
+        let group_of_dtc = DTCRecord::decode(reader)?;
+        let memory_selection = reader.read_u8()?;
+
+        Ok(Self {
+            group_of_dtc,
+            memory_selection,
+        })
+    }
+}
 
 /// test
 #[cfg(test)]
@@ -83,7 +80,7 @@ mod request {
     fn decode_clear_dtc_info_request() {
         let bytes = [0xFF, 0xFF, 0xFF, 0x00];
         let compare = ClearDiagnosticInfoRequest::new(CLEAR_ALL_DTCS, 0);
-        let req = ClearDiagnosticInfoRequest::decode_single_value(&mut &bytes[..]).unwrap();
+        let req = ClearDiagnosticInfoRequest::decode(&mut &bytes[..]).unwrap();
         assert_eq!(req, compare);
 
         let mut bytes = vec![];

@@ -161,11 +161,6 @@ impl PartialEq<u8> for DataFormatIdentifier {
 }
 
 impl WireFormat for DataFormatIdentifier {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let value = reader.read_u8()?;
-        Ok(Some(DataFormatIdentifier::from(value)))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -176,7 +171,12 @@ impl WireFormat for DataFormatIdentifier {
     }
 }
 
-impl SingleValueWireFormat for DataFormatIdentifier {}
+impl SingleValueWireFormat for DataFormatIdentifier {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let value = reader.read_u8()?;
+        Ok(DataFormatIdentifier::from(value))
+    }
+}
 
 #[cfg(test)]
 mod tests {

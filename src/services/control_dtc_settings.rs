@@ -24,16 +24,6 @@ impl ControlDTCSettingsRequest {
 }
 
 impl WireFormat for ControlDTCSettingsRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let request_byte = reader.read_u8()?;
-        let setting = DtcSettings::from(request_byte & !SUCCESS);
-        let suppress_response = request_byte & SUCCESS != 0;
-        Ok(Some(Self {
-            setting,
-            suppress_response,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -50,7 +40,17 @@ impl WireFormat for ControlDTCSettingsRequest {
     }
 }
 
-impl SingleValueWireFormat for ControlDTCSettingsRequest {}
+impl SingleValueWireFormat for ControlDTCSettingsRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let request_byte = reader.read_u8()?;
+        let setting = DtcSettings::from(request_byte & !SUCCESS);
+        let suppress_response = request_byte & SUCCESS != 0;
+        Ok(Self {
+            setting,
+            suppress_response,
+        })
+    }
+}
 
 /// Positive response to a `ControlDTCSettingsRequest`
 ///
@@ -71,11 +71,6 @@ impl ControlDTCSettingsResponse {
 }
 
 impl WireFormat for ControlDTCSettingsResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let setting = DtcSettings::from(reader.read_u8()?);
-        Ok(Some(Self { setting }))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -86,7 +81,12 @@ impl WireFormat for ControlDTCSettingsResponse {
     }
 }
 
-impl SingleValueWireFormat for ControlDTCSettingsResponse {}
+impl SingleValueWireFormat for ControlDTCSettingsResponse {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let setting = DtcSettings::from(reader.read_u8()?);
+        Ok(Self { setting })
+    }
+}
 
 #[cfg(test)]
 mod request {
@@ -102,8 +102,7 @@ mod request {
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
 
-        let parsed =
-            ControlDTCSettingsRequest::decode_single_value(&mut buffer.as_slice()).unwrap();
+        let parsed = ControlDTCSettingsRequest::decode(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
         assert!(parsed.suppress_response);
     }
@@ -123,8 +122,7 @@ mod response {
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
 
-        let parsed =
-            ControlDTCSettingsResponse::decode_single_value(&mut buffer.as_slice()).unwrap();
+        let parsed = ControlDTCSettingsResponse::decode(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
     }
 }

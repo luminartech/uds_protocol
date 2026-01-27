@@ -45,16 +45,6 @@ impl TransferDataRequest {
 }
 
 impl WireFormat for TransferDataRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let block_sequence_counter = reader.read_u8()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Some(Self {
-            block_sequence_counter,
-            data,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         1 + self.data.len()
     }
@@ -66,7 +56,17 @@ impl WireFormat for TransferDataRequest {
     }
 }
 
-impl SingleValueWireFormat for TransferDataRequest {}
+impl SingleValueWireFormat for TransferDataRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let block_sequence_counter = reader.read_u8()?;
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data)?;
+        Ok(Self {
+            block_sequence_counter,
+            data,
+        })
+    }
+}
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -101,16 +101,6 @@ impl TransferDataResponse {
 }
 
 impl WireFormat for TransferDataResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let block_sequence_counter = reader.read_u8()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Some(Self {
-            block_sequence_counter,
-            data,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         1 + self.data.len()
     }
@@ -121,7 +111,18 @@ impl WireFormat for TransferDataResponse {
         Ok(self.required_size())
     }
 }
-impl SingleValueWireFormat for TransferDataResponse {}
+
+impl SingleValueWireFormat for TransferDataResponse {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let block_sequence_counter = reader.read_u8()?;
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data)?;
+        Ok(Self {
+            block_sequence_counter,
+            data,
+        })
+    }
+}
 
 #[cfg(test)]
 mod request {
@@ -140,7 +141,7 @@ mod request {
     #[test]
     fn read_request() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let req = TransferDataRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let req = TransferDataRequest::decode(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
         let written = req.encode(&mut written_bytes).unwrap();
@@ -156,7 +157,7 @@ mod response {
     #[test]
     fn simple_response() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let resp = TransferDataResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let resp = TransferDataResponse::decode(&mut bytes.as_slice()).unwrap();
 
         let mut written_bytes = Vec::new();
         let written = resp.encode(&mut written_bytes).unwrap();

@@ -160,50 +160,95 @@ impl<D: DiagnosticDefinition> Response<D> {
 }
 
 impl<D: DiagnosticDefinition> WireFormat for Response<D> {
+    #[allow(clippy::match_same_arms)]
+    fn required_size(&self) -> usize {
+        1 + match self {
+            Self::ClearDiagnosticInfo => 0,
+            Self::CommunicationControl(cc) => cc.required_size(),
+            Self::ControlDTCSettings(dtc) => dtc.required_size(),
+            Self::DiagnosticSessionControl(ds) => ds.required_size(),
+            Self::EcuReset(reset) => reset.required_size(),
+            Self::NegativeResponse(nr) => nr.required_size(),
+            Self::ReadDataByIdentifier(rd) => rd.required_size(),
+            Self::ReadDTCInfo(rd) => rd.required_size(),
+            Self::RequestDownload(rd) => rd.required_size(),
+            Self::RequestFileTransfer(rft) => rft.required_size(),
+            Self::RequestTransferExit => 0,
+            Self::RoutineControl(rc) => rc.required_size(),
+            Self::SecurityAccess(sa) => sa.required_size(),
+            Self::TesterPresent(tp) => tp.required_size(),
+            Self::TransferData(td) => td.required_size(),
+            Self::WriteDataByIdentifier(wdbi) => wdbi.required_size(),
+        }
+    }
+
+    #[allow(clippy::match_same_arms)]
+    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        // Write the service byte
+        writer.write_u8(self.service().response_to_byte())?;
+        // Write the payload
+        Ok(1 + match self {
+            Self::ClearDiagnosticInfo => Ok(0),
+            Self::CommunicationControl(cc) => cc.encode(writer),
+            Self::ControlDTCSettings(dtc) => dtc.encode(writer),
+            Self::DiagnosticSessionControl(ds) => ds.encode(writer),
+            Self::EcuReset(reset) => reset.encode(writer),
+            Self::NegativeResponse(nr) => nr.encode(writer),
+            Self::ReadDataByIdentifier(rd) => rd.encode(writer),
+            Self::ReadDTCInfo(rd) => rd.encode(writer),
+            Self::RequestDownload(rd) => rd.encode(writer),
+            Self::RequestFileTransfer(rft) => rft.encode(writer),
+            Self::RequestTransferExit => Ok(0),
+            Self::RoutineControl(rc) => rc.encode(writer),
+            Self::SecurityAccess(sa) => sa.encode(writer),
+            Self::TesterPresent(tp) => tp.encode(writer),
+            Self::TransferData(td) => td.encode(writer),
+            Self::WriteDataByIdentifier(wdbi) => wdbi.encode(writer),
+        }?)
+    }
+}
+
+impl<D: DiagnosticDefinition> SingleValueWireFormat for Response<D> {
     #[allow(clippy::too_many_lines)]
-    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
-        Ok(Some(match service {
-            UdsServiceType::CommunicationControl => Self::CommunicationControl(
-                CommunicationControlResponse::decode_single_value(reader)?,
-            ),
+        Ok(match service {
+            UdsServiceType::CommunicationControl => {
+                Self::CommunicationControl(CommunicationControlResponse::decode(reader)?)
+            }
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettingsResponse::decode_single_value(reader)?)
+                Self::ControlDTCSettings(ControlDTCSettingsResponse::decode(reader)?)
             }
-            UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
-                DiagnosticSessionControlResponse::decode_single_value(reader)?,
-            ),
-            UdsServiceType::EcuReset => {
-                Self::EcuReset(EcuResetResponse::decode_single_value(reader)?)
+            UdsServiceType::DiagnosticSessionControl => {
+                Self::DiagnosticSessionControl(DiagnosticSessionControlResponse::decode(reader)?)
             }
-            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
-                ReadDataByIdentifierResponse::decode_single_value(reader)?,
-            ),
-            UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(ReadDTCInfoResponse::decode_single_value(reader)?)
+            UdsServiceType::EcuReset => Self::EcuReset(EcuResetResponse::decode(reader)?),
+            UdsServiceType::ReadDataByIdentifier => {
+                Self::ReadDataByIdentifier(ReadDataByIdentifierResponse::decode(reader)?)
             }
+            UdsServiceType::ReadDTCInfo => Self::ReadDTCInfo(ReadDTCInfoResponse::decode(reader)?),
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownloadResponse::decode_single_value(reader)?)
+                Self::RequestDownload(RequestDownloadResponse::decode(reader)?)
             }
             UdsServiceType::RequestFileTransfer => {
-                Self::RequestFileTransfer(RequestFileTransferResponse::decode_single_value(reader)?)
+                Self::RequestFileTransfer(RequestFileTransferResponse::decode(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
-                Self::RoutineControl(RoutineControlResponse::decode_single_value(reader)?)
+                Self::RoutineControl(RoutineControlResponse::decode(reader)?)
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(SecurityAccessResponse::decode_single_value(reader)?)
+                Self::SecurityAccess(SecurityAccessResponse::decode(reader)?)
             }
             UdsServiceType::TesterPresent => {
-                Self::TesterPresent(TesterPresentResponse::decode_single_value(reader)?)
+                Self::TesterPresent(TesterPresentResponse::decode(reader)?)
             }
             UdsServiceType::NegativeResponse => {
-                Self::NegativeResponse(NegativeResponse::decode_single_value(reader)?)
+                Self::NegativeResponse(NegativeResponse::decode(reader)?)
             }
-            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
-                WriteDataByIdentifierResponse::decode_single_value(reader)?,
-            ),
+            UdsServiceType::WriteDataByIdentifier => {
+                Self::WriteDataByIdentifier(WriteDataByIdentifierResponse::decode(reader)?)
+            }
             UdsServiceType::Authentication => {
                 return Err(Error::ServiceNotImplemented(UdsServiceType::Authentication));
             }
@@ -264,62 +309,13 @@ impl<D: DiagnosticDefinition> WireFormat for Response<D> {
                 return Err(Error::ServiceNotImplemented(UdsServiceType::RequestUpload));
             }
             UdsServiceType::TransferData => {
-                Self::TransferData(TransferDataResponse::decode_single_value(reader)?)
+                Self::TransferData(TransferDataResponse::decode(reader)?)
             }
             UdsServiceType::UnsupportedDiagnosticService => {
                 return Err(Error::ServiceNotImplemented(
                     UdsServiceType::UnsupportedDiagnosticService,
                 ));
             }
-        }))
-    }
-
-    #[allow(clippy::match_same_arms)]
-    fn required_size(&self) -> usize {
-        1 + match self {
-            Self::ClearDiagnosticInfo => 0,
-            Self::CommunicationControl(cc) => cc.required_size(),
-            Self::ControlDTCSettings(dtc) => dtc.required_size(),
-            Self::DiagnosticSessionControl(ds) => ds.required_size(),
-            Self::EcuReset(reset) => reset.required_size(),
-            Self::NegativeResponse(nr) => nr.required_size(),
-            Self::ReadDataByIdentifier(rd) => rd.required_size(),
-            Self::ReadDTCInfo(rd) => rd.required_size(),
-            Self::RequestDownload(rd) => rd.required_size(),
-            Self::RequestFileTransfer(rft) => rft.required_size(),
-            Self::RequestTransferExit => 0,
-            Self::RoutineControl(rc) => rc.required_size(),
-            Self::SecurityAccess(sa) => sa.required_size(),
-            Self::TesterPresent(tp) => tp.required_size(),
-            Self::TransferData(td) => td.required_size(),
-            Self::WriteDataByIdentifier(wdbi) => wdbi.required_size(),
-        }
-    }
-
-    #[allow(clippy::match_same_arms)]
-    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Write the service byte
-        writer.write_u8(self.service().response_to_byte())?;
-        // Write the payload
-        Ok(1 + match self {
-            Self::ClearDiagnosticInfo => Ok(0),
-            Self::CommunicationControl(cc) => cc.encode(writer),
-            Self::ControlDTCSettings(dtc) => dtc.encode(writer),
-            Self::DiagnosticSessionControl(ds) => ds.encode(writer),
-            Self::EcuReset(reset) => reset.encode(writer),
-            Self::NegativeResponse(nr) => nr.encode(writer),
-            Self::ReadDataByIdentifier(rd) => rd.encode(writer),
-            Self::ReadDTCInfo(rd) => rd.encode(writer),
-            Self::RequestDownload(rd) => rd.encode(writer),
-            Self::RequestFileTransfer(rft) => rft.encode(writer),
-            Self::RequestTransferExit => Ok(0),
-            Self::RoutineControl(rc) => rc.encode(writer),
-            Self::SecurityAccess(sa) => sa.encode(writer),
-            Self::TesterPresent(tp) => tp.encode(writer),
-            Self::TransferData(td) => td.encode(writer),
-            Self::WriteDataByIdentifier(wdbi) => wdbi.encode(writer),
-        }?)
+        })
     }
 }
-
-impl<D: DiagnosticDefinition> SingleValueWireFormat for Response<D> {}

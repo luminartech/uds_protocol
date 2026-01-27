@@ -49,11 +49,6 @@ impl EcuResetRequest {
 }
 
 impl WireFormat for EcuResetRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let reset_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        Ok(Some(Self { reset_type }))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -68,7 +63,12 @@ impl WireFormat for EcuResetRequest {
     }
 }
 
-impl SingleValueWireFormat for EcuResetRequest {}
+impl SingleValueWireFormat for EcuResetRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let reset_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
+        Ok(Self { reset_type })
+    }
+}
 
 /// Positive response to an `EcuResetRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -91,15 +91,6 @@ impl EcuResetResponse {
 }
 
 impl WireFormat for EcuResetResponse {
-    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let reset_type = ResetType::try_from(reader.read_u8()?)?;
-        let power_down_time = reader.read_u8()?;
-        Ok(Some(Self {
-            reset_type,
-            power_down_time,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         2
     }
@@ -111,7 +102,16 @@ impl WireFormat for EcuResetResponse {
     }
 }
 
-impl SingleValueWireFormat for EcuResetResponse {}
+impl SingleValueWireFormat for EcuResetResponse {
+    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
+        let reset_type = ResetType::try_from(reader.read_u8()?)?;
+        let power_down_time = reader.read_u8()?;
+        Ok(Self {
+            reset_type,
+            power_down_time,
+        })
+    }
+}
 
 #[cfg(test)]
 mod request {
@@ -123,7 +123,7 @@ mod request {
         let req = EcuResetRequest::new(true, ResetType::HardReset);
         let mut buffer = Vec::new();
         let written = req.encode(&mut buffer).unwrap();
-        let result = EcuResetRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let result = EcuResetRequest::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(result, req);
 
         assert_eq!(written, 1);
@@ -141,7 +141,7 @@ mod response {
         let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
         let mut buffer = Vec::new();
         let written = resp.encode(&mut buffer).unwrap();
-        let result = EcuResetResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let result = EcuResetResponse::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(result, resp);
 
         assert_eq!(written, 2);

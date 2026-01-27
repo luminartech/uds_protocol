@@ -18,38 +18,6 @@ pub struct DTCSnapshotRecordList<UserPayload> {
 }
 
 impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identifier> {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let dtc_record = DTCRecord::decode(reader)?;
-        if dtc_record.is_none() {
-            return Ok(None);
-        }
-        let status_mask = DTCStatusMask::decode(reader)?;
-
-        // Loop until we can't read any more records
-        let mut snapshot_data = Vec::new();
-        loop {
-            let record_number = match DTCSnapshotRecordNumber::decode(reader) {
-                Ok(Some(record_number)) => record_number,
-                Ok(None) => break,
-                Err(e) => return Err(e),
-            };
-
-            let record = match DTCSnapshotRecord::decode(reader) {
-                Ok(Some(record)) => record,
-                Ok(None) => break,
-                Err(e) => return Err(e),
-            };
-
-            snapshot_data.push((record_number, record));
-        }
-
-        Ok(Some(Self {
-            dtc_record: dtc_record.unwrap(),
-            status_mask: status_mask.unwrap(),
-            snapshot_data,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         self.dtc_record.required_size()
             + self.status_mask.required_size()
@@ -73,7 +41,32 @@ impl<Identifier: IterableWireFormat> WireFormat for DTCSnapshotRecordList<Identi
     }
 }
 
-impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecordList<UserPayload> {}
+impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecordList<UserPayload> {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let dtc_record = DTCRecord::decode(reader)?;
+        let status_mask = DTCStatusMask::decode(reader)?;
+
+        // Loop until we can't read any more records
+        let mut snapshot_data = Vec::new();
+        loop {
+            let record_number = match DTCSnapshotRecordNumber::decode_next(reader) {
+                Ok(Some(record_number)) => record_number,
+                Ok(None) => break,
+                Err(e) => return Err(e),
+            };
+
+            let record = DTCSnapshotRecord::decode(reader)?;
+
+            snapshot_data.push((record_number, record));
+        }
+
+        Ok(Self {
+            dtc_record,
+            status_mask,
+            snapshot_data,
+        })
+    }
+}
 
 /// Contains a snapshot of data values from the time of the system malfunction occurrence.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -108,32 +101,6 @@ impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPayload> {
-    #[allow(clippy::cast_possible_truncation)]
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let number_of_dids = reader.read_u8()?;
-        // Make sure we read the correct number of DIDs, 0 means unlimited (or at least more than 0xFF)
-        let mut data = Vec::new();
-        for payload in UserPayload::decode_iterable(reader) {
-            match payload {
-                Ok(did) => {
-                    data.push(did);
-                    // Do not attempt to read more than the number of DIDs the server said it would send
-                    if number_of_dids != 0 && data.len() == number_of_dids as usize {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-        }
-        if number_of_dids != 0x00 && number_of_dids != data.len() as u8 {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-        }
-
-        Ok(Some(Self { data }))
-    }
-
     fn required_size(&self) -> usize {
         1 + self
             .data
@@ -153,6 +120,34 @@ impl<UserPayload: IterableWireFormat> WireFormat for DTCSnapshotRecord<UserPaylo
             payload_written += payload.encode(writer)?;
         }
         Ok(1 + payload_written)
+    }
+}
+
+impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecord<UserPayload> {
+    #[allow(clippy::cast_possible_truncation)]
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let number_of_dids = reader.read_u8()?;
+        // Make sure we read the correct number of DIDs, 0 means unlimited (or at least more than 0xFF)
+        let mut data = Vec::new();
+        for payload in UserPayload::decode_iter(reader) {
+            match payload {
+                Ok(did) => {
+                    data.push(did);
+                    // Do not attempt to read more than the number of DIDs the server said it would send
+                    if number_of_dids != 0 && data.len() == number_of_dids as usize {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+        if number_of_dids != 0x00 && number_of_dids != data.len() as u8 {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+        }
+
+        Ok(Self { data })
     }
 }
 
@@ -196,13 +191,6 @@ impl PartialEq<u8> for DTCSnapshotRecordNumber {
 }
 
 impl WireFormat for DTCSnapshotRecordNumber {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let Ok(record_number) = reader.read_u8() else {
-            return Ok(None);
-        };
-        Ok(Some(Self::new(record_number)))
-    }
-
     fn required_size(&self) -> usize {
         1
     }
@@ -213,7 +201,20 @@ impl WireFormat for DTCSnapshotRecordNumber {
     }
 }
 
-impl SingleValueWireFormat for DTCSnapshotRecordNumber {}
+impl SingleValueWireFormat for DTCSnapshotRecordNumber {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        Ok(Self::new(reader.read_u8()?))
+    }
+}
+
+impl IterableWireFormat for DTCSnapshotRecordNumber {
+    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let Ok(record_number) = reader.read_u8() else {
+            return Ok(None);
+        };
+        Ok(Some(Self::new(record_number)))
+    }
+}
 
 #[cfg(test)]
 mod snapshot {
@@ -243,7 +244,36 @@ mod snapshot {
     }
 
     impl WireFormat for ProtocolPayload {
-        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        #[allow(clippy::match_same_arms)]
+        fn required_size(&self) -> usize {
+            2 + match self {
+                ProtocolPayload::Did4711(_) => 5,
+                ProtocolPayload::Did8711(_) => 5,
+                ProtocolPayload::Did8712(..) => 4,
+            }
+        }
+
+        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+            writer.write_u16::<byteorder::BigEndian>(self.value())?;
+            let mut written = 2;
+
+            match self {
+                ProtocolPayload::Did8711(data) | ProtocolPayload::Did4711(data) => {
+                    writer.write_all(data)?;
+                    written += data.len();
+                }
+                // bogus data
+                ProtocolPayload::Did8712(..) => {
+                    writer.write_u32::<byteorder::BigEndian>(78)?;
+                    written += 4;
+                }
+            }
+            Ok(written)
+        }
+    }
+
+    impl IterableWireFormat for ProtocolPayload {
+        fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
             let mut identifier_data: [u8; 2] = [0; 2];
             match reader.read(&mut identifier_data)? {
                 0 => return Ok(None),
@@ -277,36 +307,7 @@ mod snapshot {
                 _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
             }
         }
-
-        #[allow(clippy::match_same_arms)]
-        fn required_size(&self) -> usize {
-            2 + match self {
-                ProtocolPayload::Did4711(_) => 5,
-                ProtocolPayload::Did8711(_) => 5,
-                ProtocolPayload::Did8712(..) => 4,
-            }
-        }
-
-        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-            writer.write_u16::<byteorder::BigEndian>(self.value())?;
-            let mut written = 2;
-
-            match self {
-                ProtocolPayload::Did8711(data) | ProtocolPayload::Did4711(data) => {
-                    writer.write_all(data)?;
-                    written += data.len();
-                }
-                // bogus data
-                ProtocolPayload::Did8712(..) => {
-                    writer.write_u32::<byteorder::BigEndian>(78)?;
-                    written += 4;
-                }
-            }
-            Ok(written)
-        }
     }
-
-    impl IterableWireFormat for ProtocolPayload {}
 
     use super::*;
 
@@ -360,7 +361,7 @@ mod snapshot {
             0xA6, 0x66, 0x07, 0x50, 0x20,
         ];
 
-        let resp = DTCSnapshotRecordList::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let resp = DTCSnapshotRecordList::decode(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(resp.dtc_record, DTCRecord::from(0x0012_3456));
         let mut number: u8 = 1;

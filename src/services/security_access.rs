@@ -84,16 +84,6 @@ impl SecurityAccessRequest {
 }
 
 impl WireFormat for SecurityAccessRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        let mut request_data: Vec<u8> = Vec::new();
-        _ = reader.read_to_end(&mut request_data)?;
-        Ok(Some(Self {
-            access_type,
-            request_data,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         1 + self.request_data().len()
     }
@@ -109,7 +99,17 @@ impl WireFormat for SecurityAccessRequest {
     }
 }
 
-impl SingleValueWireFormat for SecurityAccessRequest {}
+impl SingleValueWireFormat for SecurityAccessRequest {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
+        let mut request_data: Vec<u8> = Vec::new();
+        _ = reader.read_to_end(&mut request_data)?;
+        Ok(Self {
+            access_type,
+            request_data,
+        })
+    }
+}
 
 /// Response to `SecurityAccessRequest`
 ///
@@ -140,16 +140,6 @@ impl SecurityAccessResponse {
 }
 
 impl WireFormat for SecurityAccessResponse {
-    fn decode<T: Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
-        let mut security_seed = Vec::new();
-        let _ = reader.read_to_end(&mut security_seed)?;
-        Ok(Some(Self {
-            access_type,
-            security_seed,
-        }))
-    }
-
     fn required_size(&self) -> usize {
         1 + self.security_seed.len()
     }
@@ -161,7 +151,17 @@ impl WireFormat for SecurityAccessResponse {
     }
 }
 
-impl SingleValueWireFormat for SecurityAccessResponse {}
+impl SingleValueWireFormat for SecurityAccessResponse {
+    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
+        let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
+        let mut security_seed = Vec::new();
+        let _ = reader.read_to_end(&mut security_seed)?;
+        Ok(Self {
+            access_type,
+            security_seed,
+        })
+    }
+}
 
 #[cfg(test)]
 mod request {
@@ -173,7 +173,7 @@ mod request {
             0x01, // aka SecurityAccessType::RequestSeed(0x01)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let req = SecurityAccessRequest::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let req = SecurityAccessRequest::decode(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(
             req.access_type,
@@ -197,7 +197,7 @@ mod response {
             0x02, // aka SecurityAccessType::SendKey(0x02)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let resp = SecurityAccessResponse::decode_single_value(&mut bytes.as_slice()).unwrap();
+        let resp = SecurityAccessResponse::decode(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(resp.access_type, SecurityAccessType::SendKey(0x02));
         assert_eq!(resp.security_seed, vec![0x00, 0x01, 0x02, 0x03, 0x04]);
