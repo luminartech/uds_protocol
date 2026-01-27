@@ -1,28 +1,16 @@
 use crate::Error;
 use byteorder::{BigEndian, WriteBytesExt};
 
-/// A trait for types that can be deserialized from a
-/// [`Reader`](https://doc.rust-lang.org/std/io/trait.Read.html) and serialized
-/// to a [`Writer`](https://doc.rust-lang.org/std/io/trait.Write.html).
+/// Base trait for types that can be serialized to a byte stream.
 ///
-/// `WireFormat` acts as the base trait for all types that can be serialized and deserialized
-/// as part of the UDS Protocol ecosystem.
+/// `WireFormat` provides the encoding half of the serialization contract.
+/// Decoding is split into two separate traits with distinct return types:
+/// - [`SingleValueWireFormat`] for types whose decode always produces a value
+/// - [`IterableWireFormat`] for types that may return `None` when a stream is exhausted
 ///
-/// Some types need the ability to be deserialized without knowing the size of the data in advance.
-/// To support this, the `decode` function returns an `Option<Self>`.
-/// If the reader contains a complete value, it returns `Some(value)`.
-/// If the reader is completely empty, it returns `None`.
-/// Many types will never return `None`, and for these types, the `SingleValueWireFormat`,
-/// trait can be implemented, providing a more ergonomic API.
+/// This split enforces at compile time the distinction between types that always
+/// decode successfully (given valid data) and types that can signal "no more items."
 pub trait WireFormat: Sized {
-    /// Deserialize a value from a byte stream.
-    /// Returns Ok(`Some(value)`) if the stream contains a complete value.
-    /// Returns Ok(`None`) if the stream is empty.
-    /// # Errors
-    /// - if the stream is not in the expected format
-    /// - if the stream contains partial data
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
-
     /// Returns the number of bytes required to serialize this value.
     fn required_size(&self) -> usize;
 
@@ -41,6 +29,19 @@ pub trait WireFormat: Sized {
     }
 }
 
+/// Types whose decode always produces a value. An empty stream is an error, not `None`.
+///
+/// This trait enforces at compile time that `decode` cannot return `None`.
+/// The return type is `Result<Self, Error>` rather than `Result<Option<Self>, Error>`.
+pub trait SingleValueWireFormat: WireFormat {
+    /// Deserialize a value from a byte stream.
+    /// # Errors
+    /// - if the stream is empty
+    /// - if the stream is not in the expected format
+    /// - if the stream contains partial data
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error>;
+}
+
 struct WireFormatIterator<'a, T, R> {
     reader: &'a mut R,
     _phantom: std::marker::PhantomData<T>,
@@ -48,10 +49,10 @@ struct WireFormatIterator<'a, T, R> {
 
 /// For types that can appear in lists of unknown length, this trait provides an iterator
 /// that can be used to deserialize a stream of values.
-impl<T: WireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_, T, R> {
+impl<T: IterableWireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_, T, R> {
     type Item = Result<T, Error>;
     fn next(&mut self) -> Option<Self::Item> {
-        match T::decode(self.reader.by_ref()) {
+        match T::decode_next(self.reader.by_ref()) {
             Ok(Some(value)) => Some(Ok(value)),
             Ok(None) => None,
             Err(e) => Some(Err(e)),
@@ -59,25 +60,24 @@ impl<T: WireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_, T, R> 
     }
 }
 
+/// Types that can be decoded from a stream of unknown length.
+///
+/// `decode_next` returns `Ok(None)` when the stream is exhausted, allowing
+/// iteration over variable-length sequences without prior knowledge of their size.
 pub trait IterableWireFormat: WireFormat {
-    fn decode_iterable<T: std::io::Read>(
+    /// Attempt to decode the next value from the stream.
+    /// Returns `Ok(None)` if the stream is exhausted.
+    /// # Errors
+    /// - if the stream contains partial or invalid data
+    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
+
+    fn decode_iter<T: std::io::Read>(
         reader: &mut T,
     ) -> impl Iterator<Item = Result<Self, Error>> {
         WireFormatIterator {
             reader,
             _phantom: std::marker::PhantomData,
         }
-    }
-}
-
-pub trait SingleValueWireFormat: WireFormat {
-    /// # Errors
-    /// - if the stream is not in the expected format
-    /// - if the stream contains partial data
-    fn decode_single_value<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        Ok(Self::decode(reader)?.expect(
-            "SingleValueWireFormat is only valid to implement on types which never return none",
-        ))
     }
 }
 
@@ -117,7 +117,7 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     /// - if the list is not in the expected format
     /// - if the list contains partial data
     fn parse_from_list<R: std::io::Read>(reader: &mut R) -> Result<Vec<Self>, Error> {
-        // Create an iterator to collect. Will use the blanket implementation of WireFormat for Identifier
+        // Create an iterator to collect. Will use the blanket implementation of IterableWireFormat for Identifier
         // to read the values from the reader
         WireFormatIterator {
             reader,
@@ -149,18 +149,55 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
     fn parse_from_payload<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        Self::decode(reader)
+        Self::decode_next(reader)
     }
 }
 
 pub trait RoutineIdentifier: Identifier {}
 
-/// Blanket implementation of the [`WireFormat`] trait for types that implement the [Identifier] trait
+/// Blanket implementation of [`WireFormat`] for types that implement [`Identifier`]
 impl<T> WireFormat for T
 where
     T: Identifier,
 {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
+    fn required_size(&self) -> usize {
+        2
+    }
+
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
+        writer.write_u16::<BigEndian>((*self).into())?;
+        Ok(2)
+    }
+}
+
+/// Blanket implementation of [`SingleValueWireFormat`] for types that implement [`Identifier`]
+impl<T> SingleValueWireFormat for T
+where
+    T: Identifier,
+{
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
+        let mut identifier_data: [u8; 2] = [0; 2];
+        match reader.read(&mut identifier_data)? {
+            0 | 1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
+            2 => (),
+            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
+        }
+
+        match Self::try_from(u16::from_be_bytes(identifier_data)) {
+            Ok(identifier) => Ok(identifier),
+            Err(_) => Err(Error::InvalidDiagnosticIdentifier(u16::from_be_bytes(
+                identifier_data,
+            ))),
+        }
+    }
+}
+
+/// Blanket implementation of [`IterableWireFormat`] for types that implement [`Identifier`]
+impl<T> IterableWireFormat for T
+where
+    T: Identifier,
+{
+    fn decode_next<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         let mut identifier_data: [u8; 2] = [0; 2];
         match reader.read(&mut identifier_data)? {
             0 => return Ok(None),
@@ -175,15 +212,6 @@ where
                 identifier_data,
             ))),
         }
-    }
-
-    fn required_size(&self) -> usize {
-        2
-    }
-
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        writer.write_u16::<BigEndian>((*self).into())?;
-        Ok(2)
     }
 }
 
@@ -206,7 +234,8 @@ pub trait DiagnosticDefinition: 'static {
         + maybe_serde::Bound
         + maybe_utoipa::Bound;
     /// Response payload for [`ReadDataByIdentifierRequest`](crate::ReadDataByIdentifierRequest)
-    type DiagnosticPayload: IterableWireFormat
+    type DiagnosticPayload: SingleValueWireFormat
+        + IterableWireFormat
         + Clone
         + std::fmt::Debug
         + Send
@@ -229,7 +258,8 @@ pub trait DiagnosticDefinition: 'static {
         + maybe_serde::Bound
         + maybe_utoipa::Bound;
     /// Payload for both requests and responses of [`RoutineControlRequest`](crate::RoutineControlRequest) and [`RoutineControlResponse`](crate::RoutineControlResponse)
-    type RoutinePayload: WireFormat
+    type RoutinePayload: SingleValueWireFormat
+        + IterableWireFormat
         + Clone
         + std::fmt::Debug
         + Send
