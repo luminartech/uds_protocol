@@ -25,19 +25,33 @@ use super::{
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Request<D: DiagnosticDefinition> {
+    /// Request to clear diagnostic information. See [`ClearDiagnosticInfoRequest`].
     ClearDiagnosticInfo(ClearDiagnosticInfoRequest),
+    /// Request to control communication. See [`CommunicationControlRequest`].
     CommunicationControl(CommunicationControlRequest),
+    /// Request to enable or disable DTC setting. See [`ControlDTCSettingsRequest`].
     ControlDTCSettings(ControlDTCSettingsRequest),
+    /// Request to change the diagnostic session. See [`DiagnosticSessionControlRequest`].
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
+    /// Request to reset the ECU. See [`EcuResetRequest`].
     EcuReset(EcuResetRequest),
+    /// Request to read data by identifier. See [`ReadDataByIdentifierRequest`].
     ReadDataByIdentifier(ReadDataByIdentifierRequest<D::DID>),
+    /// Request to read DTC information. See [`ReadDTCInfoRequest`].
     ReadDTCInfo(ReadDTCInfoRequest),
+    /// Request to initiate a download. See [`RequestDownloadRequest`].
     RequestDownload(RequestDownloadRequest),
+    /// Request to exit an active transfer.
     RequestTransferExit,
+    /// Request to control a routine. See [`RoutineControlRequest`].
     RoutineControl(RoutineControlRequest<D::RID, D::RoutinePayload>),
+    /// Request for security access. See [`SecurityAccessRequest`].
     SecurityAccess(SecurityAccessRequest),
+    /// Tester present keep-alive request. See [`TesterPresentRequest`].
     TesterPresent(TesterPresentRequest),
+    /// Request to transfer data. See [`TransferDataRequest`].
     TransferData(TransferDataRequest),
+    /// Request to write data by identifier. See [`WriteDataByIdentifierRequest`].
     WriteDataByIdentifier(WriteDataByIdentifierRequest<D::DiagnosticPayload>),
 }
 
@@ -128,6 +142,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         Request::ReadDataByIdentifier(ReadDataByIdentifierRequest::new(dids))
     }
 
+    /// Create a new `ReadDTCInformation` request for the given sub-function.
     #[must_use]
     pub fn read_dtc_information(sub_function: ReadDTCInfoSubFunction) -> Self {
         Request::ReadDTCInfo(ReadDTCInfoRequest::new(sub_function))
@@ -158,6 +173,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         )?))
     }
 
+    /// Create a `RequestTransferExit` request to end an active upload or download.
     #[must_use]
     pub fn request_transfer_exit() -> Self {
         Self::RequestTransferExit
@@ -199,6 +215,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         Request::RoutineControl(RoutineControlRequest::new(sub_function, routine_id, data))
     }
 
+    /// Create a new `SecurityAccess` request (seed or key phase).
     #[must_use]
     pub fn security_access(
         suppress_positive_response: bool,
@@ -212,20 +229,24 @@ impl<D: DiagnosticDefinition> Request<D> {
         ))
     }
 
+    /// Create a new `TesterPresent` keep-alive request.
     #[must_use]
     pub fn tester_present(suppress_positive_response: bool) -> Self {
         Request::TesterPresent(TesterPresentRequest::new(suppress_positive_response))
     }
 
+    /// Create a new `TransferData` request with the given block-sequence counter and payload.
     #[must_use]
     pub fn transfer_data(sequence: u8, data: Vec<u8>) -> Self {
         Request::TransferData(TransferDataRequest::new(sequence, data))
     }
 
+    /// Create a new `WriteDataByIdentifier` request with the given payload.
     pub fn write_data_by_identifier(payload: D::DiagnosticPayload) -> Self {
         Request::WriteDataByIdentifier(WriteDataByIdentifierRequest::new(payload))
     }
 
+    /// Returns the [`UdsServiceType`] corresponding to this request variant.
     pub fn service(&self) -> UdsServiceType {
         match self {
             Self::ClearDiagnosticInfo(_) => UdsServiceType::ClearDiagnosticInfo,
@@ -245,6 +266,7 @@ impl<D: DiagnosticDefinition> Request<D> {
         }
     }
 
+    /// Returns the negative-response codes that are valid for this request's service.
     pub fn allowed_nack_codes(&self) -> &'static [NegativeResponseCode] {
         match self {
             Self::ClearDiagnosticInfo(_) => ClearDiagnosticInfoRequest::allowed_nack_codes(),

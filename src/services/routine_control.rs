@@ -15,8 +15,11 @@ use std::io::{Read, Write};
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
+    /// The routine control operation (start, stop, or request results).
     pub sub_function: RoutineControlSubFunction,
+    /// The identifier of the routine to control.
     pub routine_id: RoutineIdentifier,
+    /// Optional payload data for the routine (e.g. input parameters).
     pub data: Option<RoutinePayload>,
 }
 

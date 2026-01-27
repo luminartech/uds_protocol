@@ -43,6 +43,7 @@ pub enum CommunicationControlType {
 }
 
 impl CommunicationControlType {
+    /// Returns `true` if this control type requires an enhanced-address node identifier.
     #[must_use]
     pub const fn is_extended_address_variant(&self) -> bool {
         matches!(

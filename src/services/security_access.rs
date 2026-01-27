@@ -125,7 +125,9 @@ impl SingleValueWireFormat for SecurityAccessRequest {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct SecurityAccessResponse {
+    /// The security access type echoed from the request.
     pub access_type: SecurityAccessType,
+    /// The security seed bytes (empty for a `SendKey` positive response).
     pub security_seed: Vec<u8>,
 }
 

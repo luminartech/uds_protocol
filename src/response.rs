@@ -10,11 +10,15 @@ use crate::{
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
+/// A raw UDS response consisting of the service type and its unparsed payload bytes.
 pub struct UdsResponse {
+    /// The service this response corresponds to.
     pub service: UdsServiceType,
+    /// The raw payload bytes following the service identifier.
     pub data: Vec<u8>,
 }
 
+/// Parsed UDS response. Each variant corresponds to a different UDS service response.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
@@ -54,20 +58,24 @@ pub enum Response<D: DiagnosticDefinition> {
 }
 
 impl<D: DiagnosticDefinition> Response<D> {
+    /// Create a `ClearDiagnosticInfo` positive response.
     #[must_use]
     pub fn clear_diagnostic_info() -> Self {
         Response::ClearDiagnosticInfo
     }
+    /// Create a `CommunicationControl` positive response.
     #[must_use]
     pub fn communication_control(control_type: CommunicationControlType) -> Self {
         Response::CommunicationControl(CommunicationControlResponse::new(control_type))
     }
 
+    /// Create a `ControlDTCSettings` positive response.
     #[must_use]
     pub fn control_dtc_settings(setting: DtcSettings) -> Self {
         Response::ControlDTCSettings(ControlDTCSettingsResponse::new(setting))
     }
 
+    /// Create a `DiagnosticSessionControl` positive response with timing parameters.
     #[must_use]
     pub fn diagnostic_session_control(
         session_type: DiagnosticSessionType,
@@ -81,16 +89,19 @@ impl<D: DiagnosticDefinition> Response<D> {
         ))
     }
 
+    /// Create an `EcuReset` positive response.
     #[must_use]
     pub fn ecu_reset(reset_type: ResetType, power_down_time: u8) -> Self {
         Response::EcuReset(EcuResetResponse::new(reset_type, power_down_time))
     }
 
+    /// Create a negative response for the given service and response code.
     #[must_use]
     pub fn negative_response(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
         Response::NegativeResponse(NegativeResponse::new(request_service, nrc))
     }
 
+    /// Create a `ReadDataByIdentifier` positive response from an iterator of payloads.
     #[must_use]
     pub fn read_data_by_identifier<I>(payload: I) -> Self
     where
@@ -99,6 +110,7 @@ impl<D: DiagnosticDefinition> Response<D> {
         Response::ReadDataByIdentifier(ReadDataByIdentifierResponse::new(payload))
     }
 
+    /// Create a `RequestDownload` positive response.
     #[must_use]
     pub fn request_download(
         length_format_identifier: u8,
@@ -110,11 +122,13 @@ impl<D: DiagnosticDefinition> Response<D> {
         ))
     }
 
+    /// Create a `RequestFileTransfer` positive response. Not yet implemented.
     #[must_use]
     pub fn request_file_transfer() -> Self {
         todo!()
     }
 
+    /// Create a `RoutineControl` positive response.
     pub fn routine_control(
         routine_control_type: crate::RoutineControlSubFunction,
         data: D::RoutinePayload,
@@ -122,21 +136,25 @@ impl<D: DiagnosticDefinition> Response<D> {
         Response::RoutineControl(RoutineControlResponse::new(routine_control_type, data))
     }
 
+    /// Create a `SecurityAccess` positive response carrying the security seed.
     #[must_use]
     pub fn security_access(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
         Response::SecurityAccess(SecurityAccessResponse::new(access_type, security_seed))
     }
 
+    /// Create a `TesterPresent` positive response.
     #[must_use]
     pub fn tester_present() -> Self {
         Response::TesterPresent(TesterPresentResponse::new())
     }
 
+    /// Create a `TransferData` positive response.
     #[must_use]
     pub fn transfer_data(block_sequence_counter: u8, data: Vec<u8>) -> Self {
         Response::TransferData(TransferDataResponse::new(block_sequence_counter, data))
     }
 
+    /// Returns the [`UdsServiceType`] corresponding to this response variant.
     pub fn service(&self) -> UdsServiceType {
         match self {
             Self::ClearDiagnosticInfo => UdsServiceType::ClearDiagnosticInfo,

@@ -10,22 +10,36 @@ use crate::{Error, Identifier, traits::RoutineIdentifier};
 #[derive(Clone, Copy, Eq, Identifier, PartialEq)]
 #[repr(u16)]
 pub enum UDSIdentifier {
+    /// DID reserved by ISO/SAE (ranges `0x0000–0x00FF`, `0xFF02–0xFFFF`).
     #[cfg_attr(feature = "clap", clap(skip))]
     ISOSAEReserved(u16),
+    /// Vehicle-manufacturer–specific DID (`0xF100–0xF17F`).
     #[cfg_attr(feature = "clap", clap(skip))]
     VehicleManufacturerSpecific(u16),
+    /// System-supplier–specific DID (`0xFD00–0xFEFF`).
     #[cfg_attr(feature = "clap", clap(skip))]
     SystemSupplierSpecific(u16),
+    /// Boot software identification (`0xF180`).
     BootSoftwareIdentification = 0xF180,
+    /// Application software identification (`0xF181`).
     ApplicationSoftwareIdentification = 0xF181,
+    /// Application data identification (`0xF182`).
     ApplicationDataIdentification = 0xF182,
+    /// Boot software fingerprint (`0xF183`).
     BootSoftwareFingerprint = 0xF183,
+    /// Application software fingerprint (`0xF184`).
     ApplicationSoftwareFingerprint = 0xF184,
+    /// Application data fingerprint (`0xF185`).
     ApplicationDataFingerprint = 0xF185,
+    /// Active diagnostic session (`0xF186`).
     ActiveDiagnosticSession = 0xF186,
+    /// Vehicle manufacturer spare-part number (`0xF187`).
     VehicleManufacturerSparePartNumber = 0xF187,
+    /// Vehicle manufacturer ECU software number (`0xF188`).
     VehicleManufacturerECUSoftwareNumber = 0xF188,
+    /// Vehicle manufacturer ECU software version number (`0xF189`).
     VehicleManufacturerECUSoftwareVersionNumber = 0xF189,
+    /// System supplier identifier (`0xF18A`).
     SystemSupplierIdentifier = 0xF18A,
     /// This value shall be used to reference the ECU (server) manufacturing date. Record data content and format shall be
     /// unsigned numeric, ASCII or BCD, and shall be ordered as Year, Month, Day.
@@ -41,26 +55,42 @@ pub enum UDSIdentifier {
     /// See 14229-1 C.1 for details on Regulation X information.
     /// Recurive ASCII string
     RegulationXSoftwareIdentificationNumbers = 0xF18F,
+    /// Vehicle Identification Number (`0xF190`).
     VIN = 0xF190,
+    /// Vehicle manufacturer ECU hardware number (`0xF191`).
     VehicleManufacturerECUHardwareNumber = 0xF191,
+    /// System supplier ECU hardware number (`0xF192`).
     SystemSupplierECUHardwareNumber = 0xF192,
+    /// System supplier ECU hardware version number (`0xF193`).
     SystemSupplierECUHardwareVersionNumber = 0xF193,
+    /// System supplier ECU software number (`0xF194`).
     SystemSupplierECUSoftwareNumber = 0xF194,
+    /// System supplier ECU software version number (`0xF195`).
     SystemSupplierECUSoftwareVersionNumber = 0xF195,
+    /// Exhaust regulation or type approval number (`0xF196`).
     ExhaustRegulationOrTypeApprovalNumber = 0xF196,
+    /// System name or engine type (`0xF197`).
     SystemNameOrEngineType = 0xF197,
+    /// Repair shop or tester serial number (`0xF198`).
     RepairShopOrTesterSerialNumber = 0xF198,
     /// When the server was last programmed, the record data content and format shall be
     /// unsigned numeric, ASCII or BCD, and shall be ordered as Year, Month, Day.
     ProgrammingDate = 0xF199,
+    /// Calibration repair-shop code or calibration equipment serial number (`0xF19A`).
     CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber = 0xF19A,
+    /// Calibration date (`0xF19B`).
     CalibrationDate = 0xF19B,
+    /// Calibration equipment software number (`0xF19C`).
     CalibrationEquipmentSoftwareNumber = 0xF19C,
+    /// ECU installation date (`0xF19D`).
     ECUInstallationDate = 0xF19D,
+    /// ODX file identifier (`0xF19E`).
     ODXFile = 0xF19E,
     /// Used to reference the entity data identifier for a secured data transfer
     Entity = 0xF19F,
+    /// UDS version data (`0xFF00`).
     UDSVersionData = 0xFF00,
+    /// Reserved for ISO 15765-5 (`0xFF01`).
     ReservedForISO15765_5 = 0xFF01,
 }
 
@@ -181,9 +211,7 @@ impl std::fmt::Debug for UDSIdentifier {
 #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
 #[repr(u16)]
 pub enum UDSRoutineIdentifier {
-    // 0x0000-0x00FF
-    // 0xE300-0xEFFF
-    // 0xFF02-0xFFFF
+    /// ISO/SAE reserved routine identifier (`0x0000–0x00FF`, `0xE300–0xEFFF`, `0xFF02–0xFFFF`).
     ISOSAEReserved(u16),
     /// Represent Tachograph test result values
     ///

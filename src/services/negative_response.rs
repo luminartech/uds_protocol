@@ -8,7 +8,9 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct NegativeResponse {
+    /// The service that triggered this negative response.
     pub request_service: UdsServiceType,
+    /// The negative response code indicating why the request failed.
     pub nrc: NegativeResponseCode,
 }
 

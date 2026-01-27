@@ -13,11 +13,13 @@ pub struct ProtocolIdentifier {
 }
 
 impl ProtocolIdentifier {
+    /// Wrap a [`UDSIdentifier`] in a `ProtocolIdentifier`.
     #[must_use]
     pub fn new(identifier: UDSIdentifier) -> Self {
         ProtocolIdentifier { identifier }
     }
 
+    /// Convert an iterator of [`UDSIdentifier`]s into a `Vec<ProtocolIdentifier>`.
     pub fn identifiers<I>(list: I) -> Vec<Self>
     where
         I: IntoIterator<Item = UDSIdentifier>,
@@ -54,7 +56,9 @@ impl Deref for ProtocolIdentifier {
 #[derive(Clone, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct ProtocolPayload {
+    /// The UDS data identifier this payload belongs to.
     pub identifier: UDSIdentifier,
+    /// The raw payload bytes following the identifier.
     pub payload: Vec<u8>,
 }
 

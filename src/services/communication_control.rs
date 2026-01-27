@@ -24,7 +24,9 @@ const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] =
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CommunicationControlRequest {
     control_type: SuppressablePositiveResponse<CommunicationControlType>,
+    /// The communication type to apply the control to.
     pub communication_type: CommunicationType,
+    /// Optional node identifier, present only for enhanced-address variants.
     pub node_id: Option<u16>,
 }
 
@@ -127,6 +129,7 @@ impl SingleValueWireFormat for CommunicationControlRequest {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive] // Prevent direct construction externally
 pub struct CommunicationControlResponse {
+    /// The communication control type echoed from the request.
     pub control_type: CommunicationControlType,
 }
 

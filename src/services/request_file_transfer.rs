@@ -11,7 +11,7 @@ use crate::{DataFormatIdentifier, Error, SingleValueWireFormat, WireFormat};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum FileOperationMode {
-    // 0x00, 0x07-0xFF Reserved for future definition by ISO
+    /// ISO/SAE reserved (`0x00`, `0x07–0xFF`).
     ISOSAEReserved(u8),
     /// Add a file to the server
     AddFile = 0x01,
@@ -424,8 +424,11 @@ impl SingleValueWireFormat for SentDataPayload {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct FileSizePayload {
+    /// Length in bytes of both `file_size_uncompressed` and `file_size_compressed`.
     pub file_size_parameter_length: u16,
+    /// Size of the uncompressed file in bytes.
     pub file_size_uncompressed: u128,
+    /// Size of the compressed file in bytes.
     pub file_size_compressed: u128,
 }
 
@@ -498,7 +501,9 @@ impl SingleValueWireFormat for FileSizePayload {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
 pub struct DirSizePayload {
+    /// Length in bytes of the `dir_info_length` field.
     pub dir_info_parameter_length: u16,
+    /// Total size of the directory information in bytes.
     pub dir_info_length: u128,
 }
 
@@ -599,21 +604,27 @@ impl SingleValueWireFormat for PositionPayload {
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub enum RequestFileTransferResponse {
+    /// Positive response to an [`AddFile`](FileOperationMode::AddFile) request.
     AddFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
+    /// Positive response to a [`DeleteFile`](FileOperationMode::DeleteFile) request.
     DeleteFile(FileOperationMode),
+    /// Positive response to a [`ReplaceFile`](FileOperationMode::ReplaceFile) request.
     ReplaceFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
+    /// Positive response to a [`ReadFile`](FileOperationMode::ReadFile) request, including file size.
     ReadFile(
         FileOperationMode,
         SentDataPayload,
         DataFormatIdentifier,
         FileSizePayload,
     ),
+    /// Positive response to a [`ReadDir`](FileOperationMode::ReadDir) request, including directory size.
     ReadDir(
         FileOperationMode,
         SentDataPayload,
         DataFormatIdentifier,
         DirSizePayload,
     ),
+    /// Positive response to a [`ResumeFile`](FileOperationMode::ResumeFile) request, including file position.
     ResumeFile(
         FileOperationMode,
         SentDataPayload,

@@ -1,6 +1,7 @@
 use crate::{Error, SingleValueWireFormat, WireFormat};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
+/// Implement [`WireFormat`] and [`SingleValueWireFormat`] for unsigned integer primitives.
 #[macro_export]
 macro_rules! unsigned_primitive_wire_format {
     ( $($primitive:ty), * ) => {
@@ -29,6 +30,7 @@ macro_rules! unsigned_primitive_wire_format {
 
 unsigned_primitive_wire_format!(u8, u16, u32, u64, u128);
 
+/// Implement [`WireFormat`] and [`SingleValueWireFormat`] for signed integer primitives.
 #[macro_export]
 macro_rules! signed_primitive_wire_format {
     ( $($primitive:ty), * ) => {

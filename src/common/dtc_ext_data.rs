@@ -10,7 +10,7 @@ use crate::{
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DTCExtDataRecordNumber {
-    // 0x00, 0xF0-0xFD are reserved
+    /// ISO/SAE reserved record numbers (`0x00`, `0xF0–0xFD`).
     ISOSAEReserved(u8),
 
     /// Vehicle manufactured specific stored [`DTCExtDataRecord`]s
@@ -37,6 +37,7 @@ pub enum DTCExtDataRecordNumber {
 }
 
 impl DTCExtDataRecordNumber {
+    /// Create a new `DTCExtDataRecordNumber` from a raw byte, mapping it to the correct variant.
     #[must_use]
     pub fn new(value: u8) -> Self {
         match value {
@@ -49,6 +50,7 @@ impl DTCExtDataRecordNumber {
         }
     }
 
+    /// Return the raw `u8` value of this record number.
     #[must_use]
     #[allow(clippy::match_same_arms)]
     pub fn value(&self) -> u8 {
@@ -98,7 +100,9 @@ impl IterableWireFormat for DTCExtDataRecordNumber {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
+/// A single DTC extended-data record containing user-defined payload items.
 pub struct DTCExtDataRecord<UserPayload> {
+    /// The decoded payload entries for this record.
     pub data: Vec<UserPayload>,
 }
 
@@ -148,9 +152,13 @@ impl<UserPayload: IterableWireFormat> IterableWireFormat for DTCExtDataRecord<Us
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
+/// A DTC extended-data record list: a DTC + status mask followed by one or more [`DTCExtDataRecord`]s.
 pub struct DTCExtDataRecordList<UserPayload> {
+    /// The DTC this extended data belongs to.
     pub mask_record: DTCRecord,
+    /// The DTC status mask at the time of reporting.
     pub status_mask: DTCStatusMask,
+    /// The extended-data records associated with this DTC.
     pub record_data: Vec<DTCExtDataRecord<UserPayload>>,
 }
 

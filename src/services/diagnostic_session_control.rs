@@ -89,8 +89,11 @@ impl SingleValueWireFormat for DiagnosticSessionControlRequest {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct DiagnosticSessionControlResponse {
+    /// The session type that is now active.
     pub session_type: DiagnosticSessionType,
+    /// P2 server max timing parameter (milliseconds).
     pub p2_server_max: u16,
+    /// P2* (enhanced) server max timing parameter (milliseconds × 10).
     pub p2_star_server_max: u16,
 }
 

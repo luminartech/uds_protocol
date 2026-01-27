@@ -15,10 +15,12 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct WriteDataByIdentifierRequest<Payload> {
+    /// The payload to write, which includes the DID and data.
     pub payload: Payload,
 }
 
 impl<Payload: SingleValueWireFormat> WriteDataByIdentifierRequest<Payload> {
+    /// Create a new request with the given payload.
     pub fn new(payload: Payload) -> Self {
         Self { payload }
     }
@@ -58,10 +60,12 @@ impl<Payload: SingleValueWireFormat> SingleValueWireFormat
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct WriteDataByIdentifierResponse<DataIdentifier> {
+    /// The DID that was written to.
     pub identifier: DataIdentifier,
 }
 
 impl<DataIdentifier: Identifier> WriteDataByIdentifierResponse<DataIdentifier> {
+    /// Create a new response echoing the identifier that was written.
     pub fn new(identifier: DataIdentifier) -> Self {
         Self { identifier }
     }

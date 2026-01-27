@@ -189,6 +189,7 @@ pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
     low_byte: 0xFF,
 };
 
+/// A 3-byte Diagnostic Trouble Code number (high, middle, low bytes).
 #[allow(clippy::struct_field_names)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -200,6 +201,7 @@ pub struct DTCRecord {
 }
 
 impl DTCRecord {
+    /// Create a `DTCRecord` from its three component bytes.
     #[must_use]
     pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
         Self {
@@ -297,6 +299,7 @@ pub enum FunctionalGroupIdentifier {
 }
 
 impl FunctionalGroupIdentifier {
+    /// Return the raw `u8` value of this functional group identifier.
     #[must_use]
     pub fn value(&self) -> u8 {
         match self {
@@ -382,8 +385,8 @@ pub enum DTCSeverityMask {
 }
 
 impl DTCSeverityMask {
-    // Validate that at least one of the DTCClass bits is set
-    // Multiple Class bits may be set to get info for multiple DTC classes
+    /// Returns `true` if at least one DTC class bit (bits 0–4) is set.
+    /// Multiple class bits may be set to query multiple DTC classes at once.
     #[must_use]
     pub fn is_valid(&self) -> bool {
         self.intersects(

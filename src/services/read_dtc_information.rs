@@ -19,6 +19,7 @@ type MemorySelection = u8;
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct ReadDTCInfoRequest {
+    /// The sub-function specifying what DTC information to report.
     pub dtc_subfunction: ReadDTCInfoSubFunction,
 }
 
@@ -349,6 +350,7 @@ pub enum ReadDTCInfoSubFunction {
 }
 
 impl ReadDTCInfoSubFunction {
+    /// Return the raw `u8` sub-function byte.
     #[must_use]
     pub fn value(&self) -> u8 {
         match self {

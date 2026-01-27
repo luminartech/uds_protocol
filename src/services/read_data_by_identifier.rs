@@ -17,6 +17,7 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct ReadDataByIdentifierRequest<DataIdentifier> {
+    /// The list of Data Identifiers to read.
     pub dids: Vec<DataIdentifier>,
 }
 
@@ -70,6 +71,7 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Eq, PartialEq)]
 pub struct ReadDataByIdentifierResponse<UserPayload> {
+    /// The decoded payload entries returned by the server.
     pub data: Vec<UserPayload>,
 }
 

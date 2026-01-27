@@ -68,6 +68,7 @@ impl SingleValueWireFormat for TransferDataRequest {
     }
 }
 
+/// Positive response to a [`TransferDataRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]

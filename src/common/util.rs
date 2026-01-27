@@ -1,19 +1,23 @@
 //! Compute the number of bytes needed to represent a value using core
+/// Return the minimum number of bytes needed to represent a `u16` value.
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn param_length_u16(value: u16) -> u8 {
     (u16::BITS - value.leading_zeros()).div_ceil(8) as u8
 }
+/// Return the minimum number of bytes needed to represent a `u32` value.
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn param_length_u32(value: u32) -> u8 {
     (u32::BITS - value.leading_zeros()).div_ceil(8) as u8
 }
+/// Return the minimum number of bytes needed to represent a `u64` value.
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn param_length_u64(value: u64) -> u8 {
     (u64::BITS - value.leading_zeros()).div_ceil(8) as u8
 }
+/// Return the minimum number of bytes needed to represent a `u128` value.
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn param_length_u128(value: u128) -> u16 {

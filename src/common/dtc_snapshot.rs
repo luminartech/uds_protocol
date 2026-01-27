@@ -10,10 +10,13 @@ use crate::{
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
+/// A DTC snapshot record list: a DTC + status mask followed by one or more numbered snapshot records.
 pub struct DTCSnapshotRecordList<UserPayload> {
+    /// The DTC this snapshot data belongs to.
     pub dtc_record: DTCRecord,
+    /// The DTC status mask at the time of reporting.
     pub status_mask: DTCStatusMask,
-    /// The number of the specific `DTCSnapshot` data record requested
+    /// The snapshot records, each paired with its record number.
     pub snapshot_data: Vec<(DTCSnapshotRecordNumber, DTCSnapshotRecord<UserPayload>)>,
 }
 
@@ -82,6 +85,7 @@ pub struct DTCSnapshotRecord<UserPayload> {
 }
 
 impl<UserPayload: IterableWireFormat> DTCSnapshotRecord<UserPayload> {
+    /// Create a new snapshot record from a list of payload items.
     #[must_use]
     pub fn new(data: Vec<UserPayload>) -> Self {
         Self { data }
@@ -151,6 +155,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCSnapshotRecor
     }
 }
 
+/// Identifies which DTC snapshot record is being requested or reported.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -173,6 +178,7 @@ impl DTCSnapshotRecordNumber {
             _ => Self::Number(record_number),
         }
     }
+    /// Return the raw `u8` value of this snapshot record number.
     #[must_use]
     #[allow(clippy::match_same_arms)]
     pub fn value(&self) -> u8 {

@@ -131,6 +131,7 @@ impl SingleValueWireFormat for RequestDownloadRequest {
     }
 }
 
+/// Positive response to a [`RequestDownloadRequest`] indicating the server is ready to receive data.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
@@ -139,8 +140,8 @@ pub struct RequestDownloadResponse {
     /// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct.
     /// In it is a byte with the high nibble being the length of the `max_number_of_block_length` field.
     length_format_identifier: LengthFormatIdentifier,
-    /// Variable length field, length determined by `length_format_identifier`
-    /// Client is instructed to send this many bytes per [`TransferDataRequest`](crate::TransferDataRequest) message.
+    /// Maximum number of bytes to include in each [`TransferDataRequest`](crate::TransferDataRequest).
+    /// Variable length, determined by `length_format_identifier`.
     pub max_number_of_block_length: Vec<u8>,
 }
 

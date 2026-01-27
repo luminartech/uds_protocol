@@ -1,7 +1,10 @@
+/// Identifies a UDS service (ISO 14229-1).
+///
+/// Without the `#[non_exhaustive]` annotation, adding additional diagnostic
+/// commands would be a breaking semver change.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-// Without the non-exhaustive annotation, adding additional diagnostic commands would be a breaking semver change.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum UdsServiceType {
@@ -48,11 +51,13 @@ pub enum UdsServiceType {
     /// it must be assumed that the connection was interrupted.
     /// These timings can be read and changed through this service.
     AccessTimingParameters,
+    /// Transmit data using a security sub-layer (ISO 15764).
     SecuredDataTransmission,
     /// Enable or disable the detection of any or all errors.
     /// This is important when diagnostic work is performed in the car,
     /// which can cause an anomalous behavior of individual devices.
     ControlDTCSettings,
+    /// Request the server to start or stop sending responses when a specified event occurs.
     ResponseOnEvent,
     /// The Service Link Control is used to set the baud rate of the diagnostic access.
     /// It is usually implemented only at the central gateway.
@@ -66,6 +71,7 @@ pub enum UdsServiceType {
     /// Read data from the physical memory at the provided address.
     /// This function can be used by a testing tool to read the internal behavior of the software.
     ReadMemoryByAddress,
+    /// Read the scaling information of a data record identified by a DID.
     ReadScalingDataByIdentifier,
     /// With this service, values are sent periodically by a ecu.
     /// The values to be sent must only use the "Dynamically Defined Data Identifier".
@@ -95,9 +101,11 @@ pub enum UdsServiceType {
     ReadDTCInfo,
     // ========================================================================
     // Input / Output Control
+    /// Substitute or control an input/output signal using a DID.
     InputOutputControlByIdentifier,
     // ========================================================================
     // Remote Activation of Routine
+    /// Start, stop, or request the results of a server-resident routine.
     RoutineControl,
     // ========================================================================
     // Upload / Download
@@ -134,6 +142,7 @@ pub enum UdsServiceType {
 }
 
 impl UdsServiceType {
+    /// Map a request-message service byte to the corresponding [`UdsServiceType`].
     #[must_use]
     pub fn service_from_request_byte(value: u8) -> Self {
         match value {
@@ -168,6 +177,7 @@ impl UdsServiceType {
         }
     }
 
+    /// Return the request-message service byte for this service type.
     #[must_use]
     pub fn request_service_to_byte(&self) -> u8 {
         match self {
@@ -201,6 +211,7 @@ impl UdsServiceType {
             _ => 0x7F,
         }
     }
+    /// Map a positive-response service byte to the corresponding [`UdsServiceType`].
     #[must_use]
     pub fn response_from_byte(value: u8) -> Self {
         match value {
@@ -236,6 +247,7 @@ impl UdsServiceType {
         }
     }
 
+    /// Return the positive-response service byte for this service type.
     #[must_use]
     pub fn response_to_byte(self) -> u8 {
         match self {

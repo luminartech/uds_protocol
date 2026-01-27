@@ -76,7 +76,9 @@ impl SingleValueWireFormat for EcuResetRequest {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct EcuResetResponse {
+    /// The reset type echoed from the request.
     pub reset_type: ResetType,
+    /// Time in seconds before the server powers down (`0x00` = not available).
     pub power_down_time: u8,
 }
 

@@ -71,6 +71,7 @@ pub trait IterableWireFormat: WireFormat {
     /// - if the stream contains partial or invalid data
     fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error>;
 
+    /// Return an iterator that decodes successive values from the stream until exhausted.
     fn decode_iter<T: std::io::Read>(reader: &mut T) -> impl Iterator<Item = Result<Self, Error>> {
         WireFormatIterator {
             reader,
@@ -151,6 +152,7 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     }
 }
 
+/// Marker subtrait of [`Identifier`] to distinguish routine identifiers from data identifiers.
 pub trait RoutineIdentifier: Identifier {}
 
 /// Blanket implementation of [`WireFormat`] for types that implement [`Identifier`]

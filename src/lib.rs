@@ -1,5 +1,5 @@
-#![warn(clippy::pedantic)]
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
+#![warn(clippy::pedantic, missing_docs)]
 mod common;
 pub use common::*;
 
@@ -30,7 +30,10 @@ pub use traits::{
     WireFormat,
 };
 
+/// UDS positive-response service-ID offset. Added to the request SID to form the response SID.
 pub const SUCCESS: u8 = 0x80;
+/// UDS `requestCorrectlyReceivedResponsePending` negative response code (`0x78`).
+/// Signals that the server received the request but needs additional time to process it.
 pub const PENDING: u8 = 0x78;
 
 /// Basic UDS implementation of the [`DiagnosticDefinition`] trait.
@@ -127,8 +130,13 @@ impl IterableWireFormat for Vec<u8> {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Controls whether the server should enable or disable DTC status-bit updates.
+///
+/// Used by [`ControlDTCSettingsRequest`] to instruct the server.
 pub enum DtcSettings {
+    /// Re-enable DTC status-bit updates.
     On,
+    /// Disable DTC status-bit updates.
     Off,
 }
 
