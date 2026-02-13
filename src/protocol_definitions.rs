@@ -1,5 +1,6 @@
 use crate::{
-    Error, Identifier, IterableWireFormat, SingleValueWireFormat, UDSIdentifier, WireFormat,
+    Error, Identifier, IterableWireFormat, SingleValueWireFormat, UDSIdentifier,
+    UDSRoutineIdentifier, WireFormat,
 };
 use std::ops::Deref;
 use tracing::error;
@@ -142,6 +143,109 @@ impl std::fmt::Debug for ProtocolPayload {
         write!(
             f,
             "{} => {}",
+            self.identifier,
+            self.payload
+                .iter()
+                .map(|b| format!("{b:02X}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
+    }
+}
+
+/// Routine-specific payload for [`UdsSpec`](crate::UdsSpec).
+///
+/// Similar to [`ProtocolPayload`] but uses [`UDSRoutineIdentifier`] instead of
+/// [`UDSIdentifier`], since routine control responses include a routine ID
+/// (0x0000–0xFFFF) that doesn't map to valid DID ranges.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct ProtocolRoutinePayload {
+    /// The routine identifier this payload belongs to.
+    pub identifier: UDSRoutineIdentifier,
+    /// The raw payload bytes following the identifier.
+    pub payload: Vec<u8>,
+}
+
+impl ProtocolRoutinePayload {
+    /// Creates a new `ProtocolRoutinePayload` with the given identifier and payload.
+    #[must_use]
+    pub fn new(identifier: UDSRoutineIdentifier, payload: Vec<u8>) -> Self {
+        Self {
+            identifier,
+            payload,
+        }
+    }
+}
+
+impl WireFormat for ProtocolRoutinePayload {
+    fn required_size(&self) -> usize {
+        2 + self.payload.len()
+    }
+
+    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
+        self.identifier.encode(writer)?;
+        writer.write_all(&self.payload)?;
+        Ok(self.required_size())
+    }
+}
+
+impl SingleValueWireFormat for ProtocolRoutinePayload {
+    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
+        let mut identifier_data: [u8; 2] = [0; 2];
+        match reader.read(&mut identifier_data)? {
+            0 | 1 => {
+                error!(
+                    "Only read 0 or 1 byte of routine identifier, need 2: read byte was: {}",
+                    identifier_data[0]
+                );
+                return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+            }
+            2 => (),
+            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
+        }
+        let identifier = UDSRoutineIdentifier::from(u16::from_be_bytes(identifier_data));
+        let mut payload: Vec<u8> = Vec::new();
+        reader.read_to_end(&mut payload)?;
+        Ok(Self {
+            identifier,
+            payload,
+        })
+    }
+}
+
+impl IterableWireFormat for ProtocolRoutinePayload {
+    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
+        let mut identifier_data: [u8; 2] = [0; 2];
+        match reader.read(&mut identifier_data)? {
+            0 => return Ok(None),
+            1 => {
+                error!(
+                    "Only read 1 byte of routine identifier, need 2: read byte was: {}",
+                    identifier_data[0]
+                );
+                return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+            }
+            2 => (),
+            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
+        }
+        let identifier = UDSRoutineIdentifier::from(u16::from_be_bytes(identifier_data));
+        let mut payload: Vec<u8> = Vec::new();
+        reader.read_to_end(&mut payload)?;
+        Ok(Some(Self {
+            identifier,
+            payload,
+        }))
+    }
+}
+
+impl std::fmt::Debug for ProtocolRoutinePayload {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?} => {}",
             self.identifier,
             self.payload
                 .iter()

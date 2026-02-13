@@ -10,7 +10,7 @@ pub use error::Error;
 pub use uds_protocol_derive::Identifier;
 
 mod protocol_definitions;
-pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayload};
+pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayload, ProtocolRoutinePayload};
 
 mod request;
 pub use request::Request;
@@ -47,7 +47,7 @@ pub struct UdsSpec;
 impl DiagnosticDefinition for UdsSpec {
     type RID = UDSRoutineIdentifier;
     type DID = ProtocolIdentifier;
-    type RoutinePayload = ProtocolPayload;
+    type RoutinePayload = ProtocolRoutinePayload;
     type DiagnosticPayload = ProtocolPayload;
 }
 
