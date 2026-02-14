@@ -155,9 +155,12 @@ impl std::fmt::Debug for ProtocolPayload {
 
 /// Routine-specific payload for [`UdsSpec`](crate::UdsSpec).
 ///
-/// Similar to [`ProtocolPayload`] but uses [`UDSRoutineIdentifier`] instead of
-/// [`UDSIdentifier`], since routine control responses include a routine ID
-/// (0x0000–0xFFFF) that doesn't map to valid DID ranges.
+/// Used as the `RoutinePayload` associated type in [`UdsSpec`](crate::UdsSpec).
+/// On the wire, the routine identifier is already encoded by the
+/// [`RoutineControlRequest`](crate::RoutineControlRequest), so `encode` writes
+/// only the raw payload bytes. `decode` reads the identifier first (since
+/// [`RoutineControlResponse`](crate::RoutineControlResponse) includes it in the
+/// status record) followed by any remaining payload bytes.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Eq, PartialEq)]
@@ -181,14 +184,16 @@ impl ProtocolRoutinePayload {
 }
 
 impl WireFormat for ProtocolRoutinePayload {
+    /// Size of the raw payload only — the identifier is written by the request.
     fn required_size(&self) -> usize {
-        2 + self.payload.len()
+        self.payload.len()
     }
 
+    /// Writes only the raw payload bytes. The routine identifier is already
+    /// encoded by [`RoutineControlRequest::encode`](crate::RoutineControlRequest).
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.identifier.encode(writer)?;
         writer.write_all(&self.payload)?;
-        Ok(self.required_size())
+        Ok(self.payload.len())
     }
 }
 
