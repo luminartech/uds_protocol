@@ -514,4 +514,40 @@ mod tests {
             ProtocolRequest::clear_diagnostic_info(DTCRecord::new(0x01, 0x02, 0x03), 0x01);
         assert!(!clear_diagnostic_info_request.is_positive_response_suppressed());
     }
+
+    #[test]
+    fn test_communication_control_sprmib_wire_bytes() {
+        // DisableRxAndTx with suppress=true (as used in firmware_flashing archive)
+        let request = ProtocolRequest::communication_control(
+            CommunicationControlType::DisableRxAndTx,
+            CommunicationType::Normal,
+            true,
+        );
+        assert!(request.is_positive_response_suppressed());
+
+        let mut bytes = Vec::new();
+        request.encode(&mut bytes).unwrap();
+        // SID=0x28, sub-function=0x03|0x80=0x83, communication_type
+        assert_eq!(bytes[0], 0x28, "SID should be 0x28");
+        assert_eq!(
+            bytes[1], 0x83,
+            "Sub-function should be 0x83 (DisableRxAndTx=0x03 | SPRMIB=0x80), got {:#04x}",
+            bytes[1]
+        );
+
+        // EnableRxAndTx with suppress=true
+        let request2 = ProtocolRequest::communication_control(
+            CommunicationControlType::EnableRxAndTx,
+            CommunicationType::Normal,
+            true,
+        );
+        let mut bytes2 = Vec::new();
+        request2.encode(&mut bytes2).unwrap();
+        assert_eq!(bytes2[0], 0x28);
+        assert_eq!(
+            bytes2[1], 0x80,
+            "Sub-function should be 0x80 (EnableRxAndTx=0x00 | SPRMIB=0x80), got {:#04x}",
+            bytes2[1]
+        );
+    }
 }
