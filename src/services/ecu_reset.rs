@@ -107,7 +107,9 @@ impl WireFormat for EcuResetResponse {
 impl SingleValueWireFormat for EcuResetResponse {
     fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
         let reset_type = ResetType::try_from(reader.read_u8()?)?;
-        let power_down_time = reader.read_u8()?;
+        // powerDownTime is conditional per ISO 14229-1 — only present when
+        // the server needs to report how long until power-down.
+        let power_down_time = reader.read_u8().unwrap_or(0);
         Ok(Self {
             reset_type,
             power_down_time,
