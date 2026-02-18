@@ -20,11 +20,11 @@ clap = ["dep:clap"]
 
 [dependencies]
 uds_protocol_derive = { path = "./uds_protocol_derive", version = "0.0.2" }
+bitmask-enum = "2"
 byteorder = "1"
 thiserror = "2"
-# Optional dependencies
 tracing = "0.1"
-bitmask-enum = "2"
+# Optional dependencies
 serde = { version = "1", optional = true, features = ["derive"] }
 serde_bytes = { version = "0.11", optional = true }
 utoipa = { version = "5", optional = true }
