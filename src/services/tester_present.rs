@@ -64,6 +64,7 @@ impl TryFrom<u8> for ZeroSubFunction {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct TesterPresentRequest {
     zero_sub_function: SuppressablePositiveResponse<ZeroSubFunction>,
 }
@@ -125,6 +126,7 @@ impl SingleValueWireFormat for TesterPresentRequest {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct TesterPresentResponse {
     zero_sub_function: ZeroSubFunction,
 }

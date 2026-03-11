@@ -2,6 +2,7 @@ use thiserror::Error;
 
 /// Errors that can occur during UDS message encoding, decoding, or validation.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum Error {
     /// An underlying I/O error occurred while reading or writing.
     #[error(transparent)]

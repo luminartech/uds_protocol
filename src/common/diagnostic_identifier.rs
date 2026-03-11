@@ -8,6 +8,7 @@ use crate::{Error, Identifier, traits::RoutineIdentifier};
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum, clap::Parser))]
 #[derive(Clone, Copy, Eq, Identifier, PartialEq)]
+#[non_exhaustive]
 #[repr(u16)]
 pub enum UDSIdentifier {
     /// DID reserved by ISO/SAE (ranges `0x0000–0x00FF`, `0xFF02–0xFFFF`).
@@ -209,6 +210,7 @@ impl std::fmt::Debug for UDSIdentifier {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
+#[non_exhaustive]
 #[repr(u16)]
 pub enum UDSRoutineIdentifier {
     /// ISO/SAE reserved routine identifier (`0x0000–0x00FF`, `0xE300–0xEFFF`, `0xFF02–0xFFFF`).

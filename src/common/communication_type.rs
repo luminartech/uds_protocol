@@ -12,6 +12,7 @@ use crate::Error;
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum CommunicationType {
     /// This value is reserved by the ISO 14229-1 Specification
     ISOSAEReserved,

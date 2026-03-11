@@ -3,6 +3,7 @@
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum NegativeResponseCode {
     /// This response code shall not be used in a negative response message.
     /// This positiveResponse parameter value is reserved for server internal implementation

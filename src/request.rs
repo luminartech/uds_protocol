@@ -24,6 +24,7 @@ use super::{
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Request<D: DiagnosticDefinition> {
     /// Request to clear diagnostic information. See [`ClearDiagnosticInfoRequest`].
     ClearDiagnosticInfo(ClearDiagnosticInfoRequest),

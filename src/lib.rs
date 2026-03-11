@@ -62,6 +62,7 @@ pub type ProtocolResponse = Response<UdsSpec>;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum RoutineControlSubFunction {
     /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message
     /// which indicates that the routine has already been performed, or is in progress
@@ -130,6 +131,7 @@ impl IterableWireFormat for Vec<u8> {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 /// Controls whether the server should enable or disable DTC status-bit updates.
 ///
 /// Used by [`ControlDTCSettingsRequest`] to instruct the server.

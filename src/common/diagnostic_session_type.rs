@@ -10,6 +10,7 @@ use crate::Error;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum DiagnosticSessionType {
     /// This value is reserved by the ISO 14229-1 Specification
     #[cfg_attr(feature = "clap", clap(skip))]

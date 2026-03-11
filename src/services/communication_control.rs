@@ -21,6 +21,7 @@ const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] =
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct CommunicationControlRequest {
     control_type: SuppressablePositiveResponse<CommunicationControlType>,
     /// The communication type to apply the control to.
