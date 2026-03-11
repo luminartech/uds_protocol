@@ -71,6 +71,19 @@ jobs:
       - run: rustup component add rustfmt
       - run: cargo fmt -- --check
 
+  msrv:
+    name: Check MSRV
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@1.85.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Build with MSRV
+        run: cargo build --all-features
+      - name: Run tests with MSRV
+        run: cargo test --all-features
+
   semver-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
