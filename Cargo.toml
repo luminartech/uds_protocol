@@ -1,10 +1,15 @@
 [package]
 name = "uds_protocol"
 description = "A library for encoding and decoding UDS (ISO 14229) messages"
-version = "0.0.2"
+version = "0.1.0"
 edition = "2024"
+rust-version = "1.85.0"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/luminartech/uds_protocol"
+homepage = "https://github.com/luminartech/uds_protocol"
+documentation = "https://docs.rs/uds_protocol"
+keywords = ["uds", "iso-14229", "automotive", "diagnostics", "obd"]
+categories = ["encoding", "embedded", "hardware-support"]
 authors = [
     "Justin Kovacich<justin.kovacich@luminartech.com>",
     "Kimberly Kryger <kim.kryger@luminartech.com>",
@@ -19,7 +24,7 @@ utoipa = ["dep:utoipa"]
 clap = ["dep:clap"]
 
 [dependencies]
-uds_protocol_derive = { path = "./uds_protocol_derive", version = "0.0.2" }
+uds_protocol_derive = { path = "./uds_protocol_derive", version = "0.1.0" }
 bitmask-enum = "2"
 byteorder = "1"
 thiserror = "2"
