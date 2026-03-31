@@ -334,17 +334,7 @@ dependencies = [
  "serde_bytes",
  "thiserror",
  "tracing",
- "uds_protocol_derive",
  "utoipa",
-]
-
-[[package]]
-name = "uds_protocol_derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

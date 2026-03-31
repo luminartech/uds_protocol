@@ -24,7 +24,6 @@ utoipa = ["dep:utoipa"]
 clap = ["dep:clap"]
 
 [dependencies]
-uds_protocol_derive = { path = "./uds_protocol_derive", version = "0.1.0" }
 bitmask-enum = "2"
 byteorder = "1"
 thiserror = "2"

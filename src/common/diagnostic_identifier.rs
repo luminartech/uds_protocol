@@ -1,5 +1,5 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
-use crate::{Error, Identifier, traits::RoutineIdentifier};
+use crate::{Error, impl_identifier, traits::RoutineIdentifier};
 
 /// C.1 DID - Diagnostic Data Identifier specified in ISO 14229-1
 ///
@@ -7,7 +7,7 @@ use crate::{Error, Identifier, traits::RoutineIdentifier};
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum, clap::Parser))]
-#[derive(Clone, Copy, Eq, Identifier, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[non_exhaustive]
 #[repr(u16)]
 pub enum UDSIdentifier {
@@ -94,6 +94,7 @@ pub enum UDSIdentifier {
     /// Reserved for ISO 15765-5 (`0xFF01`).
     ReservedForISO15765_5 = 0xFF01,
 }
+impl_identifier!(UDSIdentifier);
 
 impl TryFrom<u16> for UDSIdentifier {
     type Error = Error;
@@ -209,7 +210,7 @@ impl std::fmt::Debug for UDSIdentifier {
 /// and they must be implemented by the tester system.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 #[repr(u16)]
 pub enum UDSRoutineIdentifier {
@@ -256,6 +257,7 @@ pub enum UDSRoutineIdentifier {
     /// 0xFF01
     CheckProgrammingDependencies = 0xFF01,
 }
+impl_identifier!(UDSRoutineIdentifier);
 
 /// We know all values for the Routine Identifier, so we can implement `From<u16>` for `UDSRoutineIdentifier`
 impl From<u16> for UDSRoutineIdentifier {
