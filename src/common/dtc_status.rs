@@ -413,10 +413,7 @@ impl DTCStoredDataRecordNumber {
     /// Will return `Err(Error::ReservedForLegislativeUse()` if the record number == 0x00 or 0xF0
     pub fn new(record_number: u8) -> Result<Self, Error> {
         if record_number == 0 || record_number == 0xF0 {
-            return Err(Error::ReservedForLegislativeUse(
-                "DTCStoredDataRecordNumber".to_string(),
-                record_number,
-            ));
+            return Err(Error::ReservedForLegislativeUse(record_number));
         }
         Ok(Self(record_number))
     }
@@ -438,10 +435,7 @@ impl SingleValueWireFormat for DTCStoredDataRecordNumber {
         let value = reader.read_u8()?;
         if value == 0x00 {
             // Reserved for Legislative purposes
-            return Err(Error::ReservedForLegislativeUse(
-                "DTCStoredDataRecordNumber".to_string(),
-                value,
-            ));
+            return Err(Error::ReservedForLegislativeUse(value));
         }
         Ok(Self(value))
     }

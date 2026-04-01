@@ -139,18 +139,13 @@ impl IterableWireFormat for ProtocolPayload {
     }
 }
 
-impl std::fmt::Debug for ProtocolPayload {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} => {}",
-            self.identifier,
-            self.payload
-                .iter()
-                .map(|b| format!("{b:02X}"))
-                .collect::<Vec<_>>()
-                .join(" ")
-        )
+impl core::fmt::Debug for ProtocolPayload {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{} =>", self.identifier)?;
+        for b in &self.payload {
+            write!(f, " {b:02X}")?;
+        }
+        Ok(())
     }
 }
 
@@ -247,18 +242,13 @@ impl IterableWireFormat for ProtocolRoutinePayload {
     }
 }
 
-impl std::fmt::Debug for ProtocolRoutinePayload {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?} => {}",
-            self.identifier,
-            self.payload
-                .iter()
-                .map(|b| format!("{b:02X}"))
-                .collect::<Vec<_>>()
-                .join(" ")
-        )
+impl core::fmt::Debug for ProtocolRoutinePayload {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?} =>", self.identifier)?;
+        for b in &self.payload {
+            write!(f, " {b:02X}")?;
+        }
+        Ok(())
     }
 }
 

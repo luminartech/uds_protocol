@@ -19,6 +19,9 @@ authors = [
 ]
 
 [features]
+default = ["std"]
+std = ["alloc", "thiserror/std", "tracing/std", "embedded-io/std"]
+alloc = []
 serde = ["dep:serde", "dep:serde_bytes"]
 utoipa = ["dep:utoipa"]
 clap = ["dep:clap"]
@@ -26,8 +29,9 @@ clap = ["dep:clap"]
 [dependencies]
 bitmask-enum = "2"
 byteorder = "1"
-thiserror = "2"
-tracing = "0.1"
+embedded-io = { version = "0.6", default-features = false }
+thiserror = { version = "2", default-features = false }
+tracing = { version = "0.1", default-features = false }
 # Optional dependencies
 serde = { version = "1", optional = true, features = ["derive"] }
 serde_bytes = { version = "0.11", optional = true }

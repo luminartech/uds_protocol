@@ -5,8 +5,8 @@ use thiserror::Error;
 #[non_exhaustive]
 pub enum Error {
     /// An underlying I/O error occurred while reading or writing.
-    #[error(transparent)]
-    IoError(#[from] std::io::Error),
+    #[error("I/O error: {0:?}")]
+    IoError(embedded_io::ErrorKind),
     /// The byte stream contained fewer bytes than expected.
     #[error("Insufficient data. Expected {0} bytes.")]
     InsufficientData(usize),
@@ -14,8 +14,8 @@ pub enum Error {
     #[error("Invalid Diagnostic Identifier: {0:X}")]
     InvalidDiagnosticIdentifier(u16),
     /// The u16 identifier is unrecognised and carried an unexpected payload.
-    #[error("Invalid Diagnostic Identifier: {0:X} with payload {1:?}")]
-    InvalidDiagnosticIdentifierPayload(u16, Vec<u8>),
+    #[error("Invalid Diagnostic Identifier with payload: {0:X}")]
+    InvalidDiagnosticIdentifierPayload(u16),
     /// The session-type byte is not a valid [`DiagnosticSessionType`](crate::DiagnosticSessionType).
     #[error("Invalid diagnostic session type: {0}")]
     InvalidDiagnosticSessionType(u8),
@@ -65,9 +65,22 @@ pub enum Error {
     #[error("Invalid DTC Setting: {0}")]
     InvalidDtcSetting(u8),
     /// The value is reserved for legislative use and must not be used.
-    #[error("Reserved for legislative use: {0} ({1})")]
-    ReservedForLegislativeUse(String, u8),
+    #[error("Reserved for legislative use: {0}")]
+    ReservedForLegislativeUse(u8),
     /// The service type is not yet implemented in this crate.
     #[error("UDS service not implemented: {0:?}")]
     ServiceNotImplemented(crate::UdsServiceType),
+}
+
+impl From<embedded_io::ErrorKind> for Error {
+    fn from(kind: embedded_io::ErrorKind) -> Self {
+        Self::IoError(kind)
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<std::io::Error> for Error {
+    fn from(_err: std::io::Error) -> Self {
+        Self::IoError(embedded_io::ErrorKind::Other)
+    }
 }

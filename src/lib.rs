@@ -1,5 +1,6 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 #![warn(clippy::pedantic, missing_docs)]
+#![cfg_attr(not(feature = "std"), no_std)]
 mod error;
 pub use error::Error;
 
@@ -88,13 +89,12 @@ impl From<RoutineControlSubFunction> for u8 {
 
 impl TryFrom<u8> for RoutineControlSubFunction {
     type Error = Error;
-
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0x01 => Ok(RoutineControlSubFunction::StartRoutine),
             0x02 => Ok(RoutineControlSubFunction::StopRoutine),
             0x03 => Ok(RoutineControlSubFunction::RequestRoutineResults),
-            _ => Err(Error::InvalidRoutineControlSubFunction(value)),
+            _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
         }
     }
 }
@@ -152,12 +152,11 @@ impl From<DtcSettings> for u8 {
 
 impl TryFrom<u8> for DtcSettings {
     type Error = Error;
-
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0x01 => Ok(Self::On),
             0x02 => Ok(Self::Off),
-            _ => Err(Error::InvalidDtcSetting(value)),
+            _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
         }
     }
 }
