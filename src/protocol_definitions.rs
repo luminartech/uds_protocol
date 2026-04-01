@@ -1,6 +1,6 @@
 use crate::{
-    Error, IterableWireFormat, SingleValueWireFormat, UDSIdentifier, impl_identifier,
-    UDSRoutineIdentifier, WireFormat,
+    Error, IterableWireFormat, SingleValueWireFormat, UDSIdentifier, UDSRoutineIdentifier,
+    WireFormat, impl_identifier,
 };
 use std::ops::Deref;
 use tracing::error;
