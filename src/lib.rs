@@ -6,8 +6,8 @@ pub use error::Error;
 
 mod traits;
 pub use traits::{
-    DiagnosticDefinition, Identifier, IterableWireFormat, RoutineIdentifier, SingleValueWireFormat,
-    WireFormat,
+    Decode, DecodeIter, DiagnosticDefinition, Encode, Identifier, IterableWireFormat,
+    RoutineIdentifier, SingleValueWireFormat, WireFormat,
 };
 
 mod common;
@@ -99,6 +99,7 @@ impl TryFrom<u8> for RoutineControlSubFunction {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl WireFormat for Vec<u8> {
     fn required_size(&self) -> usize {
         self.len()
@@ -110,6 +111,7 @@ impl WireFormat for Vec<u8> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl SingleValueWireFormat for Vec<u8> {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let mut data = Vec::new();
@@ -118,6 +120,7 @@ impl SingleValueWireFormat for Vec<u8> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl IterableWireFormat for Vec<u8> {
     fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
         let mut data = Vec::new();
