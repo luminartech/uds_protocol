@@ -1,5 +1,6 @@
 use crate::Error;
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder_embedded_io::BigEndian;
+use byteorder_embedded_io::io::WriteBytesExt;
 
 /// Base trait for types that can be serialized to a byte stream.
 ///
@@ -290,7 +291,7 @@ pub trait DiagnosticDefinition: 'static {
 mod tests {
     use super::*;
     use crate::{Identifier, UDSIdentifier};
-    use byteorder::ReadBytesExt;
+    use byteorder_embedded_io::io::ReadBytesExt;
     use std::io::Cursor;
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]

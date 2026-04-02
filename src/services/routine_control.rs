@@ -6,7 +6,7 @@ use crate::{
     Error, Identifier, IterableWireFormat, RoutineControlSubFunction, SingleValueWireFormat,
     WireFormat,
 };
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results

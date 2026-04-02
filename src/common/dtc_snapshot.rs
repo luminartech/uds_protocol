@@ -1,7 +1,7 @@
 //! Diagnostic Trouble Code (DTC) Snapshot Data
 //! Snapshot data represents a collection of sensor values captured when a DTC is triggered.
 //! Represents the state of the server at the time the DTC was triggered.
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 use crate::{
     DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
@@ -260,7 +260,7 @@ mod snapshot {
         }
 
         fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-            writer.write_u16::<byteorder::BigEndian>(self.value())?;
+            writer.write_u16::<byteorder_embedded_io::BigEndian>(self.value())?;
             let mut written = 2;
 
             match self {
@@ -270,7 +270,7 @@ mod snapshot {
                 }
                 // bogus data
                 ProtocolPayload::Did8712(..) => {
-                    writer.write_u32::<byteorder::BigEndian>(78)?;
+                    writer.write_u32::<byteorder_embedded_io::BigEndian>(78)?;
                     written += 4;
                 }
             }

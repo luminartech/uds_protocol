@@ -3,7 +3,8 @@ use crate::{
     CommunicationControlType, CommunicationType, Error, NegativeResponseCode,
     SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
 };
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::BigEndian;
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SubFunctionNotSupported,

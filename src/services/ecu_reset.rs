@@ -3,7 +3,7 @@ use crate::{
     Error, NegativeResponseCode, ResetType, SingleValueWireFormat, SuppressablePositiveResponse,
     WireFormat,
 };
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [

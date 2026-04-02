@@ -1,5 +1,6 @@
 use crate::{Error, SingleValueWireFormat, WireFormat};
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::BigEndian;
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 /// Implement [`WireFormat`] and [`SingleValueWireFormat`] for unsigned integer primitives.
 #[macro_export]

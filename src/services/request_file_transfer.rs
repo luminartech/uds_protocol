@@ -1,5 +1,5 @@
 //! `RequestFileTransfer` (0x38) service implementation
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::Read;
 
 use crate::{
@@ -210,7 +210,7 @@ impl WireFormat for NamePayload {
         // Write the mode of operation
         writer.write_u8((self.mode_of_operation).into())?;
         // Write the file path and name length
-        writer.write_u16::<byteorder::BigEndian>(self.file_path_and_name_length)?;
+        writer.write_u16::<byteorder_embedded_io::BigEndian>(self.file_path_and_name_length)?;
         // Write the file path and name
         writer.write_all(self.file_path_and_name.as_bytes())?;
         Ok(self.required_size())
@@ -220,7 +220,7 @@ impl WireFormat for NamePayload {
 impl SingleValueWireFormat for NamePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
-        let file_path_and_name_length = reader.read_u16::<byteorder::BigEndian>()?;
+        let file_path_and_name_length = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
 
         // Read # of bytes specified by `file_path_and_name_length`
         let mut file_path_and_name = String::new();
@@ -462,7 +462,7 @@ impl WireFormat for FileSizePayload {
                 self.file_size_parameter_length,
             ));
         }
-        writer.write_u16::<byteorder::BE>(self.file_size_parameter_length)?;
+        writer.write_u16::<byteorder_embedded_io::BigEndian>(self.file_size_parameter_length)?;
         // write the file size only as many bytes as needed
         // Slice off only the number of bytes we need from the end of the file_size bytes
         let uncompressed = self.file_size_uncompressed.to_be_bytes();
@@ -481,7 +481,7 @@ impl WireFormat for FileSizePayload {
 
 impl SingleValueWireFormat for FileSizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let file_size_parameter_length = reader.read_u16::<byteorder::BE>()?;
+        let file_size_parameter_length = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
         if !(1..=16).contains(&file_size_parameter_length) {
             return Err(Error::InvalidFileSizeParameterLength(
                 file_size_parameter_length,
@@ -546,7 +546,7 @@ impl WireFormat for DirSizePayload {
             ));
         }
         let mut len = 0;
-        writer.write_u16::<byteorder::BigEndian>(self.dir_info_parameter_length)?;
+        writer.write_u16::<byteorder_embedded_io::BigEndian>(self.dir_info_parameter_length)?;
         len += 2;
         // write the file size only as many bytes as needed
         // Slice off only the number of bytes we need from the end of the file_size bytes
@@ -564,7 +564,7 @@ impl WireFormat for DirSizePayload {
 
 impl SingleValueWireFormat for DirSizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let dir_info_parameter_length = reader.read_u16::<byteorder::BigEndian>()?;
+        let dir_info_parameter_length = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
         if !(1..=16).contains(&dir_info_parameter_length) {
             return Err(Error::InvalidFileSizeParameterLength(
                 dir_info_parameter_length,
@@ -619,7 +619,7 @@ impl WireFormat for PositionPayload {
     }
 
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u64::<byteorder::BigEndian>(self.file_position)?;
+        writer.write_u64::<byteorder_embedded_io::BigEndian>(self.file_position)?;
         Ok(8)
     }
 }
@@ -627,7 +627,7 @@ impl WireFormat for PositionPayload {
 impl SingleValueWireFormat for PositionPayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         Ok(Self {
-            file_position: reader.read_u64::<byteorder::BigEndian>()?,
+            file_position: reader.read_u64::<byteorder_embedded_io::BigEndian>()?,
         })
     }
 }
@@ -801,7 +801,7 @@ mod request_tests {
         bytes.push(mode.into()); // AddFile (u8)
         // write file_name len as 2 bytes
         bytes
-            .write_u16::<byteorder::BigEndian>(file_name.len() as u16)
+            .write_u16::<byteorder_embedded_io::BigEndian>(file_name.len() as u16)
             .unwrap();
         bytes.extend_from_slice(file_name.as_bytes());
 
@@ -1047,21 +1047,21 @@ mod response_tests {
         if mode == FileOperationMode::ReadFile {
             print!("{mode:?}");
 
-            bytes.write_u16::<byteorder::BE>(num).unwrap();
+            bytes.write_u16::<byteorder_embedded_io::BigEndian>(num).unwrap();
             let source = file_size.to_be_bytes();
             // Compressed
             bytes.extend_from_slice(&source[16 - num as usize..]);
             // Uncompressed
             bytes.extend_from_slice(&source[16 - num as usize..]);
         } else if mode == FileOperationMode::ReadDir {
-            bytes.write_u16::<byteorder::BE>(num).unwrap();
+            bytes.write_u16::<byteorder_embedded_io::BigEndian>(num).unwrap();
             let source = file_size.to_be_bytes();
             // Compressed
             bytes.extend_from_slice(&source[16 - num as usize..]);
         }
 
         if mode == FileOperationMode::ResumeFile {
-            bytes.write_u64::<byteorder::BE>(file_position).unwrap();
+            bytes.write_u64::<byteorder_embedded_io::BigEndian>(file_position).unwrap();
         }
         bytes
     }

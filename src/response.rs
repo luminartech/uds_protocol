@@ -7,7 +7,7 @@ use crate::{
     TesterPresentResponse, TransferDataResponse, UdsServiceType, WireFormat,
     WriteDataByIdentifierResponse,
 };
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 /// A raw UDS response consisting of the service type and its unparsed payload bytes.

@@ -3,7 +3,7 @@ use crate::{
     Error, NegativeResponseCode, SecurityAccessType, SingleValueWireFormat,
     SuppressablePositiveResponse, WireFormat,
 };
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 /// List of allowed [`NegativeResponseCode`] variants for the `SecurityAccess` service

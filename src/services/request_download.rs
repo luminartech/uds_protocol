@@ -1,5 +1,5 @@
 //! `RequestDownload` (0x34) service implementation
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 use crate::{
     DataFormatIdentifier, Error, LengthFormatIdentifier, MemoryFormatIdentifier,

@@ -3,7 +3,7 @@ use crate::{
     Error, NegativeResponseCode, SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
 };
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
     NegativeResponseCode::SubFunctionNotSupported,

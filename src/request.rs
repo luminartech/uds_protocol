@@ -9,7 +9,7 @@ use crate::{
         TransferDataRequest, WriteDataByIdentifierRequest,
     },
 };
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 use super::{

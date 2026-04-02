@@ -1,6 +1,6 @@
 //! `ControlDTCSetting` (0x85) service implementation
 use crate::{DtcSettings, Error, SUCCESS, SingleValueWireFormat, WireFormat};
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 /// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]

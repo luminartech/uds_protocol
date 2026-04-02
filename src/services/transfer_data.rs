@@ -1,5 +1,5 @@
 //! `TransferData` (0x36) service implementation
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 use crate::{Error, SingleValueWireFormat, WireFormat};
 

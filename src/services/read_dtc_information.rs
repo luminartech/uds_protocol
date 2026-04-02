@@ -1,5 +1,5 @@
 //! `ReadDTCInformation` (0x19) request and response service implementation
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 use crate::{
     DTCExtDataRecordList, DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
@@ -824,7 +824,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
                 writer.write_u8(*id)?;
                 writer.write_u8(mask.bits())?;
                 writer.write_u8(u8::from(*format_id))?;
-                writer.write_u16::<byteorder::BigEndian>(*count)?;
+                writer.write_u16::<byteorder_embedded_io::BigEndian>(*count)?;
             }
             Self::DTCList(id, mask, list) => {
                 writer.write_u8(*id)?;
@@ -934,7 +934,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat for ReadDTCInfoRespo
             0x01 | 0x07 => {
                 let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
                 let format_id = DTCFormatIdentifier::from(reader.read_u8()?);
-                let count = reader.read_u16::<byteorder::BigEndian>()?;
+                let count = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
                 Ok(Self::NumberOfDTCs(subfunction_id, status, format_id, count))
             }
             0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
@@ -1150,7 +1150,7 @@ mod response {
 
     impl WireFormat for TestIdentifier {
         fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-            writer.write_u16::<byteorder::BigEndian>(*self as u16)?;
+            writer.write_u16::<byteorder_embedded_io::BigEndian>(*self as u16)?;
             Ok(self.required_size())
         }
 
@@ -1857,7 +1857,7 @@ mod ext_data {
             match self {
                 TestDTCExtData::WarmUpCycleCount(count) => {
                     writer.write_u8(TestDTCExtDataRecordNumber::WarmUpCycleCount as u8)?;
-                    writer.write_u16::<byteorder::BigEndian>(*count)?;
+                    writer.write_u16::<byteorder_embedded_io::BigEndian>(*count)?;
                 }
                 TestDTCExtData::FaultDetectionCounter(count) => {
                     writer.write_u8(TestDTCExtDataRecordNumber::FaultDetectionCounter as u8)?;
@@ -1873,7 +1873,7 @@ mod ext_data {
             let id = TestDTCExtDataRecordNumber::decode_next(reader)?;
             match id {
                 Some(TestDTCExtDataRecordNumber::WarmUpCycleCount) => {
-                    let count = reader.read_u16::<byteorder::BigEndian>()?;
+                    let count = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
                     Ok(Some(TestDTCExtData::WarmUpCycleCount(count)))
                 }
                 Some(TestDTCExtDataRecordNumber::FaultDetectionCounter) => {

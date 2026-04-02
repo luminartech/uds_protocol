@@ -96,7 +96,7 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 mod test {
     use super::*;
     use crate::impl_identifier;
-    use byteorder::WriteBytesExt;
+    use byteorder_embedded_io::io::WriteBytesExt;
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
     #[derive(Clone, Copy, Debug, PartialEq)]

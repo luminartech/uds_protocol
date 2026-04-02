@@ -13,7 +13,7 @@ use crate::{
     DiagnosticSessionType, Error, NegativeResponseCode, SingleValueWireFormat,
     SuppressablePositiveResponse, WireFormat,
 };
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -118,8 +118,8 @@ impl WireFormat for DiagnosticSessionControlResponse {
 
     fn encode<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
         buffer.write_u8(u8::from(self.session_type))?;
-        buffer.write_u16::<byteorder::BigEndian>(self.p2_server_max)?;
-        buffer.write_u16::<byteorder::BigEndian>(self.p2_star_server_max)?;
+        buffer.write_u16::<byteorder_embedded_io::BigEndian>(self.p2_server_max)?;
+        buffer.write_u16::<byteorder_embedded_io::BigEndian>(self.p2_star_server_max)?;
 
         Ok(5)
     }
@@ -128,8 +128,8 @@ impl WireFormat for DiagnosticSessionControlResponse {
 impl SingleValueWireFormat for DiagnosticSessionControlResponse {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
-        let p2_server_max = reader.read_u16::<byteorder::BigEndian>()?;
-        let p2_star_server_max = reader.read_u16::<byteorder::BigEndian>()?;
+        let p2_server_max = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
+        let p2_star_server_max = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
         Ok(Self {
             session_type,
             p2_server_max,

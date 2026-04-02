@@ -1,6 +1,6 @@
 //! `NegativeResponse` (0x7F) service implementation
 use crate::{Error, NegativeResponseCode, SingleValueWireFormat, UdsServiceType, WireFormat};
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 /// A negative response from the server indicating a request could not be fulfilled
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]

@@ -1,5 +1,5 @@
 use bitmask_enum::bitmask;
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
 
