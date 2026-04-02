@@ -146,11 +146,12 @@ impl<RoutineStatusRecord: SingleValueWireFormat> SingleValueWireFormat
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::Identifier;
+    use crate::impl_identifier;
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-    #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     struct TestIdentifier(pub u16);
+    impl_identifier!(TestIdentifier);
 
     impl From<u16> for TestIdentifier {
         fn from(value: u16) -> Self {

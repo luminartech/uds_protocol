@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "uds_protocol"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "bitmask-enum",
  "byteorder",
@@ -334,17 +334,7 @@ dependencies = [
  "serde_bytes",
  "thiserror",
  "tracing",
- "uds_protocol_derive",
  "utoipa",
-]
-
-[[package]]
-name = "uds_protocol_derive"
-version = "0.0.2"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

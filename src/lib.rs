@@ -1,13 +1,16 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 #![warn(clippy::pedantic, missing_docs)]
-mod common;
-pub use common::*;
-
 mod error;
 pub use error::Error;
 
-// Export the Identifier derive macro
-pub use uds_protocol_derive::Identifier;
+mod traits;
+pub use traits::{
+    DiagnosticDefinition, Identifier, IterableWireFormat, RoutineIdentifier, SingleValueWireFormat,
+    WireFormat,
+};
+
+mod common;
+pub use common::*;
 
 mod protocol_definitions;
 pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayload, ProtocolRoutinePayload};
@@ -23,12 +26,6 @@ pub use service::UdsServiceType;
 
 mod services;
 pub use services::*;
-
-mod traits;
-pub use traits::{
-    DiagnosticDefinition, Identifier, IterableWireFormat, RoutineIdentifier, SingleValueWireFormat,
-    WireFormat,
-};
 
 /// UDS positive-response service-ID offset. Added to the request SID to form the response SID.
 pub const SUCCESS: u8 = 0x80;
@@ -62,6 +59,7 @@ pub type ProtocolResponse = Response<UdsSpec>;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum RoutineControlSubFunction {
     /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message
     /// which indicates that the routine has already been performed, or is in progress
@@ -130,6 +128,7 @@ impl IterableWireFormat for Vec<u8> {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 /// Controls whether the server should enable or disable DTC status-bit updates.
 ///
 /// Used by [`ControlDTCSettingsRequest`] to instruct the server.

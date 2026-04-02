@@ -95,13 +95,15 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::impl_identifier;
     use byteorder::WriteBytesExt;
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-    #[derive(Clone, Copy, Debug, Identifier, PartialEq)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
     pub enum TestIdentifier {
         Abracadabra = 0xBEEF,
     }
+    impl_identifier!(TestIdentifier);
     impl From<u16> for TestIdentifier {
         fn from(value: u16) -> Self {
             match value {

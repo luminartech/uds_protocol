@@ -11,6 +11,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 /// A raw UDS response consisting of the service type and its unparsed payload bytes.
+#[non_exhaustive]
 pub struct UdsResponse {
     /// The service this response corresponds to.
     pub service: UdsServiceType,
@@ -22,6 +23,7 @@ pub struct UdsResponse {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Response<D: DiagnosticDefinition> {
     /// Response to a [`ClearDiagnosticInfoRequest`](crate::ClearDiagnosticInfoRequest)
     ClearDiagnosticInfo,

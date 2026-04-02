@@ -1,6 +1,6 @@
 use crate::{
-    Error, Identifier, IterableWireFormat, SingleValueWireFormat, UDSIdentifier,
-    UDSRoutineIdentifier, WireFormat,
+    Error, IterableWireFormat, SingleValueWireFormat, UDSIdentifier, UDSRoutineIdentifier,
+    WireFormat, impl_identifier,
 };
 use std::ops::Deref;
 use tracing::error;
@@ -8,10 +8,11 @@ use tracing::error;
 /// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports Diagnostic Identifiers defined by UDS
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ProtocolIdentifier {
     identifier: UDSIdentifier,
 }
+impl_identifier!(ProtocolIdentifier);
 
 impl ProtocolIdentifier {
     /// Wrap a [`UDSIdentifier`] in a `ProtocolIdentifier`.

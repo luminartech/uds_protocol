@@ -70,6 +70,7 @@ impl<DataIdentifier: Identifier> SingleValueWireFormat
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct ReadDataByIdentifierResponse<UserPayload> {
     /// The decoded payload entries returned by the server.
     pub data: Vec<UserPayload>,

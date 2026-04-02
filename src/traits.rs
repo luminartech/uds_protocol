@@ -109,7 +109,7 @@ mod maybe_utoipa {
 
 /// Trait for types that can be used as identifiers (ie Data Identifiers and Routine Identifiers)
 ///
-/// Prefer using the [`#[derive(Identifier)]`](uds_protocol_derive::Identifier) derive macro to implement this trait
+/// Use the [`impl_identifier!`] macro to implement this trait for your types.
 pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bound {
     /// Returns a `Vec<Self>` from a reader that contains a list of Identifier values
     /// # Errors
@@ -150,6 +150,21 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     fn parse_from_payload<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
         Self::decode_next(reader)
     }
+}
+
+/// Implement the [`Identifier`] trait for a type.
+///
+/// The type must already implement `TryFrom<u16>`, `Into<u16>`, `Clone`, and `Copy`.
+///
+/// # Example
+/// ```rust,ignore
+/// impl_identifier!(MyIdentifierEnum);
+/// ```
+#[macro_export]
+macro_rules! impl_identifier {
+    ($($t:ty),+ $(,)?) => {
+        $(impl $crate::Identifier for $t {})+
+    };
 }
 
 /// Marker subtrait of [`Identifier`] to distinguish routine identifiers from data identifiers.
@@ -279,7 +294,7 @@ mod tests {
     use std::io::Cursor;
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-    #[derive(Clone, Copy, Debug, Eq, Identifier, PartialEq)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     #[repr(u16)]
     pub enum MyIdentifier {
         Identifier1 = 0x0101,
@@ -287,6 +302,7 @@ mod tests {
         Identifier3 = 0x0303,
         UDSIdentifier(UDSIdentifier),
     }
+    impl_identifier!(MyIdentifier);
 
     impl From<u16> for MyIdentifier {
         fn from(value: u16) -> Self {

@@ -11,6 +11,7 @@ use crate::Error;
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum ResetType {
     /// This value is reserved
     #[cfg_attr(feature = "clap", clap(skip))]
