@@ -1,6 +1,6 @@
 //! `CommunicationControl` (0x28) service implementation
 use crate::{
-    CommunicationControlType, CommunicationType, Error, NegativeResponseCode,
+    CommunicationControlType, CommunicationType, Decode, Encode, Error, NegativeResponseCode,
     SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
 };
 use byteorder_embedded_io::BigEndian;
@@ -83,6 +83,59 @@ impl CommunicationControlRequest {
         &COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 }
+impl Encode for CommunicationControlRequest {
+    fn encoded_size(&self) -> usize {
+        if self.node_id.is_some() { 4 } else { 2 }
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.control_type), u8::from(self.communication_type)])
+            .map_err(Error::io)?;
+        if let Some(id) = self.node_id {
+            writer.write_all(&id.to_be_bytes()).map_err(Error::io)?;
+            Ok(4)
+        } else {
+            Ok(2)
+        }
+    }
+}
+
+impl<'a> Decode<'a> for CommunicationControlRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::InsufficientData(2));
+        }
+        let communication_enable = SuppressablePositiveResponse::try_from(buf[0])?;
+        let communication_type = CommunicationType::try_from(buf[1])?;
+        match communication_enable.value() {
+            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
+            | CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => {
+                if buf.len() < 4 {
+                    return Err(Error::InsufficientData(4));
+                }
+                let node_id = Some(u16::from_be_bytes([buf[2], buf[3]]));
+                Ok((
+                    Self {
+                        control_type: communication_enable,
+                        communication_type,
+                        node_id,
+                    },
+                    &buf[4..],
+                ))
+            }
+            _ => Ok((
+                Self {
+                    control_type: communication_enable,
+                    communication_type,
+                    node_id: None,
+                },
+                &buf[2..],
+            )),
+        }
+    }
+}
+
 impl WireFormat for CommunicationControlRequest {
     fn required_size(&self) -> usize {
         if self.node_id.is_some() { 4 } else { 2 }
@@ -140,6 +193,29 @@ impl CommunicationControlResponse {
     }
 }
 
+impl Encode for CommunicationControlResponse {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.control_type)])
+            .map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for CommunicationControlResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let control_type = CommunicationControlType::try_from(buf[0])?;
+        Ok((Self::new(control_type), &buf[1..]))
+    }
+}
+
 impl WireFormat for CommunicationControlResponse {
     fn required_size(&self) -> usize {
         1
@@ -165,7 +241,7 @@ mod request {
     #[test]
     fn simple_request() {
         let bytes: [u8; 3] = [0x01, 0x02, 0x03];
-        let req = CommunicationControlRequest::decode(&mut bytes.as_slice()).unwrap();
+        let req = <CommunicationControlRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndDisableTx
@@ -174,7 +250,7 @@ mod request {
         assert_eq!(req.node_id, None);
 
         let mut buffer = Vec::new();
-        let written = req.encode(&mut buffer).unwrap();
+        let written = WireFormat::encode(&req, &mut buffer).unwrap();
         assert_eq!(written, req.required_size());
         assert_eq!(buffer.len(), req.required_size());
     }
@@ -182,7 +258,7 @@ mod request {
     #[test]
     fn node_id() {
         let bytes: [u8; 4] = [0x05, 0x02, 0x01, 0x02];
-        let req = CommunicationControlRequest::decode(&mut bytes.as_slice()).unwrap();
+        let req = <CommunicationControlRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
@@ -191,7 +267,7 @@ mod request {
         assert_eq!(req.node_id, Some(258));
 
         let mut buffer = Vec::new();
-        let written = req.encode(&mut buffer).unwrap();
+        let written = WireFormat::encode(&req, &mut buffer).unwrap();
         assert_eq!(written, req.required_size());
         assert_eq!(buffer.len(), req.required_size());
     }
@@ -227,14 +303,14 @@ mod response {
     #[test]
     fn simple_response() {
         let bytes: [u8; 1] = [0x01];
-        let res = CommunicationControlResponse::decode(&mut bytes.as_slice()).unwrap();
+        let res = <CommunicationControlResponse as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(
             res.control_type,
             CommunicationControlType::EnableRxAndDisableTx
         );
 
         let mut buffer = Vec::new();
-        let written = res.encode(&mut buffer).unwrap();
+        let written = WireFormat::encode(&res, &mut buffer).unwrap();
         assert_eq!(written, 1);
         assert_eq!(buffer.len(), written);
     }

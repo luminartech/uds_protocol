@@ -1,7 +1,7 @@
 use bitmask_enum::bitmask;
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
-use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
+use crate::{Decode, DecodeIter, Encode, Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
 
 /// Bit-packed DTC status information used by the `ReadDTCInformation` service
 ///
@@ -269,6 +269,44 @@ impl IterableWireFormat for DTCRecord {
     }
 }
 
+impl Encode for DTCRecord {
+    fn encoded_size(&self) -> usize {
+        3
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
+        writer
+            .write_all(&[self.high_byte, self.middle_byte, self.low_byte])
+            .map_err(Error::io)?;
+        Ok(3)
+    }
+}
+
+impl<'a> Decode<'a> for DTCRecord {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
+        if buf.len() < 3 {
+            return Err(Error::InsufficientData(3));
+        }
+        Ok((
+            Self {
+                high_byte: buf[0],
+                middle_byte: buf[1],
+                low_byte: buf[2],
+            },
+            &buf[3..],
+        ))
+    }
+}
+
+impl<'a> DecodeIter<'a> for DTCRecord {
+    fn decode_next(buf: &'a [u8]) -> Result<Option<(Self, &'a [u8])>, crate::Error> {
+        if buf.is_empty() {
+            return Ok(None);
+        }
+        Decode::decode(buf).map(Some)
+    }
+}
+
 /// Used to distinguish commands sent by the test equipment between different functional system groups
 /// within an electrical architecture which consists of many different servers.
 ///
@@ -470,8 +508,8 @@ impl WireFormat for DTCSeverityRecord {
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         writer.write_u8(self.severity.bits())?;
         writer.write_u8(self.functional_group_identifier.value())?;
-        self.dtc_record.encode(writer)?;
-        self.dtc_status_mask.encode(writer)?;
+        WireFormat::encode(&self.dtc_record, writer)?;
+        WireFormat::encode(&self.dtc_status_mask, writer)?;
         Ok(self.required_size())
     }
 }
@@ -484,7 +522,7 @@ impl IterableWireFormat for DTCSeverityRecord {
 
         let severity = DTCSeverityMask::from(sev);
         let functional_group_identifier = FunctionalGroupIdentifier::from(reader.read_u8()?);
-        let dtc_record = DTCRecord::decode(reader)?;
+        let dtc_record = <DTCRecord as SingleValueWireFormat>::decode(reader)?;
         let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
 
         Ok(Some(Self {
@@ -528,7 +566,7 @@ mod dtc_status_tests {
     fn dtc_record() {
         let record = DTCRecord::new(0x01, 0x02, 0x03);
         let mut writer = Vec::new();
-        let written_number = record.encode(&mut writer).unwrap();
+        let written_number = WireFormat::encode(&record, &mut writer).unwrap();
         assert_eq!(record.required_size(), 3);
         assert_eq!(written_number, 3);
     }

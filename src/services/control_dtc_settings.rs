@@ -1,5 +1,5 @@
 //! `ControlDTCSetting` (0x85) service implementation
-use crate::{DtcSettings, Error, SUCCESS, SingleValueWireFormat, WireFormat};
+use crate::{Decode, DtcSettings, Encode, Error, SUCCESS, SingleValueWireFormat, WireFormat};
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 /// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
@@ -20,6 +20,41 @@ impl ControlDTCSettingsRequest {
             setting,
             suppress_response,
         }
+    }
+}
+
+impl Encode for ControlDTCSettingsRequest {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let request_byte =
+            u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
+        writer.write_all(&[request_byte]).map_err(Error::io)?;
+        Ok(1)
+    }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        self.suppress_response
+    }
+}
+
+impl<'a> Decode<'a> for ControlDTCSettingsRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let request_byte = buf[0];
+        let setting = DtcSettings::try_from(request_byte & !SUCCESS)?;
+        let suppress_response = request_byte & SUCCESS != 0;
+        Ok((
+            Self {
+                setting,
+                suppress_response,
+            },
+            &buf[1..],
+        ))
     }
 }
 
@@ -70,6 +105,29 @@ impl ControlDTCSettingsResponse {
     }
 }
 
+impl Encode for ControlDTCSettingsResponse {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.setting)])
+            .map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for ControlDTCSettingsResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let setting = DtcSettings::try_from(buf[0])?;
+        Ok((Self { setting }, &buf[1..]))
+    }
+}
+
 impl WireFormat for ControlDTCSettingsResponse {
     fn required_size(&self) -> usize {
         1
@@ -97,12 +155,12 @@ mod request {
     fn simple_request() {
         let req = ControlDTCSettingsRequest::new(DtcSettings::On, true);
         let mut buffer = Vec::new();
-        let written = req.encode(&mut buffer).unwrap();
+        let written = WireFormat::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
 
-        let parsed = ControlDTCSettingsRequest::decode(&mut buffer.as_slice()).unwrap();
+        let parsed = <ControlDTCSettingsRequest as SingleValueWireFormat>::decode(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
         assert!(parsed.suppress_response);
     }
@@ -117,12 +175,12 @@ mod response {
     fn simple_response() {
         let req = ControlDTCSettingsResponse::new(DtcSettings::On);
         let mut buffer = Vec::new();
-        let written = req.encode(&mut buffer).unwrap();
+        let written = WireFormat::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x01]);
         assert_eq!(written, buffer.len());
         assert_eq!(req.required_size(), buffer.len());
 
-        let parsed = ControlDTCSettingsResponse::decode(&mut buffer.as_slice()).unwrap();
+        let parsed = <ControlDTCSettingsResponse as SingleValueWireFormat>::decode(&mut buffer.as_slice()).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
     }
 }

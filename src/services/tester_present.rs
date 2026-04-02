@@ -1,6 +1,7 @@
 //! `TesterPresent` (0x3E) service implementation
 use crate::{
-    Error, NegativeResponseCode, SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
+    Decode, Encode, Error, NegativeResponseCode, SingleValueWireFormat,
+    SuppressablePositiveResponse, WireFormat,
 };
 
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
@@ -100,6 +101,33 @@ impl TesterPresentRequest {
     }
 }
 
+impl Encode for TesterPresentRequest {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.zero_sub_function)])
+            .map_err(Error::io)?;
+        Ok(1)
+    }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        self.suppress_positive_response()
+    }
+}
+
+impl<'a> Decode<'a> for TesterPresentRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let zero_sub_function = SuppressablePositiveResponse::try_from(buf[0])?;
+        Ok((Self { zero_sub_function }, &buf[1..]))
+    }
+}
+
 impl WireFormat for TesterPresentRequest {
     fn required_size(&self) -> usize {
         1
@@ -137,6 +165,29 @@ impl TesterPresentResponse {
         Self {
             zero_sub_function: ZeroSubFunction::new(),
         }
+    }
+}
+
+impl Encode for TesterPresentResponse {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.zero_sub_function)])
+            .map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for TesterPresentResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let zero_sub_function = ZeroSubFunction::try_from(buf[0])?;
+        Ok((Self { zero_sub_function }, &buf[1..]))
     }
 }
 
@@ -195,7 +246,7 @@ mod test {
 
     fn make_request(byte: u8) -> Result<TesterPresentRequest, Error> {
         let bytes = vec![byte];
-        TesterPresentRequest::decode(&mut bytes.as_slice())
+        <TesterPresentRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice())
     }
 
     #[test]
@@ -235,7 +286,7 @@ mod test {
     fn write_request_type() {
         let test_type = TesterPresentRequest::new(false);
         let mut buffer = Vec::new();
-        test_type.encode(&mut buffer).unwrap();
+        WireFormat::encode(&test_type, &mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
@@ -244,7 +295,7 @@ mod test {
     #[test]
     fn read_response_type() {
         let bytes = vec![0u8];
-        let test_type = TesterPresentResponse::decode(&mut bytes.as_slice()).unwrap();
+        let test_type = <TesterPresentResponse as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());
     }
 
@@ -252,7 +303,7 @@ mod test {
     fn write_response_type() {
         let test_type = TesterPresentResponse::new();
         let mut buffer = Vec::new();
-        test_type.encode(&mut buffer).unwrap();
+        WireFormat::encode(&test_type, &mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);

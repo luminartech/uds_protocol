@@ -2,7 +2,7 @@
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 use crate::{
-    DataFormatIdentifier, Error, LengthFormatIdentifier, MemoryFormatIdentifier,
+    DataFormatIdentifier, Decode, Encode, Error, LengthFormatIdentifier, MemoryFormatIdentifier,
     NegativeResponseCode, SingleValueWireFormat, WireFormat,
 };
 
@@ -87,6 +87,71 @@ impl RequestDownloadRequest {
         &REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES
     }
 }
+impl Encode for RequestDownloadRequest {
+    fn encoded_size(&self) -> usize {
+        2 + self.address_and_length_format_identifier.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[
+                self.data_format_identifier.into(),
+                self.address_and_length_format_identifier.into(),
+            ])
+            .map_err(Error::io)?;
+
+        // Write shortened memory address using a stack buffer instead of Vec
+        let addr_bytes = self.memory_address.to_be_bytes();
+        let addr_len = self.address_and_length_format_identifier.memory_address_length as usize;
+        writer
+            .write_all(&addr_bytes[8 - addr_len..])
+            .map_err(Error::io)?;
+
+        // Write shortened memory size using a stack buffer instead of Vec
+        let size_bytes = self.memory_size.to_be_bytes();
+        let size_len = self.address_and_length_format_identifier.memory_size_length as usize;
+        writer
+            .write_all(&size_bytes[4 - size_len..])
+            .map_err(Error::io)?;
+
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for RequestDownloadRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::InsufficientData(2));
+        }
+        let data_format_identifier = DataFormatIdentifier::from(buf[0]);
+        let memory_identifier = MemoryFormatIdentifier::try_from(buf[1])?;
+        let addr_len = memory_identifier.memory_address_length as usize;
+        let size_len = memory_identifier.memory_size_length as usize;
+        let total = 2 + addr_len + size_len;
+        if buf.len() < total {
+            return Err(Error::InsufficientData(total));
+        }
+
+        let mut addr_bytes = [0u8; 8];
+        addr_bytes[8 - addr_len..].copy_from_slice(&buf[2..2 + addr_len]);
+        let memory_address = u64::from_be_bytes(addr_bytes);
+
+        let mut size_bytes = [0u8; 4];
+        size_bytes[4 - size_len..].copy_from_slice(&buf[2 + addr_len..total]);
+        let memory_size = u32::from_be_bytes(size_bytes);
+
+        Ok((
+            Self {
+                data_format_identifier,
+                address_and_length_format_identifier: memory_identifier,
+                memory_address,
+                memory_size,
+            },
+            &buf[total..],
+        ))
+    }
+}
+
 impl WireFormat for RequestDownloadRequest {
     fn required_size(&self) -> usize {
         2 + self.address_and_length_format_identifier.len()
@@ -192,7 +257,7 @@ mod tests {
             0xF0, 0xFF, 0xFF, 0x67, // memory address
             0x0A,
         ];
-        let req = RequestDownloadRequest::decode(&mut bytes.as_slice()).unwrap();
+        let req = <RequestDownloadRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
 
         assert_eq!(u8::from(req.data_format_identifier), 0);
         assert_eq!(u8::from(req.address_and_length_format_identifier), 0x14);
@@ -223,7 +288,7 @@ mod tests {
             0x11, // 1 byte for memory size, 1 byte for memory address
             0x67,
         ];
-        let req = RequestDownloadRequest::decode(&mut bytes.as_slice());
+        let req = <RequestDownloadRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice());
         assert!(matches!(req, Err(Error::IoError(_))));
     }
 
@@ -249,7 +314,7 @@ mod tests {
         let req = RequestDownloadRequest::new(0x00.into(), 0xF0_FF_FF_67, 0x0A).unwrap();
 
         let mut vec = vec![];
-        req.encode(&mut vec).unwrap();
+        WireFormat::encode(&req, &mut vec).unwrap();
 
         assert_eq!(vec.len(), req.required_size());
     }

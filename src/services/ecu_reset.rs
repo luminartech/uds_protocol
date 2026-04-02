@@ -1,7 +1,7 @@
 //! `ECUReset` (0x11) service implementation
 use crate::{
-    Error, NegativeResponseCode, ResetType, SingleValueWireFormat, SuppressablePositiveResponse,
-    WireFormat,
+    Decode, Encode, Error, NegativeResponseCode, ResetType, SingleValueWireFormat,
+    SuppressablePositiveResponse, WireFormat,
 };
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -45,6 +45,33 @@ impl EcuResetRequest {
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &ECU_RESET_NEGATIVE_RESPONSE_CODES
+    }
+}
+
+impl Encode for EcuResetRequest {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.reset_type)])
+            .map_err(Error::io)?;
+        Ok(1)
+    }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        self.suppress_positive_response()
+    }
+}
+
+impl<'a> Decode<'a> for EcuResetRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let reset_type = SuppressablePositiveResponse::try_from(buf[0])?;
+        Ok((Self { reset_type }, &buf[1..]))
     }
 }
 
@@ -92,6 +119,38 @@ impl EcuResetResponse {
     }
 }
 
+impl Encode for EcuResetResponse {
+    fn encoded_size(&self) -> usize {
+        2
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.reset_type), self.power_down_time])
+            .map_err(Error::io)?;
+        Ok(2)
+    }
+}
+
+impl<'a> Decode<'a> for EcuResetResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let reset_type = ResetType::try_from(buf[0])?;
+        // powerDownTime is conditional per ISO 14229-1
+        let power_down_time = buf.get(1).copied().unwrap_or(0);
+        let consumed = core::cmp::min(buf.len(), 2);
+        Ok((
+            Self {
+                reset_type,
+                power_down_time,
+            },
+            &buf[consumed..],
+        ))
+    }
+}
+
 impl WireFormat for EcuResetResponse {
     fn required_size(&self) -> usize {
         2
@@ -126,8 +185,8 @@ mod request {
         let bytes: [u8; 2] = [0x81, 0x00];
         let req = EcuResetRequest::new(true, ResetType::HardReset);
         let mut buffer = Vec::new();
-        let written = req.encode(&mut buffer).unwrap();
-        let result = EcuResetRequest::decode(&mut bytes.as_slice()).unwrap();
+        let written = WireFormat::encode(&req, &mut buffer).unwrap();
+        let result = <EcuResetRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(result, req);
 
         assert_eq!(written, 1);
@@ -144,8 +203,8 @@ mod response {
         let bytes: [u8; 2] = [0x01, 0x20];
         let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
         let mut buffer = Vec::new();
-        let written = resp.encode(&mut buffer).unwrap();
-        let result = EcuResetResponse::decode(&mut bytes.as_slice()).unwrap();
+        let written = WireFormat::encode(&resp, &mut buffer).unwrap();
+        let result = <EcuResetResponse as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(result, resp);
 
         assert_eq!(written, 2);

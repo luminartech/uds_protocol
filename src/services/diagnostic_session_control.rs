@@ -10,7 +10,7 @@
 //! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
 
 use crate::{
-    DiagnosticSessionType, Error, NegativeResponseCode, SingleValueWireFormat,
+    Decode, DiagnosticSessionType, Encode, Error, NegativeResponseCode, SingleValueWireFormat,
     SuppressablePositiveResponse, WireFormat,
 };
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
@@ -61,6 +61,33 @@ impl DiagnosticSessionControlRequest {
         &DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 }
+impl Encode for DiagnosticSessionControlRequest {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.session_type)])
+            .map_err(Error::io)?;
+        Ok(1)
+    }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        self.suppress_positive_response()
+    }
+}
+
+impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let session_type = SuppressablePositiveResponse::try_from(buf[0])?;
+        Ok((Self { session_type }, &buf[1..]))
+    }
+}
+
 impl WireFormat for DiagnosticSessionControlRequest {
     fn required_size(&self) -> usize {
         1
@@ -111,6 +138,44 @@ impl DiagnosticSessionControlResponse {
         }
     }
 }
+impl Encode for DiagnosticSessionControlResponse {
+    fn encoded_size(&self) -> usize {
+        5
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.session_type)])
+            .map_err(Error::io)?;
+        writer
+            .write_all(&self.p2_server_max.to_be_bytes())
+            .map_err(Error::io)?;
+        writer
+            .write_all(&self.p2_star_server_max.to_be_bytes())
+            .map_err(Error::io)?;
+        Ok(5)
+    }
+}
+
+impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 5 {
+            return Err(Error::InsufficientData(5));
+        }
+        let session_type = DiagnosticSessionType::try_from(buf[0])?;
+        let p2_server_max = u16::from_be_bytes([buf[1], buf[2]]);
+        let p2_star_server_max = u16::from_be_bytes([buf[3], buf[4]]);
+        Ok((
+            Self {
+                session_type,
+                p2_server_max,
+                p2_star_server_max,
+            },
+            &buf[5..],
+        ))
+    }
+}
+
 impl WireFormat for DiagnosticSessionControlResponse {
     fn required_size(&self) -> usize {
         5
@@ -148,7 +213,7 @@ mod request {
     fn test_diagnostic_session_control_request() {
         let bytes: [u8; 1] = [0x02];
         let req: DiagnosticSessionControlRequest =
-            DiagnosticSessionControlRequest::decode(&mut bytes.as_slice()).unwrap();
+            <DiagnosticSessionControlRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
         assert!(!req.suppress_positive_response());
         assert_eq!(
             req.session_type(),
@@ -156,7 +221,7 @@ mod request {
         );
 
         let mut buffer = Vec::new();
-        req.encode(&mut buffer).unwrap();
+        WireFormat::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(req.required_size(), 1);
     }
@@ -187,13 +252,13 @@ mod response {
     fn test_diagnostic_session_control_response() {
         let bytes = [0x02, 0x11, 0x22, 0x33, 0x44];
         let resp: DiagnosticSessionControlResponse =
-            DiagnosticSessionControlResponse::decode(&mut bytes.as_slice()).unwrap();
+            <DiagnosticSessionControlResponse as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
         assert_eq!(resp.session_type, DiagnosticSessionType::ProgrammingSession);
         assert_eq!(resp.p2_server_max, 0x1122);
         assert_eq!(resp.p2_star_server_max, 0x3344);
 
         let mut buffer = Vec::new();
-        resp.encode(&mut buffer).unwrap();
+        WireFormat::encode(&resp, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(resp.required_size(), 5);
     }

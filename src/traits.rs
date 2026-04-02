@@ -200,7 +200,7 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     /// - if the stream is not in the expected format
     /// - if the stream contains partial data
     fn parse_from_payload<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-        Self::decode_next(reader)
+        <Self as IterableWireFormat>::decode_next(reader)
     }
 }
 
@@ -221,6 +221,56 @@ macro_rules! impl_identifier {
 
 /// Marker subtrait of [`Identifier`] to distinguish routine identifiers from data identifiers.
 pub trait RoutineIdentifier: Identifier {}
+
+/// Blanket implementation of [`Encode`] for types that implement [`Identifier`]
+impl<T> Encode for T
+where
+    T: Identifier,
+{
+    fn encoded_size(&self) -> usize {
+        2
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&<u16 as Into<u16>>::into((*self).into()).to_be_bytes())
+            .map_err(Error::io)?;
+        Ok(2)
+    }
+}
+
+/// Blanket implementation of [`Decode`] for types that implement [`Identifier`]
+impl<'a, T> Decode<'a> for T
+where
+    T: Identifier,
+{
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+        }
+        let raw = u16::from_be_bytes([buf[0], buf[1]]);
+        match Self::try_from(raw) {
+            Ok(identifier) => Ok((identifier, &buf[2..])),
+            Err(_) => Err(Error::InvalidDiagnosticIdentifier(raw)),
+        }
+    }
+}
+
+/// Blanket implementation of [`DecodeIter`] for types that implement [`Identifier`]
+impl<'a, T> DecodeIter<'a> for T
+where
+    T: Identifier,
+{
+    fn decode_next(buf: &'a [u8]) -> Result<Option<(Self, &'a [u8])>, Error> {
+        if buf.is_empty() {
+            return Ok(None);
+        }
+        if buf.len() < 2 {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+        }
+        Decode::decode(buf).map(Some)
+    }
+}
 
 /// Blanket implementation of [`WireFormat`] for types that implement [`Identifier`]
 impl<T> WireFormat for T
@@ -388,7 +438,7 @@ mod tests {
     fn test_identifier() {
         let mut buffer = Cursor::new(vec![0u8; 2]);
         let identifier = MyIdentifier::Identifier1;
-        identifier.encode(&mut buffer).unwrap();
+        WireFormat::encode(&identifier, &mut buffer).unwrap();
         buffer.set_position(0);
         let read_identifier = MyIdentifier::parse_from_list(&mut buffer).unwrap();
         assert_eq!(identifier, read_identifier[0]);

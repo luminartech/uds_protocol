@@ -72,6 +72,15 @@ pub enum Error {
     ServiceNotImplemented(crate::UdsServiceType),
 }
 
+impl Error {
+    /// Convert any `embedded_io::Error` into [`Error::IoError`].
+    #[inline]
+    #[allow(clippy::needless_pass_by_value)]
+    pub(crate) fn io<E: embedded_io::Error>(e: E) -> Self {
+        Self::IoError(e.kind())
+    }
+}
+
 impl From<embedded_io::ErrorKind> for Error {
     fn from(kind: embedded_io::ErrorKind) -> Self {
         Self::IoError(kind)

@@ -1,5 +1,8 @@
 //! `ClearDiagnosticInformation` (0x14) service implementation
-use crate::{CLEAR_ALL_DTCS, DTCRecord, NegativeResponseCode, SingleValueWireFormat, WireFormat};
+use crate::{
+    CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, NegativeResponseCode, SingleValueWireFormat,
+    WireFormat,
+};
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 /// Negative response codes
@@ -48,6 +51,37 @@ impl ClearDiagnosticInfoRequest {
     }
 }
 
+impl Encode for ClearDiagnosticInfoRequest {
+    fn encoded_size(&self) -> usize {
+        4 // DTCRecord (3) + memory_selection (1)
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
+        let size = Encode::encode(&self.group_of_dtc, writer)?;
+        writer
+            .write_all(&[self.memory_selection])
+            .map_err(crate::Error::io)?;
+        Ok(size + 1)
+    }
+}
+
+impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
+        let (group_of_dtc, buf) = <DTCRecord as Decode>::decode(buf)?;
+        if buf.is_empty() {
+            return Err(crate::Error::InsufficientData(4));
+        }
+        let memory_selection = buf[0];
+        Ok((
+            Self {
+                group_of_dtc,
+                memory_selection,
+            },
+            &buf[1..],
+        ))
+    }
+}
+
 impl WireFormat for ClearDiagnosticInfoRequest {
     fn required_size(&self) -> usize {
         self.group_of_dtc.required_size() + 1
@@ -55,7 +89,7 @@ impl WireFormat for ClearDiagnosticInfoRequest {
 
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
         let mut size = 0;
-        size += self.group_of_dtc.encode(writer)?;
+        size += WireFormat::encode(&self.group_of_dtc, writer)?;
         writer.write_u8(self.memory_selection)?;
         size += 1;
         Ok(size)
@@ -64,7 +98,7 @@ impl WireFormat for ClearDiagnosticInfoRequest {
 
 impl SingleValueWireFormat for ClearDiagnosticInfoRequest {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
-        let group_of_dtc = DTCRecord::decode(reader)?;
+        let group_of_dtc = <DTCRecord as SingleValueWireFormat>::decode(reader)?;
         let memory_selection = reader.read_u8()?;
 
         Ok(Self {
@@ -83,11 +117,11 @@ mod request {
     fn decode_clear_dtc_info_request() {
         let bytes = [0xFF, 0xFF, 0xFF, 0x00];
         let compare = ClearDiagnosticInfoRequest::new(CLEAR_ALL_DTCS, 0);
-        let req = ClearDiagnosticInfoRequest::decode(&mut &bytes[..]).unwrap();
+        let req = <ClearDiagnosticInfoRequest as SingleValueWireFormat>::decode(&mut &bytes[..]).unwrap();
         assert_eq!(req, compare);
 
         let mut bytes = vec![];
-        let written = req.encode(&mut bytes).unwrap();
+        let written = WireFormat::encode(&req, &mut bytes).unwrap();
         assert_eq!(bytes, [0xFF, 0xFF, 0xFF, 0x00]);
         assert_eq!(req.required_size(), written);
     }
