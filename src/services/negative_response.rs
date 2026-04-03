@@ -17,7 +17,8 @@ pub struct NegativeResponse {
 
 impl NegativeResponse {
     /// Create a new `NegativeResponse`
-    pub(crate) fn new(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
+    #[must_use] 
+    pub fn new(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
         Self {
             request_service,
             nrc,

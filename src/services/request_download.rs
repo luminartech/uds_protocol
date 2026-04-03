@@ -40,7 +40,12 @@ pub struct RequestDownloadRequest {
 }
 
 impl RequestDownloadRequest {
-    pub(crate) fn new(
+    /// Create a new `RequestDownloadRequest`
+    ///
+    /// # Errors
+    /// Returns an error if `memory_address` exceeds 5 bytes (> `0xFF_FFFF_FFFF`).
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn new(
         data_format_identifier: DataFormatIdentifier,
         memory_address: u64,
         memory_size: u32,
@@ -48,36 +53,20 @@ impl RequestDownloadRequest {
         if memory_address > 0xFF_FFFF_FFFF {
             return Err(Error::InvalidMemoryAddress(memory_address));
         }
-        let address_and_length_format_identifier =
-            MemoryFormatIdentifier::from_values(memory_size, memory_address);
+        let memory_address_length =
+            (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
+        let memory_size_length =
+            (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
+        let address_and_length_format_identifier = MemoryFormatIdentifier {
+            memory_size_length,
+            memory_address_length,
+        };
         Ok(Self {
             data_format_identifier,
             address_and_length_format_identifier,
             memory_address,
             memory_size,
         })
-    }
-
-    fn get_shortened_memory_address(&self) -> Vec<u8> {
-        self.memory_address
-            .to_be_bytes()
-            .iter()
-            .skip(
-                8 - self
-                    .address_and_length_format_identifier
-                    .memory_address_length as usize,
-            )
-            .copied()
-            .collect()
-    }
-
-    fn get_shortened_memory_size(&self) -> Vec<u8> {
-        self.memory_size
-            .to_be_bytes()
-            .iter()
-            .skip(4 - self.address_and_length_format_identifier.memory_size_length as usize)
-            .copied()
-            .collect()
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
@@ -166,7 +155,9 @@ pub struct RequestDownloadResponse {
 }
 
 impl RequestDownloadResponse {
-    pub(crate) fn new(length_format_identifier: u8, max_number_of_block_length: Vec<u8>) -> Self {
+    /// Create a new `RequestDownloadResponse`.
+    #[must_use]
+    pub fn new(length_format_identifier: u8, max_number_of_block_length: Vec<u8>) -> Self {
         Self {
             length_format_identifier: LengthFormatIdentifier::from(length_format_identifier),
             max_number_of_block_length,
@@ -263,12 +254,6 @@ mod tests {
 
         assert_eq!(req.memory_address, 0xF0FF_FF67);
         assert_eq!(req.memory_size, 0x0A);
-
-        assert_eq!(
-            req.get_shortened_memory_address(),
-            vec![0xF0, 0xFF, 0xFF, 0x67]
-        );
-        assert_eq!(req.get_shortened_memory_size(), vec![0x0A]);
     }
 
     #[test]

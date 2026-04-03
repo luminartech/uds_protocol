@@ -23,7 +23,7 @@ pub struct ReadDataByIdentifierRequest<DataIdentifier> {
 
 impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
     /// Create a new request from a sequence of data identifiers
-    pub(crate) fn new<I>(dids: I) -> Self
+    pub fn new<I>(dids: I) -> Self
     where
         I: IntoIterator<Item = DataIdentifier>,
     {
@@ -62,7 +62,8 @@ pub struct ReadDataByIdentifierResponse<UserPayload> {
 }
 
 impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
-    pub(crate) fn new<I>(data: I) -> Self
+    /// Create a new response from an iterator of payloads.
+    pub fn new<I>(data: I) -> Self
     where
         I: IntoIterator<Item = UserPayload>,
     {

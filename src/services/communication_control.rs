@@ -30,7 +30,12 @@ pub struct CommunicationControlRequest {
 }
 
 impl CommunicationControlRequest {
-    pub(crate) fn new(
+    /// Create a `CommunicationControlRequest` with standard address information.
+    ///
+    /// # Panics
+    /// Panics (debug) if an extended-address control type is passed.
+    #[must_use]
+    pub fn new(
         suppress_positive_response: bool,
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
@@ -46,7 +51,12 @@ impl CommunicationControlRequest {
         }
     }
 
-    pub(crate) fn new_with_node_id(
+    /// Create a `CommunicationControlRequest` with enhanced address information.
+    ///
+    /// # Panics
+    /// Panics if a non-extended control type is passed.
+    #[must_use]
+    pub fn new_with_node_id(
         suppress_positive_response: bool,
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
@@ -145,7 +155,9 @@ pub struct CommunicationControlResponse {
 }
 
 impl CommunicationControlResponse {
-    pub(crate) fn new(control_type: CommunicationControlType) -> Self {
+    /// Create a new `CommunicationControlResponse`.
+    #[must_use]
+    pub fn new(control_type: CommunicationControlType) -> Self {
         Self { control_type }
     }
 }

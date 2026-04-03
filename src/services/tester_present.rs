@@ -24,13 +24,6 @@ enum ZeroSubFunction {
     ISOSAEReserved(u8),
 }
 
-impl ZeroSubFunction {
-    #[inline]
-    fn new() -> Self {
-        Self::default()
-    }
-}
-
 impl Default for ZeroSubFunction {
     #[inline]
     fn default() -> Self {
@@ -69,8 +62,9 @@ pub struct TesterPresentRequest {
 
 impl TesterPresentRequest {
     /// Create a new `TesterPresentRequest`
-    pub(crate) fn new(suppress_positive_response: bool) -> Self {
-        Self::with_subfunction(suppress_positive_response, ZeroSubFunction::new())
+    #[must_use]
+    pub fn new(suppress_positive_response: bool) -> Self {
+        Self::with_subfunction(suppress_positive_response, ZeroSubFunction::default())
     }
 
     fn with_subfunction(
@@ -136,10 +130,17 @@ pub struct TesterPresentResponse {
 
 impl TesterPresentResponse {
     /// Create a new `TesterPresentResponse`
-    pub(crate) fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
-            zero_sub_function: ZeroSubFunction::new(),
+            zero_sub_function: ZeroSubFunction::default(),
         }
+    }
+}
+
+impl Default for TesterPresentResponse {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

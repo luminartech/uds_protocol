@@ -29,7 +29,8 @@ pub struct DiagnosticSessionControlRequest {
 
 impl DiagnosticSessionControlRequest {
     /// Create a new `DiagnosticSessionControlRequest`
-    pub(crate) fn new(
+    #[must_use] 
+    pub fn new(
         suppress_positive_response: bool,
         session_type: DiagnosticSessionType,
     ) -> Self {
@@ -102,7 +103,8 @@ pub struct DiagnosticSessionControlResponse {
 
 impl DiagnosticSessionControlResponse {
     /// Create a new `DiagnosticSessionControlResponse`
-    pub(crate) fn new(
+    #[must_use] 
+    pub fn new(
         session_type: DiagnosticSessionType,
         p2_server_max: u16,
         p2_star_server_max: u16,

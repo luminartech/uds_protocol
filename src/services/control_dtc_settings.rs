@@ -14,7 +14,9 @@ pub struct ControlDTCSettingsRequest {
 }
 
 impl ControlDTCSettingsRequest {
-    pub(crate) fn new(setting: DtcSettings, suppress_response: bool) -> Self {
+    /// Create a new `ControlDTCSettingsRequest`.
+    #[must_use]
+    pub fn new(setting: DtcSettings, suppress_response: bool) -> Self {
         Self {
             setting,
             suppress_response,
@@ -70,7 +72,9 @@ pub struct ControlDTCSettingsResponse {
 }
 
 impl ControlDTCSettingsResponse {
-    pub(crate) fn new(setting: DtcSettings) -> Self {
+    /// Create a new `ControlDTCSettingsResponse`.
+    #[must_use]
+    pub fn new(setting: DtcSettings) -> Self {
         Self { setting }
     }
 }

@@ -1,13 +1,5 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
-use crate::{Encode, Error, Identifier, NegativeResponseCode};
-
-const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
-    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
-    NegativeResponseCode::ConditionsNotCorrect,
-    NegativeResponseCode::RequestOutOfRange,
-    NegativeResponseCode::SecurityAccessDenied,
-    NegativeResponseCode::GeneralProgrammingFailure,
-];
+use crate::{Encode, Error, Identifier};
 
 /// See ISO-14229-1:2020, Section 11.7.2.1
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]

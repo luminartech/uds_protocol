@@ -22,7 +22,9 @@ pub struct ReadDTCInfoRequest {
 }
 
 impl ReadDTCInfoRequest {
-    pub(crate) fn new(dtc_subfunction: ReadDTCInfoSubFunction) -> Self {
+    /// Create a new `ReadDTCInfoRequest`.
+    #[must_use]
+    pub fn new(dtc_subfunction: ReadDTCInfoSubFunction) -> Self {
         Self { dtc_subfunction }
     }
 }
@@ -196,16 +198,10 @@ impl ReadDTCInfoSubFunction {
     }
 }
 
-type NumberOfDTCs = u16;
 /// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
 /// IE if the server doesn't support [`DTCStatusMask::WarningIndicatorRequested`] then the bit for that status will be 'off'
 /// and all other bits will be 'on'
 type DTCStatusAvailabilityMask = DTCStatusMask;
-
-/// Subfunction ID for the response
-type SubFunctionID = u8;
-
-/// Response payloads can be shared among multiple request subfunctions
 
 // ---------------------------------------------------------------------------
 // no_std RX types with lazy iterators

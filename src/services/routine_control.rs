@@ -21,7 +21,8 @@ pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
 }
 
 impl<RI: Identifier, RP: Encode> RoutineControlRequest<RI, RP> {
-    pub(crate) fn new(
+    /// Create a new `RoutineControlRequest`.
+    pub fn new(
         sub_function: RoutineControlSubFunction,
         routine_id: RI,
         data: Option<RP>,
@@ -65,7 +66,8 @@ pub struct RoutineControlResponse<RoutineInfoStatusRecord> {
 }
 
 impl<RSR: Encode> RoutineControlResponse<RSR> {
-    pub(crate) fn new(
+    /// Create a new `RoutineControlResponse`.
+    pub fn new(
         routine_control_type: RoutineControlSubFunction,
         routine_status_record: RSR,
     ) -> Self {
