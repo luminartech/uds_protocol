@@ -332,6 +332,22 @@ where
     }
 }
 
+/// `no_std`-compatible trait for TX-side diagnostic definitions.
+///
+/// Specifies the identifier and payload types used when *constructing* UDS
+/// requests and responses. Associated types implement [`Encode`] rather than
+/// the `std`-dependent [`WireFormat`] / [`SingleValueWireFormat`] traits.
+pub trait DiagnosticDefinitionTx: 'static {
+    /// UDS Data Identifier type.
+    type DID: Identifier + Clone + core::fmt::Debug + PartialEq + 'static;
+    /// Payload type for [`ReadDataByIdentifierRequestTx`](crate::ReadDataByIdentifierRequestTx) etc.
+    type DiagnosticPayload: Encode + Clone + core::fmt::Debug + PartialEq + 'static;
+    /// UDS Routine Identifier type.
+    type RID: RoutineIdentifier + Clone + core::fmt::Debug + PartialEq + 'static;
+    /// Payload type for routine control requests/responses.
+    type RoutinePayload: Encode + Clone + core::fmt::Debug + PartialEq + 'static;
+}
+
 /// A trait that defines the user-defined diagnostic definitions/specifiers for UDS requests and responses.
 ///
 /// Used to specify the types of the identifiers and payloads used in UDS requests and responses.

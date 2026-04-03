@@ -1,11 +1,12 @@
 use crate::{
-    CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse,
+    CommunicationControlResponse, CommunicationControlType, ControlDTCSettingsResponse, Decode,
     DiagnosticDefinition, DiagnosticSessionControlResponse, DiagnosticSessionType, DtcSettings,
     EcuResetResponse, Error, NegativeResponse, NegativeResponseCode, ReadDTCInfoResponse,
-    ReadDataByIdentifierResponse, RequestDownloadResponse, RequestFileTransferResponse, ResetType,
-    RoutineControlResponse, SecurityAccessResponse, SecurityAccessType, SingleValueWireFormat,
-    TesterPresentResponse, TransferDataResponse, UdsServiceType, WireFormat,
-    WriteDataByIdentifierResponse,
+    ReadDTCInfoResponseRx, ReadDataByIdentifierResponse, RequestDownloadResponse,
+    RequestDownloadResponseTx, RequestFileTransferResponse, ResetType, RoutineControlResponse,
+    SecurityAccessResponse, SecurityAccessResponseTx, SecurityAccessType, SingleValueWireFormat,
+    TesterPresentResponse, TransferDataResponse, TransferDataResponseTx, UdsServiceType,
+    WireFormat, WriteDataByIdentifierResponse,
 };
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
@@ -234,40 +235,40 @@ impl<D: DiagnosticDefinition> SingleValueWireFormat for Response<D> {
         let service = UdsServiceType::response_from_byte(reader.read_u8()?);
         Ok(match service {
             UdsServiceType::CommunicationControl => {
-                Self::CommunicationControl(CommunicationControlResponse::decode(reader)?)
+                Self::CommunicationControl(<CommunicationControlResponse as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::ControlDTCSettings => {
-                Self::ControlDTCSettings(ControlDTCSettingsResponse::decode(reader)?)
+                Self::ControlDTCSettings(<ControlDTCSettingsResponse as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::DiagnosticSessionControl => {
-                Self::DiagnosticSessionControl(DiagnosticSessionControlResponse::decode(reader)?)
+                Self::DiagnosticSessionControl(<DiagnosticSessionControlResponse as SingleValueWireFormat>::decode(reader)?)
             }
-            UdsServiceType::EcuReset => Self::EcuReset(EcuResetResponse::decode(reader)?),
+            UdsServiceType::EcuReset => Self::EcuReset(<EcuResetResponse as SingleValueWireFormat>::decode(reader)?),
             UdsServiceType::ReadDataByIdentifier => {
-                Self::ReadDataByIdentifier(ReadDataByIdentifierResponse::decode(reader)?)
+                Self::ReadDataByIdentifier(<ReadDataByIdentifierResponse<D::DiagnosticPayload> as SingleValueWireFormat>::decode(reader)?)
             }
-            UdsServiceType::ReadDTCInfo => Self::ReadDTCInfo(ReadDTCInfoResponse::decode(reader)?),
+            UdsServiceType::ReadDTCInfo => Self::ReadDTCInfo(<ReadDTCInfoResponse<D::DiagnosticPayload> as SingleValueWireFormat>::decode(reader)?),
             UdsServiceType::RequestDownload => {
-                Self::RequestDownload(RequestDownloadResponse::decode(reader)?)
+                Self::RequestDownload(<RequestDownloadResponse as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::RequestFileTransfer => {
-                Self::RequestFileTransfer(RequestFileTransferResponse::decode(reader)?)
+                Self::RequestFileTransfer(<RequestFileTransferResponse as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
-                Self::RoutineControl(RoutineControlResponse::decode(reader)?)
+                Self::RoutineControl(<RoutineControlResponse<D::RoutinePayload> as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(SecurityAccessResponse::decode(reader)?)
+                Self::SecurityAccess(<SecurityAccessResponse as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::TesterPresent => {
-                Self::TesterPresent(TesterPresentResponse::decode(reader)?)
+                Self::TesterPresent(<TesterPresentResponse as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::NegativeResponse => {
-                Self::NegativeResponse(NegativeResponse::decode(reader)?)
+                Self::NegativeResponse(<NegativeResponse as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::WriteDataByIdentifier => {
-                Self::WriteDataByIdentifier(WriteDataByIdentifierResponse::decode(reader)?)
+                Self::WriteDataByIdentifier(<WriteDataByIdentifierResponse<D::DID> as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::Authentication => {
                 return Err(Error::ServiceNotImplemented(UdsServiceType::Authentication));
@@ -329,7 +330,7 @@ impl<D: DiagnosticDefinition> SingleValueWireFormat for Response<D> {
                 return Err(Error::ServiceNotImplemented(UdsServiceType::RequestUpload));
             }
             UdsServiceType::TransferData => {
-                Self::TransferData(TransferDataResponse::decode(reader)?)
+                Self::TransferData(<TransferDataResponse as SingleValueWireFormat>::decode(reader)?)
             }
             UdsServiceType::UnsupportedDiagnosticService => {
                 return Err(Error::ServiceNotImplemented(
@@ -337,5 +338,149 @@ impl<D: DiagnosticDefinition> SingleValueWireFormat for Response<D> {
                 ));
             }
         })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// no_std RX response enum (zero-copy, no DiagnosticDefinition needed)
+// ---------------------------------------------------------------------------
+
+/// Zero-copy RX response. Borrows from the wire buffer.
+///
+/// Unlike [`Response<D>`], this enum does not require a [`DiagnosticDefinition`]
+/// generic parameter — variable-length payloads are stored as raw `&'a [u8]`
+/// slices that can be further parsed on demand.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub enum ResponseRx<'a> {
+    /// Positive response to `ClearDiagnosticInfo`.
+    ClearDiagnosticInfo,
+    /// Positive response to `CommunicationControl`.
+    CommunicationControl(CommunicationControlResponse),
+    /// Positive response to `ControlDTCSettings`.
+    ControlDTCSettings(ControlDTCSettingsResponse),
+    /// Positive response to `DiagnosticSessionControl`.
+    DiagnosticSessionControl(DiagnosticSessionControlResponse),
+    /// Positive response to `EcuReset`.
+    EcuReset(EcuResetResponse),
+    /// Negative response to any request.
+    NegativeResponse(NegativeResponse),
+    /// Positive response to `ReadDataByIdentifier`. Raw payload bytes.
+    ReadDataByIdentifier(&'a [u8]),
+    /// Positive response to `ReadDTCInformation` with lazy iterators.
+    ReadDTCInfo(ReadDTCInfoResponseRx<'a>),
+    /// Positive response to `RequestDownload`.
+    RequestDownload(RequestDownloadResponseTx<'a>),
+    /// Positive response to `RequestTransferExit`.
+    RequestTransferExit,
+    /// Positive response to `RoutineControl`. Raw status record bytes.
+    RoutineControl {
+        /// The routine control sub-function echo.
+        routine_control_type: u8,
+        /// Raw routine status record bytes.
+        raw_status_record: &'a [u8],
+    },
+    /// Positive response to `SecurityAccess`.
+    SecurityAccess(SecurityAccessResponseTx<'a>),
+    /// Positive response to `TesterPresent`.
+    TesterPresent(TesterPresentResponse),
+    /// Positive response to `TransferData`.
+    TransferData(TransferDataResponseTx<'a>),
+    /// Positive response to `WriteDataByIdentifier`. Contains the echoed DID bytes.
+    WriteDataByIdentifier(&'a [u8]),
+}
+
+impl<'a> Decode<'a> for ResponseRx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let service = UdsServiceType::response_from_byte(buf[0]);
+        let payload = &buf[1..];
+
+        let response = match service {
+            UdsServiceType::ClearDiagnosticInfo => Self::ClearDiagnosticInfo,
+            UdsServiceType::CommunicationControl => {
+                let (resp, _) = <CommunicationControlResponse as Decode>::decode(payload)?;
+                Self::CommunicationControl(resp)
+            }
+            UdsServiceType::ControlDTCSettings => {
+                let (resp, _) = <ControlDTCSettingsResponse as Decode>::decode(payload)?;
+                Self::ControlDTCSettings(resp)
+            }
+            UdsServiceType::DiagnosticSessionControl => {
+                let (resp, _) =
+                    <DiagnosticSessionControlResponse as Decode>::decode(payload)?;
+                Self::DiagnosticSessionControl(resp)
+            }
+            UdsServiceType::EcuReset => {
+                let (resp, _) = <EcuResetResponse as Decode>::decode(payload)?;
+                Self::EcuReset(resp)
+            }
+            UdsServiceType::NegativeResponse => {
+                let (resp, _) = <NegativeResponse as Decode>::decode(payload)?;
+                Self::NegativeResponse(resp)
+            }
+            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(payload),
+            UdsServiceType::ReadDTCInfo => {
+                let (resp, _) = <ReadDTCInfoResponseRx as Decode>::decode(payload)?;
+                Self::ReadDTCInfo(resp)
+            }
+            UdsServiceType::RequestDownload => {
+                let (resp, _) = <RequestDownloadResponseTx as Decode>::decode(payload)?;
+                Self::RequestDownload(resp)
+            }
+            UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
+            UdsServiceType::RoutineControl => {
+                if payload.is_empty() {
+                    return Err(Error::InsufficientData(2));
+                }
+                Self::RoutineControl {
+                    routine_control_type: payload[0],
+                    raw_status_record: &payload[1..],
+                }
+            }
+            UdsServiceType::SecurityAccess => {
+                let (resp, _) = <SecurityAccessResponseTx as Decode>::decode(payload)?;
+                Self::SecurityAccess(resp)
+            }
+            UdsServiceType::TesterPresent => {
+                let (resp, _) = <TesterPresentResponse as Decode>::decode(payload)?;
+                Self::TesterPresent(resp)
+            }
+            UdsServiceType::TransferData => {
+                let (resp, _) = <TransferDataResponseTx as Decode>::decode(payload)?;
+                Self::TransferData(resp)
+            }
+            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
+            _ => return Err(Error::ServiceNotImplemented(service)),
+        };
+        Ok((response, &[]))
+    }
+}
+
+/// Zero-copy raw RX response. Borrows from the wire buffer.
+///
+/// Replaces the allocating [`UdsResponse`] for `no_std` use.
+#[derive(Clone, Debug)]
+pub struct UdsResponseRx<'a> {
+    /// The service this response corresponds to.
+    pub service: UdsServiceType,
+    /// The raw payload bytes following the service identifier.
+    pub data: &'a [u8],
+}
+
+impl<'a> Decode<'a> for UdsResponseRx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((
+            Self {
+                service: UdsServiceType::response_from_byte(buf[0]),
+                data: &buf[1..],
+            },
+            &[],
+        ))
     }
 }

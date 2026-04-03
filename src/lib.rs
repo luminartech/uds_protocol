@@ -6,8 +6,8 @@ pub use error::Error;
 
 mod traits;
 pub use traits::{
-    Decode, DecodeIter, DiagnosticDefinition, Encode, Identifier, IterableWireFormat,
-    RoutineIdentifier, SingleValueWireFormat, WireFormat,
+    Decode, DecodeIter, DiagnosticDefinition, DiagnosticDefinitionTx, Encode, Identifier,
+    IterableWireFormat, RoutineIdentifier, SingleValueWireFormat, WireFormat,
 };
 
 mod common;
@@ -20,10 +20,10 @@ pub use protocol_definitions::{
 };
 
 mod request;
-pub use request::Request;
+pub use request::{Request, RequestRx};
 
 mod response;
-pub use response::{Response, UdsResponse};
+pub use response::{Response, ResponseRx, UdsResponse, UdsResponseRx};
 
 mod service;
 pub use service::UdsServiceType;
@@ -50,6 +50,13 @@ impl DiagnosticDefinition for UdsSpec {
     type DID = ProtocolIdentifier;
     type RoutinePayload = ProtocolRoutinePayload;
     type DiagnosticPayload = ProtocolPayload;
+}
+
+impl DiagnosticDefinitionTx for UdsSpec {
+    type RID = UDSRoutineIdentifier;
+    type DID = ProtocolIdentifier;
+    type RoutinePayload = ProtocolRoutinePayloadTx<'static>;
+    type DiagnosticPayload = ProtocolPayloadTx<'static>;
 }
 
 /// Type alias for a UDS Request type that only implements the messages explicitly defined by the UDS specification.
