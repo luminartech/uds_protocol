@@ -62,6 +62,7 @@ pub trait DecodeIter<'a>: Sized {
 ///
 /// This split enforces at compile time the distinction between types that always
 /// decode successfully (given valid data) and types that can signal "no more items."
+#[deprecated(note = "use `Encode` instead for the TX path")]
 pub trait WireFormat: Sized {
     /// Returns the number of bytes required to serialize this value.
     fn required_size(&self) -> usize;
@@ -85,6 +86,7 @@ pub trait WireFormat: Sized {
 ///
 /// This trait enforces at compile time that `decode` cannot return `None`.
 /// The return type is `Result<Self, Error>` rather than `Result<Option<Self>, Error>`.
+#[deprecated(note = "use `Decode` instead for the RX path")]
 pub trait SingleValueWireFormat: WireFormat {
     /// Deserialize a value from a byte stream.
     /// # Errors
@@ -116,6 +118,7 @@ impl<T: IterableWireFormat, R: std::io::Read> Iterator for WireFormatIterator<'_
 ///
 /// `decode_next` returns `Ok(None)` when the stream is exhausted, allowing
 /// iteration over variable-length sequences without prior knowledge of their size.
+#[deprecated(note = "use `DecodeIter` instead for the RX path")]
 pub trait IterableWireFormat: WireFormat {
     /// Attempt to decode the next value from the stream.
     /// Returns `Ok(None)` if the stream is exhausted.

@@ -12,6 +12,7 @@ use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
 
 /// A raw UDS response consisting of the service type and its unparsed payload bytes.
+#[deprecated(note = "use `UdsResponseRx` instead for zero-copy parsing")]
 #[non_exhaustive]
 pub struct UdsResponse {
     /// The service this response corresponds to.
