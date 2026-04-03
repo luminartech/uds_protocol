@@ -1,6 +1,7 @@
 //! `ReadDataByIdentifier` (0x22) service implementation
 use crate::{
-    Error, Identifier, IterableWireFormat, NegativeResponseCode, SingleValueWireFormat, WireFormat,
+    Encode, Error, Identifier, IterableWireFormat, NegativeResponseCode,
+    SingleValueWireFormat, WireFormat,
 };
 
 const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
@@ -46,7 +47,7 @@ impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<Data
     fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
         let mut count = 0;
         for did in &self.dids {
-            did.encode(writer)?;
+            WireFormat::encode(did, writer)?;
             count += 2;
         }
         Ok(count)
@@ -123,6 +124,38 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat
     }
 }
 
+// ---------------------------------------------------------------------------
+// no_std TX type (borrow from caller)
+// ---------------------------------------------------------------------------
+
+/// Zero-alloc TX request to read data by identifier. Borrows DID list from caller.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReadDataByIdentifierRequestTx<'d, DataIdentifier> {
+    /// The list of Data Identifiers to read.
+    pub dids: &'d [DataIdentifier],
+}
+
+impl<'d, DataIdentifier: Identifier> ReadDataByIdentifierRequestTx<'d, DataIdentifier> {
+    /// Create a new request from a slice of data identifiers.
+    #[must_use]
+    pub const fn new(dids: &'d [DataIdentifier]) -> Self {
+        Self { dids }
+    }
+}
+
+impl<DataIdentifier: Identifier> Encode for ReadDataByIdentifierRequestTx<'_, DataIdentifier> {
+    fn encoded_size(&self) -> usize {
+        self.dids.len() * 2
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        for did in self.dids {
+            Encode::encode(did, writer)?;
+        }
+        Ok(self.encoded_size())
+    }
+}
+
 impl<UserPayload: std::fmt::Debug> std::fmt::Debug for ReadDataByIdentifierResponse<UserPayload> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ReadDataByIdentifierResponse\n{:?}", self.data)
@@ -181,7 +214,7 @@ mod test {
             ids.iter()
                 .flat_map(|id: &ProtocolIdentifier| {
                     let mut buffer = Vec::new();
-                    id.encode(&mut buffer).unwrap();
+                    WireFormat::encode(id, &mut buffer).unwrap();
                     buffer
                 })
                 .collect()

@@ -14,7 +14,10 @@ mod common;
 pub use common::*;
 
 mod protocol_definitions;
-pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayload, ProtocolRoutinePayload};
+pub use protocol_definitions::{
+    ProtocolIdentifier, ProtocolPayload, ProtocolPayloadTx, ProtocolRoutinePayload,
+    ProtocolRoutinePayloadTx,
+};
 
 mod request;
 pub use request::Request;

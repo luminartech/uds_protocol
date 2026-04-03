@@ -1,6 +1,6 @@
 //! `SecurityAccess` (0x27) service implementation
 use crate::{
-    Error, NegativeResponseCode, SecurityAccessType, SingleValueWireFormat,
+    Decode, Encode, Error, NegativeResponseCode, SecurityAccessType, SingleValueWireFormat,
     SuppressablePositiveResponse, WireFormat,
 };
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
@@ -163,6 +163,134 @@ impl SingleValueWireFormat for SecurityAccessResponse {
             access_type,
             security_seed,
         })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// no_std TX types (borrow from caller)
+// ---------------------------------------------------------------------------
+
+/// Zero-alloc TX request for security access. Borrows from the caller.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SecurityAccessRequestTx<'d> {
+    access_type: SuppressablePositiveResponse<SecurityAccessType>,
+    request_data: &'d [u8],
+}
+
+impl<'d> SecurityAccessRequestTx<'d> {
+    /// Create a new security access request.
+    #[must_use]
+    pub const fn new(
+        suppress_positive_response: bool,
+        access_type: SecurityAccessType,
+        request_data: &'d [u8],
+    ) -> Self {
+        Self {
+            access_type: SuppressablePositiveResponse::new(suppress_positive_response, access_type),
+            request_data,
+        }
+    }
+
+    /// Getter for whether a positive response should be suppressed
+    #[must_use]
+    pub fn suppress_positive_response(&self) -> bool {
+        self.access_type.suppress_positive_response()
+    }
+
+    /// Getter for the requested [`SecurityAccessType`]
+    #[must_use]
+    pub fn access_type(&self) -> SecurityAccessType {
+        self.access_type.value()
+    }
+
+    /// Getter for the request data
+    #[must_use]
+    pub const fn request_data(&self) -> &[u8] {
+        self.request_data
+    }
+}
+
+impl Encode for SecurityAccessRequestTx<'_> {
+    fn encoded_size(&self) -> usize {
+        1 + self.request_data.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.access_type)])
+            .map_err(Error::io)?;
+        writer.write_all(self.request_data).map_err(Error::io)?;
+        Ok(self.encoded_size())
+    }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        self.suppress_positive_response()
+    }
+}
+
+impl<'a> Decode<'a> for SecurityAccessRequestTx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let access_type = SuppressablePositiveResponse::try_from(buf[0])?;
+        Ok((
+            Self {
+                access_type,
+                request_data: &buf[1..],
+            },
+            &[],
+        ))
+    }
+}
+
+/// Zero-alloc TX response for security access. Borrows from the caller.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SecurityAccessResponseTx<'d> {
+    /// The security access type echoed from the request.
+    pub access_type: SecurityAccessType,
+    /// The security seed bytes (empty for a `SendKey` positive response).
+    pub security_seed: &'d [u8],
+}
+
+impl<'d> SecurityAccessResponseTx<'d> {
+    /// Create a new security access response.
+    #[must_use]
+    pub const fn new(access_type: SecurityAccessType, security_seed: &'d [u8]) -> Self {
+        Self {
+            access_type,
+            security_seed,
+        }
+    }
+}
+
+impl Encode for SecurityAccessResponseTx<'_> {
+    fn encoded_size(&self) -> usize {
+        1 + self.security_seed.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.access_type)])
+            .map_err(Error::io)?;
+        writer.write_all(self.security_seed).map_err(Error::io)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for SecurityAccessResponseTx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let access_type = SecurityAccessType::try_from(buf[0])?;
+        Ok((
+            Self {
+                access_type,
+                security_seed: &buf[1..],
+            },
+            &[],
+        ))
     }
 }
 

@@ -246,6 +246,66 @@ impl SingleValueWireFormat for RequestDownloadResponse {
     }
 }
 
+// ---------------------------------------------------------------------------
+// no_std TX type for RequestDownloadResponse (borrow from caller)
+// ---------------------------------------------------------------------------
+
+/// Zero-alloc TX response for request download. Borrows from the caller.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RequestDownloadResponseTx<'d> {
+    length_format_identifier: LengthFormatIdentifier,
+    /// Maximum number of bytes per [`TransferDataRequest`](crate::TransferDataRequest).
+    pub max_number_of_block_length: &'d [u8],
+}
+
+impl<'d> RequestDownloadResponseTx<'d> {
+    /// Create a new request download response from a raw format byte and block length.
+    #[must_use]
+    pub fn new(length_format_byte: u8, max_number_of_block_length: &'d [u8]) -> Self {
+        Self {
+            length_format_identifier: LengthFormatIdentifier::from(length_format_byte),
+            max_number_of_block_length,
+        }
+    }
+}
+
+impl Encode for RequestDownloadResponseTx<'_> {
+    fn encoded_size(&self) -> usize {
+        1 + self.max_number_of_block_length.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[self.length_format_identifier.into()])
+            .map_err(Error::io)?;
+        writer
+            .write_all(self.max_number_of_block_length)
+            .map_err(Error::io)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for RequestDownloadResponseTx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let length_format_identifier = LengthFormatIdentifier::from(buf[0]);
+        let len = length_format_identifier.max_number_of_block_length as usize;
+        let total = 1 + len;
+        if buf.len() < total {
+            return Err(Error::InsufficientData(total));
+        }
+        Ok((
+            Self {
+                length_format_identifier,
+                max_number_of_block_length: &buf[1..total],
+            },
+            &buf[total..],
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,6 +1,6 @@
 use crate::{
-    Error, IterableWireFormat, SingleValueWireFormat, UDSIdentifier, UDSRoutineIdentifier,
-    WireFormat, impl_identifier,
+    Decode, DecodeIter, Encode, Error, IterableWireFormat, SingleValueWireFormat, UDSIdentifier,
+    UDSRoutineIdentifier, WireFormat, impl_identifier,
 };
 use std::ops::Deref;
 use tracing::error;
@@ -80,7 +80,7 @@ impl WireFormat for ProtocolPayload {
     }
 
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.identifier.encode(writer)?;
+        WireFormat::encode(&self.identifier, writer)?;
         writer.write_all(&self.payload)?;
         Ok(self.required_size())
     }
@@ -246,6 +246,146 @@ impl core::fmt::Debug for ProtocolRoutinePayload {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:?} =>", self.identifier)?;
         for b in &self.payload {
+            write!(f, " {b:02X}")?;
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// no_std TX/RX types (borrow from caller/wire buffer)
+// ---------------------------------------------------------------------------
+
+/// Zero-alloc protocol payload. Borrows the raw payload bytes.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct ProtocolPayloadTx<'d> {
+    /// The UDS data identifier this payload belongs to.
+    pub identifier: UDSIdentifier,
+    /// The raw payload bytes following the identifier.
+    pub payload: &'d [u8],
+}
+
+impl<'d> ProtocolPayloadTx<'d> {
+    /// Creates a new `ProtocolPayloadTx`.
+    #[must_use]
+    pub const fn new(identifier: UDSIdentifier, payload: &'d [u8]) -> Self {
+        Self {
+            identifier,
+            payload,
+        }
+    }
+}
+
+impl Encode for ProtocolPayloadTx<'_> {
+    fn encoded_size(&self) -> usize {
+        2 + self.payload.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        Encode::encode(&self.identifier, writer)?;
+        writer.write_all(self.payload).map_err(Error::io)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for ProtocolPayloadTx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+        }
+        let (identifier, rest) = <UDSIdentifier as Decode>::decode(buf)?;
+        // Consumes all remaining bytes as payload
+        Ok((
+            Self {
+                identifier,
+                payload: rest,
+            },
+            &[],
+        ))
+    }
+}
+
+impl<'a> DecodeIter<'a> for ProtocolPayloadTx<'a> {
+    fn decode_next(buf: &'a [u8]) -> Result<Option<(Self, &'a [u8])>, Error> {
+        if buf.is_empty() {
+            return Ok(None);
+        }
+        Decode::decode(buf).map(Some)
+    }
+}
+
+impl core::fmt::Debug for ProtocolPayloadTx<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{} =>", self.identifier)?;
+        for b in self.payload {
+            write!(f, " {b:02X}")?;
+        }
+        Ok(())
+    }
+}
+
+/// Zero-alloc routine payload. Borrows the raw payload bytes.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct ProtocolRoutinePayloadTx<'d> {
+    /// The routine identifier this payload belongs to.
+    pub identifier: UDSRoutineIdentifier,
+    /// The raw payload bytes following the identifier.
+    pub payload: &'d [u8],
+}
+
+impl<'d> ProtocolRoutinePayloadTx<'d> {
+    /// Creates a new `ProtocolRoutinePayloadTx`.
+    #[must_use]
+    pub const fn new(identifier: UDSRoutineIdentifier, payload: &'d [u8]) -> Self {
+        Self {
+            identifier,
+            payload,
+        }
+    }
+}
+
+impl Encode for ProtocolRoutinePayloadTx<'_> {
+    /// Size of the raw payload only — the identifier is written by the request.
+    fn encoded_size(&self) -> usize {
+        self.payload.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(self.payload).map_err(Error::io)?;
+        Ok(self.payload.len())
+    }
+}
+
+impl<'a> Decode<'a> for ProtocolRoutinePayloadTx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+        }
+        let raw = u16::from_be_bytes([buf[0], buf[1]]);
+        let identifier = UDSRoutineIdentifier::from(raw);
+        Ok((
+            Self {
+                identifier,
+                payload: &buf[2..],
+            },
+            &[],
+        ))
+    }
+}
+
+impl<'a> DecodeIter<'a> for ProtocolRoutinePayloadTx<'a> {
+    fn decode_next(buf: &'a [u8]) -> Result<Option<(Self, &'a [u8])>, Error> {
+        if buf.is_empty() {
+            return Ok(None);
+        }
+        Decode::decode(buf).map(Some)
+    }
+}
+
+impl core::fmt::Debug for ProtocolRoutinePayloadTx<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?} =>", self.identifier)?;
+        for b in self.payload {
             write!(f, " {b:02X}")?;
         }
         Ok(())

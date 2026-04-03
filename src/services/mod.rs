@@ -19,13 +19,17 @@ mod negative_response;
 pub use negative_response::NegativeResponse;
 
 mod read_data_by_identifier;
-pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentifierResponse};
+pub use read_data_by_identifier::{
+    ReadDataByIdentifierRequest, ReadDataByIdentifierRequestTx, ReadDataByIdentifierResponse,
+};
 
 mod read_dtc_information;
 pub use read_dtc_information::{ReadDTCInfoRequest, ReadDTCInfoResponse, ReadDTCInfoSubFunction};
 
 mod request_download;
-pub use request_download::{RequestDownloadRequest, RequestDownloadResponse};
+pub use request_download::{
+    RequestDownloadRequest, RequestDownloadResponse, RequestDownloadResponseTx,
+};
 
 mod request_file_transfer;
 pub use request_file_transfer::{
@@ -36,13 +40,18 @@ mod routine_control;
 pub use routine_control::{RoutineControlRequest, RoutineControlResponse};
 
 mod security_access;
-pub use security_access::{SecurityAccessRequest, SecurityAccessResponse};
+pub use security_access::{
+    SecurityAccessRequest, SecurityAccessRequestTx, SecurityAccessResponse,
+    SecurityAccessResponseTx,
+};
 
 mod tester_present;
 pub use tester_present::{TesterPresentRequest, TesterPresentResponse};
 
 mod transfer_data;
-pub use transfer_data::{TransferDataRequest, TransferDataResponse};
+pub use transfer_data::{
+    TransferDataRequest, TransferDataRequestTx, TransferDataResponse, TransferDataResponseTx,
+};
 
 mod write_data_by_identifier;
 pub use write_data_by_identifier::{WriteDataByIdentifierRequest, WriteDataByIdentifierResponse};

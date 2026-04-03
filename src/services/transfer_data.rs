@@ -1,7 +1,7 @@
 //! `TransferData` (0x36) service implementation
 use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
-use crate::{Error, SingleValueWireFormat, WireFormat};
+use crate::{Decode, Encode, Error, SingleValueWireFormat, WireFormat};
 
 /// A request to the server to transfer data (either upload or download)
 ///
@@ -122,6 +122,108 @@ impl SingleValueWireFormat for TransferDataResponse {
             block_sequence_counter,
             data,
         })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// no_std TX types (borrow from caller)
+// ---------------------------------------------------------------------------
+
+/// Zero-alloc TX request to transfer data. Borrows from the caller.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransferDataRequestTx<'d> {
+    /// Block sequence counter (wraps 0xFF → 0x00).
+    pub block_sequence_counter: u8,
+    /// The data to be transferred.
+    pub data: &'d [u8],
+}
+
+impl<'d> TransferDataRequestTx<'d> {
+    /// Create a new transfer data request.
+    #[must_use]
+    pub const fn new(block_sequence_counter: u8, data: &'d [u8]) -> Self {
+        Self {
+            block_sequence_counter,
+            data,
+        }
+    }
+}
+
+impl Encode for TransferDataRequestTx<'_> {
+    fn encoded_size(&self) -> usize {
+        1 + self.data.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[self.block_sequence_counter])
+            .map_err(Error::io)?;
+        writer.write_all(self.data).map_err(Error::io)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for TransferDataRequestTx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((
+            Self {
+                block_sequence_counter: buf[0],
+                data: &buf[1..],
+            },
+            &[],
+        ))
+    }
+}
+
+/// Zero-alloc TX response for transfer data. Borrows from the caller.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransferDataResponseTx<'d> {
+    /// Echo of the block sequence counter.
+    pub block_sequence_counter: u8,
+    /// Response data (vendor-specific).
+    pub data: &'d [u8],
+}
+
+impl<'d> TransferDataResponseTx<'d> {
+    /// Create a new transfer data response.
+    #[must_use]
+    pub const fn new(block_sequence_counter: u8, data: &'d [u8]) -> Self {
+        Self {
+            block_sequence_counter,
+            data,
+        }
+    }
+}
+
+impl Encode for TransferDataResponseTx<'_> {
+    fn encoded_size(&self) -> usize {
+        1 + self.data.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[self.block_sequence_counter])
+            .map_err(Error::io)?;
+        writer.write_all(self.data).map_err(Error::io)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for TransferDataResponseTx<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((
+            Self {
+                block_sequence_counter: buf[0],
+                data: &buf[1..],
+            },
+            &[],
+        ))
     }
 }
 
