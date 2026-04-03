@@ -24,7 +24,10 @@ pub use read_data_by_identifier::{
 };
 
 mod read_dtc_information;
-pub use read_dtc_information::{ReadDTCInfoRequest, ReadDTCInfoResponse, ReadDTCInfoSubFunction};
+pub use read_dtc_information::{
+    DtcAndStatusIter, DtcFaultDetectionIter, DtcSeverityAndStatusIter, ReadDTCInfoRequest,
+    ReadDTCInfoResponse, ReadDTCInfoResponseRx, ReadDTCInfoSubFunction,
+};
 
 mod request_download;
 pub use request_download::{
