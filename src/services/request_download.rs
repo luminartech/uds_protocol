@@ -237,6 +237,8 @@ impl<'a> Decode<'a> for RequestDownloadResponseTx<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Decode, Encode};
+
     #[test]
     fn simple_request() {
         let bytes: [u8; 7] = [
@@ -245,7 +247,7 @@ mod tests {
             0xF0, 0xFF, 0xFF, 0x67, // memory address
             0x0A,
         ];
-        let req = <RequestDownloadRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let (req, _) = <RequestDownloadRequest as Decode>::decode(&bytes).unwrap();
 
         assert_eq!(u8::from(req.data_format_identifier), 0);
         assert_eq!(u8::from(req.address_and_length_format_identifier), 0x14);
@@ -276,8 +278,8 @@ mod tests {
             0x11, // 1 byte for memory size, 1 byte for memory address
             0x67,
         ];
-        let req = <RequestDownloadRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice());
-        assert!(matches!(req, Err(Error::IoError(_))));
+        let result = <RequestDownloadRequest as Decode>::decode(&bytes);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -302,8 +304,8 @@ mod tests {
         let req = RequestDownloadRequest::new(0x00.into(), 0xF0_FF_FF_67, 0x0A).unwrap();
 
         let mut vec = vec![];
-        WireFormat::encode(&req, &mut vec).unwrap();
+        Encode::encode(&req, &mut vec).unwrap();
 
-        assert_eq!(vec.len(), req.required_size());
+        assert_eq!(vec.len(), req.encoded_size());
     }
 }

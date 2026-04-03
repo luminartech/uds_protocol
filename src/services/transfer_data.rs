@@ -195,41 +195,41 @@ impl<'a> Decode<'a> for TransferDataResponseTx<'a> {
 #[cfg(test)]
 mod request {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn test_transfer_data_request() {
-        let bytes = [0x01, 0x02, 0x03, 0x04];
-        let req = TransferDataRequest::new(0x01, bytes.to_vec());
-        let bytes = req.data.clone();
-        let expected = vec![0x01, 0x02, 0x03, 0x04];
+        let data = [0x01, 0x02, 0x03, 0x04];
+        let req = TransferDataRequestTx::new(0x01, &data);
         assert_eq!(1, req.block_sequence_counter);
-        assert_eq!(bytes, expected);
+        assert_eq!(req.data, &[0x01, 0x02, 0x03, 0x04]);
     }
 
     #[test]
     fn read_request() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let req = TransferDataRequest::decode(&mut bytes.as_slice()).unwrap();
+        let (req, _) = <TransferDataRequestTx as Decode>::decode(&bytes).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.encode(&mut written_bytes).unwrap();
+        let written = Encode::encode(&req, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.required_size());
+        assert_eq!(written, req.encoded_size());
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn simple_response() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let resp = TransferDataResponse::decode(&mut bytes.as_slice()).unwrap();
+        let (resp, _) = <TransferDataResponseTx as Decode>::decode(&bytes).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = resp.encode(&mut written_bytes).unwrap();
+        let written = Encode::encode(&resp, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
-        assert_eq!(written, resp.required_size());
+        assert_eq!(written, resp.encoded_size());
     }
 }

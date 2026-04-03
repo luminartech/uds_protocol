@@ -262,6 +262,7 @@ impl<'a> Decode<'a> for SecurityAccessResponseTx<'a> {
 #[cfg(test)]
 mod request {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn request_seed() {
@@ -269,23 +270,25 @@ mod request {
             0x01, // aka SecurityAccessType::RequestSeed(0x01)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let req = SecurityAccessRequest::decode(&mut bytes.as_slice()).unwrap();
+        let (req, _) = <SecurityAccessRequestTx as Decode>::decode(&bytes).unwrap();
 
         assert_eq!(
-            req.access_type,
-            SuppressablePositiveResponse::new(false, SecurityAccessType::RequestSeed(0x01))
+            req.access_type(),
+            SecurityAccessType::RequestSeed(0x01)
         );
+        assert_eq!(req.request_data(), &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();
-        let written = req.encode(&mut buf).unwrap();
+        let written = Encode::encode(&req, &mut buf).unwrap();
         assert_eq!(written, bytes.len());
-        assert_eq!(written, req.required_size());
+        assert_eq!(written, req.encoded_size());
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn response_send() {
@@ -293,14 +296,14 @@ mod response {
             0x02, // aka SecurityAccessType::SendKey(0x02)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let resp = SecurityAccessResponse::decode(&mut bytes.as_slice()).unwrap();
+        let (resp, _) = <SecurityAccessResponseTx as Decode>::decode(&bytes).unwrap();
 
         assert_eq!(resp.access_type, SecurityAccessType::SendKey(0x02));
-        assert_eq!(resp.security_seed, vec![0x00, 0x01, 0x02, 0x03, 0x04]);
+        assert_eq!(resp.security_seed, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();
-        let written = resp.encode(&mut buf).unwrap();
+        let written = Encode::encode(&resp, &mut buf).unwrap();
         assert_eq!(written, bytes.len());
-        assert_eq!(written, resp.required_size());
+        assert_eq!(written, resp.encoded_size());
     }
 }

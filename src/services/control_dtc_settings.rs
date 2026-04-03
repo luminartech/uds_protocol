@@ -101,18 +101,18 @@ impl<'a> Decode<'a> for ControlDTCSettingsResponse {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::DtcSettings;
+    use crate::{Decode, DtcSettings, Encode};
 
     #[test]
     fn simple_request() {
         let req = ControlDTCSettingsRequest::new(DtcSettings::On, true);
         let mut buffer = Vec::new();
-        let written = WireFormat::encode(&req, &mut buffer).unwrap();
+        let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
         assert_eq!(written, buffer.len());
-        assert_eq!(req.required_size(), buffer.len());
+        assert_eq!(req.encoded_size(), buffer.len());
 
-        let parsed = <ControlDTCSettingsRequest as SingleValueWireFormat>::decode(&mut buffer.as_slice()).unwrap();
+        let (parsed, _) = <ControlDTCSettingsRequest as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
         assert!(parsed.suppress_response);
     }
@@ -121,18 +121,18 @@ mod request {
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::DtcSettings;
+    use crate::{Decode, DtcSettings, Encode};
 
     #[test]
     fn simple_response() {
         let req = ControlDTCSettingsResponse::new(DtcSettings::On);
         let mut buffer = Vec::new();
-        let written = WireFormat::encode(&req, &mut buffer).unwrap();
+        let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x01]);
         assert_eq!(written, buffer.len());
-        assert_eq!(req.required_size(), buffer.len());
+        assert_eq!(req.encoded_size(), buffer.len());
 
-        let parsed = <ControlDTCSettingsResponse as SingleValueWireFormat>::decode(&mut buffer.as_slice()).unwrap();
+        let (parsed, _) = <ControlDTCSettingsResponse as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
     }
 }

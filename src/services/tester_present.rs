@@ -169,6 +169,7 @@ impl<'a> Decode<'a> for TesterPresentResponse {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn try_from_all_zero_subfunction() {
@@ -203,7 +204,8 @@ mod test {
 
     fn make_request(byte: u8) -> Result<TesterPresentRequest, Error> {
         let bytes = vec![byte];
-        <TesterPresentRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice())
+        let (val, _) = <TesterPresentRequest as Decode>::decode(&bytes)?;
+        Ok(val)
     }
 
     #[test]
@@ -243,7 +245,7 @@ mod test {
     fn write_request_type() {
         let test_type = TesterPresentRequest::new(false);
         let mut buffer = Vec::new();
-        WireFormat::encode(&test_type, &mut buffer).unwrap();
+        Encode::encode(&test_type, &mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
@@ -252,7 +254,7 @@ mod test {
     #[test]
     fn read_response_type() {
         let bytes = vec![0u8];
-        let test_type = <TesterPresentResponse as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let (test_type, _) = <TesterPresentResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());
     }
 
@@ -260,7 +262,7 @@ mod test {
     fn write_response_type() {
         let test_type = TesterPresentResponse::new();
         let mut buffer = Vec::new();
-        WireFormat::encode(&test_type, &mut buffer).unwrap();
+        Encode::encode(&test_type, &mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);

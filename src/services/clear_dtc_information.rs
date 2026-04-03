@@ -84,18 +84,19 @@ impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
 #[cfg(test)]
 mod request {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn decode_clear_dtc_info_request() {
         let bytes = [0xFF, 0xFF, 0xFF, 0x00];
         let compare = ClearDiagnosticInfoRequest::new(CLEAR_ALL_DTCS, 0);
-        let req = <ClearDiagnosticInfoRequest as SingleValueWireFormat>::decode(&mut &bytes[..]).unwrap();
+        let (req, _) = <ClearDiagnosticInfoRequest as Decode>::decode(&bytes).unwrap();
         assert_eq!(req, compare);
 
-        let mut bytes = vec![];
-        let written = WireFormat::encode(&req, &mut bytes).unwrap();
-        assert_eq!(bytes, [0xFF, 0xFF, 0xFF, 0x00]);
-        assert_eq!(req.required_size(), written);
+        let mut buf = vec![];
+        let written = Encode::encode(&req, &mut buf).unwrap();
+        assert_eq!(buf, [0xFF, 0xFF, 0xFF, 0x00]);
+        assert_eq!(req.encoded_size(), written);
     }
 
     #[test]

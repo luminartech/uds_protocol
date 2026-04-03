@@ -129,35 +129,37 @@ impl<'a> Decode<'a> for EcuResetResponse {
 #[cfg(test)]
 mod request {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn ecu_reset_request() {
         let bytes: [u8; 2] = [0x81, 0x00];
         let req = EcuResetRequest::new(true, ResetType::HardReset);
         let mut buffer = Vec::new();
-        let written = WireFormat::encode(&req, &mut buffer).unwrap();
-        let result = <EcuResetRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let written = Encode::encode(&req, &mut buffer).unwrap();
+        let (result, _) = <EcuResetRequest as Decode>::decode(&bytes).unwrap();
         assert_eq!(result, req);
 
         assert_eq!(written, 1);
-        assert_eq!(written, req.required_size());
+        assert_eq!(written, req.encoded_size());
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn ecu_reset_response() {
         let bytes: [u8; 2] = [0x01, 0x20];
         let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
         let mut buffer = Vec::new();
-        let written = WireFormat::encode(&resp, &mut buffer).unwrap();
-        let result = <EcuResetResponse as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let written = Encode::encode(&resp, &mut buffer).unwrap();
+        let (result, _) = <EcuResetResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(result, resp);
 
         assert_eq!(written, 2);
-        assert_eq!(written, resp.required_size());
+        assert_eq!(written, resp.encoded_size());
     }
 }

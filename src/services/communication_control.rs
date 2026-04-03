@@ -176,11 +176,12 @@ impl<'a> Decode<'a> for CommunicationControlResponse {
 #[cfg(test)]
 mod request {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn simple_request() {
         let bytes: [u8; 3] = [0x01, 0x02, 0x03];
-        let req = <CommunicationControlRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let (req, _) = <CommunicationControlRequest as Decode>::decode(&bytes).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndDisableTx
@@ -189,15 +190,15 @@ mod request {
         assert_eq!(req.node_id, None);
 
         let mut buffer = Vec::new();
-        let written = WireFormat::encode(&req, &mut buffer).unwrap();
-        assert_eq!(written, req.required_size());
-        assert_eq!(buffer.len(), req.required_size());
+        let written = Encode::encode(&req, &mut buffer).unwrap();
+        assert_eq!(written, req.encoded_size());
+        assert_eq!(buffer.len(), req.encoded_size());
     }
 
     #[test]
     fn node_id() {
         let bytes: [u8; 4] = [0x05, 0x02, 0x01, 0x02];
-        let req = <CommunicationControlRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let (req, _) = <CommunicationControlRequest as Decode>::decode(&bytes).unwrap();
         assert_eq!(
             req.control_type(),
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
@@ -206,9 +207,9 @@ mod request {
         assert_eq!(req.node_id, Some(258));
 
         let mut buffer = Vec::new();
-        let written = WireFormat::encode(&req, &mut buffer).unwrap();
-        assert_eq!(written, req.required_size());
-        assert_eq!(buffer.len(), req.required_size());
+        let written = Encode::encode(&req, &mut buffer).unwrap();
+        assert_eq!(written, req.encoded_size());
+        assert_eq!(buffer.len(), req.encoded_size());
     }
 
     #[test]
@@ -238,18 +239,19 @@ mod request {
 #[cfg(test)]
 mod response {
     use super::*;
+    use crate::{Decode, Encode};
 
     #[test]
     fn simple_response() {
         let bytes: [u8; 1] = [0x01];
-        let res = <CommunicationControlResponse as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let (res, _) = <CommunicationControlResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(
             res.control_type,
             CommunicationControlType::EnableRxAndDisableTx
         );
 
         let mut buffer = Vec::new();
-        let written = WireFormat::encode(&res, &mut buffer).unwrap();
+        let written = Encode::encode(&res, &mut buffer).unwrap();
         assert_eq!(written, 1);
         assert_eq!(buffer.len(), written);
     }

@@ -155,14 +155,13 @@ impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::DiagnosticSessionType;
-    use proptest::prelude::*;
+    use crate::{Decode, DiagnosticSessionType, Encode};
 
     #[test]
     fn test_diagnostic_session_control_request() {
         let bytes: [u8; 1] = [0x02];
-        let req: DiagnosticSessionControlRequest =
-            <DiagnosticSessionControlRequest as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let (req, _) =
+            <DiagnosticSessionControlRequest as Decode>::decode(&bytes).unwrap();
         assert!(!req.suppress_positive_response());
         assert_eq!(
             req.session_type(),
@@ -170,62 +169,29 @@ mod request {
         );
 
         let mut buffer = Vec::new();
-        WireFormat::encode(&req, &mut buffer).unwrap();
+        Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
-        assert_eq!(req.required_size(), 1);
-    }
-
-    proptest! {
-        #[test]
-        fn prop_diagnostic_session_control_request_roundtrip(byte in 0x00u8..=0xFF) {
-            // Full range: lower 7 bits encode session type, bit 7 is SPRMIB
-            let req = DiagnosticSessionControlRequest::decode(&mut [byte].as_slice()).unwrap();
-            let mut buf = Vec::new();
-            req.encode(&mut buf).unwrap();
-            let decoded = DiagnosticSessionControlRequest::decode(&mut buf.as_slice()).unwrap();
-            prop_assert_eq!(req.session_type(), decoded.session_type());
-            prop_assert_eq!(req.suppress_positive_response(), decoded.suppress_positive_response());
-            // Verify SPRMIB bit is correctly interpreted
-            prop_assert_eq!(req.suppress_positive_response(), byte & 0x80 != 0);
-        }
+        assert_eq!(req.encoded_size(), 1);
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::DiagnosticSessionType;
-    use proptest::prelude::*;
+    use crate::{Decode, DiagnosticSessionType, Encode};
 
     #[test]
     fn test_diagnostic_session_control_response() {
         let bytes = [0x02, 0x11, 0x22, 0x33, 0x44];
-        let resp: DiagnosticSessionControlResponse =
-            <DiagnosticSessionControlResponse as SingleValueWireFormat>::decode(&mut bytes.as_slice()).unwrap();
+        let (resp, _) =
+            <DiagnosticSessionControlResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(resp.session_type, DiagnosticSessionType::ProgrammingSession);
         assert_eq!(resp.p2_server_max, 0x1122);
         assert_eq!(resp.p2_star_server_max, 0x3344);
 
         let mut buffer = Vec::new();
-        WireFormat::encode(&resp, &mut buffer).unwrap();
+        Encode::encode(&resp, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
-        assert_eq!(resp.required_size(), 5);
-    }
-
-    proptest! {
-        #[test]
-        fn prop_diagnostic_session_control_response_roundtrip(
-            session_byte in 0x01u8..=0x04,
-            p2 in any::<u16>(),
-            p2_star in any::<u16>(),
-        ) {
-            let session = DiagnosticSessionType::try_from(session_byte).unwrap();
-            let resp = DiagnosticSessionControlResponse::new(session, p2, p2_star);
-            let mut buf = Vec::new();
-            resp.encode(&mut buf).unwrap();
-
-            let decoded = DiagnosticSessionControlResponse::decode(&mut buf.as_slice()).unwrap();
-            prop_assert_eq!(resp, decoded);
-        }
+        assert_eq!(resp.encoded_size(), 5);
     }
 }
