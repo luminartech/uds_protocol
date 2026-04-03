@@ -208,6 +208,17 @@ impl<'d> SecurityAccessRequestTx<'d> {
     pub const fn request_data(&self) -> &[u8] {
         self.request_data
     }
+
+    /// Convert to the owned (allocating) [`SecurityAccessRequest`].
+    #[cfg(feature = "alloc")]
+    #[must_use]
+    pub fn to_owned(&self) -> SecurityAccessRequest {
+        SecurityAccessRequest::new(
+            self.suppress_positive_response(),
+            self.access_type(),
+            self.request_data.to_vec(),
+        )
+    }
 }
 
 impl Encode for SecurityAccessRequestTx<'_> {
@@ -261,6 +272,15 @@ impl<'d> SecurityAccessResponseTx<'d> {
             access_type,
             security_seed,
         }
+    }
+}
+
+impl SecurityAccessResponseTx<'_> {
+    /// Convert to the owned (allocating) [`SecurityAccessResponse`].
+    #[cfg(feature = "alloc")]
+    #[must_use]
+    pub fn to_owned(&self) -> SecurityAccessResponse {
+        SecurityAccessResponse::new(self.access_type, self.security_seed.to_vec())
     }
 }
 

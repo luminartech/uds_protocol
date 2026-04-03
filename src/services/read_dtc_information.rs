@@ -1159,6 +1159,15 @@ impl<'a> DtcAndStatusIter<'a> {
     pub const fn is_empty(&self) -> bool {
         self.remaining.is_empty()
     }
+
+    /// Collect all records into a `Vec`.
+    ///
+    /// # Errors
+    /// Returns an error if the byte data contains a partial record.
+    #[cfg(feature = "alloc")]
+    pub fn collect_all(self) -> Result<alloc::vec::Vec<(DTCRecord, DTCStatusMask)>, Error> {
+        self.collect()
+    }
 }
 
 impl Iterator for DtcAndStatusIter<'_> {
@@ -1191,6 +1200,17 @@ impl<'a> DtcFaultDetectionIter<'a> {
     #[must_use]
     pub const fn new(data: &'a [u8]) -> Self {
         Self { remaining: data }
+    }
+
+    /// Collect all records into a `Vec`.
+    ///
+    /// # Errors
+    /// Returns an error if the byte data contains a partial record.
+    #[cfg(feature = "alloc")]
+    pub fn collect_all(
+        self,
+    ) -> Result<alloc::vec::Vec<DTCFaultDetectionCounterRecord>, Error> {
+        self.collect()
     }
 }
 
@@ -1228,6 +1248,17 @@ impl<'a> DtcSeverityAndStatusIter<'a> {
     #[must_use]
     pub const fn new(data: &'a [u8]) -> Self {
         Self { remaining: data }
+    }
+
+    /// Collect all triples into a `Vec`.
+    ///
+    /// # Errors
+    /// Returns an error if the byte data contains a partial record.
+    #[cfg(feature = "alloc")]
+    pub fn collect_all(
+        self,
+    ) -> Result<alloc::vec::Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>, Error> {
+        self.collect()
     }
 }
 

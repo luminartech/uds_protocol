@@ -147,6 +147,13 @@ impl<'d> TransferDataRequestTx<'d> {
             data,
         }
     }
+
+    /// Convert to the owned (allocating) [`TransferDataRequest`].
+    #[cfg(feature = "alloc")]
+    #[must_use]
+    pub fn to_owned(&self) -> TransferDataRequest {
+        TransferDataRequest::new(self.block_sequence_counter, self.data.to_vec())
+    }
 }
 
 impl Encode for TransferDataRequestTx<'_> {
@@ -195,6 +202,13 @@ impl<'d> TransferDataResponseTx<'d> {
             block_sequence_counter,
             data,
         }
+    }
+
+    /// Convert to the owned (allocating) [`TransferDataResponse`].
+    #[cfg(feature = "alloc")]
+    #[must_use]
+    pub fn to_owned(&self) -> TransferDataResponse {
+        TransferDataResponse::new(self.block_sequence_counter, self.data.to_vec())
     }
 }
 
