@@ -1,6 +1,5 @@
 //! `ControlDTCSetting` (0x85) service implementation
-use crate::{Decode, DtcSettings, Encode, Error, SUCCESS, SingleValueWireFormat, WireFormat};
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
+use crate::{Decode, DtcSettings, Encode, Error, SUCCESS};
 
 /// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -58,35 +57,6 @@ impl<'a> Decode<'a> for ControlDTCSettingsRequest {
     }
 }
 
-impl WireFormat for ControlDTCSettingsRequest {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        let request_byte =
-            u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
-        writer.write_u8(request_byte)?;
-        Ok(1)
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_response
-    }
-}
-
-impl SingleValueWireFormat for ControlDTCSettingsRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let request_byte = reader.read_u8()?;
-        let setting = DtcSettings::try_from(request_byte & !SUCCESS)?;
-        let suppress_response = request_byte & SUCCESS != 0;
-        Ok(Self {
-            setting,
-            suppress_response,
-        })
-    }
-}
-
 /// Positive response to a `ControlDTCSettingsRequest`
 ///
 /// The ECU will respond with a `ControlDTCSettingsResponse` if the request was successful.
@@ -125,24 +95,6 @@ impl<'a> Decode<'a> for ControlDTCSettingsResponse {
         }
         let setting = DtcSettings::try_from(buf[0])?;
         Ok((Self { setting }, &buf[1..]))
-    }
-}
-
-impl WireFormat for ControlDTCSettingsResponse {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.setting))?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for ControlDTCSettingsResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let setting = DtcSettings::try_from(reader.read_u8()?)?;
-        Ok(Self { setting })
     }
 }
 

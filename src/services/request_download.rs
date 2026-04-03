@@ -1,9 +1,8 @@
 //! `RequestDownload` (0x34) service implementation
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 use crate::{
     DataFormatIdentifier, Decode, Encode, Error, LengthFormatIdentifier, MemoryFormatIdentifier,
-    NegativeResponseCode, SingleValueWireFormat, WireFormat,
+    NegativeResponseCode,
 };
 
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
@@ -152,50 +151,6 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
     }
 }
 
-impl WireFormat for RequestDownloadRequest {
-    fn required_size(&self) -> usize {
-        2 + self.address_and_length_format_identifier.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.data_format_identifier.into())?;
-        writer.write_u8(self.address_and_length_format_identifier.into())?;
-
-        writer.write_all(self.get_shortened_memory_address().as_mut_slice())?;
-        writer.write_all(self.get_shortened_memory_size().as_mut_slice())?;
-
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for RequestDownloadRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let data_format_identifier = DataFormatIdentifier::from(reader.read_u8()?);
-        let memory_identifier = MemoryFormatIdentifier::try_from(reader.read_u8()?)?;
-
-        let mut memory_address: Vec<u8> = vec![0; memory_identifier.memory_address_length as usize];
-        let mut memory_size: Vec<u8> = vec![0; memory_identifier.memory_size_length as usize];
-
-        reader.read_exact(&mut memory_address)?;
-        reader.read_exact(&mut memory_size)?;
-
-        Ok(Self {
-            data_format_identifier,
-            address_and_length_format_identifier: memory_identifier,
-            memory_address: u64::from_be_bytes({
-                let mut bytes = [0; 8];
-                bytes[8 - memory_address.len()..].copy_from_slice(&memory_address);
-                bytes
-            }),
-            memory_size: u32::from_be_bytes({
-                let mut bytes = [0; 4];
-                bytes[4 - memory_size.len()..].copy_from_slice(&memory_size);
-                bytes
-            }),
-        })
-    }
-}
-
 /// Positive response to a [`RequestDownloadRequest`] indicating the server is ready to receive data.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -216,33 +171,6 @@ impl RequestDownloadResponse {
             length_format_identifier: LengthFormatIdentifier::from(length_format_identifier),
             max_number_of_block_length,
         }
-    }
-}
-
-impl WireFormat for RequestDownloadResponse {
-    fn required_size(&self) -> usize {
-        1 + self.max_number_of_block_length.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.length_format_identifier.into())?;
-        writer.write_all(&self.max_number_of_block_length)?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for RequestDownloadResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let length_format_identifier = LengthFormatIdentifier::from(reader.read_u8()?);
-
-        let mut max_number_of_block_length: Vec<u8> =
-            vec![0; length_format_identifier.max_number_of_block_length as usize];
-        reader.read_exact(&mut max_number_of_block_length)?;
-
-        Ok(Self {
-            length_format_identifier,
-            max_number_of_block_length,
-        })
     }
 }
 

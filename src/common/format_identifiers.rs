@@ -1,5 +1,4 @@
-use crate::{Error, SingleValueWireFormat, WireFormat};
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
+use crate::Error;
 
 const LOW_NIBBLE_MASK: u8 = 0b0000_1111;
 const HIGH_NIBBLE_MASK: u8 = 0b1111_0000;
@@ -157,24 +156,6 @@ impl PartialEq<u8> for DataFormatIdentifier {
     fn eq(&self, other: &u8) -> bool {
         let other_data_format_identifier = DataFormatIdentifier::from(*other);
         self == &other_data_format_identifier
-    }
-}
-
-impl WireFormat for DataFormatIdentifier {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(*self))?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for DataFormatIdentifier {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let value = reader.read_u8()?;
-        Ok(DataFormatIdentifier::from(value))
     }
 }
 

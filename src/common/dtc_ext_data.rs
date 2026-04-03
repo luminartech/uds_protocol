@@ -1,16 +1,10 @@
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
-
-use crate::{
-    DTCRecord, DTCStatusMask, Error, IterableWireFormat, SingleValueWireFormat, WireFormat,
-};
-
 /// The `DTCExtDataRecordNumber` is used in the request message to get a stored [`DTCExtDataRecord`]
 /// Its used to specify the type of `DTCExtDataRecord` to be reported.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DTCExtDataRecordNumber {
-    /// ISO/SAE reserved record numbers (`0x00`, `0xF0–0xFD`).
+    /// ISO/SAE reserved record numbers (`0x00`, `0xF0-0xFD`).
     ISOSAEReserved(u8),
 
     /// Vehicle manufactured specific stored [`DTCExtDataRecord`]s
@@ -68,135 +62,6 @@ impl DTCExtDataRecordNumber {
 impl PartialEq<u8> for DTCExtDataRecordNumber {
     fn eq(&self, other: &u8) -> bool {
         self.value() == *other
-    }
-}
-
-impl WireFormat for DTCExtDataRecordNumber {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.value())?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for DTCExtDataRecordNumber {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        Ok(Self::new(reader.read_u8()?))
-    }
-}
-
-impl IterableWireFormat for DTCExtDataRecordNumber {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        match reader.read_u8() {
-            Ok(v) => Ok(Some(Self::new(v))),
-            Err(_) => Ok(None),
-        }
-    }
-}
-
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
-/// A single DTC extended-data record containing user-defined payload items.
-pub struct DTCExtDataRecord<UserPayload> {
-    /// The decoded payload entries for this record.
-    pub data: Vec<UserPayload>,
-}
-
-impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecord<UserPayload> {
-    fn required_size(&self) -> usize {
-        // n bytes of data per UserPayload
-        self.data
-            .iter()
-            .map(WireFormat::required_size)
-            .sum::<usize>()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        for d in &self.data {
-            d.encode(writer)?;
-        }
-        Ok(self.required_size())
-    }
-}
-
-impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCExtDataRecord<UserPayload> {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let mut data = Vec::new();
-        for payload in UserPayload::decode_iter(reader) {
-            match payload {
-                Ok(p) => data.push(p),
-                Err(_) => break,
-            }
-        }
-        Ok(Self { data })
-    }
-}
-
-impl<UserPayload: IterableWireFormat> IterableWireFormat for DTCExtDataRecord<UserPayload> {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut data = Vec::new();
-        for payload in UserPayload::decode_iter(reader) {
-            match payload {
-                Err(_) => return Ok(None),
-                Ok(payload) => data.push(payload),
-            }
-        }
-        Ok(Some(Self { data }))
-    }
-}
-
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
-/// A DTC extended-data record list: a DTC + status mask followed by one or more [`DTCExtDataRecord`]s.
-pub struct DTCExtDataRecordList<UserPayload> {
-    /// The DTC this extended data belongs to.
-    pub mask_record: DTCRecord,
-    /// The DTC status mask at the time of reporting.
-    pub status_mask: DTCStatusMask,
-    /// The extended-data records associated with this DTC.
-    pub record_data: Vec<DTCExtDataRecord<UserPayload>>,
-}
-
-impl<UserPayload: IterableWireFormat> WireFormat for DTCExtDataRecordList<UserPayload> {
-    fn required_size(&self) -> usize {
-        self.mask_record.required_size()
-            + self.status_mask.required_size()
-            + self
-                .record_data
-                .iter()
-                .map(WireFormat::required_size)
-                .sum::<usize>()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        self.mask_record.encode(writer)?;
-        self.status_mask.encode(writer)?;
-        for record in &self.record_data {
-            record.encode(writer)?;
-        }
-        Ok(self.required_size())
-    }
-}
-
-impl<UserPayload: IterableWireFormat> SingleValueWireFormat for DTCExtDataRecordList<UserPayload> {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let mask_record = DTCRecord::decode(reader)?;
-        let status_mask = DTCStatusMask::decode(reader)?;
-        let mut record_data = Vec::new();
-        // Read the record number, and then the payload
-        if let Some(record) = DTCExtDataRecord::decode_next(reader)? {
-            record_data.push(record);
-        }
-        Ok(Self {
-            mask_record,
-            status_mask,
-            record_data,
-        })
     }
 }
 

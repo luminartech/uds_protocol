@@ -1,10 +1,7 @@
 //! `ECUReset` (0x11) service implementation
 use crate::{
-    Decode, Encode, Error, NegativeResponseCode, ResetType, SingleValueWireFormat,
-    SuppressablePositiveResponse, WireFormat,
+    Decode, Encode, Error, NegativeResponseCode, ResetType, SuppressablePositiveResponse,
 };
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Write};
 
 const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -75,28 +72,6 @@ impl<'a> Decode<'a> for EcuResetRequest {
     }
 }
 
-impl WireFormat for EcuResetRequest {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.reset_type))?;
-        Ok(1)
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_positive_response()
-    }
-}
-
-impl SingleValueWireFormat for EcuResetRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let reset_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        Ok(Self { reset_type })
-    }
-}
-
 /// Positive response to an `EcuResetRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -148,31 +123,6 @@ impl<'a> Decode<'a> for EcuResetResponse {
             },
             &buf[consumed..],
         ))
-    }
-}
-
-impl WireFormat for EcuResetResponse {
-    fn required_size(&self) -> usize {
-        2
-    }
-
-    fn encode<T: Write>(&self, buffer: &mut T) -> Result<usize, Error> {
-        buffer.write_u8(u8::from(self.reset_type))?;
-        buffer.write_u8(self.power_down_time)?;
-        Ok(2)
-    }
-}
-
-impl SingleValueWireFormat for EcuResetResponse {
-    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
-        let reset_type = ResetType::try_from(reader.read_u8()?)?;
-        // powerDownTime is conditional per ISO 14229-1 — only present when
-        // the server needs to report how long until power-down.
-        let power_down_time = reader.read_u8().unwrap_or(0);
-        Ok(Self {
-            reset_type,
-            power_down_time,
-        })
     }
 }
 

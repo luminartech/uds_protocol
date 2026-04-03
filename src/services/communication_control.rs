@@ -1,10 +1,8 @@
 //! `CommunicationControl` (0x28) service implementation
 use crate::{
     CommunicationControlType, CommunicationType, Decode, Encode, Error, NegativeResponseCode,
-    SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
+    SuppressablePositiveResponse,
 };
-use byteorder_embedded_io::BigEndian;
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -136,47 +134,6 @@ impl<'a> Decode<'a> for CommunicationControlRequest {
     }
 }
 
-impl WireFormat for CommunicationControlRequest {
-    fn required_size(&self) -> usize {
-        if self.node_id.is_some() { 4 } else { 2 }
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.control_type))?;
-        writer.write_u8(u8::from(self.communication_type))?;
-        if let Some(id) = self.node_id {
-            writer.write_u16::<BigEndian>(id)?;
-            Ok(4)
-        } else {
-            Ok(2)
-        }
-    }
-}
-
-impl SingleValueWireFormat for CommunicationControlRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let enable_byte = reader.read_u8()?;
-        let communication_enable = SuppressablePositiveResponse::try_from(enable_byte)?;
-        let communication_type = CommunicationType::try_from(reader.read_u8()?)?;
-        match communication_enable.value() {
-            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
-            | CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => {
-                let node_id = Some(reader.read_u16::<BigEndian>()?);
-                Ok(Self {
-                    control_type: communication_enable,
-                    communication_type,
-                    node_id,
-                })
-            }
-            _ => Ok(Self {
-                control_type: communication_enable,
-                communication_type,
-                node_id: None,
-            }),
-        }
-    }
-}
-
 /// Positive response from the server to change communication behavior
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -213,24 +170,6 @@ impl<'a> Decode<'a> for CommunicationControlResponse {
         }
         let control_type = CommunicationControlType::try_from(buf[0])?;
         Ok((Self::new(control_type), &buf[1..]))
-    }
-}
-
-impl WireFormat for CommunicationControlResponse {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.control_type))?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for CommunicationControlResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let control_type = CommunicationControlType::try_from(reader.read_u8()?)?;
-        Ok(Self::new(control_type))
     }
 }
 

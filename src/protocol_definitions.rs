@@ -1,9 +1,8 @@
 use crate::{
-    Decode, DecodeIter, Encode, Error, IterableWireFormat, SingleValueWireFormat, UDSIdentifier,
-    UDSRoutineIdentifier, WireFormat, impl_identifier,
+    Decode, DecodeIter, Encode, Error, UDSIdentifier,
+    UDSRoutineIdentifier, impl_identifier,
 };
-use std::ops::Deref;
-use tracing::error;
+use core::ops::Deref;
 
 /// Protocol Identifier provides an implementation of Diagnostics Identifiers that only supports Diagnostic Identifiers defined by UDS
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -19,14 +18,6 @@ impl ProtocolIdentifier {
     #[must_use]
     pub fn new(identifier: UDSIdentifier) -> Self {
         ProtocolIdentifier { identifier }
-    }
-
-    /// Convert an iterator of [`UDSIdentifier`]s into a `Vec<ProtocolIdentifier>`.
-    pub fn identifiers<I>(list: I) -> Vec<Self>
-    where
-        I: IntoIterator<Item = UDSIdentifier>,
-    {
-        list.into_iter().map(Self::new).collect()
     }
 }
 
@@ -51,210 +42,6 @@ impl Deref for ProtocolIdentifier {
         &self.identifier
     }
 }
-
-/// The UDS protocol does not define the structure of any payload, but exists as a container for diagnostic implementations that use the generic UDS identifiers
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Eq, PartialEq)]
-#[non_exhaustive]
-pub struct ProtocolPayload {
-    /// The UDS data identifier this payload belongs to.
-    pub identifier: UDSIdentifier,
-    /// The raw payload bytes following the identifier.
-    pub payload: Vec<u8>,
-}
-
-impl ProtocolPayload {
-    /// Creates a new `ProtocolPayload` with the given identifier and payload
-    #[must_use]
-    pub fn new(identifier: UDSIdentifier, payload: Vec<u8>) -> Self {
-        ProtocolPayload {
-            identifier,
-            payload,
-        }
-    }
-}
-impl WireFormat for ProtocolPayload {
-    fn required_size(&self) -> usize {
-        2 + self.payload.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        WireFormat::encode(&self.identifier, writer)?;
-        writer.write_all(&self.payload)?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for ProtocolPayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let mut identifier_data: [u8; 2] = [0; 2];
-        match reader.read(&mut identifier_data)? {
-            0 | 1 => {
-                error!(
-                    "Only read 0 or 1 byte of identifier, need 2: read byte was: {}",
-                    identifier_data[0]
-                );
-                return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-            }
-            2 => (),
-            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-        }
-        let identifier = UDSIdentifier::try_from(u16::from_be_bytes(identifier_data))?;
-        let mut payload: Vec<u8> = Vec::new();
-        reader.read_to_end(&mut payload)?;
-        Ok(ProtocolPayload {
-            identifier,
-            payload,
-        })
-    }
-}
-
-impl IterableWireFormat for ProtocolPayload {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut identifier_data: [u8; 2] = [0; 2];
-        match reader.read(&mut identifier_data)? {
-            0 => return Ok(None),
-            1 => {
-                error!(
-                    "Only read 1 byte of identifier, need 2: read byte was: {}",
-                    identifier_data[0]
-                );
-                return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-            }
-            2 => (),
-            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-        }
-        let identifier = UDSIdentifier::try_from(u16::from_be_bytes(identifier_data))?;
-        // Reads the entire payload, but does not have the ability to determine the amount of bytes to read
-        // depending on the Identifier, so all data is read until EOF
-        //
-        // TODO: We could be more clever, we do know the response size of some identifiers
-        let mut payload: Vec<u8> = Vec::new();
-        reader.read_to_end(&mut payload)?;
-        Ok(Some(ProtocolPayload {
-            identifier,
-            payload,
-        }))
-    }
-}
-
-impl core::fmt::Debug for ProtocolPayload {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{} =>", self.identifier)?;
-        for b in &self.payload {
-            write!(f, " {b:02X}")?;
-        }
-        Ok(())
-    }
-}
-
-/// Routine-specific payload for [`UdsSpec`](crate::UdsSpec).
-///
-/// Used as the `RoutinePayload` associated type in [`UdsSpec`](crate::UdsSpec).
-/// On the wire, the routine identifier is already encoded by the
-/// [`RoutineControlRequest`](crate::RoutineControlRequest), so `encode` writes
-/// only the raw payload bytes. `decode` reads the identifier first (since
-/// [`RoutineControlResponse`](crate::RoutineControlResponse) includes it in the
-/// status record) followed by any remaining payload bytes.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Eq, PartialEq)]
-#[non_exhaustive]
-pub struct ProtocolRoutinePayload {
-    /// The routine identifier this payload belongs to.
-    pub identifier: UDSRoutineIdentifier,
-    /// The raw payload bytes following the identifier.
-    pub payload: Vec<u8>,
-}
-
-impl ProtocolRoutinePayload {
-    /// Creates a new `ProtocolRoutinePayload` with the given identifier and payload.
-    #[must_use]
-    pub fn new(identifier: UDSRoutineIdentifier, payload: Vec<u8>) -> Self {
-        Self {
-            identifier,
-            payload,
-        }
-    }
-}
-
-impl WireFormat for ProtocolRoutinePayload {
-    /// Size of the raw payload only — the identifier is written by the request.
-    fn required_size(&self) -> usize {
-        self.payload.len()
-    }
-
-    /// Writes only the raw payload bytes. The routine identifier is already
-    /// encoded by [`RoutineControlRequest::encode`](crate::RoutineControlRequest).
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_all(&self.payload)?;
-        Ok(self.payload.len())
-    }
-}
-
-impl SingleValueWireFormat for ProtocolRoutinePayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let mut identifier_data: [u8; 2] = [0; 2];
-        match reader.read(&mut identifier_data)? {
-            0 | 1 => {
-                error!(
-                    "Only read 0 or 1 byte of routine identifier, need 2: read byte was: {}",
-                    identifier_data[0]
-                );
-                return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-            }
-            2 => (),
-            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-        }
-        let identifier = UDSRoutineIdentifier::from(u16::from_be_bytes(identifier_data));
-        let mut payload: Vec<u8> = Vec::new();
-        reader.read_to_end(&mut payload)?;
-        Ok(Self {
-            identifier,
-            payload,
-        })
-    }
-}
-
-impl IterableWireFormat for ProtocolRoutinePayload {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut identifier_data: [u8; 2] = [0; 2];
-        match reader.read(&mut identifier_data)? {
-            0 => return Ok(None),
-            1 => {
-                error!(
-                    "Only read 1 byte of routine identifier, need 2: read byte was: {}",
-                    identifier_data[0]
-                );
-                return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-            }
-            2 => (),
-            _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-        }
-        let identifier = UDSRoutineIdentifier::from(u16::from_be_bytes(identifier_data));
-        let mut payload: Vec<u8> = Vec::new();
-        reader.read_to_end(&mut payload)?;
-        Ok(Some(Self {
-            identifier,
-            payload,
-        }))
-    }
-}
-
-impl core::fmt::Debug for ProtocolRoutinePayload {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?} =>", self.identifier)?;
-        for b in &self.payload {
-            write!(f, " {b:02X}")?;
-        }
-        Ok(())
-    }
-}
-
-// ---------------------------------------------------------------------------
-// no_std TX/RX types (borrow from caller/wire buffer)
-// ---------------------------------------------------------------------------
 
 /// Zero-alloc protocol payload. Borrows the raw payload bytes.
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -345,7 +132,7 @@ impl<'d> ProtocolRoutinePayloadTx<'d> {
 }
 
 impl Encode for ProtocolRoutinePayloadTx<'_> {
-    /// Size of the raw payload only — the identifier is written by the request.
+    /// Size of the raw payload only -- the identifier is written by the request.
     fn encoded_size(&self) -> usize {
         self.payload.len()
     }
@@ -399,18 +186,20 @@ mod tests {
 
     #[test]
     fn test_construction_and_debug_format() {
-        let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x01]);
+        let payload = ProtocolPayloadTx::new(UDSIdentifier::ActiveDiagnosticSession, &[0x01]);
         assert_eq!(format!("{payload:?}"), "0xF186 => 01");
-        let mut buffer = Vec::new();
-        assert_eq!(3, payload.encode(&mut buffer).unwrap());
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&payload, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 3);
     }
 
     #[test]
-    fn test_read_and_write() {
-        let payload = ProtocolPayload::new(UDSIdentifier::ActiveDiagnosticSession, vec![0x03]);
-        let mut buffer = Vec::new();
-        assert_eq!(3, payload.encode(&mut buffer).unwrap());
-        let deserialized_payload = ProtocolPayload::decode(&mut buffer.as_slice()).unwrap();
-        assert_eq!(payload, deserialized_payload);
+    fn test_encode_and_decode() {
+        let payload = ProtocolPayloadTx::new(UDSIdentifier::ActiveDiagnosticSession, &[0x03]);
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&payload, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 3);
+        let (decoded, _) = ProtocolPayloadTx::decode(&buf[..written]).unwrap();
+        assert_eq!(payload, decoded);
     }
 }

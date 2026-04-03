@@ -1,64 +1,4 @@
-use crate::{Decode, Encode, Error, SingleValueWireFormat, WireFormat};
-use byteorder_embedded_io::BigEndian;
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
-
-/// Implement [`WireFormat`] and [`SingleValueWireFormat`] for unsigned integer primitives.
-#[macro_export]
-macro_rules! unsigned_primitive_wire_format {
-    ( $($primitive:ty), * ) => {
-        $(
-        impl WireFormat for $primitive {
-            fn required_size(&self) -> usize {
-                std::mem::size_of::<$primitive>()
-            }
-            fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-                writer.write_uint128::<BigEndian>(u128::from(*self), self.required_size())?;
-                Ok(self.required_size())
-            }
-        }
-        impl SingleValueWireFormat for $primitive {
-            fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-                let value: $primitive = reader
-                    .read_uint128::<BigEndian>(std::mem::size_of::<$primitive>())?
-                    .try_into()
-                    .expect("Failed to convert value to the target primitive type");
-                Ok(value)
-            }
-        }
-    )*
-    };
-}
-
-unsigned_primitive_wire_format!(u8, u16, u32, u64, u128);
-
-/// Implement [`WireFormat`] and [`SingleValueWireFormat`] for signed integer primitives.
-#[macro_export]
-macro_rules! signed_primitive_wire_format {
-    ( $($primitive:ty), * ) => {
-        $(
-        impl WireFormat for $primitive {
-            fn required_size(&self) -> usize {
-                std::mem::size_of::<$primitive>()
-            }
-            fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-                writer.write_int128::<BigEndian>(i128::from(*self), self.required_size())?;
-                Ok(self.required_size())
-            }
-        }
-        impl SingleValueWireFormat for $primitive {
-            fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-                let value: $primitive = reader
-                    .read_int128::<BigEndian>(std::mem::size_of::<$primitive>())?
-                    .try_into()
-                    .expect("Failed to convert value to the target primitive type");
-                Ok(value)
-            }
-        }
-    )*
-    };
-}
-
-signed_primitive_wire_format!(i8, i16, i32, i64, i128);
+use crate::{Decode, Encode, Error};
 
 /// Implement [`Encode`] and [`Decode`] for unsigned integer primitives (no_std-compatible).
 macro_rules! unsigned_primitive_encode_decode {
@@ -162,119 +102,60 @@ impl<'a> Decode<'a> for f64 {
     }
 }
 
-impl WireFormat for f32 {
-    fn required_size(&self) -> usize {
-        4
-    }
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        writer.write_f32::<BigEndian>(*self)?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for f32 {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let value: f32 = reader.read_f32::<BigEndian>()?;
-        Ok(value)
-    }
-}
-
-impl WireFormat for f64 {
-    fn required_size(&self) -> usize {
-        8
-    }
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        writer.write_f64::<BigEndian>(*self)?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for f64 {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let value: f64 = reader.read_f64::<BigEndian>()?;
-        Ok(value)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_u8() {
-        // Read some bytes
-        let data = vec![0xFF];
-        let mut reader = &data[..];
-
-        let u8_byte = <u8 as SingleValueWireFormat>::decode(&mut reader).unwrap();
-        assert_eq!(u8_byte, 0xFF);
-        assert_eq!(u8_byte.required_size(), 1);
-
-        let mut write_buffer = vec![];
-        WireFormat::encode(&u8_byte, &mut write_buffer).unwrap();
-        assert_eq!(write_buffer, data);
+    fn test_u8_encode_decode() {
+        let val: u8 = 0xFF;
+        let mut buf = [0u8; 1];
+        Encode::encode(&val, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(buf, [0xFF]);
+        let (decoded, rest) = <u8 as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, 0xFF);
+        assert!(rest.is_empty());
     }
 
     #[test]
-    fn test_u16() {
-        // Read some bytes
-        let data = vec![0xFF, 0x01];
-        let mut reader = &data[..];
-
-        let u16_byte = <u16 as SingleValueWireFormat>::decode(&mut reader).unwrap();
-        assert_eq!(u16_byte, 0xFF01);
-        assert_eq!(u16_byte.required_size(), 2);
-
-        let mut write_buffer = vec![];
-        WireFormat::encode(&u16_byte, &mut write_buffer).unwrap();
-        assert_eq!(write_buffer, data);
+    fn test_u16_encode_decode() {
+        let val: u16 = 0xFF01;
+        let mut buf = [0u8; 2];
+        Encode::encode(&val, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(buf, [0xFF, 0x01]);
+        let (decoded, rest) = <u16 as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, 0xFF01);
+        assert!(rest.is_empty());
     }
 
     #[test]
-    fn test_u32() {
-        // Read some bytes
-        let data = vec![0xFF, 0x20, 0x02, 0x01];
-        let mut reader = &data[..];
-
-        let u32_byte = <u32 as SingleValueWireFormat>::decode(&mut reader).unwrap();
-        assert_eq!(u32_byte, 0xFF20_0201);
-        assert_eq!(u32_byte.required_size(), 4);
-
-        let mut write_buffer = vec![];
-        WireFormat::encode(&u32_byte, &mut write_buffer).unwrap();
-        assert_eq!(write_buffer, data);
+    fn test_u32_encode_decode() {
+        let val: u32 = 0xFF20_0201;
+        let mut buf = [0u8; 4];
+        Encode::encode(&val, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(buf, [0xFF, 0x20, 0x02, 0x01]);
+        let (decoded, rest) = <u32 as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, 0xFF20_0201);
+        assert!(rest.is_empty());
     }
 
     #[test]
-    fn test_u64() {
-        // Read some bytes
-        let data = vec![0xFF, 0x20, 0x02, 0x01, 0xFF, 0x20, 0x02, 0x01];
-        let mut reader = &data[..];
-
-        let u64_byte = <u64 as SingleValueWireFormat>::decode(&mut reader).unwrap();
-        assert_eq!(u64_byte, 0xFF20_0201_FF20_0201);
-        assert_eq!(u64_byte.required_size(), 8);
-
-        let mut write_buffer = vec![];
-        WireFormat::encode(&u64_byte, &mut write_buffer).unwrap();
-        assert_eq!(write_buffer, data);
+    fn test_u64_encode_decode() {
+        let val: u64 = 0xFF20_0201_FF20_0201;
+        let mut buf = [0u8; 8];
+        Encode::encode(&val, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, rest) = <u64 as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, val);
+        assert!(rest.is_empty());
     }
 
     #[test]
-    fn test_u128() {
-        // Read some bytes
-        let data = vec![
-            0xFF, 0x20, 0x02, 0x01, 0xFF, 0x20, 0x02, 0x01, 0xFF, 0x20, 0x02, 0x01, 0xFF, 0x20,
-            0x02, 0x01,
-        ];
-        let mut reader = &data[..];
-
-        let u128_byte = <u128 as SingleValueWireFormat>::decode(&mut reader).unwrap();
-        assert_eq!(u128_byte, 0xFF20_0201_FF20_0201_FF20_0201_FF20_0201);
-        assert_eq!(u128_byte.required_size(), 16);
-
-        let mut write_buffer = vec![];
-        WireFormat::encode(&u128_byte, &mut write_buffer).unwrap();
-        assert_eq!(write_buffer, data);
+    fn test_u128_encode_decode() {
+        let val: u128 = 0xFF20_0201_FF20_0201_FF20_0201_FF20_0201;
+        let mut buf = [0u8; 16];
+        Encode::encode(&val, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, rest) = <u128 as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, val);
+        assert!(rest.is_empty());
     }
 }

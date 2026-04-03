@@ -10,10 +10,8 @@
 //! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
 
 use crate::{
-    Decode, DiagnosticSessionType, Encode, Error, NegativeResponseCode, SingleValueWireFormat,
-    SuppressablePositiveResponse, WireFormat,
+    Decode, DiagnosticSessionType, Encode, Error, NegativeResponseCode, SuppressablePositiveResponse,
 };
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -88,28 +86,6 @@ impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
     }
 }
 
-impl WireFormat for DiagnosticSessionControlRequest {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.session_type))?;
-        Ok(1)
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_positive_response()
-    }
-}
-
-impl SingleValueWireFormat for DiagnosticSessionControlRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let session_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        Ok(Self { session_type })
-    }
-}
-
 /// Positive response to a `DiagnosticSessionControlRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -173,33 +149,6 @@ impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
             },
             &buf[5..],
         ))
-    }
-}
-
-impl WireFormat for DiagnosticSessionControlResponse {
-    fn required_size(&self) -> usize {
-        5
-    }
-
-    fn encode<T: std::io::Write>(&self, buffer: &mut T) -> Result<usize, Error> {
-        buffer.write_u8(u8::from(self.session_type))?;
-        buffer.write_u16::<byteorder_embedded_io::BigEndian>(self.p2_server_max)?;
-        buffer.write_u16::<byteorder_embedded_io::BigEndian>(self.p2_star_server_max)?;
-
-        Ok(5)
-    }
-}
-
-impl SingleValueWireFormat for DiagnosticSessionControlResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let session_type = DiagnosticSessionType::try_from(reader.read_u8()?)?;
-        let p2_server_max = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
-        let p2_star_server_max = reader.read_u16::<byteorder_embedded_io::BigEndian>()?;
-        Ok(Self {
-            session_type,
-            p2_server_max,
-            p2_star_server_max,
-        })
     }
 }
 

@@ -1,10 +1,7 @@
 //! `SecurityAccess` (0x27) service implementation
 use crate::{
-    Decode, Encode, Error, NegativeResponseCode, SecurityAccessType, SingleValueWireFormat,
-    SuppressablePositiveResponse, WireFormat,
+    Decode, Encode, Error, NegativeResponseCode, SecurityAccessType, SuppressablePositiveResponse,
 };
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Write};
 
 /// List of allowed [`NegativeResponseCode`] variants for the `SecurityAccess` service
 const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
@@ -84,34 +81,6 @@ impl SecurityAccessRequest {
     }
 }
 
-impl WireFormat for SecurityAccessRequest {
-    fn required_size(&self) -> usize {
-        1 + self.request_data().len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.access_type))?;
-        writer.write_all(&self.request_data)?;
-        Ok(self.required_size())
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_positive_response()
-    }
-}
-
-impl SingleValueWireFormat for SecurityAccessRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let access_type = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        let mut request_data: Vec<u8> = Vec::new();
-        _ = reader.read_to_end(&mut request_data)?;
-        Ok(Self {
-            access_type,
-            request_data,
-        })
-    }
-}
-
 /// Response to `SecurityAccessRequest`
 ///
 /// ## Request Seed
@@ -139,30 +108,6 @@ impl SecurityAccessResponse {
             access_type,
             security_seed,
         }
-    }
-}
-
-impl WireFormat for SecurityAccessResponse {
-    fn required_size(&self) -> usize {
-        1 + self.security_seed.len()
-    }
-
-    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.access_type))?;
-        writer.write_all(&self.security_seed)?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for SecurityAccessResponse {
-    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
-        let access_type = SecurityAccessType::try_from(reader.read_u8()?)?;
-        let mut security_seed = Vec::new();
-        let _ = reader.read_to_end(&mut security_seed)?;
-        Ok(Self {
-            access_type,
-            security_seed,
-        })
     }
 }
 

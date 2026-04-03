@@ -1,8 +1,7 @@
 //! `NegativeResponse` (0x7F) service implementation
 use crate::{
-    Decode, Encode, Error, NegativeResponseCode, SingleValueWireFormat, UdsServiceType, WireFormat,
+    Decode, Encode, Error, NegativeResponseCode, UdsServiceType,
 };
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 /// A negative response from the server indicating a request could not be fulfilled
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -53,25 +52,3 @@ impl<'a> Decode<'a> for NegativeResponse {
     }
 }
 
-impl WireFormat for NegativeResponse {
-    fn required_size(&self) -> usize {
-        2
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.request_service.request_service_to_byte())?;
-        writer.write_u8(u8::from(self.nrc))?;
-        Ok(2)
-    }
-}
-
-impl SingleValueWireFormat for NegativeResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let request_service = UdsServiceType::service_from_request_byte(reader.read_u8()?);
-        let nrc = NegativeResponseCode::from(reader.read_u8()?);
-        Ok(Self {
-            request_service,
-            nrc,
-        })
-    }
-}

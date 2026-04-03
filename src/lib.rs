@@ -1,6 +1,5 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 #![warn(clippy::pedantic, missing_docs)]
-#![allow(deprecated)] // Old WireFormat traits are deprecated but still used internally
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "alloc")]
@@ -11,8 +10,7 @@ pub use error::Error;
 
 mod traits;
 pub use traits::{
-    Decode, DecodeIter, DiagnosticDefinition, DiagnosticDefinitionTx, Encode, Identifier,
-    IterableWireFormat, RoutineIdentifier, SingleValueWireFormat, WireFormat,
+    Decode, DecodeIter, DiagnosticDefinition, Encode, Identifier, RoutineIdentifier,
 };
 
 mod common;
@@ -20,15 +18,14 @@ pub use common::*;
 
 mod protocol_definitions;
 pub use protocol_definitions::{
-    ProtocolIdentifier, ProtocolPayload, ProtocolPayloadTx, ProtocolRoutinePayload,
-    ProtocolRoutinePayloadTx,
+    ProtocolIdentifier, ProtocolPayloadTx, ProtocolRoutinePayloadTx,
 };
 
 mod request;
-pub use request::{Request, RequestRx};
+pub use request::Request;
 
 mod response;
-pub use response::{Response, ResponseRx, UdsResponse, UdsResponseRx};
+pub use response::{Response, UdsResponse};
 
 mod service;
 pub use service::UdsServiceType;
@@ -50,25 +47,13 @@ pub const PENDING: u8 = 0x78;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UdsSpec;
-impl DiagnosticDefinition for UdsSpec {
-    type RID = UDSRoutineIdentifier;
-    type DID = ProtocolIdentifier;
-    type RoutinePayload = ProtocolRoutinePayload;
-    type DiagnosticPayload = ProtocolPayload;
-}
 
-impl DiagnosticDefinitionTx for UdsSpec {
+impl DiagnosticDefinition for UdsSpec {
     type RID = UDSRoutineIdentifier;
     type DID = ProtocolIdentifier;
     type RoutinePayload = ProtocolRoutinePayloadTx<'static>;
     type DiagnosticPayload = ProtocolPayloadTx<'static>;
 }
-
-/// Type alias for a UDS Request type that only implements the messages explicitly defined by the UDS specification.
-pub type ProtocolRequest = Request<UdsSpec>;
-
-/// Type alias for a UDS Response type that only implements the messages explicitly defined by the UDS specification.
-pub type ProtocolResponse = Response<UdsSpec>;
 
 /// What type of routine control to perform for a [`RoutineControlRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -111,36 +96,6 @@ impl TryFrom<u8> for RoutineControlSubFunction {
             0x03 => Ok(RoutineControlSubFunction::RequestRoutineResults),
             _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
         }
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl WireFormat for Vec<u8> {
-    fn required_size(&self) -> usize {
-        self.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_all(self)?;
-        Ok(self.len())
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl SingleValueWireFormat for Vec<u8> {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(data)
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl IterableWireFormat for Vec<u8> {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Some(data))
     }
 }
 
@@ -209,27 +164,27 @@ mod no_std_api_tests {
     }
 
     #[test]
-    fn decode_response_rx_tester_present() {
+    fn decode_response_tester_present() {
         // TesterPresent response: SID=0x7E, sub=0x00
         let wire = [0x7E, 0x00];
-        let (resp, _) = ResponseRx::decode(&wire).unwrap();
-        assert!(matches!(resp, ResponseRx::TesterPresent(_)));
+        let (resp, _) = Response::decode(&wire).unwrap();
+        assert!(matches!(resp, Response::TesterPresent(_)));
     }
 
     #[test]
-    fn decode_response_rx_negative() {
+    fn decode_response_negative() {
         // NegativeResponse: SID=0x7F, service=0x10, NRC=0x12
         let wire = [0x7F, 0x10, 0x12];
-        let (resp, _) = ResponseRx::decode(&wire).unwrap();
-        assert!(matches!(resp, ResponseRx::NegativeResponse(_)));
+        let (resp, _) = Response::decode(&wire).unwrap();
+        assert!(matches!(resp, Response::NegativeResponse(_)));
     }
 
     #[test]
-    fn decode_request_rx_ecu_reset() {
+    fn decode_request_ecu_reset() {
         // EcuReset request: SID=0x11, sub=0x01 (HardReset)
         let wire = [0x11, 0x01];
-        let (req, _) = RequestRx::decode(&wire).unwrap();
-        assert!(matches!(req, RequestRx::EcuReset(_)));
+        let (req, _) = Request::decode(&wire).unwrap();
+        assert!(matches!(req, Request::EcuReset(_)));
         assert_eq!(req.service(), UdsServiceType::EcuReset);
     }
 

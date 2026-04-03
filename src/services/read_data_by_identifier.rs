@@ -1,7 +1,6 @@
 //! `ReadDataByIdentifier` (0x22) service implementation
 use crate::{
-    Encode, Error, Identifier, IterableWireFormat, NegativeResponseCode,
-    SingleValueWireFormat, WireFormat,
+    Encode, Error, Identifier, NegativeResponseCode,
 };
 
 const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
@@ -39,31 +38,16 @@ impl<DataIdentifier: Identifier> ReadDataByIdentifierRequest<DataIdentifier> {
     }
 }
 
-impl<DataIdentifier: Identifier> WireFormat for ReadDataByIdentifierRequest<DataIdentifier> {
-    fn required_size(&self) -> usize {
+impl<DataIdentifier: Identifier> Encode for ReadDataByIdentifierRequest<DataIdentifier> {
+    fn encoded_size(&self) -> usize {
         self.dids.len() * 2
     }
 
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        let mut count = 0;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         for did in &self.dids {
-            WireFormat::encode(did, writer)?;
-            count += 2;
+            Encode::encode(did, writer)?;
         }
-        Ok(count)
-    }
-}
-
-impl<DataIdentifier: Identifier> SingleValueWireFormat
-    for ReadDataByIdentifierRequest<DataIdentifier>
-{
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
-        let dids = DataIdentifier::parse_from_list(reader)?;
-        if dids.is_empty() {
-            Err(Error::NoDataAvailable)
-        } else {
-            Ok(ReadDataByIdentifierRequest::new(dids))
-        }
+        Ok(self.encoded_size())
     }
 }
 
@@ -87,40 +71,17 @@ impl<UserPayload> ReadDataByIdentifierResponse<UserPayload> {
     }
 }
 
-impl<UserPayload: IterableWireFormat> WireFormat for ReadDataByIdentifierResponse<UserPayload> {
-    fn required_size(&self) -> usize {
-        self.data.iter().map(WireFormat::required_size).sum()
+impl<UserPayload: Encode> Encode for ReadDataByIdentifierResponse<UserPayload> {
+    fn encoded_size(&self) -> usize {
+        self.data.iter().map(Encode::encoded_size).sum()
     }
 
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-        let mut total_written = 0;
-        for payload in &self.data {
-            total_written += payload.encode(writer)?;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let mut total = 0;
+        for item in &self.data {
+            total += Encode::encode(item, writer)?;
         }
-        Ok(total_written)
-    }
-}
-
-impl<UserPayload: IterableWireFormat> SingleValueWireFormat
-    for ReadDataByIdentifierResponse<UserPayload>
-{
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
-        let mut data = Vec::new();
-        for payload in UserPayload::decode_iter(reader) {
-            match payload {
-                Ok(p) => {
-                    data.push(p);
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-        }
-        if data.is_empty() {
-            Err(Error::NoDataAvailable)
-        } else {
-            Ok(ReadDataByIdentifierResponse::new(data))
-        }
+        Ok(total)
     }
 }
 
@@ -156,8 +117,10 @@ impl<DataIdentifier: Identifier> Encode for ReadDataByIdentifierRequestTx<'_, Da
     }
 }
 
-impl<UserPayload: std::fmt::Debug> std::fmt::Debug for ReadDataByIdentifierResponse<UserPayload> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<UserPayload: core::fmt::Debug> core::fmt::Debug
+    for ReadDataByIdentifierResponse<UserPayload>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "ReadDataByIdentifierResponse\n{:?}", self.data)
     }
 }
@@ -167,368 +130,27 @@ mod test {
     use super::*;
     use crate::{ProtocolIdentifier, UDSIdentifier};
 
-    mod request {
-        use super::*;
-
-        struct ReadRequestTestData {
-            pub test_name: String,
-            pub dids_bytes: Vec<u8>,
-        }
-
-        impl ReadRequestTestData {
-            // Creates a Test Read Request from a list of data identifiers
-            fn from_ids(test_name: &str, dids: &[ProtocolIdentifier]) -> Self {
-                let dids_bytes = to_bytes(dids);
-                Self {
-                    test_name: test_name.to_string(),
-                    dids_bytes,
-                }
-            }
-
-            // Create a Test Read Request from a list of bytes.
-            // Note: These bytes may not properly translate to a list of data identifiers
-            fn from_bytes(test_name: &str, dids_bytes: Vec<u8>) -> Self {
-                Self {
-                    test_name: test_name.to_string(),
-                    dids_bytes,
-                }
-            }
-        }
-
-        // Holds a list of dids that will be transformed into a byte sequence
-        struct WriteRequestTestData {
-            pub test_name: String,
-            pub dids: Vec<ProtocolIdentifier>,
-        }
-
-        impl WriteRequestTestData {
-            fn from_ids(test_name: &str, dids: &[ProtocolIdentifier]) -> Self {
-                Self {
-                    test_name: test_name.to_string(),
-                    dids: dids.to_vec(),
-                }
-            }
-        }
-
-        fn to_bytes(ids: &[ProtocolIdentifier]) -> Vec<u8> {
-            ids.iter()
-                .flat_map(|id: &ProtocolIdentifier| {
-                    let mut buffer = Vec::new();
-                    WireFormat::encode(id, &mut buffer).unwrap();
-                    buffer
-                })
-                .collect()
-        }
-
-        fn get_test_ids() -> Vec<ProtocolIdentifier> {
-            vec![
-                ProtocolIdentifier::new(UDSIdentifier::BootSoftwareIdentification),
-                ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftwareIdentification),
-                ProtocolIdentifier::new(UDSIdentifier::ApplicationDataIdentification),
-                ProtocolIdentifier::new(UDSIdentifier::BootSoftwareFingerprint),
-                ProtocolIdentifier::new(UDSIdentifier::ApplicationSoftwareFingerprint),
-                ProtocolIdentifier::new(UDSIdentifier::ApplicationDataFingerprint),
-                ProtocolIdentifier::new(UDSIdentifier::ActiveDiagnosticSession),
-                ProtocolIdentifier::new(UDSIdentifier::VehicleManufacturerSparePartNumber),
-                ProtocolIdentifier::new(UDSIdentifier::VehicleManufacturerECUSoftwareNumber),
-                ProtocolIdentifier::new(UDSIdentifier::VehicleManufacturerECUSoftwareVersionNumber),
-            ]
-        }
-
-        #[test]
-        fn read_did_request_bytes() {
-            let test_ids = get_test_ids();
-
-            let test_data_sets: Vec<ReadRequestTestData> = vec![
-                ReadRequestTestData::from_bytes("No ids", vec![]),
-                ReadRequestTestData::from_bytes("Invalid byte length", vec![0x00]),
-                ReadRequestTestData::from_bytes("Invalid id", vec![0x00, 0x01]),
-                ReadRequestTestData::from_ids("1 id", &test_ids[0..1]),
-                ReadRequestTestData::from_ids("2 ids", &test_ids[0..2]),
-                ReadRequestTestData::from_ids("3 ids", &test_ids[0..3]),
-                ReadRequestTestData::from_ids("4 ids", &test_ids[0..4]),
-                ReadRequestTestData::from_ids("All ids", &test_ids),
-                ReadRequestTestData::from_ids(
-                    "Repeated ids",
-                    &test_ids
-                        .clone()
-                        .iter()
-                        .cycle()
-                        .take(100)
-                        .copied()
-                        .collect::<Vec<_>>(),
-                ),
-            ];
-
-            for test_data in &test_data_sets {
-                let read_result = ReadDataByIdentifierRequest::<ProtocolIdentifier>::decode(
-                    &mut test_data.dids_bytes.as_slice(),
-                );
-
-                match read_result {
-                    Ok(response) => {
-                        let mut translated_bytes = Vec::new();
-                        response.encode(&mut translated_bytes).unwrap();
-                        assert_eq!(
-                            translated_bytes, *test_data.dids_bytes,
-                            "Ok: Failed: {}",
-                            test_data.test_name
-                        );
-                    }
-                    Err(e) => {
-                        if test_data.dids_bytes.is_empty() {
-                            assert!(
-                                matches!(e, Error::NoDataAvailable),
-                                "NoDataAvailable: Failed {}",
-                                test_data.test_name
-                            );
-                        } else {
-                            assert!(
-                                matches!(e, Error::IncorrectMessageLengthOrInvalidFormat),
-                                "IncorrectMessageLengthOrInvalidFormat: Failed {}",
-                                test_data.test_name
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        #[test]
-        fn write_did_request_bytes() {
-            let test_ids = get_test_ids();
-
-            let test_data_sets: Vec<WriteRequestTestData> = vec![
-                WriteRequestTestData::from_ids("No ids", &Vec::new()),
-                WriteRequestTestData::from_ids("1 id", &test_ids[0..1]),
-                WriteRequestTestData::from_ids("2 ids", &test_ids[0..2]),
-                WriteRequestTestData::from_ids("3 ids", &test_ids[0..3]),
-                WriteRequestTestData::from_ids("4 ids", &test_ids[0..4]),
-                WriteRequestTestData::from_ids("All ids", &test_ids),
-                WriteRequestTestData::from_ids(
-                    "Repeated ids",
-                    &test_ids
-                        .clone()
-                        .iter()
-                        .cycle()
-                        .take(100)
-                        .copied()
-                        .collect::<Vec<_>>(),
-                ),
-            ];
-
-            for test_data in &test_data_sets {
-                let request = ReadDataByIdentifierRequest::new(test_data.dids.clone());
-                let mut buffer = Vec::new();
-                let write_result = request.encode(&mut buffer);
-
-                match write_result {
-                    Ok(bytes_read) => {
-                        // 1 did is 2 bytes
-                        let expected_byte_count = request.dids.len() * 2;
-                        assert_eq!(bytes_read, expected_byte_count);
-                    }
-                    Err(e) => {
-                        assert!(
-                            matches!(e, Error::InsufficientData(_)),
-                            "InsufficientData: Failed {}",
-                            test_data.test_name
-                        );
-                    }
-                }
-            }
-        }
+    #[test]
+    fn encode_read_did_request_tx() {
+        let ids = [
+            ProtocolIdentifier::new(UDSIdentifier::BootSoftwareIdentification),
+            ProtocolIdentifier::new(UDSIdentifier::ActiveDiagnosticSession),
+        ];
+        let req = ReadDataByIdentifierRequestTx::new(&ids);
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 4); // 2 DIDs * 2 bytes each
     }
 
-    mod response {
-        use super::*;
-
-        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-        pub struct BazData {
-            pub data: [u8; 16],
-            pub data2: u64,
-            pub data3: u16,
-        }
-
-        // The UDSIdentifiers are vender defined and don't have interesting payloads, so we define our own types for
-        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-        #[derive(Clone, Debug, Eq, PartialEq)]
-        pub enum TestPayload {
-            #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
-            MeaningOfLife([u8; 42]),
-            Foo(u32),
-            Bar,
-            Baz(BazData),
-            UDSIdentifier(UDSIdentifier),
-        }
-
-        impl TestPayload {
-            fn new<R: std::io::Read>(did: u16, reader: &mut R) -> Result<Self, Error> {
-                match did {
-                    0xFF00 => {
-                        let mut data = [0u8; 42];
-                        reader.read_exact(&mut data)?;
-                        Ok(TestPayload::MeaningOfLife(data))
-                    }
-                    0xFF01 => {
-                        let mut data = [0u8; 4];
-                        reader.read_exact(&mut data)?;
-                        let value = u32::from_be_bytes(data);
-                        Ok(TestPayload::Foo(value))
-                    }
-                    0xFF02 => Ok(TestPayload::Bar),
-                    0xFF03 => {
-                        let data = BazData::decode(reader)?;
-                        Ok(TestPayload::Baz(data))
-                    }
-                    _ => {
-                        let identifier = UDSIdentifier::try_from(did)?;
-                        Ok(TestPayload::UDSIdentifier(identifier))
-                    }
-                }
-            }
-        }
-
-        impl From<TestPayload> for u16 {
-            fn from(value: TestPayload) -> Self {
-                match value {
-                    TestPayload::MeaningOfLife(_) => 0xFF00,
-                    TestPayload::Foo(_) => 0xFF01,
-                    TestPayload::Bar => 0xFF02,
-                    TestPayload::Baz(_) => 0xFF03,
-                    TestPayload::UDSIdentifier(uds_id) => u16::from(uds_id),
-                }
-            }
-        }
-
-        impl WireFormat for TestPayload {
-            #[allow(clippy::match_same_arms)]
-            fn required_size(&self) -> usize {
-                match self {
-                    TestPayload::MeaningOfLife(_) => 42,
-                    TestPayload::Foo(_) => 4,
-                    TestPayload::Bar => 0,
-                    TestPayload::Baz(_) => 26,
-                    TestPayload::UDSIdentifier(_) => 0,
-                }
-            }
-
-            #[allow(clippy::match_same_arms)]
-            fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-                let id_bytes = u16::from(self.clone()).to_be_bytes();
-                let did_len = writer.write(&id_bytes)?;
-                match self {
-                    TestPayload::MeaningOfLife(data) => {
-                        writer.write_all(data)?;
-                        Ok(did_len + data.len())
-                    }
-                    TestPayload::Foo(value) => {
-                        let bytes = value.to_be_bytes();
-                        writer.write_all(&bytes)?;
-                        Ok(did_len + bytes.len())
-                    }
-                    TestPayload::Bar => Ok(did_len),
-                    TestPayload::Baz(data) => data.encode(writer),
-                    TestPayload::UDSIdentifier(_) => Ok(did_len),
-                }
-            }
-        }
-
-        impl IterableWireFormat for TestPayload {
-            fn decode_next<R: std::io::Read>(reader: &mut R) -> Result<Option<Self>, Error> {
-                let mut identifier_data: [u8; 2] = [0; 2];
-                match reader.read(&mut identifier_data)? {
-                    0 => return Ok(None),
-                    1 => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
-                    2 => (),
-                    _ => unreachable!("Impossible to read more than 2 bytes into 2 byte array"),
-                }
-                let did = u16::from_be_bytes(identifier_data);
-                Ok(Some(TestPayload::new(did, reader)?))
-            }
-        }
-
-        impl WireFormat for BazData {
-            fn required_size(&self) -> usize {
-                26
-            }
-
-            fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, Error> {
-                writer.write_all(&self.data)?;
-                let mut count = 16;
-                count += writer.write(&self.data2.to_be_bytes())?;
-                count += writer.write(&self.data3.to_be_bytes())?;
-                // 2 for the initial did bytes
-                Ok(2 + count)
-            }
-        }
-
-        impl SingleValueWireFormat for BazData {
-            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
-                let mut data = [0u8; 16];
-                reader.read_exact(&mut data)?;
-
-                let mut data2_bytes = [0u8; 8];
-                reader.read_exact(&mut data2_bytes)?;
-                let data2 = u64::from_be_bytes(data2_bytes);
-
-                let mut data3_bytes = [0u8; 2];
-                reader.read_exact(&mut data3_bytes)?;
-                let data3 = u16::from_be_bytes(data3_bytes);
-
-                Ok(BazData { data, data2, data3 })
-            }
-        }
-
-        fn get_test_response_data() -> Vec<TestPayload> {
-            vec![
-                TestPayload::MeaningOfLife([0; 42]),
-                TestPayload::Foo(42),
-                TestPayload::Bar,
-                TestPayload::Baz(BazData {
-                    data: [5; 16],
-                    data2: 1_234_567_890,
-                    data3: 54_321,
-                }),
-                TestPayload::UDSIdentifier(UDSIdentifier::BootSoftwareIdentification),
-            ]
-        }
-
-        #[test]
-        fn read_did_response_bytes() {
-            let test_data = get_test_response_data();
-
-            let response = ReadDataByIdentifierResponse::new(test_data);
-            let mut buffer = Vec::new();
-            response.encode(&mut buffer).unwrap();
-
-            let read_response: ReadDataByIdentifierResponse<TestPayload> =
-                ReadDataByIdentifierResponse::<TestPayload>::decode(&mut buffer.as_slice())
-                    .unwrap();
-
-            assert_eq!(response, read_response);
-        }
-
-        #[test]
-        fn write_did_response_bytes() {
-            let test_data = get_test_response_data();
-
-            let response = ReadDataByIdentifierResponse::new(test_data.clone());
-            let mut buffer = Vec::new();
-            let bytes_written = response.encode(&mut buffer).unwrap();
-
-            let expected_bytes: Vec<u8> = test_data
-                .iter()
-                .flat_map(|payload| {
-                    let mut buf = Vec::new();
-                    payload.encode(&mut buf).unwrap();
-                    buf
-                })
-                .collect();
-
-            assert_eq!(buffer, expected_bytes);
-            assert_eq!(bytes_written, expected_bytes.len());
-        }
+    #[test]
+    fn encode_read_did_request_alloc() {
+        let ids = vec![
+            ProtocolIdentifier::new(UDSIdentifier::BootSoftwareIdentification),
+            ProtocolIdentifier::new(UDSIdentifier::ActiveDiagnosticSession),
+        ];
+        let req = ReadDataByIdentifierRequest::new(ids);
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 4);
     }
 }

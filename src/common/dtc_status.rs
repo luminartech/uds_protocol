@@ -1,7 +1,6 @@
 use bitmask_enum::bitmask;
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
-use crate::{Decode, DecodeIter, Encode, Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
+use crate::{Decode, DecodeIter, Encode, Error};
 
 /// Bit-packed DTC status information used by the `ReadDTCInformation` service
 ///
@@ -107,21 +106,22 @@ pub enum DTCStatusMask {
     WarningIndicatorRequested,
 }
 
-impl WireFormat for DTCStatusMask {
-    fn required_size(&self) -> usize {
+impl Encode for DTCStatusMask {
+    fn encoded_size(&self) -> usize {
         1
     }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
-        writer.write_u8(self.bits())?;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.bits()]).map_err(Error::io)?;
         Ok(1)
     }
 }
 
-impl SingleValueWireFormat for DTCStatusMask {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
-        let status_byte = reader.read_u8()?;
-        Ok(Self::from(status_byte))
+impl<'a> Decode<'a> for DTCStatusMask {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::from(buf[0]), &buf[1..]))
     }
 }
 
@@ -230,51 +230,12 @@ impl From<DTCRecord> for u32 {
     }
 }
 
-impl WireFormat for DTCRecord {
-    fn required_size(&self) -> usize {
-        3
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
-        writer.write_all(&[self.high_byte, self.middle_byte, self.low_byte])?;
-        Ok(3)
-    }
-}
-
-impl SingleValueWireFormat for DTCRecord {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
-        let high_byte = reader.read_u8()?;
-        let middle_byte = reader.read_u8()?;
-        let low_byte = reader.read_u8()?;
-        Ok(Self {
-            high_byte,
-            middle_byte,
-            low_byte,
-        })
-    }
-}
-
-impl IterableWireFormat for DTCRecord {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
-        let Ok(high_byte) = reader.read_u8() else {
-            return Ok(None);
-        };
-        let middle_byte = reader.read_u8()?;
-        let low_byte = reader.read_u8()?;
-        Ok(Some(Self {
-            high_byte,
-            middle_byte,
-            low_byte,
-        }))
-    }
-}
-
 impl Encode for DTCRecord {
     fn encoded_size(&self) -> usize {
         3
     }
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
             .write_all(&[self.high_byte, self.middle_byte, self.low_byte])
             .map_err(Error::io)?;
@@ -283,7 +244,7 @@ impl Encode for DTCRecord {
 }
 
 impl<'a> Decode<'a> for DTCRecord {
-    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
             return Err(Error::InsufficientData(3));
         }
@@ -299,7 +260,7 @@ impl<'a> Decode<'a> for DTCRecord {
 }
 
 impl<'a> DecodeIter<'a> for DTCRecord {
-    fn decode_next(buf: &'a [u8]) -> Result<Option<(Self, &'a [u8])>, crate::Error> {
+    fn decode_next(buf: &'a [u8]) -> Result<Option<(Self, &'a [u8])>, Error> {
         if buf.is_empty() {
             return Ok(None);
         }
@@ -423,7 +384,7 @@ pub enum DTCSeverityMask {
 }
 
 impl DTCSeverityMask {
-    /// Returns `true` if at least one DTC class bit (bits 0–4) is set.
+    /// Returns `true` if at least one DTC class bit (bits 0-4) is set.
     /// Multiple class bits may be set to query multiple DTC classes at once.
     #[must_use]
     pub fn is_valid(&self) -> bool {
@@ -457,28 +418,6 @@ impl DTCStoredDataRecordNumber {
     }
 }
 
-impl WireFormat for DTCStoredDataRecordNumber {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.0)?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for DTCStoredDataRecordNumber {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let value = reader.read_u8()?;
-        if value == 0x00 {
-            // Reserved for Legislative purposes
-            return Err(Error::ReservedForLegislativeUse(value));
-        }
-        Ok(Self(value))
-    }
-}
-
 impl From<u8> for DTCStoredDataRecordNumber {
     fn from(value: u8) -> Self {
         Self(value)
@@ -498,40 +437,6 @@ pub struct DTCSeverityRecord {
     pub dtc_record: DTCRecord,
     ///  The status mask of the DTC, representing its current state.
     pub dtc_status_mask: DTCStatusMask,
-}
-
-impl WireFormat for DTCSeverityRecord {
-    fn required_size(&self) -> usize {
-        6
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.severity.bits())?;
-        writer.write_u8(self.functional_group_identifier.value())?;
-        WireFormat::encode(&self.dtc_record, writer)?;
-        WireFormat::encode(&self.dtc_status_mask, writer)?;
-        Ok(self.required_size())
-    }
-}
-
-impl IterableWireFormat for DTCSeverityRecord {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let Ok(sev) = reader.read_u8() else {
-            return Ok(None);
-        };
-
-        let severity = DTCSeverityMask::from(sev);
-        let functional_group_identifier = FunctionalGroupIdentifier::from(reader.read_u8()?);
-        let dtc_record = <DTCRecord as SingleValueWireFormat>::decode(reader)?;
-        let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
-
-        Ok(Some(Self {
-            severity,
-            functional_group_identifier,
-            dtc_record,
-            dtc_status_mask,
-        }))
-    }
 }
 
 #[cfg(test)]
@@ -563,11 +468,13 @@ mod dtc_status_tests {
     }
 
     #[test]
-    fn dtc_record() {
+    fn dtc_record_encode_decode() {
         let record = DTCRecord::new(0x01, 0x02, 0x03);
-        let mut writer = Vec::new();
-        let written_number = WireFormat::encode(&record, &mut writer).unwrap();
-        assert_eq!(record.required_size(), 3);
-        assert_eq!(written_number, 3);
+        let mut buf = [0u8; 3];
+        let written = Encode::encode(&record, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 3);
+        let (decoded, rest) = <DTCRecord as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, record);
+        assert!(rest.is_empty());
     }
 }

@@ -1,10 +1,7 @@
 //! `TesterPresent` (0x3E) service implementation
 use crate::{
-    Decode, Encode, Error, NegativeResponseCode, SingleValueWireFormat,
-    SuppressablePositiveResponse, WireFormat,
+    Decode, Encode, Error, NegativeResponseCode, SuppressablePositiveResponse,
 };
-
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -128,28 +125,6 @@ impl<'a> Decode<'a> for TesterPresentRequest {
     }
 }
 
-impl WireFormat for TesterPresentRequest {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.zero_sub_function))?;
-        Ok(1)
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_positive_response()
-    }
-}
-
-impl SingleValueWireFormat for TesterPresentRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        Ok(Self { zero_sub_function })
-    }
-}
-
 /// Positive response to a `TesterPresentRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -188,24 +163,6 @@ impl<'a> Decode<'a> for TesterPresentResponse {
         }
         let zero_sub_function = ZeroSubFunction::try_from(buf[0])?;
         Ok((Self { zero_sub_function }, &buf[1..]))
-    }
-}
-
-impl WireFormat for TesterPresentResponse {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.zero_sub_function))?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for TesterPresentResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
-        Ok(Self { zero_sub_function })
     }
 }
 

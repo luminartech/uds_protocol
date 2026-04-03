@@ -1,9 +1,7 @@
 //! `ClearDiagnosticInformation` (0x14) service implementation
 use crate::{
-    CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, NegativeResponseCode, SingleValueWireFormat,
-    WireFormat,
+    CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, NegativeResponseCode,
 };
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
 /// Negative response codes
 const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
@@ -79,32 +77,6 @@ impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
             },
             &buf[1..],
         ))
-    }
-}
-
-impl WireFormat for ClearDiagnosticInfoRequest {
-    fn required_size(&self) -> usize {
-        self.group_of_dtc.required_size() + 1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
-        let mut size = 0;
-        size += WireFormat::encode(&self.group_of_dtc, writer)?;
-        writer.write_u8(self.memory_selection)?;
-        size += 1;
-        Ok(size)
-    }
-}
-
-impl SingleValueWireFormat for ClearDiagnosticInfoRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
-        let group_of_dtc = <DTCRecord as SingleValueWireFormat>::decode(reader)?;
-        let memory_selection = reader.read_u8()?;
-
-        Ok(Self {
-            group_of_dtc,
-            memory_selection,
-        })
     }
 }
 

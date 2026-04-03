@@ -1,7 +1,6 @@
 //! `TransferData` (0x36) service implementation
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
 
-use crate::{Decode, Encode, Error, SingleValueWireFormat, WireFormat};
+use crate::{Decode, Encode, Error};
 
 /// A request to the server to transfer data (either upload or download)
 ///
@@ -44,30 +43,6 @@ impl TransferDataRequest {
     }
 }
 
-impl WireFormat for TransferDataRequest {
-    fn required_size(&self) -> usize {
-        1 + self.data.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.block_sequence_counter)?;
-        writer.write_all(&self.data)?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for TransferDataRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let block_sequence_counter = reader.read_u8()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Self {
-            block_sequence_counter,
-            data,
-        })
-    }
-}
-
 /// Positive response to a [`TransferDataRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -98,30 +73,6 @@ impl TransferDataResponse {
             block_sequence_counter,
             data,
         }
-    }
-}
-
-impl WireFormat for TransferDataResponse {
-    fn required_size(&self) -> usize {
-        1 + self.data.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.block_sequence_counter)?;
-        writer.write_all(&self.data)?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for TransferDataResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let block_sequence_counter = reader.read_u8()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Self {
-            block_sequence_counter,
-            data,
-        })
     }
 }
 

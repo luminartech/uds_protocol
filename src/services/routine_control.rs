@@ -1,13 +1,10 @@
 //! Routine Control (0x31) Service is used to perform functions on the ECU that are may not be covered by other services.
 //!
-//! It can also be used to check the ECU’s health, erase memory, or other custom manufacturer/supplier routines.
+//! It can also be used to check the ECU's health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
 use crate::{
-    Error, Identifier, IterableWireFormat, RoutineControlSubFunction, SingleValueWireFormat,
-    WireFormat,
+    Encode, Error, Identifier, RoutineControlSubFunction,
 };
-use byteorder_embedded_io::io::{ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Write};
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -23,13 +20,11 @@ pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
     pub data: Option<RoutinePayload>,
 }
 
-impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat>
-    RoutineControlRequest<RoutineIdentifier, RoutinePayload>
-{
+impl<RI: Identifier, RP: Encode> RoutineControlRequest<RI, RP> {
     pub(crate) fn new(
         sub_function: RoutineControlSubFunction,
-        routine_id: RoutineIdentifier,
-        data: Option<RoutinePayload>,
+        routine_id: RI,
+        data: Option<RP>,
     ) -> Self {
         Self {
             sub_function,
@@ -39,38 +34,20 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat>
     }
 }
 
-impl<RoutineIdentifier: Identifier, RoutinePayload: WireFormat> WireFormat
-    for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
-{
-    fn required_size(&self) -> usize {
-        3 + match &self.data {
-            Some(record) => record.required_size(),
-            None => 0,
-        }
+impl<RI: Identifier, RP: Encode> Encode for RoutineControlRequest<RI, RP> {
+    fn encoded_size(&self) -> usize {
+        1 + 2 + self.data.as_ref().map_or(0, Encode::encoded_size)
     }
 
-    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.sub_function))?;
-        self.routine_id.encode(writer)?;
-        if let Some(record) = &self.data {
-            record.encode(writer)?;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.sub_function)])
+            .map_err(Error::io)?;
+        Encode::encode(&self.routine_id, writer)?;
+        if let Some(payload) = &self.data {
+            Encode::encode(payload, writer)?;
         }
-        Ok(self.required_size())
-    }
-}
-
-impl<RoutineIdentifier: Identifier, RoutinePayload: IterableWireFormat> SingleValueWireFormat
-    for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
-{
-    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
-        let sub_function = RoutineControlSubFunction::try_from(reader.read_u8()?)?;
-        let routine_id = RoutineIdentifier::decode(reader)?;
-        let data = RoutinePayload::decode_next(reader)?;
-        Ok(Self {
-            sub_function,
-            routine_id,
-            data,
-        })
+        Ok(self.encoded_size())
     }
 }
 
@@ -84,143 +61,31 @@ pub struct RoutineControlResponse<RoutineInfoStatusRecord> {
     pub routine_control_type: RoutineControlSubFunction,
 
     /// Should contain the `routine_info` (u8) and the `routine_status_record` (u8 * n) information. n can be 0
-    ///
-    /// `routine_info`: The routine information that the response is for (vehicle manufacturer specific)
-    /// `routine_status_record`: The status of the routine (optional)
-    ///
-    /// Mandatory for any routine where the `routine_status_record` is defined by ISO/SAE specs, even if it is 0 bytes.
-    /// Optional if the routine is defined by a manufacturer.
     pub routine_status_record: RoutineInfoStatusRecord,
 }
 
-impl<RoutineStatusRecord: WireFormat> RoutineControlResponse<RoutineStatusRecord> {
+impl<RSR: Encode> RoutineControlResponse<RSR> {
     pub(crate) fn new(
         routine_control_type: RoutineControlSubFunction,
-        data: RoutineStatusRecord,
+        routine_status_record: RSR,
     ) -> Self {
         Self {
             routine_control_type,
-            routine_status_record: data,
-        }
-    }
-
-    /// Get the raw data of the status record
-    /// # Errors
-    /// - if the stream is not in the expected format
-    /// - if the stream contains partial data
-    pub fn status_record_data(&self) -> Result<Vec<u8>, Error> {
-        let mut writer: Vec<u8> = Vec::new();
-        self.routine_status_record.encode(&mut writer)?;
-
-        Ok(writer)
-    }
-}
-
-impl<RoutineStatusRecord: WireFormat> WireFormat for RoutineControlResponse<RoutineStatusRecord> {
-    fn required_size(&self) -> usize {
-        // control type + (routine identifier + routine info + status record)
-        1 + self.routine_status_record.required_size()
-    }
-
-    fn encode<T: Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.routine_control_type.into())?;
-        self.routine_status_record.encode(writer)?;
-        Ok(self.required_size())
-    }
-}
-
-impl<RoutineStatusRecord: SingleValueWireFormat> SingleValueWireFormat
-    for RoutineControlResponse<RoutineStatusRecord>
-{
-    fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
-        let routine_control_type = RoutineControlSubFunction::try_from(reader.read_u8()?)?;
-        // Reads the identifier, then can read 0 bytes, 1 byte, or more
-        let routine_status_record = RoutineStatusRecord::decode(reader)?;
-        Ok(Self {
-            routine_control_type,
             routine_status_record,
-        })
+        }
     }
 }
 
-#[cfg(test)]
-mod request {
-    use super::*;
-    use crate::impl_identifier;
-
-    #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    struct TestIdentifier(pub u16);
-    impl_identifier!(TestIdentifier);
-
-    impl From<u16> for TestIdentifier {
-        fn from(value: u16) -> Self {
-            TestIdentifier(value)
-        }
+impl<RSR: Encode> Encode for RoutineControlResponse<RSR> {
+    fn encoded_size(&self) -> usize {
+        1 + self.routine_status_record.encoded_size()
     }
 
-    impl From<TestIdentifier> for u16 {
-        fn from(val: TestIdentifier) -> Self {
-            val.0
-        }
-    }
-
-    type RoutineControlRequestType = RoutineControlRequest<TestIdentifier, Vec<u8>>;
-
-    #[test]
-    fn simple_request() {
-        // Fake data: StartRoutine, RoutineID of 0x8606 for "Start O2 Sensor Heater Test" or something
-        let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
-        let req: RoutineControlRequestType =
-            RoutineControlRequest::decode(&mut bytes.as_slice()).unwrap();
-
-        assert_eq!(u8::from(req.sub_function), 0x01);
-        assert_eq!(req.routine_id, TestIdentifier::from(0x0001));
-        let data = req.data.clone().unwrap();
-        assert_eq!(data, vec![0x02, 0x03, 0x04]);
-
-        let mut buf = Vec::new();
-        let written = req.encode(&mut buf).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(written, req.required_size());
-
-        let new_req: RoutineControlRequestType = RoutineControlRequest::new(
-            RoutineControlSubFunction::StopRoutine,
-            TestIdentifier::from(0x0002),
-            Some(vec![]),
-        );
-
-        assert_eq!(new_req.sub_function, RoutineControlSubFunction::StopRoutine);
-        assert_eq!(new_req.routine_id, TestIdentifier::from(0x0002));
-    }
-
-    #[test]
-    fn simple_response() {
-        let bytes: [u8; 6] = [0x01, 0x00, 0x01, 0x02, 0x03, 0x04];
-        let resp: RoutineControlResponse<Vec<u8>> =
-            RoutineControlResponse::decode(&mut bytes.as_slice()).unwrap();
-
-        assert_eq!(
-            resp.routine_control_type,
-            RoutineControlSubFunction::StartRoutine
-        );
-        // Vec<u8> as payload just reads until the end, including the identifier
-        assert_eq!(
-            resp.routine_status_record,
-            vec![0x00, 0x01, 0x02, 0x03, 0x04]
-        );
-
-        let mut buf = Vec::new();
-        let written = resp.encode(&mut buf).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(written, resp.required_size());
-
-        let new_resp: RoutineControlResponse<Vec<u8>> =
-            RoutineControlResponse::new(RoutineControlSubFunction::StopRoutine, buf);
-
-        assert_eq!(
-            new_resp.routine_control_type,
-            RoutineControlSubFunction::StopRoutine
-        );
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.routine_control_type)])
+            .map_err(Error::io)?;
+        Encode::encode(&self.routine_status_record, writer)?;
+        Ok(self.encoded_size())
     }
 }
