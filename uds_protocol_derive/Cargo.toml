@@ -17,3 +17,12 @@ proc-macro = true
 proc-macro2 = { version="1", features = ["proc-macro"] }
 quote = "1"
 syn = "2"
+
+# Dev-deps only — used by the doctest examples in `src/lib.rs`. The
+# crate is a dependency of `uds_protocol`, so depending back on
+# `uds_protocol` here forms a *logical* cycle, but cargo permits this
+# because dev-deps are only resolved when building *this crate's own*
+# tests, not when something else consumes the proc-macro. Same pattern
+# `serde_derive` uses to dev-dep `serde`.
+[dev-dependencies]
+uds_protocol = { path = ".." }
