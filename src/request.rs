@@ -1,10 +1,11 @@
 //! Module for making and handling UDS Requests
 use crate::{
-    Decode, Error,
+    Decode, Encode, Error,
     services::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, RequestDownloadRequest,
-        SecurityAccessRequestTx, TesterPresentRequest, TransferDataRequestTx,
+        RequestFileTransferRequestTx, SecurityAccessRequestTx, TesterPresentRequest,
+        TransferDataRequestTx,
     },
 };
 
@@ -33,6 +34,8 @@ pub enum Request<'a> {
     ReadDTCInfo(&'a [u8]),
     /// Request download.
     RequestDownload(RequestDownloadRequest),
+    /// Request file transfer.
+    RequestFileTransfer(RequestFileTransferRequestTx<'a>),
     /// Request transfer exit.
     RequestTransferExit,
     /// Routine control request. Sub-function byte + raw payload.
@@ -87,6 +90,10 @@ impl<'a> Decode<'a> for Request<'a> {
                 let (req, _) = <RequestDownloadRequest as Decode>::decode(payload)?;
                 Self::RequestDownload(req)
             }
+            UdsServiceType::RequestFileTransfer => {
+                let (req, _) = <RequestFileTransferRequestTx as Decode>::decode(payload)?;
+                Self::RequestFileTransfer(req)
+            }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
                 if payload.is_empty() {
@@ -116,6 +123,63 @@ impl<'a> Decode<'a> for Request<'a> {
     }
 }
 
+impl Encode for Request<'_> {
+    fn encoded_size(&self) -> usize {
+        let payload = match self {
+            Self::ClearDiagnosticInfo(req) => req.encoded_size(),
+            Self::CommunicationControl(req) => req.encoded_size(),
+            Self::ControlDTCSettings(req) => req.encoded_size(),
+            Self::DiagnosticSessionControl(req) => req.encoded_size(),
+            Self::EcuReset(req) => req.encoded_size(),
+            Self::ReadDataByIdentifier(bytes)
+            | Self::WriteDataByIdentifier(bytes)
+            | Self::ReadDTCInfo(bytes) => bytes.len(),
+            Self::RequestDownload(req) => req.encoded_size(),
+            Self::RequestFileTransfer(req) => req.encoded_size(),
+            Self::RequestTransferExit => 0,
+            Self::RoutineControl { raw_payload, .. } => 1 + raw_payload.len(),
+            Self::SecurityAccess(req) => req.encoded_size(),
+            Self::TesterPresent(req) => req.encoded_size(),
+            Self::TransferData(req) => req.encoded_size(),
+        };
+        1 + payload
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[self.service().request_service_to_byte()])
+            .map_err(Error::io)?;
+        let payload = match self {
+            Self::ClearDiagnosticInfo(req) => req.encode(writer)?,
+            Self::CommunicationControl(req) => req.encode(writer)?,
+            Self::ControlDTCSettings(req) => req.encode(writer)?,
+            Self::DiagnosticSessionControl(req) => req.encode(writer)?,
+            Self::EcuReset(req) => req.encode(writer)?,
+            Self::ReadDataByIdentifier(bytes)
+            | Self::WriteDataByIdentifier(bytes)
+            | Self::ReadDTCInfo(bytes) => {
+                writer.write_all(bytes).map_err(Error::io)?;
+                bytes.len()
+            }
+            Self::RequestDownload(req) => req.encode(writer)?,
+            Self::RequestFileTransfer(req) => req.encode(writer)?,
+            Self::RequestTransferExit => 0,
+            Self::RoutineControl {
+                sub_function,
+                raw_payload,
+            } => {
+                writer.write_all(&[*sub_function]).map_err(Error::io)?;
+                writer.write_all(raw_payload).map_err(Error::io)?;
+                1 + raw_payload.len()
+            }
+            Self::SecurityAccess(req) => req.encode(writer)?,
+            Self::TesterPresent(req) => req.encode(writer)?,
+            Self::TransferData(req) => req.encode(writer)?,
+        };
+        Ok(1 + payload)
+    }
+}
+
 impl Request<'_> {
     /// Returns the [`UdsServiceType`] corresponding to this request variant.
     #[must_use]
@@ -129,6 +193,7 @@ impl Request<'_> {
             Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
             Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo,
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
+            Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
             Self::RoutineControl { .. } => UdsServiceType::RoutineControl,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,

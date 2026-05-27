@@ -1,6 +1,5 @@
 use crate::{
-    Decode, DecodeIter, Encode, Error, UDSIdentifier,
-    UDSRoutineIdentifier, impl_identifier,
+    Decode, DecodeIter, Encode, Error, UDSIdentifier, UDSRoutineIdentifier, impl_identifier,
 };
 use core::ops::Deref;
 

@@ -2,9 +2,7 @@
 //!
 //! It can also be used to check the ECU's health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
-use crate::{
-    Encode, Error, Identifier, RoutineControlSubFunction,
-};
+use crate::{Encode, Error, Identifier, RoutineControlSubFunction};
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -22,11 +20,7 @@ pub struct RoutineControlRequest<RoutineIdentifier, RoutinePayload> {
 
 impl<RI: Identifier, RP: Encode> RoutineControlRequest<RI, RP> {
     /// Create a new `RoutineControlRequest`.
-    pub fn new(
-        sub_function: RoutineControlSubFunction,
-        routine_id: RI,
-        data: Option<RP>,
-    ) -> Self {
+    pub fn new(sub_function: RoutineControlSubFunction, routine_id: RI, data: Option<RP>) -> Self {
         Self {
             sub_function,
             routine_id,

@@ -10,7 +10,8 @@
 //! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
 
 use crate::{
-    Decode, DiagnosticSessionType, Encode, Error, NegativeResponseCode, SuppressablePositiveResponse,
+    Decode, DiagnosticSessionType, Encode, Error, NegativeResponseCode,
+    SuppressablePositiveResponse,
 };
 
 const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
@@ -29,11 +30,8 @@ pub struct DiagnosticSessionControlRequest {
 
 impl DiagnosticSessionControlRequest {
     /// Create a new `DiagnosticSessionControlRequest`
-    #[must_use] 
-    pub fn new(
-        suppress_positive_response: bool,
-        session_type: DiagnosticSessionType,
-    ) -> Self {
+    #[must_use]
+    pub fn new(suppress_positive_response: bool, session_type: DiagnosticSessionType) -> Self {
         Self {
             session_type: SuppressablePositiveResponse::new(
                 suppress_positive_response,
@@ -103,7 +101,7 @@ pub struct DiagnosticSessionControlResponse {
 
 impl DiagnosticSessionControlResponse {
     /// Create a new `DiagnosticSessionControlResponse`
-    #[must_use] 
+    #[must_use]
     pub fn new(
         session_type: DiagnosticSessionType,
         p2_server_max: u16,
@@ -162,8 +160,7 @@ mod request {
     #[test]
     fn test_diagnostic_session_control_request() {
         let bytes: [u8; 1] = [0x02];
-        let (req, _) =
-            <DiagnosticSessionControlRequest as Decode>::decode(&bytes).unwrap();
+        let (req, _) = <DiagnosticSessionControlRequest as Decode>::decode(&bytes).unwrap();
         assert!(!req.suppress_positive_response());
         assert_eq!(
             req.session_type(),
@@ -185,8 +182,7 @@ mod response {
     #[test]
     fn test_diagnostic_session_control_response() {
         let bytes = [0x02, 0x11, 0x22, 0x33, 0x44];
-        let (resp, _) =
-            <DiagnosticSessionControlResponse as Decode>::decode(&bytes).unwrap();
+        let (resp, _) = <DiagnosticSessionControlResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(resp.session_type, DiagnosticSessionType::ProgrammingSession);
         assert_eq!(resp.p2_server_max, 0x1122);
         assert_eq!(resp.p2_star_server_max, 0x3344);

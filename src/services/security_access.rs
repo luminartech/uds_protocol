@@ -34,87 +34,7 @@ const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
 /// The server will then validate the key and respond with a positive or negative response.
 /// Successful verification of the key will result in the server unlocking the requested security level.
 /// Suppressing a positive response to this request is allowed.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub struct SecurityAccessRequest {
-    access_type: SuppressablePositiveResponse<SecurityAccessType>,
-    request_data: Vec<u8>,
-}
-
-impl SecurityAccessRequest {
-    /// Create a new '`SecurityAccessRequest`'
-    pub(crate) fn new(
-        suppress_positive_response: bool,
-        access_type: SecurityAccessType,
-        request_data: Vec<u8>,
-    ) -> Self {
-        Self {
-            access_type: SuppressablePositiveResponse::new(suppress_positive_response, access_type),
-            request_data,
-        }
-    }
-
-    /// Getter for whether a positive response should be suppressed
-    #[must_use]
-    pub fn suppress_positive_response(&self) -> bool {
-        self.access_type.suppress_positive_response()
-    }
-
-    /// Getter for the requested [`SecurityAccessType`]
-    #[must_use]
-    pub fn access_type(&self) -> SecurityAccessType {
-        self.access_type.value()
-    }
-
-    /// Getter for the request data
-    #[must_use]
-    pub fn request_data(&self) -> &[u8] {
-        &self.request_data
-    }
-
-    /// Get the allowed [`NegativeResponseCode`] variants for this request
-    #[must_use]
-    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
-        &SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES
-    }
-}
-
-/// Response to `SecurityAccessRequest`
 ///
-/// ## Request Seed
-///
-/// When responding to a seed request, the `security_seed` field shall contain the seed value.
-///
-/// ## Send Key
-///
-/// The positive response to a `SendKey` request shall not have any data in the security seed field.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub struct SecurityAccessResponse {
-    /// The security access type echoed from the request.
-    pub access_type: SecurityAccessType,
-    /// The security seed bytes (empty for a `SendKey` positive response).
-    pub security_seed: Vec<u8>,
-}
-
-impl SecurityAccessResponse {
-    /// Create a new '`SecurityAccessResponse`'
-    pub(crate) fn new(access_type: SecurityAccessType, security_seed: Vec<u8>) -> Self {
-        Self {
-            access_type,
-            security_seed,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// no_std TX types (borrow from caller)
-// ---------------------------------------------------------------------------
-
 /// Zero-alloc TX request for security access. Borrows from the caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SecurityAccessRequestTx<'d> {
@@ -154,15 +74,10 @@ impl<'d> SecurityAccessRequestTx<'d> {
         self.request_data
     }
 
-    /// Convert to the owned (allocating) [`SecurityAccessRequest`].
-    #[cfg(feature = "alloc")]
+    /// Get the allowed [`NegativeResponseCode`] variants for this request
     #[must_use]
-    pub fn to_owned(&self) -> SecurityAccessRequest {
-        SecurityAccessRequest::new(
-            self.suppress_positive_response(),
-            self.access_type(),
-            self.request_data.to_vec(),
-        )
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES
     }
 }
 
@@ -220,15 +135,6 @@ impl<'d> SecurityAccessResponseTx<'d> {
     }
 }
 
-impl SecurityAccessResponseTx<'_> {
-    /// Convert to the owned (allocating) [`SecurityAccessResponse`].
-    #[cfg(feature = "alloc")]
-    #[must_use]
-    pub fn to_owned(&self) -> SecurityAccessResponse {
-        SecurityAccessResponse::new(self.access_type, self.security_seed.to_vec())
-    }
-}
-
 impl Encode for SecurityAccessResponseTx<'_> {
     fn encoded_size(&self) -> usize {
         1 + self.security_seed.len()
@@ -272,10 +178,7 @@ mod request {
         ];
         let (req, _) = <SecurityAccessRequestTx as Decode>::decode(&bytes).unwrap();
 
-        assert_eq!(
-            req.access_type(),
-            SecurityAccessType::RequestSeed(0x01)
-        );
+        assert_eq!(req.access_type(), SecurityAccessType::RequestSeed(0x01));
         assert_eq!(req.request_data(), &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();

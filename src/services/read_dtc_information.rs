@@ -2,8 +2,8 @@
 
 use crate::{
     DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
-    DTCSnapshotRecordNumber,
-    DTCStatusMask, DTCStoredDataRecordNumber, Decode, Error, FunctionalGroupIdentifier,
+    DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Decode, Encode, Error,
+    FunctionalGroupIdentifier,
 };
 
 /// Used for non-emissions related servers
@@ -281,9 +281,7 @@ impl<'a> DtcFaultDetectionIter<'a> {
     /// # Errors
     /// Returns an error if the byte data contains a partial record.
     #[cfg(feature = "alloc")]
-    pub fn collect_all(
-        self,
-    ) -> Result<alloc::vec::Vec<DTCFaultDetectionCounterRecord>, Error> {
+    pub fn collect_all(self) -> Result<alloc::vec::Vec<DTCFaultDetectionCounterRecord>, Error> {
         self.collect()
     }
 }
@@ -298,8 +296,7 @@ impl Iterator for DtcFaultDetectionIter<'_> {
         if self.remaining.len() < 4 {
             return Some(Err(Error::IncorrectMessageLengthOrInvalidFormat));
         }
-        let dtc_record =
-            DTCRecord::new(self.remaining[0], self.remaining[1], self.remaining[2]);
+        let dtc_record = DTCRecord::new(self.remaining[0], self.remaining[1], self.remaining[2]);
         let dtc_fault_detection_counter = self.remaining[3];
         self.remaining = &self.remaining[4..];
         Some(Ok(DTCFaultDetectionCounterRecord {
@@ -485,12 +482,7 @@ impl<'a> Decode<'a> for ReadDTCInfoResponseRx<'a> {
                     &[],
                 ))
             }
-            0x14 => Ok((
-                Self::DTCFaultDetectionCounterList {
-                    raw_records: buf,
-                },
-                &[],
-            )),
+            0x14 => Ok((Self::DTCFaultDetectionCounterList { raw_records: buf }, &[])),
             0x08 | 0x09 => {
                 if buf.is_empty() {
                     return Err(Error::InsufficientData(2));
@@ -529,3 +521,68 @@ impl<'a> Decode<'a> for ReadDTCInfoResponseRx<'a> {
     }
 }
 
+impl Encode for ReadDTCInfoResponseRx<'_> {
+    fn encoded_size(&self) -> usize {
+        match self {
+            Self::NumberOfDTCs { .. } => 4,
+            Self::DTCList { raw_records, .. } | Self::DTCSeverityList { raw_records, .. } => {
+                2 + raw_records.len()
+            }
+            Self::DTCFaultDetectionCounterList { raw_records } => 1 + raw_records.len(),
+            Self::WWHOBDDTCByMaskRecord { raw_records, .. } => 5 + raw_records.len(),
+        }
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        match self {
+            Self::NumberOfDTCs {
+                sub_function_id,
+                status_availability_mask,
+                count,
+            } => {
+                writer
+                    .write_all(&[*sub_function_id, status_availability_mask.bits()])
+                    .map_err(Error::io)?;
+                writer.write_all(&count.to_be_bytes()).map_err(Error::io)?;
+            }
+            Self::DTCList {
+                sub_function_id,
+                status_availability_mask,
+                raw_records,
+            }
+            | Self::DTCSeverityList {
+                sub_function_id,
+                status_availability_mask,
+                raw_records,
+            } => {
+                writer
+                    .write_all(&[*sub_function_id, status_availability_mask.bits()])
+                    .map_err(Error::io)?;
+                writer.write_all(raw_records).map_err(Error::io)?;
+            }
+            Self::DTCFaultDetectionCounterList { raw_records } => {
+                writer.write_all(&[0x14]).map_err(Error::io)?;
+                writer.write_all(raw_records).map_err(Error::io)?;
+            }
+            Self::WWHOBDDTCByMaskRecord {
+                functional_group_identifier,
+                status_availability_mask,
+                severity_availability_mask,
+                format_identifier,
+                raw_records,
+            } => {
+                writer
+                    .write_all(&[
+                        0x42,
+                        u8::from(*functional_group_identifier),
+                        status_availability_mask.bits(),
+                        severity_availability_mask.bits(),
+                        u8::from(*format_identifier),
+                    ])
+                    .map_err(Error::io)?;
+                writer.write_all(raw_records).map_err(Error::io)?;
+            }
+        }
+        Ok(self.encoded_size())
+    }
+}

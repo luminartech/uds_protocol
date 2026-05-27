@@ -98,7 +98,10 @@ impl Encode for CommunicationControlRequest {
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
-            .write_all(&[u8::from(self.control_type), u8::from(self.communication_type)])
+            .write_all(&[
+                u8::from(self.control_type),
+                u8::from(self.communication_type),
+            ])
             .map_err(Error::io)?;
         if let Some(id) = self.node_id {
             writer.write_all(&id.to_be_bytes()).map_err(Error::io)?;

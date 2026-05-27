@@ -1,7 +1,5 @@
 //! `TesterPresent` (0x3E) service implementation
-use crate::{
-    Decode, Encode, Error, NegativeResponseCode, SuppressablePositiveResponse,
-};
+use crate::{Decode, Encode, Error, NegativeResponseCode, SuppressablePositiveResponse};
 
 const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
     NegativeResponseCode::SubFunctionNotSupported,

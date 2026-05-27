@@ -9,17 +9,13 @@ mod error;
 pub use error::Error;
 
 mod traits;
-pub use traits::{
-    Decode, DecodeIter, DiagnosticDefinition, Encode, Identifier, RoutineIdentifier,
-};
+pub use traits::{Decode, DecodeIter, DiagnosticDefinition, Encode, Identifier, RoutineIdentifier};
 
 mod common;
 pub use common::*;
 
 mod protocol_definitions;
-pub use protocol_definitions::{
-    ProtocolIdentifier, ProtocolPayloadTx, ProtocolRoutinePayloadTx,
-};
+pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayloadTx, ProtocolRoutinePayloadTx};
 
 mod request;
 pub use request::Request;
@@ -199,6 +195,49 @@ mod no_std_api_tests {
         assert_eq!(records.len(), 2);
         assert_eq!(u32::from(records[0].0), 0x010203);
         assert_eq!(u32::from(records[1].0), 0x040506);
+    }
+
+    #[test]
+    fn request_frame_roundtrip_prepends_sid() {
+        // EcuReset request: SID=0x11, sub=0x01
+        let wire = [0x11, 0x01];
+        let (req, _) = Request::decode(&wire).unwrap();
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &wire);
+        assert_eq!(written, req.encoded_size());
+    }
+
+    #[test]
+    fn response_frame_roundtrip_prepends_sid() {
+        // NegativeResponse: SID=0x7F, service=0x10, NRC=0x12
+        let wire = [0x7F, 0x10, 0x12];
+        let (resp, _) = Response::decode(&wire).unwrap();
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &wire);
+        assert_eq!(written, resp.encoded_size());
+    }
+
+    #[test]
+    fn request_file_transfer_frame_roundtrip() {
+        // RequestFileTransfer: SID=0x38, DeleteFile(0x02), name_len=0x0003, "abc"
+        let wire = [0x38, 0x02, 0x00, 0x03, b'a', b'b', b'c'];
+        let (req, _) = Request::decode(&wire).unwrap();
+        assert_eq!(req.service(), UdsServiceType::RequestFileTransfer);
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
+    fn read_dtc_info_response_frame_roundtrip() {
+        // ReadDTCInfo response: SID=0x59, sub=0x02, mask=0xFF, then DTC records
+        let wire = [0x59, 0x02, 0xFF, 0x01, 0x02, 0x03, 0x0A];
+        let (resp, _) = Response::decode(&wire).unwrap();
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &wire);
     }
 
     #[test]

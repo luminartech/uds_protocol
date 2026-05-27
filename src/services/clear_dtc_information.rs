@@ -1,7 +1,5 @@
 //! `ClearDiagnosticInformation` (0x14) service implementation
-use crate::{
-    CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, NegativeResponseCode,
-};
+use crate::{CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, NegativeResponseCode};
 
 /// Negative response codes
 const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [

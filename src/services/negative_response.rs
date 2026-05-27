@@ -1,7 +1,5 @@
 //! `NegativeResponse` (0x7F) service implementation
-use crate::{
-    Decode, Encode, Error, NegativeResponseCode, UdsServiceType,
-};
+use crate::{Decode, Encode, Error, NegativeResponseCode, UdsServiceType};
 
 /// A negative response from the server indicating a request could not be fulfilled
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -17,7 +15,7 @@ pub struct NegativeResponse {
 
 impl NegativeResponse {
     /// Create a new `NegativeResponse`
-    #[must_use] 
+    #[must_use]
     pub fn new(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
         Self {
             request_service,
@@ -49,7 +47,12 @@ impl<'a> Decode<'a> for NegativeResponse {
         }
         let request_service = UdsServiceType::service_from_request_byte(buf[0]);
         let nrc = NegativeResponseCode::from(buf[1]);
-        Ok((Self { request_service, nrc }, &buf[2..]))
+        Ok((
+            Self {
+                request_service,
+                nrc,
+            },
+            &buf[2..],
+        ))
     }
 }
-

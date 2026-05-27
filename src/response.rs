@@ -1,8 +1,8 @@
 use crate::{
     CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
-    DiagnosticSessionControlResponse, EcuResetResponse, Error, NegativeResponse,
-    ReadDTCInfoResponseRx, RequestDownloadResponseTx, SecurityAccessResponseTx,
-    TesterPresentResponse, TransferDataResponseTx, UdsServiceType,
+    DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, NegativeResponse,
+    ReadDTCInfoResponseRx, RequestDownloadResponseTx, RequestFileTransferResponseTx,
+    SecurityAccessResponseTx, TesterPresentResponse, TransferDataResponseTx, UdsServiceType,
 };
 
 /// Parsed zero-copy UDS response. Borrows from the wire buffer.
@@ -30,6 +30,8 @@ pub enum Response<'a> {
     ReadDTCInfo(ReadDTCInfoResponseRx<'a>),
     /// Positive response to `RequestDownload`.
     RequestDownload(RequestDownloadResponseTx<'a>),
+    /// Positive response to `RequestFileTransfer`.
+    RequestFileTransfer(RequestFileTransferResponseTx<'a>),
     /// Positive response to `RequestTransferExit`.
     RequestTransferExit,
     /// Positive response to `RoutineControl`. Raw status record bytes.
@@ -68,8 +70,7 @@ impl<'a> Decode<'a> for Response<'a> {
                 Self::ControlDTCSettings(resp)
             }
             UdsServiceType::DiagnosticSessionControl => {
-                let (resp, _) =
-                    <DiagnosticSessionControlResponse as Decode>::decode(payload)?;
+                let (resp, _) = <DiagnosticSessionControlResponse as Decode>::decode(payload)?;
                 Self::DiagnosticSessionControl(resp)
             }
             UdsServiceType::EcuReset => {
@@ -88,6 +89,10 @@ impl<'a> Decode<'a> for Response<'a> {
             UdsServiceType::RequestDownload => {
                 let (resp, _) = <RequestDownloadResponseTx as Decode>::decode(payload)?;
                 Self::RequestDownload(resp)
+            }
+            UdsServiceType::RequestFileTransfer => {
+                let (resp, _) = <RequestFileTransferResponseTx as Decode>::decode(payload)?;
+                Self::RequestFileTransfer(resp)
             }
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
@@ -115,6 +120,97 @@ impl<'a> Decode<'a> for Response<'a> {
             _ => return Err(Error::ServiceNotImplemented(service)),
         };
         Ok((response, &[]))
+    }
+}
+
+impl Response<'_> {
+    /// Returns the response service-ID byte that frames this response on the wire.
+    fn response_sid(&self) -> u8 {
+        match self {
+            Self::ClearDiagnosticInfo => UdsServiceType::ClearDiagnosticInfo.response_to_byte(),
+            Self::CommunicationControl(_) => {
+                UdsServiceType::CommunicationControl.response_to_byte()
+            }
+            Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings.response_to_byte(),
+            Self::DiagnosticSessionControl(_) => {
+                UdsServiceType::DiagnosticSessionControl.response_to_byte()
+            }
+            Self::EcuReset(_) => UdsServiceType::EcuReset.response_to_byte(),
+            Self::NegativeResponse(_) => UdsServiceType::NegativeResponse.response_to_byte(),
+            Self::ReadDataByIdentifier(_) => {
+                UdsServiceType::ReadDataByIdentifier.response_to_byte()
+            }
+            Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo.response_to_byte(),
+            Self::RequestDownload(_) => UdsServiceType::RequestDownload.response_to_byte(),
+            Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer.response_to_byte(),
+            Self::RequestTransferExit => UdsServiceType::RequestTransferExit.response_to_byte(),
+            Self::RoutineControl { .. } => UdsServiceType::RoutineControl.response_to_byte(),
+            Self::SecurityAccess(_) => UdsServiceType::SecurityAccess.response_to_byte(),
+            Self::TesterPresent(_) => UdsServiceType::TesterPresent.response_to_byte(),
+            Self::TransferData(_) => UdsServiceType::TransferData.response_to_byte(),
+            Self::WriteDataByIdentifier(_) => {
+                UdsServiceType::WriteDataByIdentifier.response_to_byte()
+            }
+        }
+    }
+}
+
+impl Encode for Response<'_> {
+    fn encoded_size(&self) -> usize {
+        let payload = match self {
+            Self::ClearDiagnosticInfo | Self::RequestTransferExit => 0,
+            Self::CommunicationControl(resp) => resp.encoded_size(),
+            Self::ControlDTCSettings(resp) => resp.encoded_size(),
+            Self::DiagnosticSessionControl(resp) => resp.encoded_size(),
+            Self::EcuReset(resp) => resp.encoded_size(),
+            Self::NegativeResponse(resp) => resp.encoded_size(),
+            Self::ReadDataByIdentifier(bytes) | Self::WriteDataByIdentifier(bytes) => bytes.len(),
+            Self::ReadDTCInfo(resp) => resp.encoded_size(),
+            Self::RequestDownload(resp) => resp.encoded_size(),
+            Self::RequestFileTransfer(resp) => resp.encoded_size(),
+            Self::RoutineControl {
+                raw_status_record, ..
+            } => 1 + raw_status_record.len(),
+            Self::SecurityAccess(resp) => resp.encoded_size(),
+            Self::TesterPresent(resp) => resp.encoded_size(),
+            Self::TransferData(resp) => resp.encoded_size(),
+        };
+        1 + payload
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[self.response_sid()])
+            .map_err(Error::io)?;
+        let payload = match self {
+            Self::ClearDiagnosticInfo | Self::RequestTransferExit => 0,
+            Self::CommunicationControl(resp) => resp.encode(writer)?,
+            Self::ControlDTCSettings(resp) => resp.encode(writer)?,
+            Self::DiagnosticSessionControl(resp) => resp.encode(writer)?,
+            Self::EcuReset(resp) => resp.encode(writer)?,
+            Self::NegativeResponse(resp) => resp.encode(writer)?,
+            Self::ReadDataByIdentifier(bytes) | Self::WriteDataByIdentifier(bytes) => {
+                writer.write_all(bytes).map_err(Error::io)?;
+                bytes.len()
+            }
+            Self::ReadDTCInfo(resp) => resp.encode(writer)?,
+            Self::RequestDownload(resp) => resp.encode(writer)?,
+            Self::RequestFileTransfer(resp) => resp.encode(writer)?,
+            Self::RoutineControl {
+                routine_control_type,
+                raw_status_record,
+            } => {
+                writer
+                    .write_all(&[*routine_control_type])
+                    .map_err(Error::io)?;
+                writer.write_all(raw_status_record).map_err(Error::io)?;
+                1 + raw_status_record.len()
+            }
+            Self::SecurityAccess(resp) => resp.encode(writer)?,
+            Self::TesterPresent(resp) => resp.encode(writer)?,
+            Self::TransferData(resp) => resp.encode(writer)?,
+        };
+        Ok(1 + payload)
     }
 }
 

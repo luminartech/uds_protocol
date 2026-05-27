@@ -20,7 +20,7 @@ authors = [
 
 [features]
 default = ["std"]
-std = ["alloc", "byteorder-embedded-io/std", "embedded-io/std", "thiserror/std", "tracing/std"]
+std = ["alloc", "byteorder-embedded-io/std", "embedded-io/std", "thiserror/std"]
 alloc = []
 serde = ["dep:serde", "dep:serde_bytes"]
 utoipa = ["dep:utoipa"]
@@ -31,7 +31,6 @@ bitmask-enum = "2"
 byteorder-embedded-io = { version = "0.1", default-features = false, features = ["embedded-io"] }
 embedded-io = { version = "0.7", default-features = false }
 thiserror = { version = "2", default-features = false }
-tracing = { version = "0.1", default-features = false }
 # Optional dependencies
 serde = { version = "1", optional = true, features = ["derive"] }
 serde_bytes = { version = "0.11", optional = true }

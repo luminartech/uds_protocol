@@ -1,7 +1,5 @@
 //! `ECUReset` (0x11) service implementation
-use crate::{
-    Decode, Encode, Error, NegativeResponseCode, ResetType, SuppressablePositiveResponse,
-};
+use crate::{Decode, Encode, Error, NegativeResponseCode, ResetType, SuppressablePositiveResponse};
 
 const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -20,7 +18,7 @@ pub struct EcuResetRequest {
 
 impl EcuResetRequest {
     /// Create a new '`EcuResetRequest`'
-    #[must_use] 
+    #[must_use]
     pub fn new(suppress_positive_response: bool, reset_type: ResetType) -> Self {
         Self {
             reset_type: SuppressablePositiveResponse::new(suppress_positive_response, reset_type),
@@ -87,7 +85,7 @@ pub struct EcuResetResponse {
 
 impl EcuResetResponse {
     /// Create a new '`EcuResetResponse`'
-    #[must_use] 
+    #[must_use]
     pub fn new(reset_type: ResetType, power_down_time: u8) -> Self {
         Self {
             reset_type,

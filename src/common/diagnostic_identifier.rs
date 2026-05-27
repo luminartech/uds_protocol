@@ -190,15 +190,15 @@ impl From<UDSIdentifier> for u16 {
     }
 }
 
-impl std::fmt::Display for UDSIdentifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for UDSIdentifier {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let value: u16 = (*self).into();
         write!(f, "{value:#06X?}")
     }
 }
 
-impl std::fmt::Debug for UDSIdentifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for UDSIdentifier {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let value: u16 = (*self).into();
         write!(f, "{value:#06X}")
     }

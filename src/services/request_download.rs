@@ -16,7 +16,7 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 
 /// A request to the server for it to download data from the client
 ///
-/// A positive response to this request ([`RequestDownloadResponse`]) will happen
+/// A positive response to this request ([`RequestDownloadResponseTx`]) will happen
 /// after the server takes all necessary actions to receive the data once the server is ready to receive
 ///
 /// This is a variable length Request, determined by the `address_and_length_format_identifier` value
@@ -34,7 +34,7 @@ pub struct RequestDownloadRequest {
     /// Has a variable number of bytes, max of 5
     pub memory_address: u64,
     /// Size of the data to be downloaded. Number of bytes sent is determined by `address_and_length_format_identifier`
-    /// Used by the server to validate the data transferred by the [`TransferDataRequest`](crate::TransferDataRequest) service
+    /// Used by the server to validate the data transferred by the [`TransferDataRequestTx`](crate::TransferDataRequestTx) service
     /// Has a variable number of bytes, max of 4
     pub memory_size: u32,
 }
@@ -53,10 +53,8 @@ impl RequestDownloadRequest {
         if memory_address > 0xFF_FFFF_FFFF {
             return Err(Error::InvalidMemoryAddress(memory_address));
         }
-        let memory_address_length =
-            (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
-        let memory_size_length =
-            (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
+        let memory_address_length = (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
+        let memory_size_length = (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
         let address_and_length_format_identifier = MemoryFormatIdentifier {
             memory_size_length,
             memory_address_length,
@@ -90,7 +88,9 @@ impl Encode for RequestDownloadRequest {
 
         // Write shortened memory address using a stack buffer instead of Vec
         let addr_bytes = self.memory_address.to_be_bytes();
-        let addr_len = self.address_and_length_format_identifier.memory_address_length as usize;
+        let addr_len = self
+            .address_and_length_format_identifier
+            .memory_address_length as usize;
         writer
             .write_all(&addr_bytes[8 - addr_len..])
             .map_err(Error::io)?;
@@ -140,36 +140,9 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
     }
 }
 
-/// Positive response to a [`RequestDownloadRequest`] indicating the server is ready to receive data.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-pub struct RequestDownloadResponse {
-    /// Format is similar to `address_and_length_format_identifier` field of the [`RequestDownloadRequest`] struct.
-    /// In it is a byte with the high nibble being the length of the `max_number_of_block_length` field.
-    length_format_identifier: LengthFormatIdentifier,
-    /// Maximum number of bytes to include in each [`TransferDataRequest`](crate::TransferDataRequest).
-    /// Variable length, determined by `length_format_identifier`.
-    pub max_number_of_block_length: Vec<u8>,
-}
-
-impl RequestDownloadResponse {
-    /// Create a new `RequestDownloadResponse`.
-    #[must_use]
-    pub fn new(length_format_identifier: u8, max_number_of_block_length: Vec<u8>) -> Self {
-        Self {
-            length_format_identifier: LengthFormatIdentifier::from(length_format_identifier),
-            max_number_of_block_length,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// no_std TX type for RequestDownloadResponse (borrow from caller)
-// ---------------------------------------------------------------------------
-
 /// Zero-alloc TX response for request download. Borrows from the caller.
+///
+/// Positive response to a [`RequestDownloadRequest`] indicating the server is ready to receive data.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RequestDownloadResponseTx<'d> {
     length_format_identifier: LengthFormatIdentifier,
