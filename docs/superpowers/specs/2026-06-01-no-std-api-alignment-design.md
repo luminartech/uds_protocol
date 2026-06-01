@@ -22,6 +22,17 @@ synchronous, runtime-agnostic UDS codec usable on `no_std` + `no_alloc` targets.
 - **`no_std` + `no_alloc` baseline.** `alloc` and `std` are strictly additive
   features. This is already true structurally and must stay true.
 
+## Guiding principle — simplicity for C developers new to Rust
+
+The growing user base is competent C developers who are new to Rust. **Simplicity is
+a first-class acceptance criterion, not a nice-to-have:** prefer concrete types over
+generics, obvious over clever, fewer types over more. This directly motivates
+Decisions 1–3 (generics and trait bounds are the steepest part of Rust's learning
+curve) and Decision 5 (fewer types). The one Rust concept that cannot be designed
+away on a `no_alloc` target is **borrowing** — decoded values point into the caller's
+buffer — so the documentation must teach that model explicitly in C-familiar terms
+(see Decision 9).
+
 ## What is NOT changing
 
 - The `Encode` (stream) / `Decode` (borrow-from-slice) split — this is the correct
@@ -88,9 +99,11 @@ De-genericize them so TX mirrors the raw-bytes RX side.
 | RoutineControl (resp) | `RoutineControlResponse<RSR>` | `routine_control_type` + `&'d [u8]` raw status record |
 
 Rationale for `&[u16]` on the Read-DID request: it is a list of identifiers, and a
-`u16` slice avoids an endianness footgun while staying alloc-free and generic-free.
-All other payloads are opaque bytes and carry `&[u8]`, exactly matching what the RX
-enum variants already hold.
+`u16` slice avoids an endianness footgun while staying alloc-free and generic-free. A
+DID is conceptually a 16-bit number, so `&[u16]` reads more clearly to a C developer
+than a byte-pair-encoded `&[u8]` would. All other payloads are opaque bytes and carry
+`&[u8]`, exactly matching what the RX enum variants already hold. **Resolved:** keep
+`&[u16]` for Read-DID (was previously an open risk).
 
 ### Decision 4 — Apply the Tx/Rx naming convention strictly
 
@@ -165,6 +178,12 @@ The README is a stub. Add an **Integration** section stating the contract explic
 Include one short encode + one short decode snippet. This prevents downstream authors
 from re-introducing async coupling at the codec layer.
 
+Because the audience is C developers new to Rust, the decode snippet must make the
+**borrow** explicit: the decoded value points into the receive buffer you passed in
+(like a `struct` overlaid on a `char buf[]`), and is valid only while that buffer
+lives — copy out any fields you need to keep. This is the single Rust-specific concept
+the docs must land clearly.
+
 ### Decision 10 — State the service-coverage boundary
 
 `UdsServiceType` enumerates ~10 services the dispatch enums do not model
@@ -221,5 +240,3 @@ through `Other`, so coverage is a stated decision rather than an accident.
   `tests/`, or dependent crates in-tree) and a green CI matrix to catch breakage.
 - **`Other` vs `ServiceNotImplemented` overlap.** The implementation plan must settle
   whether `ServiceNotImplemented` is fully removed or retained for truly unknown bytes.
-- **`&[u16]` vs `&[u8]` for Read-DID.** If callers more naturally hold raw bytes than a
-  `u16` slice, revisit during implementation; the rest of the design is unaffected.
