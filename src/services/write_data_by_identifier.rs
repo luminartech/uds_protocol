@@ -1,5 +1,13 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
-use crate::{Encode, Error, Identifier};
+use crate::{Encode, Error, Identifier, NegativeResponseCode};
+
+const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::ConditionsNotCorrect,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::SecurityAccessDenied,
+    NegativeResponseCode::GeneralProgrammingFailure,
+];
 
 /// See ISO-14229-1:2020, Section 11.7.2.1
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -15,6 +23,12 @@ impl<Payload: Encode> WriteDataByIdentifierRequest<Payload> {
     /// Create a new write-by-identifier request.
     pub fn new(payload: Payload) -> Self {
         Self { payload }
+    }
+
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &WRITE_DID_NEGATIVE_RESPONSE_CODES
     }
 }
 
