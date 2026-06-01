@@ -61,39 +61,31 @@ impl<'a> Decode<'a> for Response<'a> {
 
         let response = match service {
             UdsServiceType::ClearDiagnosticInfo => Self::ClearDiagnosticInfo,
-            UdsServiceType::CommunicationControl => {
-                let (resp, _) = <CommunicationControlResponse as Decode>::decode(payload)?;
-                Self::CommunicationControl(resp)
-            }
-            UdsServiceType::ControlDTCSettings => {
-                let (resp, _) = <ControlDTCSettingsResponse as Decode>::decode(payload)?;
-                Self::ControlDTCSettings(resp)
-            }
-            UdsServiceType::DiagnosticSessionControl => {
-                let (resp, _) = <DiagnosticSessionControlResponse as Decode>::decode(payload)?;
-                Self::DiagnosticSessionControl(resp)
-            }
+            UdsServiceType::CommunicationControl => Self::CommunicationControl(
+                <CommunicationControlResponse as Decode>::decode_exact(payload)?,
+            ),
+            UdsServiceType::ControlDTCSettings => Self::ControlDTCSettings(
+                <ControlDTCSettingsResponse as Decode>::decode_exact(payload)?,
+            ),
+            UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
+                <DiagnosticSessionControlResponse as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::EcuReset => {
-                let (resp, _) = <EcuResetResponse as Decode>::decode(payload)?;
-                Self::EcuReset(resp)
+                Self::EcuReset(<EcuResetResponse as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::NegativeResponse => {
-                let (resp, _) = <NegativeResponse as Decode>::decode(payload)?;
-                Self::NegativeResponse(resp)
+                Self::NegativeResponse(<NegativeResponse as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(payload),
             UdsServiceType::ReadDTCInfo => {
-                let (resp, _) = <ReadDTCInfoResponseRx as Decode>::decode(payload)?;
-                Self::ReadDTCInfo(resp)
+                Self::ReadDTCInfo(<ReadDTCInfoResponseRx as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::RequestDownload => {
-                let (resp, _) = <RequestDownloadResponseTx as Decode>::decode(payload)?;
-                Self::RequestDownload(resp)
+                Self::RequestDownload(<RequestDownloadResponseTx as Decode>::decode_exact(payload)?)
             }
-            UdsServiceType::RequestFileTransfer => {
-                let (resp, _) = <RequestFileTransferResponseTx as Decode>::decode(payload)?;
-                Self::RequestFileTransfer(resp)
-            }
+            UdsServiceType::RequestFileTransfer => Self::RequestFileTransfer(
+                <RequestFileTransferResponseTx as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
                 if payload.is_empty() {
@@ -105,16 +97,13 @@ impl<'a> Decode<'a> for Response<'a> {
                 }
             }
             UdsServiceType::SecurityAccess => {
-                let (resp, _) = <SecurityAccessResponseTx as Decode>::decode(payload)?;
-                Self::SecurityAccess(resp)
+                Self::SecurityAccess(<SecurityAccessResponseTx as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::TesterPresent => {
-                let (resp, _) = <TesterPresentResponse as Decode>::decode(payload)?;
-                Self::TesterPresent(resp)
+                Self::TesterPresent(<TesterPresentResponse as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::TransferData => {
-                let (resp, _) = <TransferDataResponseTx as Decode>::decode(payload)?;
-                Self::TransferData(resp)
+                Self::TransferData(<TransferDataResponseTx as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
             _ => return Err(Error::ServiceNotImplemented(service)),

@@ -32,6 +32,24 @@ pub trait Decode<'a>: Sized {
     /// # Errors
     /// Returns an error if `buf` is too short or contains invalid data.
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error>;
+
+    /// Decode from `buf`, requiring the entire buffer to be consumed.
+    ///
+    /// Use this when `buf` is expected to contain exactly one value and any
+    /// trailing bytes indicate a malformed frame.
+    ///
+    /// # Errors
+    /// Returns [`Error::IncorrectMessageLengthOrInvalidFormat`] if any bytes
+    /// remain after decoding, or whatever error [`decode`](Self::decode)
+    /// produces.
+    fn decode_exact(buf: &'a [u8]) -> Result<Self, Error> {
+        let (value, rest) = Self::decode(buf)?;
+        if rest.is_empty() {
+            Ok(value)
+        } else {
+            Err(Error::IncorrectMessageLengthOrInvalidFormat)
+        }
+    }
 }
 
 /// RX-side trait: streaming / iterable zero-copy decode.

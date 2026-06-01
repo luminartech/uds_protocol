@@ -65,35 +65,30 @@ impl<'a> Decode<'a> for Request<'a> {
 
         let request = match service {
             UdsServiceType::ClearDiagnosticInfo => {
-                let (req, _) = <ClearDiagnosticInfoRequest as Decode>::decode(payload)?;
-                Self::ClearDiagnosticInfo(req)
+                Self::ClearDiagnosticInfo(<ClearDiagnosticInfoRequest as Decode>::decode_exact(
+                    payload,
+                )?)
             }
-            UdsServiceType::CommunicationControl => {
-                let (req, _) = <CommunicationControlRequest as Decode>::decode(payload)?;
-                Self::CommunicationControl(req)
-            }
-            UdsServiceType::ControlDTCSettings => {
-                let (req, _) = <ControlDTCSettingsRequest as Decode>::decode(payload)?;
-                Self::ControlDTCSettings(req)
-            }
-            UdsServiceType::DiagnosticSessionControl => {
-                let (req, _) = <DiagnosticSessionControlRequest as Decode>::decode(payload)?;
-                Self::DiagnosticSessionControl(req)
-            }
+            UdsServiceType::CommunicationControl => Self::CommunicationControl(
+                <CommunicationControlRequest as Decode>::decode_exact(payload)?,
+            ),
+            UdsServiceType::ControlDTCSettings => Self::ControlDTCSettings(
+                <ControlDTCSettingsRequest as Decode>::decode_exact(payload)?,
+            ),
+            UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
+                <DiagnosticSessionControlRequest as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::EcuReset => {
-                let (req, _) = <EcuResetRequest as Decode>::decode(payload)?;
-                Self::EcuReset(req)
+                Self::EcuReset(<EcuResetRequest as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(payload),
             UdsServiceType::ReadDTCInfo => Self::ReadDTCInfo(payload),
             UdsServiceType::RequestDownload => {
-                let (req, _) = <RequestDownloadRequest as Decode>::decode(payload)?;
-                Self::RequestDownload(req)
+                Self::RequestDownload(<RequestDownloadRequest as Decode>::decode_exact(payload)?)
             }
-            UdsServiceType::RequestFileTransfer => {
-                let (req, _) = <RequestFileTransferRequestTx as Decode>::decode(payload)?;
-                Self::RequestFileTransfer(req)
-            }
+            UdsServiceType::RequestFileTransfer => Self::RequestFileTransfer(
+                <RequestFileTransferRequestTx as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
                 if payload.is_empty() {
@@ -105,16 +100,13 @@ impl<'a> Decode<'a> for Request<'a> {
                 }
             }
             UdsServiceType::SecurityAccess => {
-                let (req, _) = <SecurityAccessRequestTx as Decode>::decode(payload)?;
-                Self::SecurityAccess(req)
+                Self::SecurityAccess(<SecurityAccessRequestTx as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::TesterPresent => {
-                let (req, _) = <TesterPresentRequest as Decode>::decode(payload)?;
-                Self::TesterPresent(req)
+                Self::TesterPresent(<TesterPresentRequest as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::TransferData => {
-                let (req, _) = <TransferDataRequestTx as Decode>::decode(payload)?;
-                Self::TransferData(req)
+                Self::TransferData(<TransferDataRequestTx as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
             _ => return Err(Error::ServiceNotImplemented(service)),
@@ -212,5 +204,37 @@ impl Request<'_> {
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ResetType, service::UdsServiceType};
+
+    #[test]
+    fn decode_rejects_trailing_bytes() {
+        // ECU reset is a fixed 1-byte payload; an extra trailing byte is a
+        // malformed frame and must be rejected rather than silently dropped.
+        let mut frame = [0u8; 3];
+        frame[0] = UdsServiceType::EcuReset.request_service_to_byte();
+        frame[1] = u8::from(ResetType::HardReset);
+        frame[2] = 0xAA; // trailing junk
+        let result = Request::decode(&frame);
+        assert!(matches!(
+            result,
+            Err(Error::IncorrectMessageLengthOrInvalidFormat)
+        ));
+    }
+
+    #[test]
+    fn suppression_forwards_to_inner_request() {
+        let suppressed =
+            Request::EcuReset(EcuResetRequest::new(true, ResetType::HardReset));
+        assert!(suppressed.is_positive_response_suppressed());
+
+        let not_suppressed =
+            Request::EcuReset(EcuResetRequest::new(false, ResetType::HardReset));
+        assert!(!not_suppressed.is_positive_response_suppressed());
     }
 }
