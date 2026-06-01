@@ -89,7 +89,7 @@ impl From<embedded_io::ErrorKind> for Error {
 
 #[cfg(feature = "std")]
 impl From<std::io::Error> for Error {
-    fn from(_err: std::io::Error) -> Self {
-        Self::IoError(embedded_io::ErrorKind::Other)
+    fn from(err: std::io::Error) -> Self {
+        Self::IoError(err.kind().into())
     }
 }
