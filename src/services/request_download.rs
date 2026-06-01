@@ -53,8 +53,13 @@ impl RequestDownloadRequest {
         if memory_address > 0xFF_FFFF_FFFF {
             return Err(Error::InvalidMemoryAddress(memory_address));
         }
-        let memory_address_length = (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
-        let memory_size_length = (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
+        // A length of 0 produces an invalid `MemoryFormatIdentifier` (the nibbles
+        // must be >=1 per ISO-14229), so clamp to at least one byte even when the
+        // address or size is 0.
+        let memory_address_length =
+            ((u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8).max(1);
+        let memory_size_length =
+            ((u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8).max(1);
         let address_and_length_format_identifier = MemoryFormatIdentifier {
             memory_size_length,
             memory_address_length,
@@ -255,6 +260,28 @@ mod tests {
         assert_eq!(length_format_identifier.max_number_of_block_length, 15);
 
         assert_eq!(u8::from(length_format_identifier), 0xF0);
+    }
+
+    #[test]
+    fn zero_address_and_size_clamp_to_one_byte() {
+        // A 0 address/size must still produce a valid (>=1 byte) length nibble,
+        // otherwise the encoded frame cannot be decoded back.
+        let req = RequestDownloadRequest::new(0x00.into(), 0, 0).unwrap();
+        assert_eq!(
+            req.address_and_length_format_identifier
+                .memory_address_length,
+            1
+        );
+        assert_eq!(
+            req.address_and_length_format_identifier.memory_size_length,
+            1
+        );
+
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, _) = <RequestDownloadRequest as Decode>::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded.memory_address, 0);
+        assert_eq!(decoded.memory_size, 0);
     }
 
     #[test]
