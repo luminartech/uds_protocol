@@ -83,7 +83,7 @@ where
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
-            .write_all(&<u16 as Into<u16>>::into((*self).into()).to_be_bytes())
+            .write_all(&Into::<u16>::into(*self).to_be_bytes())
             .map_err(Error::io)?;
         Ok(2)
     }
