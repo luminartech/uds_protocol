@@ -44,11 +44,11 @@ pub const PENDING: u8 = 0x78;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UdsSpec;
 
-impl DiagnosticDefinition for UdsSpec {
+impl<'a> DiagnosticDefinition<'a> for UdsSpec {
     type RID = UDSRoutineIdentifier;
     type DID = ProtocolIdentifier;
-    type RoutinePayload = ProtocolRoutinePayloadTx<'static>;
-    type DiagnosticPayload = ProtocolPayloadTx<'static>;
+    type RoutinePayload = ProtocolRoutinePayloadTx<'a>;
+    type DiagnosticPayload = ProtocolPayloadTx<'a>;
 }
 
 /// What type of routine control to perform for a [`RoutineControlRequest`].

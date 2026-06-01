@@ -124,15 +124,15 @@ where
 
 /// Trait for diagnostic definitions that specifies the identifier and payload
 /// types used when constructing and parsing UDS requests and responses.
-pub trait DiagnosticDefinition: 'static {
+pub trait DiagnosticDefinition<'a> {
     /// UDS Data Identifier type.
     type DID: Identifier + Clone + core::fmt::Debug + PartialEq + 'static;
     /// Payload type for read/write data by identifier etc.
-    type DiagnosticPayload: Encode + Clone + core::fmt::Debug + PartialEq + 'static;
+    type DiagnosticPayload: Encode + Clone + core::fmt::Debug + PartialEq + 'a;
     /// UDS Routine Identifier type.
     type RID: RoutineIdentifier + Clone + core::fmt::Debug + PartialEq + 'static;
     /// Payload type for routine control requests/responses.
-    type RoutinePayload: Encode + Clone + core::fmt::Debug + PartialEq + 'static;
+    type RoutinePayload: Encode + Clone + core::fmt::Debug + PartialEq + 'a;
 }
 
 #[cfg(test)]
