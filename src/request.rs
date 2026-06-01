@@ -178,6 +178,17 @@ impl Encode for Request<'_> {
         };
         Ok(1 + payload)
     }
+
+    fn is_positive_response_suppressed(&self) -> bool {
+        match self {
+            Self::ControlDTCSettings(req) => req.is_positive_response_suppressed(),
+            Self::DiagnosticSessionControl(req) => req.is_positive_response_suppressed(),
+            Self::EcuReset(req) => req.is_positive_response_suppressed(),
+            Self::SecurityAccess(req) => req.is_positive_response_suppressed(),
+            Self::TesterPresent(req) => req.is_positive_response_suppressed(),
+            _ => false,
+        }
+    }
 }
 
 impl Request<'_> {
