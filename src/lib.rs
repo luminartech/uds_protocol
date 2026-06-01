@@ -62,7 +62,7 @@ pub enum RoutineControlSubFunction {
     /// which indicates that the routine has already been performed, or is in progress
     ///
     /// It might be necessary to switch the server to a specific Diagnostic Session via [`DiagnosticSessionControlRequest`] before starting the routine,
-    /// or unlock the server using [`SecurityAccessRequest`] before starting the routine.
+    /// or unlock the server using [`SecurityAccessRequestTx`] before starting the routine.
     StartRoutine,
 
     /// The server routine shall be stopped in the server's memory sometime between the completion of the `StopRoutine` request and the completion of the 1st response message

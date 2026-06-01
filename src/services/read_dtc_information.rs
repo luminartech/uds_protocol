@@ -387,7 +387,7 @@ pub enum ReadDTCInfoResponseRx<'a> {
         sub_function_id: u8,
         /// DTC status availability mask.
         status_availability_mask: DTCStatusAvailabilityMask,
-        /// Raw record bytes (6 bytes per record) — use [`DTCSeverityRecord`] iteration.
+        /// Raw record bytes (6 bytes per record) — use [`DtcSeverityAndStatusIter`] iteration.
         raw_records: &'a [u8],
     },
     /// Sub-function 0x42: WWH-OBD DTC by mask with severity info.

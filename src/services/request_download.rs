@@ -146,7 +146,7 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RequestDownloadResponseTx<'d> {
     length_format_identifier: LengthFormatIdentifier,
-    /// Maximum number of bytes per [`TransferDataRequest`](crate::TransferDataRequest).
+    /// Maximum number of bytes per [`TransferDataRequestTx`](crate::TransferDataRequestTx).
     pub max_number_of_block_length: &'d [u8],
 }
 
