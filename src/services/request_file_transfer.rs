@@ -155,24 +155,39 @@ pub struct NamePayloadTx<'a> {
 #[non_exhaustive]
 pub enum RequestFileTransferRequestTx<'a> {
     /// Add a file to the server
-    AddFile(NamePayloadTx<'a>, DataFormatIdentifier, SizePayload),
+    AddFile(
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>,
+        DataFormatIdentifier,
+        SizePayload,
+    ),
 
     /// Delete the specified file from the server
-    DeleteFile(NamePayloadTx<'a>),
+    DeleteFile(#[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>),
 
     /// Replace the specified file on the server, if it does not exist, add it
-    ReplaceFile(NamePayloadTx<'a>, DataFormatIdentifier, SizePayload),
+    ReplaceFile(
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>,
+        DataFormatIdentifier,
+        SizePayload,
+    ),
 
     /// Read the specified file from the server (upload)
-    ReadFile(NamePayloadTx<'a>, DataFormatIdentifier),
+    ReadFile(
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>,
+        DataFormatIdentifier,
+    ),
 
     /// Read the directory from the server
     /// Implies that the request does not include a `fileName`
-    ReadDir(NamePayloadTx<'a>),
+    ReadDir(#[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>),
 
     /// Resume a file transfer at the returned `filePosition` indicator
     /// The file must already exist in the ECU's filesystem
-    ResumeFile(NamePayloadTx<'a>, DataFormatIdentifier, SizePayload),
+    ResumeFile(
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>,
+        DataFormatIdentifier,
+        SizePayload,
+    ),
 }
 
 ///////////////////////////////////////// - Response - ///////////////////////////////////////////////////
@@ -304,7 +319,7 @@ pub enum RequestFileTransferResponseTx<'a> {
     /// Positive response to an [`AddFile`](FileOperationMode::AddFile) request.
     AddFile(
         FileOperationMode,
-        SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
         DataFormatIdentifier,
     ),
     /// Positive response to a [`DeleteFile`](FileOperationMode::DeleteFile) request.
@@ -312,27 +327,27 @@ pub enum RequestFileTransferResponseTx<'a> {
     /// Positive response to a [`ReplaceFile`](FileOperationMode::ReplaceFile) request.
     ReplaceFile(
         FileOperationMode,
-        SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
         DataFormatIdentifier,
     ),
     /// Positive response to a [`ReadFile`](FileOperationMode::ReadFile) request, including file size.
     ReadFile(
         FileOperationMode,
-        SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
         DataFormatIdentifier,
         FileSizePayload,
     ),
     /// Positive response to a [`ReadDir`](FileOperationMode::ReadDir) request, including directory size.
     ReadDir(
         FileOperationMode,
-        SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
         DataFormatIdentifier,
         DirSizePayload,
     ),
     /// Positive response to a [`ResumeFile`](FileOperationMode::ResumeFile) request, including file position.
     ResumeFile(
         FileOperationMode,
-        SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
         DataFormatIdentifier,
         PositionPayload,
     ),

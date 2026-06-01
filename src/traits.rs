@@ -138,7 +138,7 @@ pub trait DiagnosticDefinition: 'static {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Identifier, UDSIdentifier};
+    use crate::UDSIdentifier;
 
     #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
