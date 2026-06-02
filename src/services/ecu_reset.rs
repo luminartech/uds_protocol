@@ -126,7 +126,10 @@ impl<'a> Decode<'a> for EcuResetResponse {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn ecu_reset_request() {
         let bytes: [u8; 2] = [0x81, 0x00];
@@ -146,7 +149,10 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn ecu_reset_response() {
         let bytes: [u8; 2] = [0x01, 0x20];

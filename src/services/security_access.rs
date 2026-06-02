@@ -165,7 +165,10 @@ impl<'a> Decode<'a> for SecurityAccessResponseTx<'a> {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn request_seed() {
         let bytes: [u8; 6] = [
@@ -189,7 +192,10 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn response_send() {
         let bytes: [u8; 6] = [

@@ -117,6 +117,8 @@ impl TryFrom<u8> for DtcSettings {
 #[cfg(test)]
 mod no_std_api_tests {
     use super::*;
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
     #[test]
     fn encode_decode_tester_present_roundtrip() {
@@ -168,6 +170,7 @@ mod no_std_api_tests {
         assert_eq!(req.service(), UdsServiceType::EcuReset);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn dtc_and_status_iter_roundtrip() {
         // 2 DTC records: (0x01,0x02,0x03, status=0x0A), (0x04,0x05,0x06, status=0x0B)

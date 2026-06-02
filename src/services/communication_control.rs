@@ -192,7 +192,10 @@ impl<'a> Decode<'a> for CommunicationControlResponse {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn simple_request() {
         let bytes: [u8; 3] = [0x01, 0x02, 0x03];
@@ -211,6 +214,7 @@ mod request {
         assert_encode_size_agrees(&req);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn node_id() {
         let bytes: [u8; 4] = [0x05, 0x02, 0x01, 0x02];
@@ -257,7 +261,10 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let bytes: [u8; 1] = [0x01];

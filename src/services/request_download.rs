@@ -207,6 +207,8 @@ impl<'a> Decode<'a> for RequestDownloadResponseTx<'a> {
 mod tests {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn simple_request() {
@@ -284,6 +286,7 @@ mod tests {
         assert_eq!(decoded.memory_size, 0);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn check_message_size() {
         let req = RequestDownloadRequest::new(0x00.into(), 0xF0_FF_FF_67, 0x0A).unwrap();

@@ -83,7 +83,10 @@ impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn decode_clear_dtc_info_request() {
         let bytes = [0xFF, 0xFF, 0xFF, 0x00];

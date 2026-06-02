@@ -123,6 +123,8 @@ impl<'a> Decode<'a> for TransferDataResponseTx<'a> {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
     #[test]
     fn test_transfer_data_request() {
@@ -132,6 +134,7 @@ mod request {
         assert_eq!(req.data, &[0x01, 0x02, 0x03, 0x04]);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn read_request() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
@@ -149,7 +152,10 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let bytes = [0x01, 0x02, 0x03, 0x04];

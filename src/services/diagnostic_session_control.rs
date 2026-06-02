@@ -152,7 +152,10 @@ impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
 mod request {
     use super::*;
     use crate::{Decode, DiagnosticSessionType, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_diagnostic_session_control_request() {
         let bytes: [u8; 1] = [0x02];
@@ -175,7 +178,10 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, DiagnosticSessionType, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_diagnostic_session_control_response() {
         let bytes = [0x02, 0x11, 0x22, 0x33, 0x44];

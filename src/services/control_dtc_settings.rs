@@ -108,7 +108,10 @@ impl<'a> Decode<'a> for ControlDTCSettingsResponse {
 mod request {
     use super::*;
     use crate::{Decode, DtcSettings, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::{vec, vec::Vec};
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn simple_request() {
         let req = ControlDTCSettingsRequest::new(DtcSettings::On, true);
@@ -129,7 +132,10 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, DtcSettings, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::{vec, vec::Vec};
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let req = ControlDTCSettingsResponse::new(DtcSettings::On);

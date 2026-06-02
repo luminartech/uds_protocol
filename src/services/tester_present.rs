@@ -165,6 +165,8 @@ impl<'a> Decode<'a> for TesterPresentResponse {
 mod test {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn try_from_all_zero_subfunction() {
@@ -197,12 +199,14 @@ mod test {
         }
     }
 
+    #[cfg(feature = "alloc")]
     fn make_request(byte: u8) -> Result<TesterPresentRequest, Error> {
         let bytes = vec![byte];
         let (val, _) = <TesterPresentRequest as Decode>::decode(&bytes)?;
         Ok(val)
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn read_request_type() {
         for i in 0..u8::MAX {
@@ -236,6 +240,7 @@ mod test {
         }
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn write_request_type() {
         let test_type = TesterPresentRequest::new(false);
@@ -247,6 +252,7 @@ mod test {
         assert_encode_size_agrees(&test_type);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn read_response_type() {
         let bytes = vec![0u8];
@@ -254,6 +260,7 @@ mod test {
         assert_eq!(test_type, TesterPresentResponse::new());
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn write_response_type() {
         let test_type = TesterPresentResponse::new();

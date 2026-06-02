@@ -21,7 +21,7 @@ authors = [
 [features]
 default = ["std"]
 std = ["alloc", "byteorder-embedded-io/std", "embedded-io/std", "thiserror/std"]
-alloc = []
+alloc = ["embedded-io/alloc"]
 serde = ["dep:serde", "dep:serde_bytes"]
 utoipa = ["dep:utoipa"]
 clap = ["dep:clap"]
