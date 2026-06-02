@@ -8,6 +8,9 @@ extern crate alloc;
 mod error;
 pub use error::Error;
 
+#[cfg(test)]
+mod test_util;
+
 mod traits;
 pub use traits::{Decode, DecodeIter, DiagnosticDefinition, Encode, Identifier, RoutineIdentifier};
 
