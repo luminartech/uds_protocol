@@ -41,3 +41,40 @@ It is based on the ISO 14229-1:2020 standard.
 | ControlDTCSetting              | 0x85        | 0xC5         | ✓       |
 | ResponseOnEvent                | 0x86        | 0xC6         |         |
 | LinkControl                    | 0x87        | 0xC7         |         |
+
+## Integration
+
+`uds_protocol` is a synchronous, allocation-free codec. It owns no sockets, buffers, or
+async runtime. To use it over any transport (DoIP, UDSonIP, ISO-TP, …):
+
+- **Decode** an inbound frame from the `&[u8]` you received.
+- **Encode** an outbound frame into any `embedded_io::Write` (or a caller-owned buffer
+  sized with `encoded_size()`).
+
+Drive the I/O loop from your own sync or async layer — the crate never blocks or awaits.
+
+### Encode (build a request)
+
+```rust
+use uds_protocol::{Encode, TesterPresentRequest};
+
+let req = TesterPresentRequest::new(false);
+let mut buf = [0u8; 8];
+let mut writer = buf.as_mut_slice();
+let written = Encode::encode(&req, &mut writer).unwrap();
+// `buf[..written]` is the wire frame, ready to hand to your transport.
+```
+
+### Decode (parse a response)
+
+```rust
+use uds_protocol::{Decode, Response};
+
+// `frame` is the &[u8] your transport handed you.
+let frame = [0x7E, 0x00];
+let (response, _rest) = Response::decode(&frame).unwrap();
+```
+
+The decoded value **borrows** from `frame`: it points into that buffer (like a `struct`
+overlaid on a `char buf[]`) and is valid only while `frame` lives. Copy out any fields
+you need to keep before the buffer is reused.
