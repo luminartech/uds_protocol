@@ -29,19 +29,6 @@ pub use service::UdsServiceType;
 mod services;
 pub use services::*;
 
-// ## Service coverage
-//
-// These services decode into typed [`Request`]/[`Response`] variants:
-// `DiagnosticSessionControl`, `EcuReset`, `SecurityAccess`, `CommunicationControl`,
-// `TesterPresent`, `ControlDTCSettings`, `ReadDataByIdentifier`, `WriteDataByIdentifier`,
-// `ClearDiagnosticInfo`, `ReadDTCInfo`, `RoutineControl`, `RequestDownload`,
-// `TransferData`, `RequestTransferExit`, `RequestFileTransfer`, and `NegativeResponse`.
-//
-// All other services enumerated in [`UdsServiceType`] (e.g. `Authentication`,
-// `ReadMemoryByAddress`, `RequestUpload`, `ResponseOnEvent`) are not individually
-// modeled. Frames for them decode into [`Request::Other`] / [`Response::Other`],
-// carrying the service type and raw payload bytes for pass-through.
-
 /// UDS positive-response service-ID offset. Added to the request SID to form the response SID.
 pub const SUCCESS: u8 = 0x80;
 /// UDS `requestCorrectlyReceivedResponsePending` negative response code (`0x78`).

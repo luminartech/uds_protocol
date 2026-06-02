@@ -78,3 +78,16 @@ let (response, _rest) = Response::decode(&frame).unwrap();
 The decoded value **borrows** from `frame`: it points into that buffer (like a `struct`
 overlaid on a `char buf[]`) and is valid only while `frame` lives. Copy out any fields
 you need to keep before the buffer is reused.
+
+## Service coverage
+
+These services decode into typed [`Request`]/[`Response`] variants: `DiagnosticSessionControl`,
+`EcuReset`, `SecurityAccess`, `CommunicationControl`, `TesterPresent`, `ControlDTCSettings`,
+`ReadDataByIdentifier`, `WriteDataByIdentifier`, `ClearDiagnosticInfo`, `ReadDTCInfo`,
+`RoutineControl`, `RequestDownload`, `TransferData`, `RequestTransferExit`, `RequestFileTransfer`,
+and `NegativeResponse`.
+
+All other services enumerated in [`UdsServiceType`] (e.g. `Authentication`, `ReadMemoryByAddress`,
+`RequestUpload`, `ResponseOnEvent`) are not individually modeled. Frames for them decode into
+[`Request::Other`] / [`Response::Other`], carrying the service type and raw payload bytes for
+pass-through.
