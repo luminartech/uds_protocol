@@ -125,7 +125,7 @@ impl<'a> Decode<'a> for EcuResetResponse {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn ecu_reset_request() {
@@ -138,13 +138,14 @@ mod request {
 
         assert_eq!(written, 1);
         assert_eq!(written, req.encoded_size());
+        assert_encode_size_agrees(&req);
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn ecu_reset_response() {
@@ -157,5 +158,6 @@ mod response {
 
         assert_eq!(written, 2);
         assert_eq!(written, resp.encoded_size());
+        assert_encode_size_agrees(&resp);
     }
 }

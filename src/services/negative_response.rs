@@ -56,3 +56,18 @@ impl<'a> Decode<'a> for NegativeResponse {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::assert_encode_size_agrees;
+
+    #[test]
+    fn negative_response_encode_size_agrees() {
+        let value = NegativeResponse::new(
+            UdsServiceType::DiagnosticSessionControl,
+            NegativeResponseCode::ServiceNotSupported,
+        );
+        assert_encode_size_agrees(&value);
+    }
+}

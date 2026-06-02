@@ -151,7 +151,7 @@ impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, DiagnosticSessionType, Encode};
+    use crate::{Decode, DiagnosticSessionType, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn test_diagnostic_session_control_request() {
@@ -167,13 +167,14 @@ mod request {
         Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(req.encoded_size(), 1);
+        assert_encode_size_agrees(&req);
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::{Decode, DiagnosticSessionType, Encode};
+    use crate::{Decode, DiagnosticSessionType, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn test_diagnostic_session_control_response() {
@@ -187,5 +188,6 @@ mod response {
         Encode::encode(&resp, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(resp.encoded_size(), 5);
+        assert_encode_size_agrees(&resp);
     }
 }

@@ -107,7 +107,7 @@ impl<'a> Decode<'a> for ControlDTCSettingsResponse {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, DtcSettings, Encode};
+    use crate::{Decode, DtcSettings, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn simple_request() {
@@ -121,13 +121,14 @@ mod request {
         let (parsed, _) = <ControlDTCSettingsRequest as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
         assert!(parsed.suppress_response);
+        assert_encode_size_agrees(&req);
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::{Decode, DtcSettings, Encode};
+    use crate::{Decode, DtcSettings, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn simple_response() {
@@ -140,5 +141,6 @@ mod response {
 
         let (parsed, _) = <ControlDTCSettingsResponse as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
+        assert_encode_size_agrees(&req);
     }
 }

@@ -164,7 +164,7 @@ impl<'a> Decode<'a> for TesterPresentResponse {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn try_from_all_zero_subfunction() {
@@ -244,6 +244,7 @@ mod test {
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
+        assert_encode_size_agrees(&test_type);
     }
 
     #[test]
@@ -261,5 +262,6 @@ mod test {
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
+        assert_encode_size_agrees(&test_type);
     }
 }

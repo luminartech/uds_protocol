@@ -191,7 +191,7 @@ impl<'a> Decode<'a> for CommunicationControlResponse {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn simple_request() {
@@ -208,6 +208,7 @@ mod request {
         let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(written, req.encoded_size());
         assert_eq!(buffer.len(), req.encoded_size());
+        assert_encode_size_agrees(&req);
     }
 
     #[test]
@@ -225,6 +226,7 @@ mod request {
         let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(written, req.encoded_size());
         assert_eq!(buffer.len(), req.encoded_size());
+        assert_encode_size_agrees(&req);
     }
 
     #[test]
@@ -254,7 +256,7 @@ mod request {
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn simple_response() {
@@ -269,5 +271,6 @@ mod response {
         let written = Encode::encode(&res, &mut buffer).unwrap();
         assert_eq!(written, 1);
         assert_eq!(buffer.len(), written);
+        assert_encode_size_agrees(&res);
     }
 }

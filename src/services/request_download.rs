@@ -206,7 +206,7 @@ impl<'a> Decode<'a> for RequestDownloadResponseTx<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn simple_request() {
@@ -292,5 +292,13 @@ mod tests {
         Encode::encode(&req, &mut vec).unwrap();
 
         assert_eq!(vec.len(), req.encoded_size());
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn response_encode_size_agrees() {
+        let block = [0x10u8, 0x00, 0x00];
+        let resp = RequestDownloadResponseTx::new(0x30, &block);
+        assert_encode_size_agrees(&resp);
     }
 }

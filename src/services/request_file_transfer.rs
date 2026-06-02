@@ -799,6 +799,7 @@ impl<'a> Decode<'a> for RequestFileTransferResponseTx<'a> {
 #[cfg(test)]
 mod request_tests {
     use super::*;
+    use crate::test_util::assert_encode_size_agrees;
 
     #[test]
     fn test_file_operation_mode() {
@@ -833,6 +834,7 @@ mod request_tests {
         let (decoded, rest) = NamePayloadTx::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, n);
+        assert_encode_size_agrees(&n);
     }
 
     #[test]
@@ -848,6 +850,7 @@ mod request_tests {
         let (decoded, rest) = SizePayload::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, s);
+        assert_encode_size_agrees(&s);
     }
 
     #[test]
@@ -868,6 +871,7 @@ mod request_tests {
         let (decoded, rest) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
     }
 
     #[test]
@@ -883,6 +887,7 @@ mod request_tests {
         let (decoded, rest) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
     }
 
     #[test]
@@ -898,6 +903,7 @@ mod request_tests {
         let (decoded, rest) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
     }
 
     #[test]
@@ -909,6 +915,7 @@ mod request_tests {
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         let (decoded, _) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
     }
 
     #[test]
@@ -927,12 +934,14 @@ mod request_tests {
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         let (decoded, _) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
     }
 }
 
 #[cfg(test)]
 mod response_tests {
     use super::*;
+    use crate::test_util::assert_encode_size_agrees;
 
     fn sent_data<'a>(block: &'a [u8]) -> SentDataPayloadTx<'a> {
         SentDataPayloadTx {
@@ -955,6 +964,7 @@ mod response_tests {
         let (decoded, rest) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
     }
 
     #[test]
@@ -965,6 +975,7 @@ mod response_tests {
         assert_eq!(written, 1);
         let (decoded, _) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
     }
 
     #[test]
@@ -984,6 +995,7 @@ mod response_tests {
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         let (decoded, _) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
     }
 
     #[test]
@@ -1002,6 +1014,7 @@ mod response_tests {
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         let (decoded, _) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
     }
 
     #[test]
@@ -1019,5 +1032,6 @@ mod response_tests {
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         let (decoded, _) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
     }
 }

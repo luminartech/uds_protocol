@@ -122,7 +122,7 @@ impl<'a> Decode<'a> for TransferDataResponseTx<'a> {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn test_transfer_data_request() {
@@ -141,13 +141,14 @@ mod request {
         let written = Encode::encode(&req, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, req.encoded_size());
+        assert_encode_size_agrees(&req);
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn simple_response() {
@@ -158,5 +159,6 @@ mod response {
         let written = Encode::encode(&resp, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
         assert_eq!(written, resp.encoded_size());
+        assert_encode_size_agrees(&resp);
     }
 }

@@ -82,7 +82,7 @@ impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn decode_clear_dtc_info_request() {
@@ -95,6 +95,7 @@ mod request {
         let written = Encode::encode(&req, &mut buf).unwrap();
         assert_eq!(buf, [0xFF, 0xFF, 0xFF, 0x00]);
         assert_eq!(req.encoded_size(), written);
+        assert_encode_size_agrees(&req);
     }
 
     #[test]
