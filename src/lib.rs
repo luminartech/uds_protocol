@@ -17,8 +17,6 @@ pub use traits::{Decode, DecodeIter, Encode, Identifier, RoutineIdentifier};
 mod common;
 pub use common::*;
 
-mod protocol_definitions;
-pub use protocol_definitions::{ProtocolIdentifier, ProtocolPayloadTx, ProtocolRoutinePayloadTx};
 
 mod request;
 pub use request::Request;
