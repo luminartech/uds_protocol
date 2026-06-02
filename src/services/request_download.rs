@@ -208,7 +208,7 @@ mod tests {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
     #[cfg(feature = "alloc")]
-    use alloc::{vec, vec::Vec};
+    use alloc::vec;
 
     #[test]
     fn simple_request() {
