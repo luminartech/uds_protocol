@@ -12,7 +12,7 @@ pub use error::Error;
 mod test_util;
 
 mod traits;
-pub use traits::{Decode, DecodeIter, DiagnosticDefinition, Encode, Identifier, RoutineIdentifier};
+pub use traits::{Decode, DecodeIter, Encode, Identifier, RoutineIdentifier};
 
 mod common;
 pub use common::*;
@@ -38,23 +38,7 @@ pub const SUCCESS: u8 = 0x80;
 /// Signals that the server received the request but needs additional time to process it.
 pub const PENDING: u8 = 0x78;
 
-/// Basic UDS implementation of the [`DiagnosticDefinition`] trait.
-///
-/// This is an example of a simple data spec that can be used with UDS requests and responses.
-/// It should **not** be used directly in production code, but rather as a base for more complex data specifiers.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct UdsSpec;
-
-impl<'a> DiagnosticDefinition<'a> for UdsSpec {
-    type RID = UDSRoutineIdentifier;
-    type DID = ProtocolIdentifier;
-    type RoutinePayload = ProtocolRoutinePayloadTx<'a>;
-    type DiagnosticPayload = ProtocolPayloadTx<'a>;
-}
-
-/// What type of routine control to perform for a [`RoutineControlRequest`].
+/// What type of routine control to perform for a [`RoutineControlRequestTx`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
