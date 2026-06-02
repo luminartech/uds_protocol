@@ -49,4 +49,4 @@ mod transfer_data;
 pub use transfer_data::{TransferDataRequestTx, TransferDataResponseTx};
 
 mod write_data_by_identifier;
-pub use write_data_by_identifier::{WriteDataByIdentifierRequest, WriteDataByIdentifierResponse};
+pub use write_data_by_identifier::{WriteDataByIdentifierRequestTx, WriteDataByIdentifierResponse};

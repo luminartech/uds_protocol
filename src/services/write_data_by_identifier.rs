@@ -1,5 +1,5 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
-use crate::{Encode, Error, Identifier, NegativeResponseCode};
+use crate::{Encode, Error, NegativeResponseCode};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -9,19 +9,22 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::GeneralProgrammingFailure,
 ];
 
+/// Zero-alloc TX request to write data by identifier. Borrows the raw payload from the caller.
+///
+/// The payload is the DID (2 bytes, big-endian) followed by the data record, exactly as
+/// it appears on the wire after the service byte.
+///
 /// See ISO-14229-1:2020, Section 11.7.2.1
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub struct WriteDataByIdentifierRequest<Payload> {
-    /// The payload to write, which includes the DID and data.
-    pub payload: Payload,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WriteDataByIdentifierRequestTx<'d> {
+    /// The raw payload bytes: DID followed by the data record.
+    pub payload: &'d [u8],
 }
 
-impl<Payload: Encode> WriteDataByIdentifierRequest<Payload> {
-    /// Create a new write-by-identifier request.
-    pub fn new(payload: Payload) -> Self {
+impl<'d> WriteDataByIdentifierRequestTx<'d> {
+    /// Create a new write-by-identifier request from raw payload bytes.
+    #[must_use]
+    pub const fn new(payload: &'d [u8]) -> Self {
         Self { payload }
     }
 
@@ -32,88 +35,73 @@ impl<Payload: Encode> WriteDataByIdentifierRequest<Payload> {
     }
 }
 
-impl<Payload: Encode> Encode for WriteDataByIdentifierRequest<Payload> {
+impl Encode for WriteDataByIdentifierRequestTx<'_> {
     fn encoded_size(&self) -> usize {
-        self.payload.encoded_size()
+        self.payload.len()
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        self.payload.encode(writer)
+        writer.write_all(self.payload).map_err(Error::io)?;
+        Ok(self.payload.len())
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
+/// Positive response to `WriteDataByIdentifier`: echoes the DID that was written.
+///
 /// See ISO-14229-1:2020, Section 11.7.3.1
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct WriteDataByIdentifierResponse<DataIdentifier> {
+pub struct WriteDataByIdentifierResponse {
     /// The DID that was written to.
-    pub identifier: DataIdentifier,
+    pub identifier: u16,
 }
 
-impl<DataIdentifier: Identifier> WriteDataByIdentifierResponse<DataIdentifier> {
+impl WriteDataByIdentifierResponse {
     /// Create a new response echoing the identifier that was written.
-    pub fn new(identifier: DataIdentifier) -> Self {
+    #[must_use]
+    pub const fn new(identifier: u16) -> Self {
         Self { identifier }
     }
 }
 
-impl<DataIdentifier: Identifier> Encode for WriteDataByIdentifierResponse<DataIdentifier> {
+impl Encode for WriteDataByIdentifierResponse {
     fn encoded_size(&self) -> usize {
         2
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        Encode::encode(&self.identifier, writer)
+        writer
+            .write_all(&self.identifier.to_be_bytes())
+            .map_err(Error::io)?;
+        Ok(2)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{ProtocolPayloadTx, UDSIdentifier, impl_identifier};
+    use crate::test_util::assert_encode_size_agrees;
 
     #[test]
     fn test_write_response_encode() {
-        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-        #[derive(Clone, Copy, Debug, PartialEq)]
-        pub enum TestIdentifier {
-            Abracadabra = 0xBEEF,
-        }
-        impl_identifier!(TestIdentifier);
-        impl From<u16> for TestIdentifier {
-            fn from(value: u16) -> Self {
-                match value {
-                    0xBEEF => TestIdentifier::Abracadabra,
-                    _ => panic!("Invalid test identifier: {value}"),
-                }
-            }
-        }
-        impl From<TestIdentifier> for u16 {
-            fn from(value: TestIdentifier) -> Self {
-                match value {
-                    TestIdentifier::Abracadabra => 0xBEEF,
-                }
-            }
-        }
-
-        let response = WriteDataByIdentifierResponse::new(TestIdentifier::Abracadabra);
+        let response = WriteDataByIdentifierResponse::new(0xBEEF);
         let mut buf = [0u8; 4];
         let written = Encode::encode(&response, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 2);
         assert_eq!(buf[0], 0xBE);
         assert_eq!(buf[1], 0xEF);
+        assert_encode_size_agrees(&response);
     }
 
     #[test]
     fn test_write_request_encode() {
-        let payload = ProtocolPayloadTx::new(UDSIdentifier::ActiveDiagnosticSession, &[0x01]);
-        let request = WriteDataByIdentifierRequest::new(payload);
+        // DID 0xF186 + one data byte 0x01
+        let payload = [0xF1, 0x86, 0x01];
+        let request = WriteDataByIdentifierRequestTx::new(&payload);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&request, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 3);
+        assert_eq!(&buf[..3], &[0xF1, 0x86, 0x01]);
+        assert_encode_size_agrees(&request);
     }
 }
