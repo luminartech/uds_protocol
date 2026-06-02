@@ -104,8 +104,7 @@ mod test {
     #[test]
     fn encode_routine_control_response_tx() {
         let record = [0xFF, 0x00, 0x10];
-        let resp =
-            RoutineControlResponseTx::new(RoutineControlSubFunction::StartRoutine, &record);
+        let resp = RoutineControlResponseTx::new(RoutineControlSubFunction::StartRoutine, &record);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x01, 0xFF, 0x00, 0x10]);

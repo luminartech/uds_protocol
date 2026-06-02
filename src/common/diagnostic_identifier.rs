@@ -1,5 +1,5 @@
 //! DIDs are used to identify the data that is requested or sent in a diagnostic service.
-use crate::{Error, impl_identifier, traits::RoutineIdentifier};
+use crate::{Decode, Encode, Error};
 
 /// C.1 DID - Diagnostic Data Identifier specified in ISO 14229-1
 ///
@@ -94,7 +94,6 @@ pub enum UDSIdentifier {
     /// Reserved for ISO 15765-5 (`0xFF01`).
     ReservedForISO15765_5 = 0xFF01,
 }
-impl_identifier!(UDSIdentifier);
 
 impl TryFrom<u16> for UDSIdentifier {
     type Error = Error;
@@ -257,7 +256,6 @@ pub enum UDSRoutineIdentifier {
     /// 0xFF01
     CheckProgrammingDependencies = 0xFF01,
 }
-impl_identifier!(UDSRoutineIdentifier);
 
 /// We know all values for the Routine Identifier, so we can implement `From<u16>` for `UDSRoutineIdentifier`
 impl From<u16> for UDSRoutineIdentifier {
@@ -295,4 +293,78 @@ impl From<UDSRoutineIdentifier> for u16 {
     }
 }
 
-impl RoutineIdentifier for UDSRoutineIdentifier {}
+impl Encode for UDSIdentifier {
+    fn encoded_size(&self) -> usize {
+        2
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&u16::from(*self).to_be_bytes())
+            .map_err(Error::io)?;
+        Ok(2)
+    }
+}
+
+impl<'a> Decode<'a> for UDSIdentifier {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+        }
+        let raw = u16::from_be_bytes([buf[0], buf[1]]);
+        Ok((Self::try_from(raw)?, &buf[2..]))
+    }
+}
+
+impl Encode for UDSRoutineIdentifier {
+    fn encoded_size(&self) -> usize {
+        2
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&u16::from(*self).to_be_bytes())
+            .map_err(Error::io)?;
+        Ok(2)
+    }
+}
+
+impl<'a> Decode<'a> for UDSRoutineIdentifier {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+        }
+        let raw = u16::from_be_bytes([buf[0], buf[1]]);
+        Ok((Self::from(raw), &buf[2..]))
+    }
+}
+
+#[cfg(test)]
+mod codec_tests {
+    use super::*;
+    use crate::test_util::assert_encode_size_agrees;
+
+    #[test]
+    fn uds_identifier_roundtrip() {
+        let id = UDSIdentifier::ActiveDiagnosticSession;
+        let mut buf = [0u8; 2];
+        Encode::encode(&id, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(buf, [0xF1, 0x86]);
+        let (decoded, rest) = <UDSIdentifier as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, id);
+        assert!(rest.is_empty());
+        assert_encode_size_agrees(&id);
+    }
+
+    #[test]
+    fn uds_routine_identifier_roundtrip() {
+        let id = UDSRoutineIdentifier::EraseMemory;
+        let mut buf = [0u8; 2];
+        Encode::encode(&id, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(buf, [0xFF, 0x00]);
+        let (decoded, rest) = <UDSRoutineIdentifier as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, id);
+        assert!(rest.is_empty());
+        assert_encode_size_agrees(&id);
+    }
+}

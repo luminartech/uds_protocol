@@ -64,11 +64,9 @@ impl<'a> Decode<'a> for Request<'a> {
         let payload = &buf[1..];
 
         let request = match service {
-            UdsServiceType::ClearDiagnosticInfo => {
-                Self::ClearDiagnosticInfo(<ClearDiagnosticInfoRequest as Decode>::decode_exact(
-                    payload,
-                )?)
-            }
+            UdsServiceType::ClearDiagnosticInfo => Self::ClearDiagnosticInfo(
+                <ClearDiagnosticInfoRequest as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::CommunicationControl => Self::CommunicationControl(
                 <CommunicationControlRequest as Decode>::decode_exact(payload)?,
             ),
@@ -229,12 +227,10 @@ mod tests {
 
     #[test]
     fn suppression_forwards_to_inner_request() {
-        let suppressed =
-            Request::EcuReset(EcuResetRequest::new(true, ResetType::HardReset));
+        let suppressed = Request::EcuReset(EcuResetRequest::new(true, ResetType::HardReset));
         assert!(suppressed.is_positive_response_suppressed());
 
-        let not_suppressed =
-            Request::EcuReset(EcuResetRequest::new(false, ResetType::HardReset));
+        let not_suppressed = Request::EcuReset(EcuResetRequest::new(false, ResetType::HardReset));
         assert!(!not_suppressed.is_positive_response_suppressed());
     }
 }

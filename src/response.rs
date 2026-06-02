@@ -80,9 +80,9 @@ impl<'a> Decode<'a> for Response<'a> {
             UdsServiceType::ReadDTCInfo => {
                 Self::ReadDTCInfo(<ReadDTCInfoResponseRx as Decode>::decode_exact(payload)?)
             }
-            UdsServiceType::RequestDownload => {
-                Self::RequestDownload(<RequestDownloadResponseTx as Decode>::decode_exact(payload)?)
-            }
+            UdsServiceType::RequestDownload => Self::RequestDownload(
+                <RequestDownloadResponseTx as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::RequestFileTransfer => Self::RequestFileTransfer(
                 <RequestFileTransferResponseTx as Decode>::decode_exact(payload)?,
             ),

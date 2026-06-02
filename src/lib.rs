@@ -12,11 +12,10 @@ pub use error::Error;
 mod test_util;
 
 mod traits;
-pub use traits::{Decode, DecodeIter, Encode, Identifier, RoutineIdentifier};
+pub use traits::{Decode, DecodeIter, Encode};
 
 mod common;
 pub use common::*;
-
 
 mod request;
 pub use request::Request;
