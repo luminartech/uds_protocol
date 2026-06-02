@@ -1,8 +1,7 @@
 # Unified Diagnostics Services (UDS) Protocol
 
-This crate aims to offer an ergonomic implementation of the UDS protocol for tooling and test workloads in Rust.
-Embedded support is an explicit, non-goal of this library.
-It supports both serialization and deserialization of UDS both protocol messages as well as custom data types.
+This crate offers an ergonomic, `no_std`-friendly implementation of the UDS (ISO 14229) protocol codec in Rust.
+It targets embedded ECU diagnostics and desktop tooling alike: encoding and decoding UDS protocol messages — and custom data types — with no required allocator and no async runtime.
 It is not in a complete state yet with the 0.1.0 release, please check back soon!
 
 [![Crates.io](https://img.shields.io/crates/v/uds_protocol.svg?style=for-the-badge)](https://crates.io/crates/uds_protocol)
