@@ -18,9 +18,15 @@ pub trait Encode {
 
 /// RX-side trait: zero-copy decode from a byte slice.
 ///
-/// Implementations borrow directly from the input buffer where possible.
-/// Returns the decoded value together with the unconsumed remainder of the
-/// buffer.
+/// Implementations borrow directly from the input buffer where possible. The decoded
+/// value points into `buf` and is valid only as long as `buf` lives — for C developers
+/// new to Rust, think of it like a `struct` overlaid on a `char buf[]`. Copy out any
+/// fields you need to retain beyond the buffer's lifetime.
+///
+/// [`decode`](Self::decode) returns the value together with the unconsumed remainder of
+/// the buffer, so leaf and sequence decoders can be composed. Frame-level decoders
+/// (`Request`, `Response`) consume the whole buffer and return an empty remainder; use
+/// [`decode_exact`](Self::decode_exact) when a buffer must contain exactly one value.
 pub trait Decode<'a>: Sized {
     /// Decode from `buf`, returning `(value, remaining_bytes)`.
     ///
