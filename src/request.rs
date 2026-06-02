@@ -168,20 +168,23 @@ impl Encode for Request<'_> {
         };
         Ok(1 + payload)
     }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        match self {
-            Self::ControlDTCSettings(req) => req.is_positive_response_suppressed(),
-            Self::DiagnosticSessionControl(req) => req.is_positive_response_suppressed(),
-            Self::EcuReset(req) => req.is_positive_response_suppressed(),
-            Self::SecurityAccess(req) => req.is_positive_response_suppressed(),
-            Self::TesterPresent(req) => req.is_positive_response_suppressed(),
-            _ => false,
-        }
-    }
 }
 
 impl Request<'_> {
+    /// Whether the positive response for this request is suppressed (SPRMIB).
+    #[must_use]
+    pub fn is_positive_response_suppressed(&self) -> bool {
+        match self {
+            Self::CommunicationControl(req) => req.suppress_positive_response(),
+            Self::ControlDTCSettings(req) => req.suppress_positive_response(),
+            Self::DiagnosticSessionControl(req) => req.suppress_positive_response(),
+            Self::EcuReset(req) => req.suppress_positive_response(),
+            Self::SecurityAccess(req) => req.suppress_positive_response(),
+            Self::TesterPresent(req) => req.suppress_positive_response(),
+            _ => false,
+        }
+    }
+
     /// Returns the [`UdsServiceType`] corresponding to this request variant.
     #[must_use]
     pub fn service(&self) -> UdsServiceType {

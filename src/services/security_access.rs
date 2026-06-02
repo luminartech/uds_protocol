@@ -93,10 +93,6 @@ impl Encode for SecurityAccessRequestTx<'_> {
         writer.write_all(self.request_data).map_err(Error::io)?;
         Ok(self.encoded_size())
     }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_positive_response()
-    }
 }
 
 impl<'a> Decode<'a> for SecurityAccessRequestTx<'a> {

@@ -14,11 +14,6 @@ pub trait Encode {
     /// # Errors
     /// Returns [`Error::IoError`] if the writer fails.
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error>;
-
-    /// Whether the positive response for this message is suppressed (SPRMIB).
-    fn is_positive_response_suppressed(&self) -> bool {
-        false
-    }
 }
 
 /// RX-side trait: zero-copy decode from a byte slice.

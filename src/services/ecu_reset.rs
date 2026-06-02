@@ -55,10 +55,6 @@ impl Encode for EcuResetRequest {
             .map_err(Error::io)?;
         Ok(1)
     }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_positive_response()
-    }
 }
 
 impl<'a> Decode<'a> for EcuResetRequest {

@@ -22,6 +22,12 @@ impl ControlDTCSettingsRequest {
             suppress_response,
         }
     }
+
+    /// Whether the server should suppress the positive response (SPRMIB).
+    #[must_use]
+    pub const fn suppress_positive_response(&self) -> bool {
+        self.suppress_response
+    }
 }
 
 impl Encode for ControlDTCSettingsRequest {
@@ -34,10 +40,6 @@ impl Encode for ControlDTCSettingsRequest {
             u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
         writer.write_all(&[request_byte]).map_err(Error::io)?;
         Ok(1)
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_response
     }
 }
 
