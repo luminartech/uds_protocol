@@ -21,7 +21,7 @@ mod request;
 pub use request::Request;
 
 mod response;
-pub use response::{Response, UdsResponse};
+pub use response::Response;
 
 mod service;
 pub use service::UdsServiceType;

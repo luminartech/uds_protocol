@@ -53,6 +53,17 @@ pub enum Request<'a> {
     TransferData(TransferDataRequestTx<'a>),
     /// Write data by identifier request. Raw DID + payload bytes.
     WriteDataByIdentifier(&'a [u8]),
+    /// A known-but-unmodeled (or unrecognized) service. Carries the service type and
+    /// the raw payload bytes following the service identifier, for pass-through.
+    ///
+    /// Re-encoding is lossless for any service byte in the ISO 14229-1 table; a byte
+    /// that maps to [`UdsServiceType::UnsupportedDiagnosticService`] re-encodes as `0x7F`.
+    Other {
+        /// The service this frame addresses.
+        service: UdsServiceType,
+        /// Raw payload bytes after the service byte.
+        data: &'a [u8],
+    },
 }
 
 impl<'a> Decode<'a> for Request<'a> {
@@ -107,7 +118,10 @@ impl<'a> Decode<'a> for Request<'a> {
                 Self::TransferData(<TransferDataRequestTx as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
-            _ => return Err(Error::ServiceNotImplemented(service)),
+            _ => Self::Other {
+                service,
+                data: payload,
+            },
         };
         Ok((request, &[]))
     }
@@ -127,6 +141,7 @@ impl Encode for Request<'_> {
             Self::RequestDownload(req) => req.encoded_size(),
             Self::RequestFileTransfer(req) => req.encoded_size(),
             Self::RequestTransferExit => 0,
+            Self::Other { data, .. } => data.len(),
             Self::RoutineControl { raw_payload, .. } => 1 + raw_payload.len(),
             Self::SecurityAccess(req) => req.encoded_size(),
             Self::TesterPresent(req) => req.encoded_size(),
@@ -154,6 +169,10 @@ impl Encode for Request<'_> {
             Self::RequestDownload(req) => req.encode(writer)?,
             Self::RequestFileTransfer(req) => req.encode(writer)?,
             Self::RequestTransferExit => 0,
+            Self::Other { data, .. } => {
+                writer.write_all(data).map_err(Error::io)?;
+                data.len()
+            }
             Self::RoutineControl {
                 sub_function,
                 raw_payload,
@@ -204,6 +223,7 @@ impl Request<'_> {
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
+            Self::Other { service, .. } => *service,
         }
     }
 }
@@ -235,5 +255,23 @@ mod tests {
 
         let not_suppressed = Request::EcuReset(EcuResetRequest::new(false, ResetType::HardReset));
         assert!(!not_suppressed.is_positive_response_suppressed());
+    }
+
+    #[test]
+    fn unmodeled_service_decodes_to_other() {
+        // 0x23 = ReadMemoryByAddress, enumerated but not modeled.
+        let frame = [0x23, 0xAA, 0xBB];
+        let (req, rest) = Request::decode(&frame).unwrap();
+        assert!(rest.is_empty());
+        match req {
+            Request::Other { service, data } => {
+                assert_eq!(service, UdsServiceType::ReadMemoryByAddress);
+                assert_eq!(data, &[0xAA, 0xBB]);
+            }
+            other => panic!("expected Other, got {other:?}"),
+        }
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &frame);
     }
 }

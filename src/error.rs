@@ -67,9 +67,6 @@ pub enum Error {
     /// The value is reserved for legislative use and must not be used.
     #[error("Reserved for legislative use: {0}")]
     ReservedForLegislativeUse(u8),
-    /// The service type is not yet implemented in this crate.
-    #[error("UDS service not implemented: {0:?}")]
-    ServiceNotImplemented(crate::UdsServiceType),
 }
 
 impl Error {

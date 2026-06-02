@@ -49,6 +49,17 @@ pub enum Response<'a> {
     TransferData(TransferDataResponseTx<'a>),
     /// Positive response to `WriteDataByIdentifier`. Contains the echoed DID bytes.
     WriteDataByIdentifier(&'a [u8]),
+    /// A known-but-unmodeled (or unrecognized) service response. Carries the service
+    /// type and the raw payload bytes following the service identifier.
+    ///
+    /// Re-encoding is lossless for any service byte in the ISO 14229-1 table; a byte
+    /// that maps to [`UdsServiceType::UnsupportedDiagnosticService`] re-encodes as `0x7F`.
+    Other {
+        /// The service this response addresses.
+        service: UdsServiceType,
+        /// Raw payload bytes after the service byte.
+        data: &'a [u8],
+    },
 }
 
 impl<'a> Decode<'a> for Response<'a> {
@@ -106,7 +117,10 @@ impl<'a> Decode<'a> for Response<'a> {
                 Self::TransferData(<TransferDataResponseTx as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
-            _ => return Err(Error::ServiceNotImplemented(service)),
+            _ => Self::Other {
+                service,
+                data: payload,
+            },
         };
         Ok((response, &[]))
     }
@@ -140,6 +154,7 @@ impl Response<'_> {
             Self::WriteDataByIdentifier(_) => {
                 UdsServiceType::WriteDataByIdentifier.response_to_byte()
             }
+            Self::Other { service, .. } => service.response_to_byte(),
         }
     }
 }
@@ -148,6 +163,7 @@ impl Encode for Response<'_> {
     fn encoded_size(&self) -> usize {
         let payload = match self {
             Self::ClearDiagnosticInfo | Self::RequestTransferExit => 0,
+            Self::Other { data, .. } => data.len(),
             Self::CommunicationControl(resp) => resp.encoded_size(),
             Self::ControlDTCSettings(resp) => resp.encoded_size(),
             Self::DiagnosticSessionControl(resp) => resp.encoded_size(),
@@ -198,31 +214,34 @@ impl Encode for Response<'_> {
             Self::SecurityAccess(resp) => resp.encode(writer)?,
             Self::TesterPresent(resp) => resp.encode(writer)?,
             Self::TransferData(resp) => resp.encode(writer)?,
+            Self::Other { data, .. } => {
+                writer.write_all(data).map_err(Error::io)?;
+                data.len()
+            }
         };
         Ok(1 + payload)
     }
 }
 
-/// Zero-copy raw RX response. Borrows from the wire buffer.
-#[derive(Clone, Debug)]
-pub struct UdsResponse<'a> {
-    /// The service this response corresponds to.
-    pub service: UdsServiceType,
-    /// The raw payload bytes following the service identifier.
-    pub data: &'a [u8],
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl<'a> Decode<'a> for UdsResponse<'a> {
-    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+    #[test]
+    fn unmodeled_response_decodes_to_other() {
+        // 0x63 = ReadMemoryByAddress positive response, not modeled.
+        let frame = [0x63, 0x01, 0x02];
+        let (resp, rest) = Response::decode(&frame).unwrap();
+        assert!(rest.is_empty());
+        match resp {
+            Response::Other { service, data } => {
+                assert_eq!(service, UdsServiceType::ReadMemoryByAddress);
+                assert_eq!(data, &[0x01, 0x02]);
+            }
+            other => panic!("expected Other, got {other:?}"),
         }
-        Ok((
-            Self {
-                service: UdsServiceType::response_from_byte(buf[0]),
-                data: &buf[1..],
-            },
-            &[],
-        ))
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &frame);
     }
 }
