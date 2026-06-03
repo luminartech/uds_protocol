@@ -29,6 +29,67 @@ impl ReadDTCInfoRequest {
     }
 }
 
+impl Encode for ReadDTCInfoRequest {
+    fn encoded_size(&self) -> usize {
+        self.dtc_subfunction.encoded_size()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        self.dtc_subfunction.encode(writer)
+    }
+}
+
+#[cfg(test)]
+mod read_dtc_info_request_encode_tests {
+    use super::*;
+    use crate::test_util::assert_encode_size_agrees;
+
+    #[test]
+    fn encode_no_param_subfunction() {
+        // 0x0A ReportSupportedDTC, no parameters.
+        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportSupportedDTC);
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &[0x0A]);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn encode_single_param_subfunction() {
+        // 0x02 ReportDTC_ByStatusMask(mask). DTCStatusMask is 1 byte.
+        let mask = DTCStatusMask::from(0xFF);
+        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(mask));
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &[0x02, 0xFF]);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn encode_multi_param_subfunction() {
+        // 0x42 ReportWWHOBDDTC_ByMaskRecord(group, status, severity).
+        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord(
+            FunctionalGroupIdentifier::EmissionsSystemGroup,
+            DTCStatusMask::from(0x08),
+            DTCSeverityMask::CheckImmediately,
+        ));
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &[0x42, 0x33, 0x08, 0b1000_0000]);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn encode_reserved_subfunction() {
+        // ISOSAEReserved carries the sub-function byte itself, no params.
+        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ISOSAEReserved(0x57));
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &[0x57]);
+        assert_encode_size_agrees(&req);
+    }
+}
+
 /// A DTC paired with its fault detection counter value
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -195,6 +256,114 @@ impl ReadDTCInfoSubFunction {
             Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(_, _) => 0x56,
             Self::ISOSAEReserved(value) => *value,
         }
+    }
+}
+
+impl Encode for ReadDTCInfoSubFunction {
+    fn encoded_size(&self) -> usize {
+        use ReadDTCInfoSubFunction as S;
+        1 + match self {
+            S::ReportNumberOfDTC_ByStatusMask(m)
+            | S::ReportDTC_ByStatusMask(m)
+            | S::ReportUserDefMemoryDTC_ByStatusMask(m) => m.encoded_size(),
+            S::ReportDTCSnapshotRecord_ByDTCNumber(r, n) => r.encoded_size() + n.encoded_size(),
+            S::ReportDTCStoredData_ByRecordNumber(n) => n.encoded_size(),
+            S::ReportDTCExtDataRecord_ByDTCNumber(r, n) => r.encoded_size() + n.encoded_size(),
+            S::ReportNumberOfDTC_BySeverityMaskRecord(s, m)
+            | S::ReportDTC_BySeverityMaskRecord(s, m) => s.encoded_size() + m.encoded_size(),
+            S::ReportSeverityInfoOfDTC(r) => r.encoded_size(),
+            S::ReportDTCExtDataRecord_ByRecordNumber(n) | S::ReportSupportedDTCExtDataRecord(n) => {
+                n.encoded_size()
+            }
+            S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(r, n, mem) => {
+                r.encoded_size() + n.encoded_size() + mem.encoded_size()
+            }
+            S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(r, n, mem) => {
+                r.encoded_size() + n.encoded_size() + mem.encoded_size()
+            }
+            S::ReportWWHOBDDTC_ByMaskRecord(g, m, s) => {
+                g.encoded_size() + m.encoded_size() + s.encoded_size()
+            }
+            S::ReportWWHOBDDTC_WithPermanentStatus(g) => g.encoded_size(),
+            S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg) => {
+                g.encoded_size() + rg.encoded_size()
+            }
+            S::ReportDTCSnapshotIdentification
+            | S::ReportSupportedDTC
+            | S::ReportFirstTestFailedDTC
+            | S::ReportFirstConfirmedDTC
+            | S::ReportMostRecentTestFailedDTC
+            | S::ReportMostRecentConfirmedDTC
+            | S::ReportDTCFaultDetectionCounter
+            | S::ReportDTCWithPermanentStatus
+            | S::ISOSAEReserved(_) => 0,
+        }
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        use ReadDTCInfoSubFunction as S;
+        writer.write_all(&[self.value()]).map_err(Error::io)?;
+        match self {
+            S::ReportNumberOfDTC_ByStatusMask(m)
+            | S::ReportDTC_ByStatusMask(m)
+            | S::ReportUserDefMemoryDTC_ByStatusMask(m) => {
+                m.encode(writer)?;
+            }
+            S::ReportDTCSnapshotRecord_ByDTCNumber(r, n) => {
+                r.encode(writer)?;
+                n.encode(writer)?;
+            }
+            S::ReportDTCStoredData_ByRecordNumber(n) => {
+                n.encode(writer)?;
+            }
+            S::ReportDTCExtDataRecord_ByDTCNumber(r, n) => {
+                r.encode(writer)?;
+                n.encode(writer)?;
+            }
+            S::ReportNumberOfDTC_BySeverityMaskRecord(s, m)
+            | S::ReportDTC_BySeverityMaskRecord(s, m) => {
+                s.encode(writer)?;
+                m.encode(writer)?;
+            }
+            S::ReportSeverityInfoOfDTC(r) => {
+                r.encode(writer)?;
+            }
+            S::ReportDTCExtDataRecord_ByRecordNumber(n) | S::ReportSupportedDTCExtDataRecord(n) => {
+                n.encode(writer)?;
+            }
+            S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(r, n, mem) => {
+                r.encode(writer)?;
+                n.encode(writer)?;
+                mem.encode(writer)?;
+            }
+            S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(r, n, mem) => {
+                r.encode(writer)?;
+                n.encode(writer)?;
+                mem.encode(writer)?;
+            }
+            S::ReportWWHOBDDTC_ByMaskRecord(g, m, s) => {
+                g.encode(writer)?;
+                m.encode(writer)?;
+                s.encode(writer)?;
+            }
+            S::ReportWWHOBDDTC_WithPermanentStatus(g) => {
+                g.encode(writer)?;
+            }
+            S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg) => {
+                g.encode(writer)?;
+                rg.encode(writer)?;
+            }
+            S::ReportDTCSnapshotIdentification
+            | S::ReportSupportedDTC
+            | S::ReportFirstTestFailedDTC
+            | S::ReportFirstConfirmedDTC
+            | S::ReportMostRecentTestFailedDTC
+            | S::ReportMostRecentConfirmedDTC
+            | S::ReportDTCFaultDetectionCounter
+            | S::ReportDTCWithPermanentStatus
+            | S::ISOSAEReserved(_) => {}
+        }
+        Ok(self.encoded_size())
     }
 }
 
