@@ -2,7 +2,8 @@
 //!
 //! It can also be used to check the ECU's health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
-use crate::{Encode, Error, RoutineControlSubFunction};
+use crate::common::SuppressablePositiveResponse;
+use crate::{Decode, Encode, Error, RoutineControlSubFunction};
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results.
 ///
@@ -11,20 +12,43 @@ use crate::{Encode, Error, RoutineControlSubFunction};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlRequest<'d> {
-    /// The routine control operation (start, stop, or request results).
-    pub sub_function: RoutineControlSubFunction,
-    /// The raw payload bytes: routine identifier followed by optional parameters.
-    pub raw_payload: &'d [u8],
+    sub_function: SuppressablePositiveResponse<RoutineControlSubFunction>,
+    raw_payload: &'d [u8],
 }
 
 impl<'d> RoutineControlRequest<'d> {
     /// Create a new `RoutineControlRequest`.
     #[must_use]
-    pub const fn new(sub_function: RoutineControlSubFunction, raw_payload: &'d [u8]) -> Self {
+    pub const fn new(
+        suppress_positive_response: bool,
+        sub_function: RoutineControlSubFunction,
+        raw_payload: &'d [u8],
+    ) -> Self {
         Self {
-            sub_function,
+            sub_function: SuppressablePositiveResponse::new(
+                suppress_positive_response,
+                sub_function,
+            ),
             raw_payload,
         }
+    }
+
+    /// Whether the server should suppress the positive response (SPRMIB).
+    #[must_use]
+    pub fn suppress_positive_response(&self) -> bool {
+        self.sub_function.suppress_positive_response()
+    }
+
+    /// The routine control operation (start, stop, or request results).
+    #[must_use]
+    pub fn sub_function(&self) -> RoutineControlSubFunction {
+        self.sub_function.value()
+    }
+
+    /// The raw payload bytes: routine identifier followed by optional parameters.
+    #[must_use]
+    pub const fn raw_payload(&self) -> &[u8] {
+        self.raw_payload
     }
 }
 
@@ -39,6 +63,22 @@ impl Encode for RoutineControlRequest<'_> {
             .map_err(Error::io)?;
         writer.write_all(self.raw_payload).map_err(Error::io)?;
         Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for RoutineControlRequest<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let sub_function = SuppressablePositiveResponse::try_from(buf[0])?;
+        Ok((
+            Self {
+                sub_function,
+                raw_payload: &buf[1..],
+            },
+            &[],
+        ))
     }
 }
 
@@ -85,16 +125,34 @@ impl Encode for RoutineControlResponse<'_> {
     }
 }
 
+impl<'a> Decode<'a> for RoutineControlResponse<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let routine_control_type = RoutineControlSubFunction::try_from(buf[0])?;
+        Ok((
+            Self {
+                routine_control_type,
+                raw_status_record: &buf[1..],
+            },
+            &[],
+        ))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::Decode;
     use crate::test_util::assert_encode_size_agrees;
 
     #[test]
     fn encode_routine_control_request_tx() {
         // RID 0xFF00 (EraseMemory) + 1 parameter byte
         let payload = [0xFF, 0x00, 0xAA];
-        let req = RoutineControlRequest::new(RoutineControlSubFunction::StartRoutine, &payload);
+        let req =
+            RoutineControlRequest::new(false, RoutineControlSubFunction::StartRoutine, &payload);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x01, 0xFF, 0x00, 0xAA]);
@@ -108,6 +166,45 @@ mod test {
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x01, 0xFF, 0x00, 0x10]);
+        assert_encode_size_agrees(&resp);
+    }
+
+    #[test]
+    fn decode_routine_control_request_with_suppress_bit() {
+        // sub 0x81 = StartRoutine (0x01) + SPRMIB (0x80), then RID 0xFF00 + param 0xAA
+        let bytes = [0x81, 0xFF, 0x00, 0xAA];
+        let (req, rest) = <RoutineControlRequest as Decode>::decode(&bytes).unwrap();
+        assert!(rest.is_empty());
+        assert!(req.suppress_positive_response());
+        assert_eq!(req.sub_function(), RoutineControlSubFunction::StartRoutine);
+        assert_eq!(req.raw_payload(), &[0xFF, 0x00, 0xAA]);
+        // round-trips back to the same bytes
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &bytes);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn decode_routine_control_request_rejects_reserved_subfunction() {
+        // 0x7F (low 7 bits = 0x7F) is a reserved routineControlType
+        let bytes = [0x7F, 0xFF, 0x00];
+        assert!(<RoutineControlRequest as Decode>::decode(&bytes).is_err());
+    }
+
+    #[test]
+    fn decode_routine_control_response() {
+        let bytes = [0x01, 0xFF, 0x00, 0x10];
+        let (resp, rest) = <RoutineControlResponse as Decode>::decode(&bytes).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(
+            resp.routine_control_type,
+            RoutineControlSubFunction::StartRoutine
+        );
+        assert_eq!(resp.raw_status_record, &[0xFF, 0x00, 0x10]);
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &bytes);
         assert_encode_size_agrees(&resp);
     }
 }

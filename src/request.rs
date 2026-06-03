@@ -4,8 +4,8 @@ use crate::{
     services::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, RequestDownloadRequest,
-        RequestFileTransferRequest, SecurityAccessRequest, TesterPresentRequest,
-        TransferDataRequest, WriteDataByIdentifierRequest,
+        RequestFileTransferRequest, RoutineControlRequest, SecurityAccessRequest,
+        TesterPresentRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
 };
 
@@ -38,13 +38,8 @@ pub enum Request<'a> {
     RequestFileTransfer(RequestFileTransferRequest<'a>),
     /// Request transfer exit.
     RequestTransferExit,
-    /// Routine control request. Sub-function byte + raw payload.
-    RoutineControl {
-        /// Routine control sub-function byte.
-        sub_function: u8,
-        /// Raw routine ID + optional payload bytes.
-        raw_payload: &'a [u8],
-    },
+    /// Routine control request.
+    RoutineControl(RoutineControlRequest<'a>),
     /// Security access request.
     SecurityAccess(SecurityAccessRequest<'a>),
     /// Tester present request.
@@ -100,13 +95,7 @@ impl<'a> Decode<'a> for Request<'a> {
             ),
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
-                if payload.is_empty() {
-                    return Err(Error::InsufficientData(2));
-                }
-                Self::RoutineControl {
-                    sub_function: payload[0],
-                    raw_payload: &payload[1..],
-                }
+                Self::RoutineControl(<RoutineControlRequest as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::SecurityAccess => {
                 Self::SecurityAccess(<SecurityAccessRequest as Decode>::decode_exact(payload)?)
@@ -143,7 +132,7 @@ impl Encode for Request<'_> {
             Self::RequestFileTransfer(req) => req.encoded_size(),
             Self::RequestTransferExit => 0,
             Self::Other { data, .. } => data.len(),
-            Self::RoutineControl { raw_payload, .. } => 1 + raw_payload.len(),
+            Self::RoutineControl(req) => req.encoded_size(),
             Self::SecurityAccess(req) => req.encoded_size(),
             Self::TesterPresent(req) => req.encoded_size(),
             Self::TransferData(req) => req.encoded_size(),
@@ -173,14 +162,7 @@ impl Encode for Request<'_> {
                 writer.write_all(data).map_err(Error::io)?;
                 data.len()
             }
-            Self::RoutineControl {
-                sub_function,
-                raw_payload,
-            } => {
-                writer.write_all(&[*sub_function]).map_err(Error::io)?;
-                writer.write_all(raw_payload).map_err(Error::io)?;
-                1 + raw_payload.len()
-            }
+            Self::RoutineControl(req) => req.encode(writer)?,
             Self::SecurityAccess(req) => req.encode(writer)?,
             Self::TesterPresent(req) => req.encode(writer)?,
             Self::TransferData(req) => req.encode(writer)?,
@@ -198,6 +180,7 @@ impl Request<'_> {
             Self::ControlDTCSettings(req) => req.suppress_positive_response(),
             Self::DiagnosticSessionControl(req) => req.suppress_positive_response(),
             Self::EcuReset(req) => req.suppress_positive_response(),
+            Self::RoutineControl(req) => req.suppress_positive_response(),
             Self::SecurityAccess(req) => req.suppress_positive_response(),
             Self::TesterPresent(req) => req.suppress_positive_response(),
             _ => false,
@@ -218,7 +201,7 @@ impl Request<'_> {
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
             Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
-            Self::RoutineControl { .. } => UdsServiceType::RoutineControl,
+            Self::RoutineControl(_) => UdsServiceType::RoutineControl,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
@@ -264,6 +247,18 @@ mod tests {
         let (req, rest) = Request::decode(&wire).unwrap();
         assert!(rest.is_empty());
         assert!(matches!(req, Request::WriteDataByIdentifier(_)));
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
+    fn routine_control_request_roundtrips_with_suppress_bit() {
+        // SID 0x31, sub 0x81 (StartRoutine + SPRMIB), RID 0xFF00, param 0xAA
+        let wire = [0x31, 0x81, 0xFF, 0x00, 0xAA];
+        let (req, rest) = Request::decode(&wire).unwrap();
+        assert!(rest.is_empty());
+        assert!(req.is_positive_response_suppressed());
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &wire);
