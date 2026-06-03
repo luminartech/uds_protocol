@@ -1,5 +1,5 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
-use crate::{Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, NegativeResponseCode};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -77,6 +77,16 @@ impl Encode for WriteDataByIdentifierResponse {
     }
 }
 
+impl<'a> Decode<'a> for WriteDataByIdentifierResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::InsufficientData(2));
+        }
+        let identifier = u16::from_be_bytes([buf[0], buf[1]]);
+        Ok((Self { identifier }, &buf[2..]))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -103,5 +113,22 @@ mod test {
         assert_eq!(written, 3);
         assert_eq!(&buf[..3], &[0xF1, 0x86, 0x01]);
         assert_encode_size_agrees(&request);
+    }
+
+    #[test]
+    fn write_response_roundtrip() {
+        let response = WriteDataByIdentifierResponse::new(0xF186);
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&response, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, rest) =
+            <WriteDataByIdentifierResponse as Decode>::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, response);
+        assert!(rest.is_empty());
+    }
+
+    #[test]
+    fn write_response_decode_rejects_short_buffer() {
+        let err = <WriteDataByIdentifierResponse as Decode>::decode(&[0x01]);
+        assert!(matches!(err, Err(Error::InsufficientData(2))));
     }
 }
