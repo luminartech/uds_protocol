@@ -3,6 +3,7 @@ use crate::{
     DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, NegativeResponse,
     ReadDTCInfoResponse, RequestDownloadResponse, RequestFileTransferResponse,
     SecurityAccessResponse, TesterPresentResponse, TransferDataResponse, UdsServiceType,
+    WriteDataByIdentifierResponse,
 };
 
 /// Parsed zero-copy UDS response. Borrows from the wire buffer.
@@ -47,8 +48,8 @@ pub enum Response<'a> {
     TesterPresent(TesterPresentResponse),
     /// Positive response to `TransferData`.
     TransferData(TransferDataResponse<'a>),
-    /// Positive response to `WriteDataByIdentifier`. Contains the echoed DID bytes.
-    WriteDataByIdentifier(&'a [u8]),
+    /// Positive response to `WriteDataByIdentifier`. Contains the echoed DID.
+    WriteDataByIdentifier(WriteDataByIdentifierResponse),
     /// A known-but-unmodeled (or unrecognized) service response. Carries the service
     /// type and the raw payload bytes following the service identifier.
     ///
@@ -116,7 +117,9 @@ impl<'a> Decode<'a> for Response<'a> {
             UdsServiceType::TransferData => {
                 Self::TransferData(<TransferDataResponse as Decode>::decode_exact(payload)?)
             }
-            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
+            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
+                <WriteDataByIdentifierResponse as Decode>::decode_exact(payload)?,
+            ),
             _ => Self::Other {
                 service,
                 data: payload,
@@ -169,7 +172,8 @@ impl Encode for Response<'_> {
             Self::DiagnosticSessionControl(resp) => resp.encoded_size(),
             Self::EcuReset(resp) => resp.encoded_size(),
             Self::NegativeResponse(resp) => resp.encoded_size(),
-            Self::ReadDataByIdentifier(bytes) | Self::WriteDataByIdentifier(bytes) => bytes.len(),
+            Self::ReadDataByIdentifier(bytes) => bytes.len(),
+            Self::WriteDataByIdentifier(resp) => resp.encoded_size(),
             Self::ReadDTCInfo(resp) => resp.encoded_size(),
             Self::RequestDownload(resp) => resp.encoded_size(),
             Self::RequestFileTransfer(resp) => resp.encoded_size(),
@@ -194,10 +198,11 @@ impl Encode for Response<'_> {
             Self::DiagnosticSessionControl(resp) => resp.encode(writer)?,
             Self::EcuReset(resp) => resp.encode(writer)?,
             Self::NegativeResponse(resp) => resp.encode(writer)?,
-            Self::ReadDataByIdentifier(bytes) | Self::WriteDataByIdentifier(bytes) => {
+            Self::ReadDataByIdentifier(bytes) => {
                 writer.write_all(bytes).map_err(Error::io)?;
                 bytes.len()
             }
+            Self::WriteDataByIdentifier(resp) => resp.encode(writer)?,
             Self::ReadDTCInfo(resp) => resp.encode(writer)?,
             Self::RequestDownload(resp) => resp.encode(writer)?,
             Self::RequestFileTransfer(resp) => resp.encode(writer)?,
@@ -226,6 +231,18 @@ impl Encode for Response<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn write_data_by_identifier_response_roundtrips() {
+        // SID 0x6E, echoed DID 0xF190
+        let wire = [0x6E, 0xF1, 0x90];
+        let (resp, rest) = Response::decode(&wire).unwrap();
+        assert!(rest.is_empty());
+        assert!(matches!(resp, Response::WriteDataByIdentifier(_)));
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &wire);
+    }
 
     #[test]
     fn unmodeled_response_decodes_to_other() {

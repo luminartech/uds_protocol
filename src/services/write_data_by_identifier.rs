@@ -46,6 +46,12 @@ impl Encode for WriteDataByIdentifierRequest<'_> {
     }
 }
 
+impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        Ok((Self { payload: buf }, &[]))
+    }
+}
+
 /// Positive response to `WriteDataByIdentifier`: echoes the DID that was written.
 ///
 /// See ISO-14229-1:2020, Section 11.7.3.1

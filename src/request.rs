@@ -5,7 +5,7 @@ use crate::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, RequestDownloadRequest,
         RequestFileTransferRequest, SecurityAccessRequest, TesterPresentRequest,
-        TransferDataRequest,
+        TransferDataRequest, WriteDataByIdentifierRequest,
     },
 };
 
@@ -51,8 +51,8 @@ pub enum Request<'a> {
     TesterPresent(TesterPresentRequest),
     /// Transfer data request.
     TransferData(TransferDataRequest<'a>),
-    /// Write data by identifier request. Raw DID + payload bytes.
-    WriteDataByIdentifier(&'a [u8]),
+    /// Write data by identifier request.
+    WriteDataByIdentifier(WriteDataByIdentifierRequest<'a>),
     /// A known-but-unmodeled (or unrecognized) service. Carries the service type and
     /// the raw payload bytes following the service identifier, for pass-through.
     ///
@@ -117,7 +117,9 @@ impl<'a> Decode<'a> for Request<'a> {
             UdsServiceType::TransferData => {
                 Self::TransferData(<TransferDataRequest as Decode>::decode_exact(payload)?)
             }
-            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
+            UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(
+                <WriteDataByIdentifierRequest as Decode>::decode_exact(payload)?,
+            ),
             _ => Self::Other {
                 service,
                 data: payload,
@@ -135,9 +137,8 @@ impl Encode for Request<'_> {
             Self::ControlDTCSettings(req) => req.encoded_size(),
             Self::DiagnosticSessionControl(req) => req.encoded_size(),
             Self::EcuReset(req) => req.encoded_size(),
-            Self::ReadDataByIdentifier(bytes)
-            | Self::WriteDataByIdentifier(bytes)
-            | Self::ReadDTCInfo(bytes) => bytes.len(),
+            Self::ReadDataByIdentifier(bytes) | Self::ReadDTCInfo(bytes) => bytes.len(),
+            Self::WriteDataByIdentifier(req) => req.encoded_size(),
             Self::RequestDownload(req) => req.encoded_size(),
             Self::RequestFileTransfer(req) => req.encoded_size(),
             Self::RequestTransferExit => 0,
@@ -160,12 +161,11 @@ impl Encode for Request<'_> {
             Self::ControlDTCSettings(req) => req.encode(writer)?,
             Self::DiagnosticSessionControl(req) => req.encode(writer)?,
             Self::EcuReset(req) => req.encode(writer)?,
-            Self::ReadDataByIdentifier(bytes)
-            | Self::WriteDataByIdentifier(bytes)
-            | Self::ReadDTCInfo(bytes) => {
+            Self::ReadDataByIdentifier(bytes) | Self::ReadDTCInfo(bytes) => {
                 writer.write_all(bytes).map_err(Error::io)?;
                 bytes.len()
             }
+            Self::WriteDataByIdentifier(req) => req.encode(writer)?,
             Self::RequestDownload(req) => req.encode(writer)?,
             Self::RequestFileTransfer(req) => req.encode(writer)?,
             Self::RequestTransferExit => 0,
@@ -255,6 +255,18 @@ mod tests {
 
         let not_suppressed = Request::EcuReset(EcuResetRequest::new(false, ResetType::HardReset));
         assert!(!not_suppressed.is_positive_response_suppressed());
+    }
+
+    #[test]
+    fn write_data_by_identifier_request_roundtrips() {
+        // SID 0x2E, DID 0xF190, one data byte 0x01
+        let wire = [0x2E, 0xF1, 0x90, 0x01];
+        let (req, rest) = Request::decode(&wire).unwrap();
+        assert!(rest.is_empty());
+        assert!(matches!(req, Request::WriteDataByIdentifier(_)));
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &wire);
     }
 
     #[test]
