@@ -1,7 +1,7 @@
 use crate::{Decode, Encode, Error};
 
-/// Implement [`Encode`] and [`Decode`] for unsigned integer primitives (no_std-compatible).
-macro_rules! unsigned_primitive_encode_decode {
+/// Implement [`Encode`] and [`Decode`] for integer primitives (no_std-compatible).
+macro_rules! primitive_encode_decode {
     ( $($primitive:ty), * ) => {
         $(
         impl Encode for $primitive {
@@ -28,37 +28,7 @@ macro_rules! unsigned_primitive_encode_decode {
     };
 }
 
-unsigned_primitive_encode_decode!(u8, u16, u32, u64, u128);
-
-/// Implement [`Encode`] and [`Decode`] for signed integer primitives (no_std-compatible).
-macro_rules! signed_primitive_encode_decode {
-    ( $($primitive:ty), * ) => {
-        $(
-        impl Encode for $primitive {
-            fn encoded_size(&self) -> usize {
-                core::mem::size_of::<$primitive>()
-            }
-            fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-                writer.write_all(&self.to_be_bytes()).map_err(Error::io)?;
-                Ok(self.encoded_size())
-            }
-        }
-        impl<'a> Decode<'a> for $primitive {
-            fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-                const SIZE: usize = core::mem::size_of::<$primitive>();
-                if buf.len() < SIZE {
-                    return Err(Error::InsufficientData(SIZE));
-                }
-                let (head, tail) = buf.split_at(SIZE);
-                let value = <$primitive>::from_be_bytes(head.try_into().unwrap());
-                Ok((value, tail))
-            }
-        }
-        )*
-    };
-}
-
-signed_primitive_encode_decode!(i8, i16, i32, i64, i128);
+primitive_encode_decode!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128);
 
 impl Encode for f32 {
     fn encoded_size(&self) -> usize {
