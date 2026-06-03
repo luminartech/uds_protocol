@@ -246,6 +246,31 @@ mod no_std_api_tests {
     }
 
     #[test]
+    fn read_dtc_info_request_encodes_through_public_api() {
+        // Public-surface construction: types reached via crate root, not common::/services::.
+        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(
+            DTCStatusMask::from(0xFF),
+        ));
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        // sub=0x02 ReportDTC_ByStatusMask, mask=0xFF
+        assert_eq!(&buf[..written], &[0x02, 0xFF]);
+        assert_eq!(written, req.encoded_size());
+    }
+
+    #[test]
+    fn write_data_by_identifier_response_roundtrips_through_public_api() {
+        // Reachability check: the WDBI response codec works through the crate-root public API.
+        let resp = WriteDataByIdentifierResponse::new(0xBEEF);
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, remainder) =
+            <WriteDataByIdentifierResponse as Decode>::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, resp);
+        assert!(remainder.is_empty());
+    }
+
+    #[test]
     fn const_construction() {
         // Verify const construction works at compile time
         const _REQ: TransferDataRequestTx<'static> =
