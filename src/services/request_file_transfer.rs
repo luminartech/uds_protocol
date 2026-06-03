@@ -1,6 +1,6 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
-use crate::common::DataFormatIdentifier;
+use crate::common::{DataFormatIdentifier, read_be_uint, write_be_uint};
 use crate::{Decode, Encode, Error};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
@@ -358,9 +358,6 @@ pub enum RequestFileTransferResponse<'a> {
 // Encode / Decode impls
 // ---------------------------------------------------------------------------
 
-// `file_size_parameter_length` must fit in a u128 (≤ 16 bytes per value).
-const U128_MAX_BYTES: usize = 16;
-
 impl Encode for NamePayload<'_> {
     fn encoded_size(&self) -> usize {
         1 + 2 + self.file_path_and_name.len()
@@ -412,20 +409,11 @@ impl Encode for SizePayload {
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let n = self.file_size_parameter_length as usize;
-        if n > U128_MAX_BYTES {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-        }
         writer
             .write_all(&[self.file_size_parameter_length])
             .map_err(Error::io)?;
-        let uncompressed = self.file_size_uncompressed.to_be_bytes();
-        let compressed = self.file_size_compressed.to_be_bytes();
-        writer
-            .write_all(&uncompressed[U128_MAX_BYTES - n..])
-            .map_err(Error::io)?;
-        writer
-            .write_all(&compressed[U128_MAX_BYTES - n..])
-            .map_err(Error::io)?;
+        write_be_uint(self.file_size_uncompressed, n, writer)?;
+        write_be_uint(self.file_size_compressed, n, writer)?;
         Ok(self.encoded_size())
     }
 }
@@ -437,22 +425,17 @@ impl<'a> Decode<'a> for SizePayload {
         }
         let file_size_parameter_length = buf[0];
         let n = file_size_parameter_length as usize;
-        if n > U128_MAX_BYTES {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-        }
         let total = 1 + 2 * n;
         if buf.len() < total {
             return Err(Error::InsufficientData(total));
         }
-        let mut u_bytes = [0u8; U128_MAX_BYTES];
-        u_bytes[U128_MAX_BYTES - n..].copy_from_slice(&buf[1..=n]);
-        let mut c_bytes = [0u8; U128_MAX_BYTES];
-        c_bytes[U128_MAX_BYTES - n..].copy_from_slice(&buf[1 + n..total]);
+        let file_size_uncompressed = read_be_uint(&buf[1..], n)?;
+        let file_size_compressed = read_be_uint(&buf[1 + n..], n)?;
         Ok((
             Self {
                 file_size_parameter_length,
-                file_size_uncompressed: u128::from_be_bytes(u_bytes),
-                file_size_compressed: u128::from_be_bytes(c_bytes),
+                file_size_uncompressed,
+                file_size_compressed,
             },
             &buf[total..],
         ))
@@ -503,20 +486,11 @@ impl Encode for FileSizePayload {
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let n = self.file_size_parameter_length as usize;
-        if n > U128_MAX_BYTES {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-        }
         writer
             .write_all(&self.file_size_parameter_length.to_be_bytes())
             .map_err(Error::io)?;
-        let uncompressed = self.file_size_uncompressed.to_be_bytes();
-        let compressed = self.file_size_compressed.to_be_bytes();
-        writer
-            .write_all(&uncompressed[U128_MAX_BYTES - n..])
-            .map_err(Error::io)?;
-        writer
-            .write_all(&compressed[U128_MAX_BYTES - n..])
-            .map_err(Error::io)?;
+        write_be_uint(self.file_size_uncompressed, n, writer)?;
+        write_be_uint(self.file_size_compressed, n, writer)?;
         Ok(self.encoded_size())
     }
 }
@@ -528,22 +502,17 @@ impl<'a> Decode<'a> for FileSizePayload {
         }
         let file_size_parameter_length = u16::from_be_bytes([buf[0], buf[1]]);
         let n = file_size_parameter_length as usize;
-        if n > U128_MAX_BYTES {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-        }
         let total = 2 + 2 * n;
         if buf.len() < total {
             return Err(Error::InsufficientData(total));
         }
-        let mut u_bytes = [0u8; U128_MAX_BYTES];
-        u_bytes[U128_MAX_BYTES - n..].copy_from_slice(&buf[2..2 + n]);
-        let mut c_bytes = [0u8; U128_MAX_BYTES];
-        c_bytes[U128_MAX_BYTES - n..].copy_from_slice(&buf[2 + n..total]);
+        let file_size_uncompressed = read_be_uint(&buf[2..], n)?;
+        let file_size_compressed = read_be_uint(&buf[2 + n..], n)?;
         Ok((
             Self {
                 file_size_parameter_length,
-                file_size_uncompressed: u128::from_be_bytes(u_bytes),
-                file_size_compressed: u128::from_be_bytes(c_bytes),
+                file_size_uncompressed,
+                file_size_compressed,
             },
             &buf[total..],
         ))
@@ -557,16 +526,10 @@ impl Encode for DirSizePayload {
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let n = self.dir_info_parameter_length as usize;
-        if n > U128_MAX_BYTES {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-        }
         writer
             .write_all(&self.dir_info_parameter_length.to_be_bytes())
             .map_err(Error::io)?;
-        let bytes = self.dir_info_length.to_be_bytes();
-        writer
-            .write_all(&bytes[U128_MAX_BYTES - n..])
-            .map_err(Error::io)?;
+        write_be_uint(self.dir_info_length, n, writer)?;
         Ok(self.encoded_size())
     }
 }
@@ -578,19 +541,15 @@ impl<'a> Decode<'a> for DirSizePayload {
         }
         let dir_info_parameter_length = u16::from_be_bytes([buf[0], buf[1]]);
         let n = dir_info_parameter_length as usize;
-        if n > U128_MAX_BYTES {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-        }
         let total = 2 + n;
         if buf.len() < total {
             return Err(Error::InsufficientData(total));
         }
-        let mut bytes = [0u8; U128_MAX_BYTES];
-        bytes[U128_MAX_BYTES - n..].copy_from_slice(&buf[2..total]);
+        let dir_info_length = read_be_uint(&buf[2..], n)?;
         Ok((
             Self {
                 dir_info_parameter_length,
-                dir_info_length: u128::from_be_bytes(bytes),
+                dir_info_length,
             },
             &buf[total..],
         ))

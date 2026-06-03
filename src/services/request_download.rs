@@ -1,6 +1,9 @@
 //! `RequestDownload` (0x34) service implementation
 
-use crate::common::{DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier};
+use crate::common::{
+    DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier, read_be_uint,
+    write_be_uint,
+};
 use crate::{Decode, Encode, Error, NegativeResponseCode};
 
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
@@ -89,27 +92,19 @@ impl Encode for RequestDownloadRequest {
             ])
             .map_err(Error::io)?;
 
-        // Write shortened memory address using a stack buffer instead of Vec
-        let addr_bytes = self.memory_address.to_be_bytes();
         let addr_len = self
             .address_and_length_format_identifier
             .memory_address_length as usize;
-        writer
-            .write_all(&addr_bytes[8 - addr_len..])
-            .map_err(Error::io)?;
-
-        // Write shortened memory size using a stack buffer instead of Vec
-        let size_bytes = self.memory_size.to_be_bytes();
         let size_len = self.address_and_length_format_identifier.memory_size_length as usize;
-        writer
-            .write_all(&size_bytes[4 - size_len..])
-            .map_err(Error::io)?;
+        write_be_uint(u128::from(self.memory_address), addr_len, writer)?;
+        write_be_uint(u128::from(self.memory_size), size_len, writer)?;
 
         Ok(self.encoded_size())
     }
 }
 
 impl<'a> Decode<'a> for RequestDownloadRequest {
+    #[allow(clippy::cast_possible_truncation)]
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(2));
@@ -123,13 +118,8 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
             return Err(Error::InsufficientData(total));
         }
 
-        let mut addr_bytes = [0u8; 8];
-        addr_bytes[8 - addr_len..].copy_from_slice(&buf[2..2 + addr_len]);
-        let memory_address = u64::from_be_bytes(addr_bytes);
-
-        let mut size_bytes = [0u8; 4];
-        size_bytes[4 - size_len..].copy_from_slice(&buf[2 + addr_len..total]);
-        let memory_size = u32::from_be_bytes(size_bytes);
+        let memory_address = read_be_uint(&buf[2..], addr_len)? as u64;
+        let memory_size = read_be_uint(&buf[2 + addr_len..], size_len)? as u32;
 
         Ok((
             Self {
