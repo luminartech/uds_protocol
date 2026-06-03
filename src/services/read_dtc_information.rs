@@ -526,7 +526,7 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
 /// that parse on demand without allocation.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
-pub enum ReadDTCInfoResponseRx<'a> {
+pub enum ReadDTCInfoResponse<'a> {
     /// Sub-functions 0x01, 0x07: count of DTCs matching a mask.
     NumberOfDTCs {
         /// Sub-function byte echo.
@@ -574,7 +574,7 @@ pub enum ReadDTCInfoResponseRx<'a> {
     },
 }
 
-impl<'a> ReadDTCInfoResponseRx<'a> {
+impl<'a> ReadDTCInfoResponse<'a> {
     /// Iterate `(DTCRecord, DTCStatusMask)` pairs for `DTCList` variants.
     ///
     /// Returns `None` if this is not a `DTCList` variant.
@@ -613,7 +613,7 @@ impl<'a> ReadDTCInfoResponseRx<'a> {
     }
 }
 
-impl<'a> Decode<'a> for ReadDTCInfoResponseRx<'a> {
+impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
@@ -690,7 +690,7 @@ impl<'a> Decode<'a> for ReadDTCInfoResponseRx<'a> {
     }
 }
 
-impl Encode for ReadDTCInfoResponseRx<'_> {
+impl Encode for ReadDTCInfoResponse<'_> {
     fn encoded_size(&self) -> usize {
         match self {
             Self::NumberOfDTCs { .. } => 4,

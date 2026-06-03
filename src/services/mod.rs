@@ -24,29 +24,29 @@ pub use read_data_by_identifier::ReadDataByIdentifierRequestTx;
 mod read_dtc_information;
 pub use read_dtc_information::{
     DtcAndStatusIter, DtcFaultDetectionIter, DtcSeverityAndStatusIter, ReadDTCInfoRequest,
-    ReadDTCInfoResponseRx, ReadDTCInfoSubFunction,
+    ReadDTCInfoResponse, ReadDTCInfoSubFunction,
 };
 
 mod request_download;
-pub use request_download::{RequestDownloadRequest, RequestDownloadResponseTx};
+pub use request_download::{RequestDownloadRequest, RequestDownloadResponse};
 
 mod request_file_transfer;
 pub use request_file_transfer::{
-    DirSizePayload, FileOperationMode, FileSizePayload, NamePayloadTx, PositionPayload,
-    RequestFileTransferRequestTx, RequestFileTransferResponseTx, SentDataPayloadTx, SizePayload,
+    DirSizePayload, FileOperationMode, FileSizePayload, NamePayload, PositionPayload,
+    RequestFileTransferRequest, RequestFileTransferResponse, SentDataPayload, SizePayload,
 };
 
 mod routine_control;
-pub use routine_control::{RoutineControlRequestTx, RoutineControlResponseTx};
+pub use routine_control::{RoutineControlRequest, RoutineControlResponse};
 
 mod security_access;
-pub use security_access::{SecurityAccessRequestTx, SecurityAccessResponseTx};
+pub use security_access::{SecurityAccessRequest, SecurityAccessResponse};
 
 mod tester_present;
 pub use tester_present::{TesterPresentRequest, TesterPresentResponse};
 
 mod transfer_data;
-pub use transfer_data::{TransferDataRequestTx, TransferDataResponseTx};
+pub use transfer_data::{TransferDataRequest, TransferDataResponse};
 
 mod write_data_by_identifier;
-pub use write_data_by_identifier::{WriteDataByIdentifierRequestTx, WriteDataByIdentifierResponse};
+pub use write_data_by_identifier::{WriteDataByIdentifierRequest, WriteDataByIdentifierResponse};

@@ -14,7 +14,7 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 
 /// A request to the server for it to download data from the client
 ///
-/// A positive response to this request ([`RequestDownloadResponseTx`]) will happen
+/// A positive response to this request ([`RequestDownloadResponse`]) will happen
 /// after the server takes all necessary actions to receive the data once the server is ready to receive
 ///
 /// This is a variable length Request, determined by the `address_and_length_format_identifier` value
@@ -32,7 +32,7 @@ pub struct RequestDownloadRequest {
     /// Has a variable number of bytes, max of 5
     pub memory_address: u64,
     /// Size of the data to be downloaded. Number of bytes sent is determined by `address_and_length_format_identifier`
-    /// Used by the server to validate the data transferred by the [`TransferDataRequestTx`](crate::TransferDataRequestTx) service
+    /// Used by the server to validate the data transferred by the [`TransferDataRequest`](crate::TransferDataRequest) service
     /// Has a variable number of bytes, max of 4
     pub memory_size: u32,
 }
@@ -143,17 +143,17 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
     }
 }
 
-/// Zero-alloc TX response for request download. Borrows from the caller.
+/// Zero-alloc response for request download. Borrows from the caller.
 ///
 /// Positive response to a [`RequestDownloadRequest`] indicating the server is ready to receive data.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct RequestDownloadResponseTx<'d> {
+pub struct RequestDownloadResponse<'d> {
     length_format_identifier: LengthFormatIdentifier,
-    /// Maximum number of bytes per [`TransferDataRequestTx`](crate::TransferDataRequestTx).
+    /// Maximum number of bytes per [`TransferDataRequest`](crate::TransferDataRequest).
     pub max_number_of_block_length: &'d [u8],
 }
 
-impl<'d> RequestDownloadResponseTx<'d> {
+impl<'d> RequestDownloadResponse<'d> {
     /// Create a new request download response from a raw format byte and block length.
     #[must_use]
     pub fn new(length_format_byte: u8, max_number_of_block_length: &'d [u8]) -> Self {
@@ -164,7 +164,7 @@ impl<'d> RequestDownloadResponseTx<'d> {
     }
 }
 
-impl Encode for RequestDownloadResponseTx<'_> {
+impl Encode for RequestDownloadResponse<'_> {
     fn encoded_size(&self) -> usize {
         1 + self.max_number_of_block_length.len()
     }
@@ -180,7 +180,7 @@ impl Encode for RequestDownloadResponseTx<'_> {
     }
 }
 
-impl<'a> Decode<'a> for RequestDownloadResponseTx<'a> {
+impl<'a> Decode<'a> for RequestDownloadResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
@@ -299,7 +299,7 @@ mod tests {
     #[test]
     fn response_encode_size_agrees() {
         let block = [0x10u8, 0x00, 0x00];
-        let resp = RequestDownloadResponseTx::new(0x30, &block);
+        let resp = RequestDownloadResponse::new(0x30, &block);
         assert_encode_size_agrees(&resp);
     }
 }

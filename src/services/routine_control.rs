@@ -10,15 +10,15 @@ use crate::{Encode, Error, RoutineControlSubFunction};
 /// routine input parameters, exactly as it appears on the wire after the sub-function byte.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct RoutineControlRequestTx<'d> {
+pub struct RoutineControlRequest<'d> {
     /// The routine control operation (start, stop, or request results).
     pub sub_function: RoutineControlSubFunction,
     /// The raw payload bytes: routine identifier followed by optional parameters.
     pub raw_payload: &'d [u8],
 }
 
-impl<'d> RoutineControlRequestTx<'d> {
-    /// Create a new `RoutineControlRequestTx`.
+impl<'d> RoutineControlRequest<'d> {
+    /// Create a new `RoutineControlRequest`.
     #[must_use]
     pub const fn new(sub_function: RoutineControlSubFunction, raw_payload: &'d [u8]) -> Self {
         Self {
@@ -28,7 +28,7 @@ impl<'d> RoutineControlRequestTx<'d> {
     }
 }
 
-impl Encode for RoutineControlRequestTx<'_> {
+impl Encode for RoutineControlRequest<'_> {
     fn encoded_size(&self) -> usize {
         1 + self.raw_payload.len()
     }
@@ -42,21 +42,21 @@ impl Encode for RoutineControlRequestTx<'_> {
     }
 }
 
-/// `RoutineControlResponseTx` is a variable-length response that can contain routine status.
+/// `RoutineControlResponse` is a variable-length response that can contain routine status.
 ///
 /// The status record is the routine identifier echo plus any routine-info / status bytes,
 /// held as raw bytes.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct RoutineControlResponseTx<'d> {
+pub struct RoutineControlResponse<'d> {
     /// The sub-function echoed from the routine control request.
     pub routine_control_type: RoutineControlSubFunction,
     /// Raw routine status record bytes (routine identifier + routine info + status).
     pub raw_status_record: &'d [u8],
 }
 
-impl<'d> RoutineControlResponseTx<'d> {
-    /// Create a new `RoutineControlResponseTx`.
+impl<'d> RoutineControlResponse<'d> {
+    /// Create a new `RoutineControlResponse`.
     #[must_use]
     pub const fn new(
         routine_control_type: RoutineControlSubFunction,
@@ -69,7 +69,7 @@ impl<'d> RoutineControlResponseTx<'d> {
     }
 }
 
-impl Encode for RoutineControlResponseTx<'_> {
+impl Encode for RoutineControlResponse<'_> {
     fn encoded_size(&self) -> usize {
         1 + self.raw_status_record.len()
     }
@@ -94,7 +94,7 @@ mod test {
     fn encode_routine_control_request_tx() {
         // RID 0xFF00 (EraseMemory) + 1 parameter byte
         let payload = [0xFF, 0x00, 0xAA];
-        let req = RoutineControlRequestTx::new(RoutineControlSubFunction::StartRoutine, &payload);
+        let req = RoutineControlRequest::new(RoutineControlSubFunction::StartRoutine, &payload);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x01, 0xFF, 0x00, 0xAA]);
@@ -104,7 +104,7 @@ mod test {
     #[test]
     fn encode_routine_control_response_tx() {
         let record = [0xFF, 0x00, 0x10];
-        let resp = RoutineControlResponseTx::new(RoutineControlSubFunction::StartRoutine, &record);
+        let resp = RoutineControlResponse::new(RoutineControlSubFunction::StartRoutine, &record);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x01, 0xFF, 0x00, 0x10]);

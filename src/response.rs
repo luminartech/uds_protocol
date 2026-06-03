@@ -1,8 +1,8 @@
 use crate::{
     CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
     DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, NegativeResponse,
-    ReadDTCInfoResponseRx, RequestDownloadResponseTx, RequestFileTransferResponseTx,
-    SecurityAccessResponseTx, TesterPresentResponse, TransferDataResponseTx, UdsServiceType,
+    ReadDTCInfoResponse, RequestDownloadResponse, RequestFileTransferResponse,
+    SecurityAccessResponse, TesterPresentResponse, TransferDataResponse, UdsServiceType,
 };
 
 /// Parsed zero-copy UDS response. Borrows from the wire buffer.
@@ -27,11 +27,11 @@ pub enum Response<'a> {
     /// Positive response to `ReadDataByIdentifier`. Raw payload bytes.
     ReadDataByIdentifier(&'a [u8]),
     /// Positive response to `ReadDTCInformation` with lazy iterators.
-    ReadDTCInfo(ReadDTCInfoResponseRx<'a>),
+    ReadDTCInfo(ReadDTCInfoResponse<'a>),
     /// Positive response to `RequestDownload`.
-    RequestDownload(RequestDownloadResponseTx<'a>),
+    RequestDownload(RequestDownloadResponse<'a>),
     /// Positive response to `RequestFileTransfer`.
-    RequestFileTransfer(RequestFileTransferResponseTx<'a>),
+    RequestFileTransfer(RequestFileTransferResponse<'a>),
     /// Positive response to `RequestTransferExit`.
     RequestTransferExit,
     /// Positive response to `RoutineControl`. Raw status record bytes.
@@ -42,11 +42,11 @@ pub enum Response<'a> {
         raw_status_record: &'a [u8],
     },
     /// Positive response to `SecurityAccess`.
-    SecurityAccess(SecurityAccessResponseTx<'a>),
+    SecurityAccess(SecurityAccessResponse<'a>),
     /// Positive response to `TesterPresent`.
     TesterPresent(TesterPresentResponse),
     /// Positive response to `TransferData`.
-    TransferData(TransferDataResponseTx<'a>),
+    TransferData(TransferDataResponse<'a>),
     /// Positive response to `WriteDataByIdentifier`. Contains the echoed DID bytes.
     WriteDataByIdentifier(&'a [u8]),
     /// A known-but-unmodeled (or unrecognized) service response. Carries the service
@@ -89,13 +89,13 @@ impl<'a> Decode<'a> for Response<'a> {
             }
             UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(payload),
             UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(<ReadDTCInfoResponseRx as Decode>::decode_exact(payload)?)
+                Self::ReadDTCInfo(<ReadDTCInfoResponse as Decode>::decode_exact(payload)?)
             }
-            UdsServiceType::RequestDownload => Self::RequestDownload(
-                <RequestDownloadResponseTx as Decode>::decode_exact(payload)?,
-            ),
+            UdsServiceType::RequestDownload => {
+                Self::RequestDownload(<RequestDownloadResponse as Decode>::decode_exact(payload)?)
+            }
             UdsServiceType::RequestFileTransfer => Self::RequestFileTransfer(
-                <RequestFileTransferResponseTx as Decode>::decode_exact(payload)?,
+                <RequestFileTransferResponse as Decode>::decode_exact(payload)?,
             ),
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
@@ -108,13 +108,13 @@ impl<'a> Decode<'a> for Response<'a> {
                 }
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(<SecurityAccessResponseTx as Decode>::decode_exact(payload)?)
+                Self::SecurityAccess(<SecurityAccessResponse as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::TesterPresent => {
                 Self::TesterPresent(<TesterPresentResponse as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::TransferData => {
-                Self::TransferData(<TransferDataResponseTx as Decode>::decode_exact(payload)?)
+                Self::TransferData(<TransferDataResponse as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
             _ => Self::Other {

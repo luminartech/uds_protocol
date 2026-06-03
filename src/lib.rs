@@ -38,13 +38,13 @@ pub use services::{
     ControlDTCSettingsRequest, ControlDTCSettingsResponse, DiagnosticSessionControlRequest,
     DiagnosticSessionControlResponse, DirSizePayload, DtcAndStatusIter, DtcFaultDetectionIter,
     DtcSeverityAndStatusIter, EcuResetRequest, EcuResetResponse, FileOperationMode,
-    FileSizePayload, NamePayloadTx, NegativeResponse, PositionPayload, ReadDTCInfoRequest,
-    ReadDTCInfoResponseRx, ReadDTCInfoSubFunction, ReadDataByIdentifierRequestTx,
-    RequestDownloadRequest, RequestDownloadResponseTx, RequestFileTransferRequestTx,
-    RequestFileTransferResponseTx, RoutineControlRequestTx, RoutineControlResponseTx,
-    SecurityAccessRequestTx, SecurityAccessResponseTx, SentDataPayloadTx, SizePayload,
-    TesterPresentRequest, TesterPresentResponse, TransferDataRequestTx, TransferDataResponseTx,
-    WriteDataByIdentifierRequestTx, WriteDataByIdentifierResponse,
+    FileSizePayload, NamePayload, NegativeResponse, PositionPayload, ReadDTCInfoRequest,
+    ReadDTCInfoResponse, ReadDTCInfoSubFunction, ReadDataByIdentifierRequestTx,
+    RequestDownloadRequest, RequestDownloadResponse, RequestFileTransferRequest,
+    RequestFileTransferResponse, RoutineControlRequest, RoutineControlResponse,
+    SecurityAccessRequest, SecurityAccessResponse, SentDataPayload, SizePayload,
+    TesterPresentRequest, TesterPresentResponse, TransferDataRequest, TransferDataResponse,
+    WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
 };
 
 /// UDS positive-response service-ID offset. Added to the request SID to form the response SID.
@@ -53,7 +53,7 @@ pub const SUCCESS: u8 = 0x80;
 /// Signals that the server received the request but needs additional time to process it.
 pub const PENDING: u8 = 0x78;
 
-/// What type of routine control to perform for a [`RoutineControlRequestTx`].
+/// What type of routine control to perform for a [`RoutineControlRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
@@ -64,7 +64,7 @@ pub enum RoutineControlSubFunction {
     /// which indicates that the routine has already been performed, or is in progress
     ///
     /// It might be necessary to switch the server to a specific Diagnostic Session via [`DiagnosticSessionControlRequest`] before starting the routine,
-    /// or unlock the server using [`SecurityAccessRequestTx`] before starting the routine.
+    /// or unlock the server using [`SecurityAccessRequest`] before starting the routine.
     StartRoutine,
 
     /// The server routine shall be stopped in the server's memory sometime between the completion of the `StopRoutine` request and the completion of the 1st response message
@@ -153,12 +153,12 @@ mod no_std_api_tests {
     #[test]
     fn encode_decode_transfer_data_tx_roundtrip() {
         let data = [0x01, 0x02, 0x03, 0x04];
-        let req = TransferDataRequestTx::new(0x05, &data);
+        let req = TransferDataRequest::new(0x05, &data);
         let mut buf = [0u8; 16];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 5);
 
-        let (decoded, _) = <TransferDataRequestTx as Decode>::decode(&buf[..written]).unwrap();
+        let (decoded, _) = <TransferDataRequest as Decode>::decode(&buf[..written]).unwrap();
         assert_eq!(decoded.block_sequence_counter, 0x05);
         assert_eq!(decoded.data, &[0x01, 0x02, 0x03, 0x04]);
     }
@@ -273,12 +273,8 @@ mod no_std_api_tests {
     #[test]
     fn const_construction() {
         // Verify const construction works at compile time
-        const _REQ: TransferDataRequestTx<'static> =
-            TransferDataRequestTx::new(1, &[0x01, 0x02, 0x03]);
-        const _SEC: SecurityAccessRequestTx<'static> = SecurityAccessRequestTx::new(
-            false,
-            SecurityAccessType::RequestSeed(0x01),
-            &[0xAA, 0xBB],
-        );
+        const _REQ: TransferDataRequest<'static> = TransferDataRequest::new(1, &[0x01, 0x02, 0x03]);
+        const _SEC: SecurityAccessRequest<'static> =
+            SecurityAccessRequest::new(false, SecurityAccessType::RequestSeed(0x01), &[0xAA, 0xBB]);
     }
 }

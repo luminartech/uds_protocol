@@ -4,8 +4,8 @@ use crate::{
     services::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, RequestDownloadRequest,
-        RequestFileTransferRequestTx, SecurityAccessRequestTx, TesterPresentRequest,
-        TransferDataRequestTx,
+        RequestFileTransferRequest, SecurityAccessRequest, TesterPresentRequest,
+        TransferDataRequest,
     },
 };
 
@@ -35,7 +35,7 @@ pub enum Request<'a> {
     /// Request download.
     RequestDownload(RequestDownloadRequest),
     /// Request file transfer.
-    RequestFileTransfer(RequestFileTransferRequestTx<'a>),
+    RequestFileTransfer(RequestFileTransferRequest<'a>),
     /// Request transfer exit.
     RequestTransferExit,
     /// Routine control request. Sub-function byte + raw payload.
@@ -46,11 +46,11 @@ pub enum Request<'a> {
         raw_payload: &'a [u8],
     },
     /// Security access request.
-    SecurityAccess(SecurityAccessRequestTx<'a>),
+    SecurityAccess(SecurityAccessRequest<'a>),
     /// Tester present request.
     TesterPresent(TesterPresentRequest),
     /// Transfer data request.
-    TransferData(TransferDataRequestTx<'a>),
+    TransferData(TransferDataRequest<'a>),
     /// Write data by identifier request. Raw DID + payload bytes.
     WriteDataByIdentifier(&'a [u8]),
     /// A known-but-unmodeled (or unrecognized) service. Carries the service type and
@@ -96,7 +96,7 @@ impl<'a> Decode<'a> for Request<'a> {
                 Self::RequestDownload(<RequestDownloadRequest as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::RequestFileTransfer => Self::RequestFileTransfer(
-                <RequestFileTransferRequestTx as Decode>::decode_exact(payload)?,
+                <RequestFileTransferRequest as Decode>::decode_exact(payload)?,
             ),
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
             UdsServiceType::RoutineControl => {
@@ -109,13 +109,13 @@ impl<'a> Decode<'a> for Request<'a> {
                 }
             }
             UdsServiceType::SecurityAccess => {
-                Self::SecurityAccess(<SecurityAccessRequestTx as Decode>::decode_exact(payload)?)
+                Self::SecurityAccess(<SecurityAccessRequest as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::TesterPresent => {
                 Self::TesterPresent(<TesterPresentRequest as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::TransferData => {
-                Self::TransferData(<TransferDataRequestTx as Decode>::decode_exact(payload)?)
+                Self::TransferData(<TransferDataRequest as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::WriteDataByIdentifier => Self::WriteDataByIdentifier(payload),
             _ => Self::Other {

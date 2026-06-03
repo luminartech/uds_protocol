@@ -9,19 +9,19 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::GeneralProgrammingFailure,
 ];
 
-/// Zero-alloc TX request to write data by identifier. Borrows the raw payload from the caller.
+/// Zero-alloc request to write data by identifier. Borrows the raw payload from the caller.
 ///
 /// The payload is the DID (2 bytes, big-endian) followed by the data record, exactly as
 /// it appears on the wire after the service byte.
 ///
 /// See ISO-14229-1:2020, Section 11.7.2.1
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct WriteDataByIdentifierRequestTx<'d> {
+pub struct WriteDataByIdentifierRequest<'d> {
     /// The raw payload bytes: DID followed by the data record.
     pub payload: &'d [u8],
 }
 
-impl<'d> WriteDataByIdentifierRequestTx<'d> {
+impl<'d> WriteDataByIdentifierRequest<'d> {
     /// Create a new write-by-identifier request from raw payload bytes.
     #[must_use]
     pub const fn new(payload: &'d [u8]) -> Self {
@@ -35,7 +35,7 @@ impl<'d> WriteDataByIdentifierRequestTx<'d> {
     }
 }
 
-impl Encode for WriteDataByIdentifierRequestTx<'_> {
+impl Encode for WriteDataByIdentifierRequest<'_> {
     fn encoded_size(&self) -> usize {
         self.payload.len()
     }
@@ -107,7 +107,7 @@ mod test {
     fn test_write_request_encode() {
         // DID 0xF186 + one data byte 0x01
         let payload = [0xF1, 0x86, 0x01];
-        let request = WriteDataByIdentifierRequestTx::new(&payload);
+        let request = WriteDataByIdentifierRequest::new(&payload);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&request, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 3);

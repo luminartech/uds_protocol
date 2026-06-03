@@ -59,7 +59,7 @@ impl TryFrom<u8> for FileOperationMode {
 }
 
 /// Holds the sizes of the file to be transferred (if applicable)
-/// Used for both [`RequestFileTransferRequestTx`] and [`RequestFileTransferResponseTx`]
+/// Used for both [`RequestFileTransferRequest`] and [`RequestFileTransferResponse`]
 ///
 /// |              | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
 /// |--------------|-----------|--------------|---------------|------------|-----------|--------------|
@@ -72,8 +72,8 @@ impl TryFrom<u8> for FileOperationMode {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Request]: RequestFileTransferRequestTx
-/// [Response]: RequestFileTransferResponseTx
+/// [Request]: RequestFileTransferRequest
+/// [Response]: RequestFileTransferResponse
 #[allow(clippy::struct_field_names)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -107,7 +107,7 @@ pub struct SizePayload {
     pub file_size_compressed: u128,
 }
 
-/// Payload used for all [`RequestFileTransferRequestTx`] requests.
+/// Payload used for all [`RequestFileTransferRequest`] requests.
 ///
 /// Borrows `file_path_and_name` from the caller.
 ///
@@ -122,11 +122,11 @@ pub struct SizePayload {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Request]: RequestFileTransferRequestTx
+/// [Request]: RequestFileTransferRequest
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct NamePayloadTx<'a> {
+pub struct NamePayload<'a> {
     /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
     pub mode_of_operation: FileOperationMode,
 
@@ -154,38 +154,38 @@ pub struct NamePayloadTx<'a> {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
-pub enum RequestFileTransferRequestTx<'a> {
+pub enum RequestFileTransferRequest<'a> {
     /// Add a file to the server
     AddFile(
-        #[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>,
         DataFormatIdentifier,
         SizePayload,
     ),
 
     /// Delete the specified file from the server
-    DeleteFile(#[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>),
+    DeleteFile(#[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>),
 
     /// Replace the specified file on the server, if it does not exist, add it
     ReplaceFile(
-        #[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>,
         DataFormatIdentifier,
         SizePayload,
     ),
 
     /// Read the specified file from the server (upload)
     ReadFile(
-        #[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>,
         DataFormatIdentifier,
     ),
 
     /// Read the directory from the server
     /// Implies that the request does not include a `fileName`
-    ReadDir(#[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>),
+    ReadDir(#[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>),
 
     /// Resume a file transfer at the returned `filePosition` indicator
     /// The file must already exist in the ECU's filesystem
     ResumeFile(
-        #[cfg_attr(feature = "serde", serde(borrow))] NamePayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>,
         DataFormatIdentifier,
         SizePayload,
     ),
@@ -205,11 +205,11 @@ pub enum RequestFileTransferRequestTx<'a> {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Response]: RequestFileTransferResponseTx
+/// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SentDataPayloadTx<'a> {
+pub struct SentDataPayload<'a> {
     /// Not related to `RequestDownload`
     pub length_format_identifier: u8,
     /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
@@ -243,7 +243,7 @@ pub struct SentDataPayloadTx<'a> {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Response]: RequestFileTransferResponseTx
+/// [Response]: RequestFileTransferResponse
 #[allow(clippy::struct_field_names)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -269,7 +269,7 @@ pub struct FileSizePayload {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Response]: RequestFileTransferResponseTx
+/// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -292,13 +292,13 @@ pub struct DirSizePayload {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Response]: RequestFileTransferResponseTx
+/// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PositionPayload {
     /// Specifies the byte position within the file at which the Tester will resume downloading after an initial download is suspended
-    /// A download is suspended when the ECU stops receiving [`crate::TransferDataRequestTx`] requests and does not receive the
+    /// A download is suspended when the ECU stops receiving [`crate::TransferDataRequest`] requests and does not receive the
     /// `RequestTransferExit` request to end the transfer before returning to the default session
     ///
     /// Fixed size: 8 bytes
@@ -308,19 +308,19 @@ pub struct PositionPayload {
     pub file_position: u64,
 }
 
-/// Response to a [`RequestFileTransferRequestTx`] from the server
+/// Response to a [`RequestFileTransferRequest`] from the server
 ///
-/// The server will respond with a [`RequestFileTransferResponseTx`] to indicate the status of the request
+/// The server will respond with a [`RequestFileTransferResponse`] to indicate the status of the request
 /// `DataFormatIdentifier` - Echoes the value of the request
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
-pub enum RequestFileTransferResponseTx<'a> {
+pub enum RequestFileTransferResponse<'a> {
     /// Positive response to an [`AddFile`](FileOperationMode::AddFile) request.
     AddFile(
         FileOperationMode,
-        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
         DataFormatIdentifier,
     ),
     /// Positive response to a [`DeleteFile`](FileOperationMode::DeleteFile) request.
@@ -328,27 +328,27 @@ pub enum RequestFileTransferResponseTx<'a> {
     /// Positive response to a [`ReplaceFile`](FileOperationMode::ReplaceFile) request.
     ReplaceFile(
         FileOperationMode,
-        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
         DataFormatIdentifier,
     ),
     /// Positive response to a [`ReadFile`](FileOperationMode::ReadFile) request, including file size.
     ReadFile(
         FileOperationMode,
-        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
         DataFormatIdentifier,
         FileSizePayload,
     ),
     /// Positive response to a [`ReadDir`](FileOperationMode::ReadDir) request, including directory size.
     ReadDir(
         FileOperationMode,
-        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
         DataFormatIdentifier,
         DirSizePayload,
     ),
     /// Positive response to a [`ResumeFile`](FileOperationMode::ResumeFile) request, including file position.
     ResumeFile(
         FileOperationMode,
-        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayloadTx<'a>,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
         DataFormatIdentifier,
         PositionPayload,
     ),
@@ -361,7 +361,7 @@ pub enum RequestFileTransferResponseTx<'a> {
 // `file_size_parameter_length` must fit in a u128 (≤ 16 bytes per value).
 const U128_MAX_BYTES: usize = 16;
 
-impl Encode for NamePayloadTx<'_> {
+impl Encode for NamePayload<'_> {
     fn encoded_size(&self) -> usize {
         1 + 2 + self.file_path_and_name.len()
     }
@@ -380,7 +380,7 @@ impl Encode for NamePayloadTx<'_> {
     }
 }
 
-impl<'a> Decode<'a> for NamePayloadTx<'a> {
+impl<'a> Decode<'a> for NamePayload<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
             return Err(Error::InsufficientData(3));
@@ -459,7 +459,7 @@ impl<'a> Decode<'a> for SizePayload {
     }
 }
 
-impl Encode for SentDataPayloadTx<'_> {
+impl Encode for SentDataPayload<'_> {
     fn encoded_size(&self) -> usize {
         1 + self.max_number_of_block_length.len()
     }
@@ -475,7 +475,7 @@ impl Encode for SentDataPayloadTx<'_> {
     }
 }
 
-impl<'a> Decode<'a> for SentDataPayloadTx<'a> {
+impl<'a> Decode<'a> for SentDataPayload<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
@@ -622,7 +622,7 @@ impl<'a> Decode<'a> for PositionPayload {
     }
 }
 
-impl Encode for RequestFileTransferRequestTx<'_> {
+impl Encode for RequestFileTransferRequest<'_> {
     fn encoded_size(&self) -> usize {
         match self {
             Self::AddFile(name, _, size)
@@ -657,9 +657,9 @@ impl Encode for RequestFileTransferRequestTx<'_> {
     }
 }
 
-impl<'a> Decode<'a> for RequestFileTransferRequestTx<'a> {
+impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        let (name, rest) = NamePayloadTx::decode(buf)?;
+        let (name, rest) = NamePayload::decode(buf)?;
         match name.mode_of_operation {
             FileOperationMode::DeleteFile => Ok((Self::DeleteFile(name), rest)),
             FileOperationMode::ReadDir => Ok((Self::ReadDir(name), rest)),
@@ -691,7 +691,7 @@ impl<'a> Decode<'a> for RequestFileTransferRequestTx<'a> {
     }
 }
 
-impl Encode for RequestFileTransferResponseTx<'_> {
+impl Encode for RequestFileTransferResponse<'_> {
     fn encoded_size(&self) -> usize {
         match self {
             Self::DeleteFile(_) => 1,
@@ -742,7 +742,7 @@ impl Encode for RequestFileTransferResponseTx<'_> {
     }
 }
 
-impl<'a> Decode<'a> for RequestFileTransferResponseTx<'a> {
+impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
@@ -752,7 +752,7 @@ impl<'a> Decode<'a> for RequestFileTransferResponseTx<'a> {
         match mode {
             FileOperationMode::DeleteFile => Ok((Self::DeleteFile(mode), rest)),
             FileOperationMode::AddFile | FileOperationMode::ReplaceFile => {
-                let (sent, rest) = SentDataPayloadTx::decode(rest)?;
+                let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
                     return Err(Error::InsufficientData(1));
                 }
@@ -766,7 +766,7 @@ impl<'a> Decode<'a> for RequestFileTransferResponseTx<'a> {
                 Ok((value, rest))
             }
             FileOperationMode::ReadFile => {
-                let (sent, rest) = SentDataPayloadTx::decode(rest)?;
+                let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
                     return Err(Error::InsufficientData(1));
                 }
@@ -775,7 +775,7 @@ impl<'a> Decode<'a> for RequestFileTransferResponseTx<'a> {
                 Ok((Self::ReadFile(mode, sent, dfi, fs), rest))
             }
             FileOperationMode::ReadDir => {
-                let (sent, rest) = SentDataPayloadTx::decode(rest)?;
+                let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
                     return Err(Error::InsufficientData(1));
                 }
@@ -784,7 +784,7 @@ impl<'a> Decode<'a> for RequestFileTransferResponseTx<'a> {
                 Ok((Self::ReadDir(mode, sent, dfi, ds), rest))
             }
             FileOperationMode::ResumeFile => {
-                let (sent, rest) = SentDataPayloadTx::decode(rest)?;
+                let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
                     return Err(Error::InsufficientData(1));
                 }
@@ -817,8 +817,8 @@ mod request_tests {
         );
     }
 
-    fn name_payload(mode: FileOperationMode, path: &str) -> NamePayloadTx<'_> {
-        NamePayloadTx {
+    fn name_payload(mode: FileOperationMode, path: &str) -> NamePayload<'_> {
+        NamePayload {
             mode_of_operation: mode,
             file_path_and_name_length: path.len() as u16,
             file_path_and_name: path,
@@ -832,7 +832,7 @@ mod request_tests {
         let mut buf = [0u8; 64];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, n.encoded_size());
-        let (decoded, rest) = NamePayloadTx::decode(&buf[..written]).unwrap();
+        let (decoded, rest) = NamePayload::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, n);
         assert_encode_size_agrees(&n);
@@ -857,7 +857,7 @@ mod request_tests {
     #[test]
     fn add_file_request_roundtrip() {
         let path = "test.txt";
-        let req = RequestFileTransferRequestTx::AddFile(
+        let req = RequestFileTransferRequest::AddFile(
             name_payload(FileOperationMode::AddFile, path),
             DataFormatIdentifier::from(0x00),
             SizePayload {
@@ -869,7 +869,7 @@ mod request_tests {
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, req.encoded_size());
-        let (decoded, rest) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
+        let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
         assert_encode_size_agrees(&req);
@@ -878,14 +878,14 @@ mod request_tests {
     #[test]
     fn delete_file_request_roundtrip() {
         let path = "/var/tmp/delete_file.bin";
-        let req = RequestFileTransferRequestTx::DeleteFile(name_payload(
+        let req = RequestFileTransferRequest::DeleteFile(name_payload(
             FileOperationMode::DeleteFile,
             path,
         ));
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, req.encoded_size());
-        let (decoded, rest) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
+        let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
         assert_encode_size_agrees(&req);
@@ -894,14 +894,14 @@ mod request_tests {
     #[test]
     fn read_file_request_roundtrip() {
         let path = "/etc/passwd";
-        let req = RequestFileTransferRequestTx::ReadFile(
+        let req = RequestFileTransferRequest::ReadFile(
             name_payload(FileOperationMode::ReadFile, path),
             DataFormatIdentifier::from(0x11),
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, req.encoded_size());
-        let (decoded, rest) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
+        let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
         assert_encode_size_agrees(&req);
@@ -911,10 +911,10 @@ mod request_tests {
     fn read_dir_request_roundtrip() {
         let path = "/var/log";
         let req =
-            RequestFileTransferRequestTx::ReadDir(name_payload(FileOperationMode::ReadDir, path));
+            RequestFileTransferRequest::ReadDir(name_payload(FileOperationMode::ReadDir, path));
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        let (decoded, _) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
+        let (decoded, _) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, req);
         assert_encode_size_agrees(&req);
     }
@@ -922,7 +922,7 @@ mod request_tests {
     #[test]
     fn resume_file_request_roundtrip() {
         let path = "/big/file.bin";
-        let req = RequestFileTransferRequestTx::ResumeFile(
+        let req = RequestFileTransferRequest::ResumeFile(
             name_payload(FileOperationMode::ResumeFile, path),
             DataFormatIdentifier::from(0x00),
             SizePayload {
@@ -933,7 +933,7 @@ mod request_tests {
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        let (decoded, _) = RequestFileTransferRequestTx::decode(&buf[..written]).unwrap();
+        let (decoded, _) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, req);
         assert_encode_size_agrees(&req);
     }
@@ -944,8 +944,8 @@ mod response_tests {
     use super::*;
     use crate::test_util::assert_encode_size_agrees;
 
-    fn sent_data<'a>(block: &'a [u8]) -> SentDataPayloadTx<'a> {
-        SentDataPayloadTx {
+    fn sent_data<'a>(block: &'a [u8]) -> SentDataPayload<'a> {
+        SentDataPayload {
             length_format_identifier: block.len() as u8,
             max_number_of_block_length: block,
         }
@@ -954,7 +954,7 @@ mod response_tests {
     #[test]
     fn add_file_response_roundtrip() {
         let block = [0x10u8, 0x00];
-        let resp = RequestFileTransferResponseTx::AddFile(
+        let resp = RequestFileTransferResponse::AddFile(
             FileOperationMode::AddFile,
             sent_data(&block),
             DataFormatIdentifier::from(0x00),
@@ -962,7 +962,7 @@ mod response_tests {
         let mut buf = [0u8; 32];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, resp.encoded_size());
-        let (decoded, rest) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
+        let (decoded, rest) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
@@ -970,11 +970,11 @@ mod response_tests {
 
     #[test]
     fn delete_file_response_roundtrip() {
-        let resp = RequestFileTransferResponseTx::DeleteFile(FileOperationMode::DeleteFile);
+        let resp = RequestFileTransferResponse::DeleteFile(FileOperationMode::DeleteFile);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 1);
-        let (decoded, _) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
+        let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
     }
@@ -982,7 +982,7 @@ mod response_tests {
     #[test]
     fn read_file_response_roundtrip() {
         let block = [0x04u8, 0x00];
-        let resp = RequestFileTransferResponseTx::ReadFile(
+        let resp = RequestFileTransferResponse::ReadFile(
             FileOperationMode::ReadFile,
             sent_data(&block),
             DataFormatIdentifier::from(0x00),
@@ -994,7 +994,7 @@ mod response_tests {
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
-        let (decoded, _) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
+        let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
     }
@@ -1002,7 +1002,7 @@ mod response_tests {
     #[test]
     fn read_dir_response_roundtrip() {
         let block = [0x04u8, 0x00];
-        let resp = RequestFileTransferResponseTx::ReadDir(
+        let resp = RequestFileTransferResponse::ReadDir(
             FileOperationMode::ReadDir,
             sent_data(&block),
             DataFormatIdentifier::from(0x00),
@@ -1013,7 +1013,7 @@ mod response_tests {
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
-        let (decoded, _) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
+        let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
     }
@@ -1021,7 +1021,7 @@ mod response_tests {
     #[test]
     fn resume_file_response_roundtrip() {
         let block = [0x04u8, 0x00];
-        let resp = RequestFileTransferResponseTx::ResumeFile(
+        let resp = RequestFileTransferResponse::ResumeFile(
             FileOperationMode::ResumeFile,
             sent_data(&block),
             DataFormatIdentifier::from(0x00),
@@ -1031,7 +1031,7 @@ mod response_tests {
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
-        let (decoded, _) = RequestFileTransferResponseTx::decode(&buf[..written]).unwrap();
+        let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
     }

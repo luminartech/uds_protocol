@@ -34,14 +34,14 @@ const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
 /// Successful verification of the key will result in the server unlocking the requested security level.
 /// Suppressing a positive response to this request is allowed.
 ///
-/// Zero-alloc TX request for security access. Borrows from the caller.
+/// Zero-alloc request for security access. Borrows from the caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct SecurityAccessRequestTx<'d> {
+pub struct SecurityAccessRequest<'d> {
     access_type: SuppressablePositiveResponse<SecurityAccessType>,
     request_data: &'d [u8],
 }
 
-impl<'d> SecurityAccessRequestTx<'d> {
+impl<'d> SecurityAccessRequest<'d> {
     /// Create a new security access request.
     #[must_use]
     pub const fn new(
@@ -80,7 +80,7 @@ impl<'d> SecurityAccessRequestTx<'d> {
     }
 }
 
-impl Encode for SecurityAccessRequestTx<'_> {
+impl Encode for SecurityAccessRequest<'_> {
     fn encoded_size(&self) -> usize {
         1 + self.request_data.len()
     }
@@ -94,7 +94,7 @@ impl Encode for SecurityAccessRequestTx<'_> {
     }
 }
 
-impl<'a> Decode<'a> for SecurityAccessRequestTx<'a> {
+impl<'a> Decode<'a> for SecurityAccessRequest<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
@@ -110,16 +110,16 @@ impl<'a> Decode<'a> for SecurityAccessRequestTx<'a> {
     }
 }
 
-/// Zero-alloc TX response for security access. Borrows from the caller.
+/// Zero-alloc response for security access. Borrows from the caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct SecurityAccessResponseTx<'d> {
+pub struct SecurityAccessResponse<'d> {
     /// The security access type echoed from the request.
     pub access_type: SecurityAccessType,
     /// The security seed bytes (empty for a `SendKey` positive response).
     pub security_seed: &'d [u8],
 }
 
-impl<'d> SecurityAccessResponseTx<'d> {
+impl<'d> SecurityAccessResponse<'d> {
     /// Create a new security access response.
     #[must_use]
     pub const fn new(access_type: SecurityAccessType, security_seed: &'d [u8]) -> Self {
@@ -130,7 +130,7 @@ impl<'d> SecurityAccessResponseTx<'d> {
     }
 }
 
-impl Encode for SecurityAccessResponseTx<'_> {
+impl Encode for SecurityAccessResponse<'_> {
     fn encoded_size(&self) -> usize {
         1 + self.security_seed.len()
     }
@@ -144,7 +144,7 @@ impl Encode for SecurityAccessResponseTx<'_> {
     }
 }
 
-impl<'a> Decode<'a> for SecurityAccessResponseTx<'a> {
+impl<'a> Decode<'a> for SecurityAccessResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
@@ -174,7 +174,7 @@ mod request {
             0x01, // aka SecurityAccessType::RequestSeed(0x01)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let (req, _) = <SecurityAccessRequestTx as Decode>::decode(&bytes).unwrap();
+        let (req, _) = <SecurityAccessRequest as Decode>::decode(&bytes).unwrap();
 
         assert_eq!(req.access_type(), SecurityAccessType::RequestSeed(0x01));
         assert_eq!(req.request_data(), &[0x00, 0x01, 0x02, 0x03, 0x04]);
@@ -201,7 +201,7 @@ mod response {
             0x02, // aka SecurityAccessType::SendKey(0x02)
             0x00, 0x01, 0x02, 0x03, 0x04, // fake data
         ];
-        let (resp, _) = <SecurityAccessResponseTx as Decode>::decode(&bytes).unwrap();
+        let (resp, _) = <SecurityAccessResponse as Decode>::decode(&bytes).unwrap();
 
         assert_eq!(resp.access_type, SecurityAccessType::SendKey(0x02));
         assert_eq!(resp.security_seed, &[0x00, 0x01, 0x02, 0x03, 0x04]);
