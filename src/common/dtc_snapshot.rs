@@ -2,6 +2,8 @@
 //! Snapshot data represents a collection of sensor values captured when a DTC is triggered.
 //! Represents the state of the server at the time the DTC was triggered.
 
+use crate::{Encode, Error};
+
 /// Identifies which DTC snapshot record is being requested or reported.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -43,6 +45,17 @@ impl PartialEq<u8> for DTCSnapshotRecordNumber {
     }
 }
 
+impl Encode for DTCSnapshotRecordNumber {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.value()]).map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
 #[cfg(test)]
 mod snapshot {
     use super::*;
@@ -55,5 +68,16 @@ mod snapshot {
 
         let all = DTCSnapshotRecordNumber::new(0xFF);
         assert_eq!(all, DTCSnapshotRecordNumber::All);
+    }
+
+    #[test]
+    fn encode_snapshot_record_number() {
+        use crate::test_util::assert_encode_size_agrees;
+        let n = DTCSnapshotRecordNumber::new(0x02);
+        let mut buf = [0u8; 4];
+        let written = crate::Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buf[0], 0x02);
+        assert_encode_size_agrees(&n);
     }
 }

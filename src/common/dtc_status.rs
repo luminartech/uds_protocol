@@ -305,18 +305,8 @@ impl FunctionalGroupIdentifier {
             FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
             FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,
             FunctionalGroupIdentifier::VODBSystem => 0xFE,
-            FunctionalGroupIdentifier::LegislativeSystemGroup(value) => {
-                todo!(
-                    "FunctionalGroupIdentifiers::LegislativeSystemGroup is not a valid value {}",
-                    value
-                )
-            }
-            FunctionalGroupIdentifier::ISOSAEReserved(value) => {
-                todo!(
-                    "FunctionalGroupIdentifiers::ISOSAEReserved is not a valid value {}",
-                    value
-                )
-            }
+            FunctionalGroupIdentifier::LegislativeSystemGroup(value)
+            | FunctionalGroupIdentifier::ISOSAEReserved(value) => *value,
         }
     }
 }
@@ -336,6 +326,17 @@ impl From<u8> for FunctionalGroupIdentifier {
 impl From<FunctionalGroupIdentifier> for u8 {
     fn from(value: FunctionalGroupIdentifier) -> Self {
         value.value()
+    }
+}
+
+impl Encode for FunctionalGroupIdentifier {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.value()]).map_err(Error::io)?;
+        Ok(1)
     }
 }
 
@@ -398,6 +399,17 @@ impl DTCSeverityMask {
     }
 }
 
+impl Encode for DTCSeverityMask {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.bits()]).map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
 /// Indicates the number of the specific `DTCSnapshot` data record requested
 /// Setting to 0xFF will return all `DTCStoredDataRecords` at once
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -424,6 +436,17 @@ impl From<u8> for DTCStoredDataRecordNumber {
     }
 }
 
+impl Encode for DTCStoredDataRecordNumber {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.0]).map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -437,6 +460,51 @@ pub struct DTCSeverityRecord {
     pub dtc_record: DTCRecord,
     ///  The status mask of the DTC, representing its current state.
     pub dtc_status_mask: DTCStatusMask,
+}
+
+#[cfg(test)]
+mod encode_param_tests {
+    use super::*;
+    use crate::test_util::assert_encode_size_agrees;
+
+    #[test]
+    fn encode_stored_data_record_number() {
+        let n = DTCStoredDataRecordNumber::new(0x05).unwrap();
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buf[0], 0x05);
+        assert_encode_size_agrees(&n);
+    }
+
+    #[test]
+    fn encode_severity_mask() {
+        let m = DTCSeverityMask::CheckImmediately;
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&m, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buf[0], 0b1000_0000);
+        assert_encode_size_agrees(&m);
+    }
+
+    #[test]
+    fn encode_functional_group_identifier_named() {
+        let g = FunctionalGroupIdentifier::EmissionsSystemGroup;
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&g, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buf[0], 0x33);
+        assert_encode_size_agrees(&g);
+    }
+
+    #[test]
+    fn functional_group_identifier_value_does_not_panic_on_reserved() {
+        // Regression: value() previously called todo!() for carried-byte variants.
+        let g = FunctionalGroupIdentifier::from(0x10); // -> ISOSAEReserved(0x10)
+        assert_eq!(g.value(), 0x10);
+        let g2 = FunctionalGroupIdentifier::from(0xD5); // -> LegislativeSystemGroup(0xD5)
+        assert_eq!(g2.value(), 0xD5);
+    }
 }
 
 #[cfg(test)]

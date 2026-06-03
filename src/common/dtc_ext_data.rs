@@ -1,3 +1,5 @@
+use crate::{Encode, Error};
+
 /// The `DTCExtDataRecordNumber` is used in the request message to get a stored `DTCExtDataRecord`
 /// Its used to specify the type of `DTCExtDataRecord` to be reported.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -65,6 +67,17 @@ impl PartialEq<u8> for DTCExtDataRecordNumber {
     }
 }
 
+impl Encode for DTCExtDataRecordNumber {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.value()]).map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
 // tests
 #[cfg(test)]
 mod tests {
@@ -75,5 +88,16 @@ mod tests {
         let record_number = DTCExtDataRecordNumber::new(0x00);
         assert_eq!(record_number, DTCExtDataRecordNumber::ISOSAEReserved(0x00));
         assert_eq!(record_number.value(), 0x00);
+    }
+
+    #[test]
+    fn encode_ext_data_record_number() {
+        use crate::test_util::assert_encode_size_agrees;
+        let n = DTCExtDataRecordNumber::new(0x90);
+        let mut buf = [0u8; 4];
+        let written = crate::Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buf[0], 0x90);
+        assert_encode_size_agrees(&n);
     }
 }
