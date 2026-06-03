@@ -1,5 +1,6 @@
 //! `ECUReset` (0x11) service implementation
-use crate::{Decode, Encode, Error, NegativeResponseCode, ResetType, SuppressablePositiveResponse};
+use crate::common::SuppressablePositiveResponse;
+use crate::{Decode, Encode, Error, NegativeResponseCode, ResetType};
 
 const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SubFunctionNotSupported,

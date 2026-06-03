@@ -1,9 +1,7 @@
 //! `RequestDownload` (0x34) service implementation
 
-use crate::{
-    DataFormatIdentifier, Decode, Encode, Error, LengthFormatIdentifier, MemoryFormatIdentifier,
-    NegativeResponseCode,
-};
+use crate::common::{DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier};
+use crate::{Decode, Encode, Error, NegativeResponseCode};
 
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,

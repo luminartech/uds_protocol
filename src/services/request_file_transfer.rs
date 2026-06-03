@@ -1,6 +1,7 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
-use crate::{DataFormatIdentifier, Decode, Encode, Error};
+use crate::common::DataFormatIdentifier;
+use crate::{Decode, Encode, Error};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 /// Mode of operation for file transfer requests

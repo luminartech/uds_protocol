@@ -1,7 +1,7 @@
 //! `CommunicationControl` (0x28) service implementation
+use crate::common::SuppressablePositiveResponse;
 use crate::{
     CommunicationControlType, CommunicationType, Decode, Encode, Error, NegativeResponseCode,
-    SuppressablePositiveResponse,
 };
 
 const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [

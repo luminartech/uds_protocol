@@ -9,10 +9,8 @@
 //! A server shall be capable of providing diagnostic functionality under normal operating conditions,
 //! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
 
-use crate::{
-    Decode, DiagnosticSessionType, Encode, Error, NegativeResponseCode,
-    SuppressablePositiveResponse,
-};
+use crate::common::SuppressablePositiveResponse;
+use crate::{Decode, DiagnosticSessionType, Encode, Error, NegativeResponseCode};
 
 const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
     NegativeResponseCode::SubFunctionNotSupported,
