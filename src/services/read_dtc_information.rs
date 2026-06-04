@@ -39,6 +39,114 @@ impl Encode for ReadDTCInfoRequest {
     }
 }
 
+impl<'a> Decode<'a> for ReadDTCInfoRequest {
+    #[allow(clippy::too_many_lines)]
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        use ReadDTCInfoSubFunction as S;
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let sub = buf[0];
+        let rest = &buf[1..];
+        let (dtc_subfunction, rest) = match sub {
+            0x01 => {
+                let (m, r) = DTCStatusMask::decode(rest)?;
+                (S::ReportNumberOfDTC_ByStatusMask(m), r)
+            }
+            0x02 => {
+                let (m, r) = DTCStatusMask::decode(rest)?;
+                (S::ReportDTC_ByStatusMask(m), r)
+            }
+            0x03 => (S::ReportDTCSnapshotIdentification, rest),
+            0x04 => {
+                let (rec, r) = DTCRecord::decode(rest)?;
+                let (n, r) = DTCSnapshotRecordNumber::decode(r)?;
+                (S::ReportDTCSnapshotRecord_ByDTCNumber(rec, n), r)
+            }
+            0x05 => {
+                let (n, r) = DTCStoredDataRecordNumber::decode(rest)?;
+                (S::ReportDTCStoredData_ByRecordNumber(n), r)
+            }
+            0x06 => {
+                let (rec, r) = DTCRecord::decode(rest)?;
+                let (n, r) = DTCExtDataRecordNumber::decode(r)?;
+                (S::ReportDTCExtDataRecord_ByDTCNumber(rec, n), r)
+            }
+            0x07 => {
+                let (s, r) = DTCSeverityMask::decode(rest)?;
+                let (m, r) = DTCStatusMask::decode(r)?;
+                (S::ReportNumberOfDTC_BySeverityMaskRecord(s, m), r)
+            }
+            0x08 => {
+                let (s, r) = DTCSeverityMask::decode(rest)?;
+                let (m, r) = DTCStatusMask::decode(r)?;
+                (S::ReportDTC_BySeverityMaskRecord(s, m), r)
+            }
+            0x09 => {
+                let (rec, r) = DTCRecord::decode(rest)?;
+                (S::ReportSeverityInfoOfDTC(rec), r)
+            }
+            0x0A => (S::ReportSupportedDTC, rest),
+            0x0B => (S::ReportFirstTestFailedDTC, rest),
+            0x0C => (S::ReportFirstConfirmedDTC, rest),
+            0x0D => (S::ReportMostRecentTestFailedDTC, rest),
+            0x0E => (S::ReportMostRecentConfirmedDTC, rest),
+            0x14 => (S::ReportDTCFaultDetectionCounter, rest),
+            0x15 => (S::ReportDTCWithPermanentStatus, rest),
+            0x16 => {
+                let (n, r) = DTCExtDataRecordNumber::decode(rest)?;
+                (S::ReportDTCExtDataRecord_ByRecordNumber(n), r)
+            }
+            0x17 => {
+                let (m, r) = DTCStatusMask::decode(rest)?;
+                (S::ReportUserDefMemoryDTC_ByStatusMask(m), r)
+            }
+            0x18 => {
+                let (rec, r) = DTCRecord::decode(rest)?;
+                let (n, r) = DTCSnapshotRecordNumber::decode(r)?;
+                let (mem, r) = u8::decode(r)?;
+                (
+                    S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(rec, n, mem),
+                    r,
+                )
+            }
+            0x19 => {
+                let (rec, r) = DTCRecord::decode(rest)?;
+                let (n, r) = DTCExtDataRecordNumber::decode(r)?;
+                let (mem, r) = u8::decode(r)?;
+                (
+                    S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(rec, n, mem),
+                    r,
+                )
+            }
+            0x1A => {
+                let (n, r) = DTCExtDataRecordNumber::decode(rest)?;
+                (S::ReportSupportedDTCExtDataRecord(n), r)
+            }
+            0x42 => {
+                let (g, r) = FunctionalGroupIdentifier::decode(rest)?;
+                let (m, r) = DTCStatusMask::decode(r)?;
+                let (s, r) = DTCSeverityMask::decode(r)?;
+                (S::ReportWWHOBDDTC_ByMaskRecord(g, m, s), r)
+            }
+            0x55 => {
+                let (g, r) = FunctionalGroupIdentifier::decode(rest)?;
+                (S::ReportWWHOBDDTC_WithPermanentStatus(g), r)
+            }
+            0x56 => {
+                let (g, r) = FunctionalGroupIdentifier::decode(rest)?;
+                let (rg, r) = u8::decode(r)?;
+                (
+                    S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg),
+                    r,
+                )
+            }
+            other => (S::ISOSAEReserved(other), rest),
+        };
+        Ok((ReadDTCInfoRequest::new(dtc_subfunction), rest))
+    }
+}
+
 #[cfg(test)]
 mod read_dtc_info_request_encode_tests {
     use super::*;
@@ -87,6 +195,34 @@ mod read_dtc_info_request_encode_tests {
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x57]);
         assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn read_dtc_info_request_roundtrips() {
+        use crate::Decode;
+        // Encode into a scratch buffer (oracle), then decode_exact and assert round-trip fidelity.
+        let cases = [
+            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportSupportedDTC),
+            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(
+                DTCStatusMask::from(0xFF),
+            )),
+            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord(
+                FunctionalGroupIdentifier::EmissionsSystemGroup,
+                DTCStatusMask::from(0x08),
+                DTCSeverityMask::CheckImmediately,
+            )),
+            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ISOSAEReserved(0x57)),
+            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber(
+                DTCRecord::new(0x12, 0x34, 0x56),
+                DTCSnapshotRecordNumber::new(0x01),
+            )),
+        ];
+        for req in cases {
+            let mut buf = [0u8; 16];
+            let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+            let decoded = <ReadDTCInfoRequest as Decode>::decode_exact(&buf[..written]).unwrap();
+            assert_eq!(decoded, req);
+        }
     }
 }
 
@@ -520,7 +656,7 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
     }
 }
 
-/// Zero-copy RX response for `ReadDTCInformation` (0x19).
+/// Zero-copy parsed response for `ReadDTCInformation` (0x19).
 ///
 /// Stores raw bytes for record collections and provides lazy iterators
 /// that parse on demand without allocation.

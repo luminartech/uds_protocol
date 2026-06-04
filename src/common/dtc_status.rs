@@ -340,6 +340,15 @@ impl Encode for FunctionalGroupIdentifier {
     }
 }
 
+impl<'a> Decode<'a> for FunctionalGroupIdentifier {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::from(buf[0]), &buf[1..]))
+    }
+}
+
 /// GTR DTC Class Information
 ///
 /// Bits 7-5 of the DTCSeverityMask/DTCSeverity parameters contain severity information (optional)
@@ -410,6 +419,15 @@ impl Encode for DTCSeverityMask {
     }
 }
 
+impl<'a> Decode<'a> for DTCSeverityMask {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::from(buf[0]), &buf[1..]))
+    }
+}
+
 /// Indicates the number of the specific `DTCSnapshot` data record requested
 /// Setting to 0xFF will return all `DTCStoredDataRecords` at once
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -444,6 +462,15 @@ impl Encode for DTCStoredDataRecordNumber {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(&[self.0]).map_err(Error::io)?;
         Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for DTCStoredDataRecordNumber {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::from(buf[0]), &buf[1..]))
     }
 }
 

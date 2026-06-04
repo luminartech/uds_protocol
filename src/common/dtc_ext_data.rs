@@ -1,4 +1,4 @@
-use crate::{Encode, Error};
+use crate::{Decode, Encode, Error};
 
 /// The `DTCExtDataRecordNumber` is used in the request message to get a stored `DTCExtDataRecord`
 /// Its used to specify the type of `DTCExtDataRecord` to be reported.
@@ -75,6 +75,15 @@ impl Encode for DTCExtDataRecordNumber {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(&[self.value()]).map_err(Error::io)?;
         Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for DTCExtDataRecordNumber {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::new(buf[0]), &buf[1..]))
     }
 }
 

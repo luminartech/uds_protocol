@@ -2,7 +2,7 @@
 //! Snapshot data represents a collection of sensor values captured when a DTC is triggered.
 //! Represents the state of the server at the time the DTC was triggered.
 
-use crate::{Encode, Error};
+use crate::{Decode, Encode, Error};
 
 /// Identifies which DTC snapshot record is being requested or reported.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -53,6 +53,15 @@ impl Encode for DTCSnapshotRecordNumber {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(&[self.value()]).map_err(Error::io)?;
         Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for DTCSnapshotRecordNumber {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::new(buf[0]), &buf[1..]))
     }
 }
 
