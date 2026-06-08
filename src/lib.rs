@@ -14,13 +14,18 @@ mod test_util;
 mod traits;
 pub use traits::{Decode, DecodeIter, Encode};
 
+mod dtc;
+pub use dtc::{
+    CLEAR_ALL_DTCS, DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
+    DTCSeverityRecord, DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber,
+    FunctionalGroupIdentifier,
+};
+
 mod shared;
 pub use shared::{
-    CLEAR_ALL_DTCS, CommunicationControlType, CommunicationType, DTCExtDataRecordNumber,
-    DTCFormatIdentifier, DTCRecord, DTCSeverityMask, DTCSeverityRecord, DTCSnapshotRecordNumber,
-    DTCStatusMask, DTCStoredDataRecordNumber, DiagnosticSessionType, FunctionalGroupIdentifier,
-    NegativeResponseCode, ResetType, SecurityAccessType, UDSIdentifier, UDSRoutineIdentifier,
-    param_length_u16, param_length_u32, param_length_u64, param_length_u128,
+    CommunicationControlType, CommunicationType, DiagnosticSessionType, NegativeResponseCode,
+    ResetType, SecurityAccessType, UDSIdentifier, UDSRoutineIdentifier, param_length_u16,
+    param_length_u32, param_length_u64, param_length_u128,
 };
 
 mod request;
