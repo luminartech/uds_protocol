@@ -1,5 +1,5 @@
 //! `SecurityAccess` (0x27) service implementation
-use crate::common::SuppressablePositiveResponse;
+use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, NegativeResponseCode, SecurityAccessType};
 
 /// List of allowed [`NegativeResponseCode`] variants for the `SecurityAccess` service

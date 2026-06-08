@@ -2,7 +2,7 @@
 //!
 //! It can also be used to check the ECU's health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
-use crate::common::SuppressablePositiveResponse;
+use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, RoutineControlSubFunction};
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results.

@@ -14,8 +14,8 @@ mod test_util;
 mod traits;
 pub use traits::{Decode, DecodeIter, Encode};
 
-mod common;
-pub use common::{
+mod shared;
+pub use shared::{
     CLEAR_ALL_DTCS, CommunicationControlType, CommunicationType, DTCExtDataRecordNumber,
     DTCFormatIdentifier, DTCRecord, DTCSeverityMask, DTCSeverityRecord, DTCSnapshotRecordNumber,
     DTCStatusMask, DTCStoredDataRecordNumber, DiagnosticSessionType, FunctionalGroupIdentifier,

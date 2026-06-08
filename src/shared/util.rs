@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn be_uint_roundtrip() {
-        use crate::common::util::{read_be_uint, write_be_uint};
+        use crate::shared::util::{read_be_uint, write_be_uint};
         let mut buf = [0u8; 16];
         let mut w = buf.as_mut_slice();
         let written = write_be_uint(0x00AB_CDEFu128, 3, &mut w).unwrap();
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn be_uint_zero_width() {
-        use crate::common::util::{read_be_uint, write_be_uint};
+        use crate::shared::util::{read_be_uint, write_be_uint};
         let mut buf = [0u8; 4];
         let mut w = buf.as_mut_slice();
         assert_eq!(write_be_uint(0, 0, &mut w).unwrap(), 0);
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn read_be_uint_rejects_short_and_overwide() {
-        use crate::common::util::read_be_uint;
+        use crate::shared::util::read_be_uint;
         assert!(read_be_uint(&[0x01], 2).is_err());
         assert!(read_be_uint(&[0u8; 17], 17).is_err());
     }

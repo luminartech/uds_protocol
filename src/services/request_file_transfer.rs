@@ -1,6 +1,6 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
-use crate::common::{DataFormatIdentifier, read_be_uint, write_be_uint};
+use crate::shared::{DataFormatIdentifier, read_be_uint, write_be_uint};
 use crate::{Decode, Encode, Error};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////

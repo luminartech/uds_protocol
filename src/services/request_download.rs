@@ -1,6 +1,6 @@
 //! `RequestDownload` (0x34) service implementation
 
-use crate::common::{
+use crate::shared::{
     DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier, read_be_uint,
     write_be_uint,
 };

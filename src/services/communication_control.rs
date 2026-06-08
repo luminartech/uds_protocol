@@ -1,5 +1,5 @@
 //! `CommunicationControl` (0x28) service implementation
-use crate::common::SuppressablePositiveResponse;
+use crate::shared::SuppressablePositiveResponse;
 use crate::{
     CommunicationControlType, CommunicationType, Decode, Encode, Error, NegativeResponseCode,
 };
