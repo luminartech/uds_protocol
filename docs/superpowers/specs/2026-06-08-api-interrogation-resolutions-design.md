@@ -116,9 +116,17 @@ IDs + `u16` converters** (`From`/`TryFrom<u16>`, `Display`/`Debug`).
   second wire path (the same smell removed in A) and, worse, `UDSIdentifier` cannot serve as
   a decoder: its `TryFrom<u16>` is **non-total** (rejects most of the legal DID space and
   omits its own `0xFF00`/`0xFF01` variants). The enum is a partial *recognizer*, not a codec.
-- **Bug to fix in implementation (regardless):** `UDSIdentifier::TryFrom<u16>` must round-trip
-  every value it can produce — currently `u16::from(UDSIdentifier::UDSVersionData) == 0xFF00`
-  but `try_from(0xFF00)` errors, and large valid manufacturer ranges fall through to `Err`.
+- **Resolved (full faithful rebuild — confirmed):** `UDSIdentifier` becomes a **total,
+  infallible `From<u16>`** mirroring `UDSRoutineIdentifier`; `TryFrom` and the now-dead
+  `Error::InvalidDiagnosticIdentifier` are removed. The current enum has two defects: it
+  cannot round-trip its own `0xFF00`/`0xFF01` variants, and it **mislabels** `0xF100–0xF17F`
+  as `VehicleManufacturerSpecific` (per spec that range is
+  `identificationOptionVehicleManufacturerSpecific`; the real VMS range is `0x0100–0xA5FF`
+  plus others) while omitting ~13 ISO DID classes entirely. The rebuild follows the
+  authoritative partition in the Appendix, verified against ISO 14229-1:2020 Table C.1.
+  Nothing carries `UDSIdentifier` (Decision B), so this has zero internal ripple.
+- **`UDSRoutineIdentifier` verified faithful & total** against ISO 14229-1:2020 Table F.1 —
+  no change required (only a cosmetic singular/plural naming nit on `SafetySystemRoutineID`).
 
 ## Decision C — `Other` is a lossless raw pass-through
 
@@ -152,7 +160,13 @@ every service byte.
   `ControlDTCSettingsRequest` to `SuppressablePositiveResponse<DtcSettings>`** like its six
   sibling sub-function services; `DtcSettings` already satisfies the wrapper's bounds. This
   removes the only user of `SUCCESS`, collapses the `0x80` bit into one place, and makes the
-  service consistent with its siblings.
+  service consistent with its siblings. Wire-neutral (the wrapper's `& 0x7F` / `| 0x80` is
+  byte-identical to the current inline `& !SUCCESS` / `| SUCCESS`). Intrinsic surface changes:
+  `pub setting` / `pub suppress_response` become a private wrapper exposed via `setting()` +
+  `suppress_positive_response()` getters (EcuReset template). Aligned changes: **flip the
+  constructor to suppress-first** — `new(suppress_positive_response: bool, setting: DtcSettings)`
+  — to match the six sibling sub-function services (was `(setting, suppress_response)`), and add
+  the missing `Eq` derive. Response (`ControlDTCSettingsResponse`) is unchanged (no SPRMIB bit).
 - **Keep `CLEAR_ALL_DTCS`** — a correctly-typed, meaningful, used `DTCRecord` constant.
 
 Net: no raw protocol-byte constants at the crate root; `CLEAR_ALL_DTCS` is the only public
@@ -179,6 +193,16 @@ constant, and it is typed.
 **Zero public-surface change:** the flat crate-root re-exports are preserved, so every
 `uds_protocol::Foo` path resolves identically. This is an internal-only reorganization;
 CI catches any missed import.
+
+**Sequencing (move-first).** The reorg lands **before** the semantic reshaping (Decisions
+A/B/C/H + I1–I3), as ~3 mechanical, individually-green commits — (1) `common/ → shared/`
+rename, (2) extract `dtc/`, (3) relocate the six single-service enums — so the heavily-reviewed
+semantic work is written once, in the final structure. Firm rule: **no commit mixes a
+mechanical move with a semantic change** (keeps every diff legible; git rename-detection makes
+the move commits trivially verifiable). Two verifications during the move: (a) the dependency
+graph stays acyclic — `services/ → {dtc/, shared/}`, `dtc/ → shared/`, nothing above pointing
+back down (a DTC type reaching into a service module is the red flag); (b) a grep/diff confirms
+the crate-root public-name set is byte-identical before and after.
 
 ## Decision F — `Response::service()` for parity with `Request`
 
@@ -231,16 +255,42 @@ Wrapped in the enums and round-tripped losslessly (empty slice when the record i
 - `src/services/negative_response.rs` — document the echoed-service edge.
 - Module moves per Decision E (`common/` → `shared/`, new `dtc/`, service-local enums).
 
+## Decode edge contracts (locked)
+
+Unifying principle: **require the structurally-mandatory fixed elements; allow the opaque
+variable tail to be empty.**
+
+- **RDBI request** (`Dids::Wire`): **reject empty** (ISO requires ≥1 DID — its entire content
+  is the mandatory list, no fixed prefix to anchor an empty case) and **reject odd-length**
+  (`IncorrectMessageLengthOrInvalidFormat`). `Native(&[u16])` and its decoded `Wire(&[u8])`
+  must encode to identical bytes and yield identical `dids()`.
+- **WDBI request** `{identifier, data}`: min 2 bytes (DID mandatory); **empty `data` allowed**
+  (a zero-length data record is app semantics the server NACKs, not a codec concern).
+- **RoutineControl request** `{sub_function, routine_id, option_record}`: min 3 bytes
+  (sub-function + RID); empty `option_record` allowed; reserved control-type rejected (Phase 2);
+  SPRMIB bit round-trips via the wrapper.
+- **RoutineControl response** `{routine_control_type, routine_id, status_record}`: min 3 bytes;
+  empty `status_record` allowed; control-type decoded via **plain `try_from`** (no `0x80`
+  masking) so a stray SPRMIB bit on a response is rejected — responses never suppress.
+- **Other** `{sid, data}`: any non-empty frame; empty `data` allowed; re-encode lossless.
+- **RequestTransferExit** req/resp `{parameter_record}`: record optional (empty allowed);
+  lossless round-trip; fixes the prior silent-drop / trailing-byte acceptance.
+
 ## Testing
 
 - Round-trip (`decode` → `encode` → identical bytes) for every reshaped variant: RDBI request
   (native and wire backings), WDBI request, RoutineControl req/resp, `Other` (incl. an
   unknown byte that previously normalized to `0x7F`), RequestTransferExit req/resp with and
   without a parameter record.
+- Negative decode tests for every edge above: RDBI empty + odd-length; WDBI < 2 bytes;
+  RoutineControl req/resp < 3 bytes; RoutineControl response with `0x80` set; reserved
+  control-type.
 - `ReadDataByIdentifierRequest`: build from `&[u16]`, encode, decode, assert `dids()` yields
-  the same values; odd-length payload rejected.
+  the same values.
 - `UDSIdentifier::TryFrom`/`From` round-trip across all variants and ranges (totality fix).
-- `assert_encode_size_agrees` on every new/changed `Encode`.
+- **Strengthen `assert_encode_size_agrees`** to also assert actual bytes consumed
+  (`buf.len() - writer.len() == encoded_size()`), not just `encode`'s return value — today a
+  write/return drift slips through. Apply it on every new/changed `Encode`.
 - Full matrix green: default (`std`), `--no-default-features --features alloc`,
   `--no-default-features`, `thumbv6m-none-eabi`; clippy + fmt clean.
 - A grep confirming no `…Tx`/`…Rx` type names and no `SUCCESS`/`PENDING` remain.
@@ -250,3 +300,55 @@ Wrapped in the enums and round-tripped losslessly (empty slice when the record i
 - Implementing additional UDS services (still reached via `Other`).
 - Any transport, session, or async layer.
 - Merging `feature/no_std` to `main` — after this pass and an implementation-details review.
+
+---
+
+## Appendix — Authoritative DID partition (ISO 14229-1:2020 Table C.1)
+
+The total, infallible `UDSIdentifier::From<u16>` rebuild (Decision B-followup) maps every
+`u16` per this table. Open ranges carry the raw `u16`; named values are unit variants.
+`0xF180–0xF19F` are the ~32 named singletons already modeled.
+
+| Range | Class |
+|-------|-------|
+| `0x0000–0x00FF` | ISOSAEReserved |
+| `0x0100–0xA5FF` | VehicleManufacturerSpecific |
+| `0xA600–0xA7FF` | ReservedForLegislativeUse |
+| `0xA800–0xACFF` | VehicleManufacturerSpecific |
+| `0xAD00–0xAFFF` | ReservedForLegislativeUse |
+| `0xB000–0xB1FF` | VehicleManufacturerSpecific |
+| `0xB200–0xBFFF` | ReservedForLegislativeUse |
+| `0xC000–0xC2FF` | VehicleManufacturerSpecific |
+| `0xC300–0xCEFF` | ReservedForLegislativeUse |
+| `0xCF00–0xEFFF` | VehicleManufacturerSpecific |
+| `0xF000–0xF00F` | NetworkConfigDataForTractorTrailerApplication |
+| `0xF010–0xF0FF` | VehicleManufacturerSpecific |
+| `0xF100–0xF17F` | identificationOptionVehicleManufacturerSpecific |
+| `0xF180–0xF19F` | named singletons (existing) |
+| `0xF1A0–0xF1EF` | identificationOptionVehicleManufacturerSpecific |
+| `0xF1F0–0xF1FF` | identificationOptionSystemSupplierSpecific |
+| `0xF200–0xF2FF` | PeriodicDataIdentifier |
+| `0xF300–0xF3FF` | DynamicallyDefinedDataIdentifier |
+| `0xF400–0xF5FF` | OBDDataIdentifier |
+| `0xF600–0xF6FF` | OBDMonitorDataIdentifier |
+| `0xF700–0xF7FF` | OBDDataIdentifier |
+| `0xF800–0xF8FF` | OBDInfoTypeDataIdentifier |
+| `0xF900–0xF9FF` | TachographDataIdentifier |
+| `0xFA00–0xFA0F` | AirbagDeploymentDataIdentifier |
+| `0xFA10` | NumberOfEDRDevices |
+| `0xFA11` | EDRIdentification |
+| `0xFA12` | EDRDeviceAddressInformation |
+| `0xFA13–0xFA18` | EDREntries |
+| `0xFA19–0xFAFF` | SafetySystemDataIdentifier |
+| `0xFB00–0xFCFF` | ReservedForLegislativeUse |
+| `0xFD00–0xFEFF` | SystemSupplierSpecific |
+| `0xFF00` | UDSVersionData |
+| `0xFF01` | ReservedForISO15765-5 |
+| `0xFF02–0xFFFF` | ISOSAEReserved |
+
+`UDSRoutineIdentifier` was verified against Table F.1 and is already faithful/total
+(`0x0000–0x00FF` ISOSAEReserved · `0x0100–0x01FF` TachographTestIds · `0x0200–0xDFFF` VMS ·
+`0xE000–0xE1FF` OBDTestIds · `0xE200` ExecuteSPL · `0xE201` DeployLoopRoutineID ·
+`0xE202–0xE2FF` SafetySystemRoutineIDs · `0xE300–0xEFFF` ISOSAEReserved · `0xF000–0xFEFF`
+SystemSupplierSpecific · `0xFF00` eraseMemory · `0xFF01` checkProgrammingDependencies ·
+`0xFF02–0xFFFF` ISOSAEReserved).
