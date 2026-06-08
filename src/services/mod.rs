@@ -2,18 +2,23 @@ mod clear_dtc_information;
 pub use clear_dtc_information::ClearDiagnosticInfoRequest;
 
 mod communication_control;
-pub use communication_control::{CommunicationControlRequest, CommunicationControlResponse};
+pub use communication_control::{
+    CommunicationControlRequest, CommunicationControlResponse, CommunicationControlType,
+    CommunicationType,
+};
 
 mod control_dtc_settings;
-pub use control_dtc_settings::{ControlDTCSettingsRequest, ControlDTCSettingsResponse};
+pub use control_dtc_settings::{
+    ControlDTCSettingsRequest, ControlDTCSettingsResponse, DtcSettings,
+};
 
 mod diagnostic_session_control;
 pub use diagnostic_session_control::{
-    DiagnosticSessionControlRequest, DiagnosticSessionControlResponse,
+    DiagnosticSessionControlRequest, DiagnosticSessionControlResponse, DiagnosticSessionType,
 };
 
 mod ecu_reset;
-pub use ecu_reset::{EcuResetRequest, EcuResetResponse};
+pub use ecu_reset::{EcuResetRequest, EcuResetResponse, ResetType};
 
 mod negative_response;
 pub use negative_response::NegativeResponse;
@@ -37,10 +42,12 @@ pub use request_file_transfer::{
 };
 
 mod routine_control;
-pub use routine_control::{RoutineControlRequest, RoutineControlResponse};
+pub use routine_control::{
+    RoutineControlRequest, RoutineControlResponse, RoutineControlSubFunction,
+};
 
 mod security_access;
-pub use security_access::{SecurityAccessRequest, SecurityAccessResponse};
+pub use security_access::{SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType};
 
 mod tester_present;
 pub use tester_present::{TesterPresentRequest, TesterPresentResponse};

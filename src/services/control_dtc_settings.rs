@@ -1,5 +1,40 @@
 //! `ControlDTCSetting` (0x85) service implementation
-use crate::{Decode, DtcSettings, Encode, Error, SUCCESS};
+use crate::{Decode, Encode, Error, SUCCESS};
+
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+/// Controls whether the server should enable or disable DTC status-bit updates.
+///
+/// Used by [`ControlDTCSettingsRequest`] to instruct the server.
+pub enum DtcSettings {
+    /// Re-enable DTC status-bit updates.
+    On,
+    /// Disable DTC status-bit updates.
+    Off,
+}
+
+impl From<DtcSettings> for u8 {
+    fn from(value: DtcSettings) -> Self {
+        match value {
+            DtcSettings::On => 0x01,
+            DtcSettings::Off => 0x02,
+        }
+    }
+}
+
+impl TryFrom<u8> for DtcSettings {
+    type Error = Error;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x01 => Ok(Self::On),
+            0x02 => Ok(Self::Off),
+            _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
+        }
+    }
+}
 
 /// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -107,7 +142,7 @@ impl<'a> Decode<'a> for ControlDTCSettingsResponse {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, DtcSettings, Encode, test_util::assert_encode_size_agrees};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
     #[cfg(feature = "alloc")]
     use alloc::{vec, vec::Vec};
 
@@ -131,7 +166,7 @@ mod request {
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::{Decode, DtcSettings, Encode, test_util::assert_encode_size_agrees};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
     #[cfg(feature = "alloc")]
     use alloc::{vec, vec::Vec};
 

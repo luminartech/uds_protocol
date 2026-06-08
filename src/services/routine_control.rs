@@ -3,7 +3,51 @@
 //! It can also be used to check the ECU's health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, RoutineControlSubFunction};
+use crate::{Decode, Encode, Error};
+
+/// What type of routine control to perform for a [`RoutineControlRequest`].
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum RoutineControlSubFunction {
+    /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message
+    /// which indicates that the routine has already been performed, or is in progress
+    ///
+    /// It might be necessary to switch the server to a specific Diagnostic Session via [`crate::DiagnosticSessionControlRequest`] before starting the routine,
+    /// or unlock the server using [`crate::SecurityAccessRequest`] before starting the routine.
+    StartRoutine,
+
+    /// The server routine shall be stopped in the server's memory sometime between the completion of the `StopRoutine` request and the completion of the 1st response message
+    /// which indicates that the routine has already been stopped, or is in progress
+    StopRoutine,
+
+    /// Request results for the specified routineIdentifier
+    RequestRoutineResults,
+}
+
+impl From<RoutineControlSubFunction> for u8 {
+    fn from(value: RoutineControlSubFunction) -> Self {
+        match value {
+            RoutineControlSubFunction::StartRoutine => 0x01,
+            RoutineControlSubFunction::StopRoutine => 0x02,
+            RoutineControlSubFunction::RequestRoutineResults => 0x03,
+        }
+    }
+}
+
+impl TryFrom<u8> for RoutineControlSubFunction {
+    type Error = Error;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x01 => Ok(RoutineControlSubFunction::StartRoutine),
+            0x02 => Ok(RoutineControlSubFunction::StopRoutine),
+            0x03 => Ok(RoutineControlSubFunction::RequestRoutineResults),
+            _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
+        }
+    }
+}
 
 /// Used by a client to execute a defined sequence of events and obtain any relevant results.
 ///

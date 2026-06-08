@@ -23,9 +23,8 @@ pub use dtc::{
 
 mod shared;
 pub use shared::{
-    CommunicationControlType, CommunicationType, DiagnosticSessionType, NegativeResponseCode,
-    ResetType, SecurityAccessType, UDSIdentifier, UDSRoutineIdentifier, param_length_u16,
-    param_length_u32, param_length_u64, param_length_u128,
+    NegativeResponseCode, UDSIdentifier, UDSRoutineIdentifier, param_length_u16, param_length_u32,
+    param_length_u64, param_length_u128,
 };
 
 mod request;
@@ -40,16 +39,17 @@ pub use service::UdsServiceType;
 mod services;
 pub use services::{
     ClearDiagnosticInfoRequest, CommunicationControlRequest, CommunicationControlResponse,
-    ControlDTCSettingsRequest, ControlDTCSettingsResponse, DiagnosticSessionControlRequest,
-    DiagnosticSessionControlResponse, DirSizePayload, DtcAndStatusIter, DtcFaultDetectionIter,
+    CommunicationControlType, CommunicationType, ControlDTCSettingsRequest,
+    ControlDTCSettingsResponse, DiagnosticSessionControlRequest, DiagnosticSessionControlResponse,
+    DiagnosticSessionType, DirSizePayload, DtcAndStatusIter, DtcFaultDetectionIter, DtcSettings,
     DtcSeverityAndStatusIter, EcuResetRequest, EcuResetResponse, FileOperationMode,
     FileSizePayload, NamePayload, NegativeResponse, PositionPayload, ReadDTCInfoRequest,
     ReadDTCInfoResponse, ReadDTCInfoSubFunction, ReadDataByIdentifierRequestTx,
     RequestDownloadRequest, RequestDownloadResponse, RequestFileTransferRequest,
-    RequestFileTransferResponse, RoutineControlRequest, RoutineControlResponse,
-    SecurityAccessRequest, SecurityAccessResponse, SentDataPayload, SizePayload,
-    TesterPresentRequest, TesterPresentResponse, TransferDataRequest, TransferDataResponse,
-    WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
+    RequestFileTransferResponse, ResetType, RoutineControlRequest, RoutineControlResponse,
+    RoutineControlSubFunction, SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType,
+    SentDataPayload, SizePayload, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
+    TransferDataResponse, WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
 };
 
 /// UDS positive-response service-ID offset. Added to the request SID to form the response SID.
@@ -57,85 +57,6 @@ pub const SUCCESS: u8 = 0x80;
 /// UDS `requestCorrectlyReceivedResponsePending` negative response code (`0x78`).
 /// Signals that the server received the request but needs additional time to process it.
 pub const PENDING: u8 = 0x78;
-
-/// What type of routine control to perform for a [`RoutineControlRequest`].
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum RoutineControlSubFunction {
-    /// Routine will be started sometime between completion of the `StartRoutine` request and the completion of the 1st response message
-    /// which indicates that the routine has already been performed, or is in progress
-    ///
-    /// It might be necessary to switch the server to a specific Diagnostic Session via [`DiagnosticSessionControlRequest`] before starting the routine,
-    /// or unlock the server using [`SecurityAccessRequest`] before starting the routine.
-    StartRoutine,
-
-    /// The server routine shall be stopped in the server's memory sometime between the completion of the `StopRoutine` request and the completion of the 1st response message
-    /// which indicates that the routine has already been stopped, or is in progress
-    StopRoutine,
-
-    /// Request results for the specified routineIdentifier
-    RequestRoutineResults,
-}
-
-impl From<RoutineControlSubFunction> for u8 {
-    fn from(value: RoutineControlSubFunction) -> Self {
-        match value {
-            RoutineControlSubFunction::StartRoutine => 0x01,
-            RoutineControlSubFunction::StopRoutine => 0x02,
-            RoutineControlSubFunction::RequestRoutineResults => 0x03,
-        }
-    }
-}
-
-impl TryFrom<u8> for RoutineControlSubFunction {
-    type Error = Error;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x01 => Ok(RoutineControlSubFunction::StartRoutine),
-            0x02 => Ok(RoutineControlSubFunction::StopRoutine),
-            0x03 => Ok(RoutineControlSubFunction::RequestRoutineResults),
-            _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
-        }
-    }
-}
-
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-/// Controls whether the server should enable or disable DTC status-bit updates.
-///
-/// Used by [`ControlDTCSettingsRequest`] to instruct the server.
-pub enum DtcSettings {
-    /// Re-enable DTC status-bit updates.
-    On,
-    /// Disable DTC status-bit updates.
-    Off,
-}
-
-impl From<DtcSettings> for u8 {
-    fn from(value: DtcSettings) -> Self {
-        match value {
-            DtcSettings::On => 0x01,
-            DtcSettings::Off => 0x02,
-        }
-    }
-}
-
-impl TryFrom<u8> for DtcSettings {
-    type Error = Error;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x01 => Ok(Self::On),
-            0x02 => Ok(Self::Off),
-            _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
-        }
-    }
-}
 
 #[cfg(test)]
 mod no_std_api_tests {
