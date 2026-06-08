@@ -8,12 +8,21 @@
 
 **Tech Stack:** Rust 2024, `no_std` + `no_alloc` baseline (`std`/`alloc` additive), `embedded-io` traits, `byteorder-embedded-io`. Codec via crate-local `Encode`/`Decode`/`DecodeIter` traits. Test matrix: default (`std`), `--no-default-features --features alloc`, `--no-default-features`, `thumbv6m-none-eabi`.
 
-**Standing verification (run after every task that changes code):**
+**Standing verification (run after every task that changes code) — matches CI exactly:**
 ```bash
 cargo test
-cargo clippy --all-targets -- -D warnings
+cargo clippy --all-features
+cargo clippy --no-default-features
+cargo clippy --no-default-features --features alloc
 cargo fmt --check
 ```
+CI does **not** use `-D warnings` or `--all-targets`. Do not add them: the base branch
+already carries ~11 `clippy::pedantic` warnings in *test* code (`similar_names`,
+`unreadable_literal`, `cast_possible_truncation`, etc.) that CI does not gate and that are
+**out of scope** for this work. The library compiles clean even under `-D warnings`; only
+test code trips pedantic lints. "Clippy clean" here means the three CI invocations above
+exit 0. Do not introduce *new* clippy warnings.
+
 The full breaking matrix (`--no-default-features [--features alloc]` + `cargo build --target thumbv6m-none-eabi ...`) is validated at the end (Task 15), and in CI.
 
 ---
@@ -1216,9 +1225,9 @@ cargo test --no-default-features --features alloc
 cargo test --no-default-features
 cargo build --no-default-features --target thumbv6m-none-eabi
 cargo build --no-default-features --features alloc --target thumbv6m-none-eabi
-cargo clippy --all-targets -- -D warnings
-cargo clippy --no-default-features --features alloc -- -D warnings
-cargo clippy --no-default-features -- -D warnings
+cargo clippy --all-features
+cargo clippy --no-default-features --features alloc
+cargo clippy --no-default-features
 cargo fmt --check
 cargo doc --no-deps
 ```
