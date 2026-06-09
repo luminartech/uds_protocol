@@ -10,9 +10,6 @@ pub enum Error {
     /// The byte stream contained fewer bytes than expected.
     #[error("Insufficient data. Expected {0} bytes.")]
     InsufficientData(usize),
-    /// The u16 identifier is unrecognised and carried an unexpected payload.
-    #[error("Invalid Diagnostic Identifier with payload: {0:X}")]
-    InvalidDiagnosticIdentifierPayload(u16),
     /// The session-type byte is not a valid [`DiagnosticSessionType`](crate::DiagnosticSessionType).
     #[error("Invalid diagnostic session type: {0}")]
     InvalidDiagnosticSessionType(u8),
