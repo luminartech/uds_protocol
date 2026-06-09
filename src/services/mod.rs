@@ -24,7 +24,7 @@ mod negative_response;
 pub use negative_response::NegativeResponse;
 
 mod read_data_by_identifier;
-pub use read_data_by_identifier::ReadDataByIdentifierRequestTx;
+pub use read_data_by_identifier::ReadDataByIdentifierRequest;
 
 mod read_dtc_information;
 pub use read_dtc_information::{

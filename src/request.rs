@@ -4,8 +4,8 @@ use crate::{
     services::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, ReadDTCInfoRequest,
-        RequestDownloadRequest, RequestFileTransferRequest, RoutineControlRequest,
-        SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
+        ReadDataByIdentifierRequest, RequestDownloadRequest, RequestFileTransferRequest,
+        RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
         WriteDataByIdentifierRequest,
     },
 };
@@ -29,8 +29,8 @@ pub enum Request<'a> {
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
     /// ECU reset request.
     EcuReset(EcuResetRequest),
-    /// Read data by identifier request. Raw DID bytes.
-    ReadDataByIdentifier(&'a [u8]),
+    /// Read data by identifier request.
+    ReadDataByIdentifier(ReadDataByIdentifierRequest<'a>),
     /// Read DTC information request.
     ReadDTCInfo(ReadDTCInfoRequest),
     /// Request download.
@@ -85,7 +85,9 @@ impl<'a> Decode<'a> for Request<'a> {
             UdsServiceType::EcuReset => {
                 Self::EcuReset(<EcuResetRequest as Decode>::decode_exact(payload)?)
             }
-            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(payload),
+            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
+                <ReadDataByIdentifierRequest as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::ReadDTCInfo => {
                 Self::ReadDTCInfo(<ReadDTCInfoRequest as Decode>::decode_exact(payload)?)
             }
@@ -128,7 +130,7 @@ impl Encode for Request<'_> {
             Self::ControlDTCSettings(req) => req.encoded_size(),
             Self::DiagnosticSessionControl(req) => req.encoded_size(),
             Self::EcuReset(req) => req.encoded_size(),
-            Self::ReadDataByIdentifier(bytes) => bytes.len(),
+            Self::ReadDataByIdentifier(req) => req.encoded_size(),
             Self::ReadDTCInfo(req) => req.encoded_size(),
             Self::WriteDataByIdentifier(req) => req.encoded_size(),
             Self::RequestDownload(req) => req.encoded_size(),
@@ -155,10 +157,7 @@ impl Encode for Request<'_> {
             Self::ControlDTCSettings(req) => req.encode(writer)?,
             Self::DiagnosticSessionControl(req) => req.encode(writer)?,
             Self::EcuReset(req) => req.encode(writer)?,
-            Self::ReadDataByIdentifier(bytes) => {
-                writer.write_all(bytes).map_err(Error::io)?;
-                bytes.len()
-            }
+            Self::ReadDataByIdentifier(req) => req.encode(writer)?,
             Self::ReadDTCInfo(req) => req.encode(writer)?,
             Self::WriteDataByIdentifier(req) => req.encode(writer)?,
             Self::RequestDownload(req) => req.encode(writer)?,
