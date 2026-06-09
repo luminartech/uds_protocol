@@ -10,9 +10,6 @@ pub enum Error {
     /// The byte stream contained fewer bytes than expected.
     #[error("Insufficient data. Expected {0} bytes.")]
     InsufficientData(usize),
-    /// The u16 value does not map to a known diagnostic identifier.
-    #[error("Invalid Diagnostic Identifier: {0:X}")]
-    InvalidDiagnosticIdentifier(u16),
     /// The u16 identifier is unrecognised and carried an unexpected payload.
     #[error("Invalid Diagnostic Identifier with payload: {0:X}")]
     InvalidDiagnosticIdentifierPayload(u16),
