@@ -2,8 +2,8 @@ use crate::{
     CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
     DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, NegativeResponse,
     ReadDTCInfoResponse, RequestDownloadResponse, RequestFileTransferResponse,
-    RoutineControlResponse, SecurityAccessResponse, TesterPresentResponse, TransferDataResponse,
-    UdsServiceType, WriteDataByIdentifierResponse,
+    RequestTransferExitResponse, RoutineControlResponse, SecurityAccessResponse,
+    TesterPresentResponse, TransferDataResponse, UdsServiceType, WriteDataByIdentifierResponse,
 };
 
 /// Parsed zero-copy UDS response. Borrows from the wire buffer.
@@ -34,7 +34,7 @@ pub enum Response<'a> {
     /// Positive response to `RequestFileTransfer`.
     RequestFileTransfer(RequestFileTransferResponse<'a>),
     /// Positive response to `RequestTransferExit`.
-    RequestTransferExit,
+    RequestTransferExit(RequestTransferExitResponse<'a>),
     /// Positive response to `RoutineControl`.
     RoutineControl(RoutineControlResponse<'a>),
     /// Positive response to `SecurityAccess`.
@@ -92,7 +92,9 @@ impl<'a> Decode<'a> for Response<'a> {
             UdsServiceType::RequestFileTransfer => Self::RequestFileTransfer(
                 <RequestFileTransferResponse as Decode>::decode_exact(payload)?,
             ),
-            UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
+            UdsServiceType::RequestTransferExit => Self::RequestTransferExit(
+                <RequestTransferExitResponse as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::RoutineControl => {
                 Self::RoutineControl(<RoutineControlResponse as Decode>::decode_exact(payload)?)
             }
@@ -149,7 +151,7 @@ impl Response<'_> {
             Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo.response_to_byte(),
             Self::RequestDownload(_) => UdsServiceType::RequestDownload.response_to_byte(),
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer.response_to_byte(),
-            Self::RequestTransferExit => UdsServiceType::RequestTransferExit.response_to_byte(),
+            Self::RequestTransferExit(_) => UdsServiceType::RequestTransferExit.response_to_byte(),
             Self::RoutineControl(_) => UdsServiceType::RoutineControl.response_to_byte(),
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess.response_to_byte(),
             Self::TesterPresent(_) => UdsServiceType::TesterPresent.response_to_byte(),
@@ -165,7 +167,8 @@ impl Response<'_> {
 impl Encode for Response<'_> {
     fn encoded_size(&self) -> usize {
         let payload = match self {
-            Self::ClearDiagnosticInfo | Self::RequestTransferExit => 0,
+            Self::ClearDiagnosticInfo => 0,
+            Self::RequestTransferExit(resp) => resp.encoded_size(),
             Self::Other { data, .. } => data.len(),
             Self::CommunicationControl(resp) => resp.encoded_size(),
             Self::ControlDTCSettings(resp) => resp.encoded_size(),
@@ -190,7 +193,8 @@ impl Encode for Response<'_> {
             .write_all(&[self.response_sid()])
             .map_err(Error::io)?;
         let payload = match self {
-            Self::ClearDiagnosticInfo | Self::RequestTransferExit => 0,
+            Self::ClearDiagnosticInfo => 0,
+            Self::RequestTransferExit(resp) => resp.encode(writer)?,
             Self::CommunicationControl(resp) => resp.encode(writer)?,
             Self::ControlDTCSettings(resp) => resp.encode(writer)?,
             Self::DiagnosticSessionControl(resp) => resp.encode(writer)?,

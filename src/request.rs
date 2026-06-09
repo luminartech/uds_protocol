@@ -5,8 +5,8 @@ use crate::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, ReadDTCInfoRequest,
         ReadDataByIdentifierRequest, RequestDownloadRequest, RequestFileTransferRequest,
-        RoutineControlRequest, SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
-        WriteDataByIdentifierRequest,
+        RequestTransferExitRequest, RoutineControlRequest, SecurityAccessRequest,
+        TesterPresentRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
 };
 
@@ -38,7 +38,7 @@ pub enum Request<'a> {
     /// Request file transfer.
     RequestFileTransfer(RequestFileTransferRequest<'a>),
     /// Request transfer exit.
-    RequestTransferExit,
+    RequestTransferExit(RequestTransferExitRequest<'a>),
     /// Routine control request.
     RoutineControl(RoutineControlRequest<'a>),
     /// Security access request.
@@ -97,7 +97,9 @@ impl<'a> Decode<'a> for Request<'a> {
             UdsServiceType::RequestFileTransfer => Self::RequestFileTransfer(
                 <RequestFileTransferRequest as Decode>::decode_exact(payload)?,
             ),
-            UdsServiceType::RequestTransferExit => Self::RequestTransferExit,
+            UdsServiceType::RequestTransferExit => Self::RequestTransferExit(
+                <RequestTransferExitRequest as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::RoutineControl => {
                 Self::RoutineControl(<RoutineControlRequest as Decode>::decode_exact(payload)?)
             }
@@ -135,7 +137,7 @@ impl Encode for Request<'_> {
             Self::WriteDataByIdentifier(req) => req.encoded_size(),
             Self::RequestDownload(req) => req.encoded_size(),
             Self::RequestFileTransfer(req) => req.encoded_size(),
-            Self::RequestTransferExit => 0,
+            Self::RequestTransferExit(req) => req.encoded_size(),
             Self::Other { data, .. } => data.len(),
             Self::RoutineControl(req) => req.encoded_size(),
             Self::SecurityAccess(req) => req.encoded_size(),
@@ -162,7 +164,7 @@ impl Encode for Request<'_> {
             Self::WriteDataByIdentifier(req) => req.encode(writer)?,
             Self::RequestDownload(req) => req.encode(writer)?,
             Self::RequestFileTransfer(req) => req.encode(writer)?,
-            Self::RequestTransferExit => 0,
+            Self::RequestTransferExit(req) => req.encode(writer)?,
             Self::Other { data, .. } => {
                 writer.write_all(data).map_err(Error::io)?;
                 data.len()
@@ -205,7 +207,7 @@ impl Request<'_> {
             Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo,
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
-            Self::RequestTransferExit => UdsServiceType::RequestTransferExit,
+            Self::RequestTransferExit(_) => UdsServiceType::RequestTransferExit,
             Self::RoutineControl(_) => UdsServiceType::RoutineControl,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,

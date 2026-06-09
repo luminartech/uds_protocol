@@ -55,5 +55,8 @@ pub use tester_present::{TesterPresentRequest, TesterPresentResponse};
 mod transfer_data;
 pub use transfer_data::{TransferDataRequest, TransferDataResponse};
 
+mod request_transfer_exit;
+pub use request_transfer_exit::{RequestTransferExitRequest, RequestTransferExitResponse};
+
 mod write_data_by_identifier;
 pub use write_data_by_identifier::{WriteDataByIdentifierRequest, WriteDataByIdentifierResponse};

@@ -46,9 +46,10 @@ pub use services::{
     FileSizePayload, NamePayload, NegativeResponse, PositionPayload, ReadDTCInfoRequest,
     ReadDTCInfoResponse, ReadDTCInfoSubFunction, ReadDataByIdentifierRequest,
     RequestDownloadRequest, RequestDownloadResponse, RequestFileTransferRequest,
-    RequestFileTransferResponse, ResetType, RoutineControlRequest, RoutineControlResponse,
-    RoutineControlSubFunction, SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType,
-    SentDataPayload, SizePayload, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
+    RequestFileTransferResponse, RequestTransferExitRequest, RequestTransferExitResponse,
+    ResetType, RoutineControlRequest, RoutineControlResponse, RoutineControlSubFunction,
+    SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType, SentDataPayload,
+    SizePayload, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
     TransferDataResponse, WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
 };
 
