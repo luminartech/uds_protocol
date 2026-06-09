@@ -53,8 +53,6 @@ pub use services::{
     TransferDataResponse, WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
 };
 
-/// UDS positive-response service-ID offset. Added to the request SID to form the response SID.
-pub const SUCCESS: u8 = 0x80;
 /// UDS `requestCorrectlyReceivedResponsePending` negative response code (`0x78`).
 /// Signals that the server received the request but needs additional time to process it.
 pub const PENDING: u8 = 0x78;
