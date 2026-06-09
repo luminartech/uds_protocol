@@ -9,23 +9,36 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::GeneralProgrammingFailure,
 ];
 
-/// Zero-alloc request to write data by identifier. Borrows the raw payload from the caller.
+/// Zero-alloc request to write data by identifier. Borrows the data record from the caller.
 ///
-/// The payload is the DID (2 bytes, big-endian) followed by the data record, exactly as
-/// it appears on the wire after the service byte.
+/// The `identifier` is the 2-byte big-endian Data Identifier (DID); `data` is the opaque
+/// data record that follows it on the wire.
 ///
 /// See ISO-14229-1:2020, Section 11.7.2.1
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct WriteDataByIdentifierRequest<'d> {
-    /// The raw payload bytes: DID followed by the data record.
-    pub payload: &'d [u8],
+    identifier: u16,
+    data: &'d [u8],
 }
 
 impl<'d> WriteDataByIdentifierRequest<'d> {
-    /// Create a new write-by-identifier request from raw payload bytes.
+    /// Create a request to write `data` to the given Data Identifier.
     #[must_use]
-    pub const fn new(payload: &'d [u8]) -> Self {
-        Self { payload }
+    pub const fn new(identifier: u16, data: &'d [u8]) -> Self {
+        Self { identifier, data }
+    }
+
+    /// The Data Identifier being written.
+    #[must_use]
+    pub const fn identifier(&self) -> u16 {
+        self.identifier
+    }
+
+    /// The opaque data record to write.
+    #[must_use]
+    pub const fn data(&self) -> &[u8] {
+        self.data
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request.
@@ -37,18 +50,31 @@ impl<'d> WriteDataByIdentifierRequest<'d> {
 
 impl Encode for WriteDataByIdentifierRequest<'_> {
     fn encoded_size(&self) -> usize {
-        self.payload.len()
+        2 + self.data.len()
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer.write_all(self.payload).map_err(Error::io)?;
-        Ok(self.payload.len())
+        writer
+            .write_all(&self.identifier.to_be_bytes())
+            .map_err(Error::io)?;
+        writer.write_all(self.data).map_err(Error::io)?;
+        Ok(self.encoded_size())
     }
 }
 
 impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        Ok((Self { payload: buf }, &[]))
+        if buf.len() < 2 {
+            return Err(Error::InsufficientData(2));
+        }
+        let identifier = u16::from_be_bytes([buf[0], buf[1]]);
+        Ok((
+            Self {
+                identifier,
+                data: &buf[2..],
+            },
+            &[],
+        ))
     }
 }
 
@@ -110,18 +136,6 @@ mod test {
     }
 
     #[test]
-    fn test_write_request_encode() {
-        // DID 0xF186 + one data byte 0x01
-        let payload = [0xF1, 0x86, 0x01];
-        let request = WriteDataByIdentifierRequest::new(&payload);
-        let mut buf = [0u8; 8];
-        let written = Encode::encode(&request, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, 3);
-        assert_eq!(&buf[..3], &[0xF1, 0x86, 0x01]);
-        assert_encode_size_agrees(&request);
-    }
-
-    #[test]
     fn write_response_roundtrip() {
         let response = WriteDataByIdentifierResponse::new(0xF186);
         let mut buf = [0u8; 4];
@@ -136,5 +150,33 @@ mod test {
     fn write_response_decode_rejects_short_buffer() {
         let err = <WriteDataByIdentifierResponse as Decode>::decode(&[0x01]);
         assert!(matches!(err, Err(Error::InsufficientData(2))));
+    }
+
+    #[test]
+    fn wdbi_request_round_trips() {
+        let req = WriteDataByIdentifierRequest::new(0xF190, &[0x01, 0x02, 0x03]);
+        let mut buf = [0u8; 8];
+        let n = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..n], &[0xF1, 0x90, 0x01, 0x02, 0x03]);
+        let (decoded, rest) = <WriteDataByIdentifierRequest as Decode>::decode(&buf[..n]).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(decoded.identifier(), 0xF190);
+        assert_eq!(decoded.data(), &[0x01, 0x02, 0x03]);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn wdbi_request_allows_empty_data() {
+        let (decoded, _) = <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1, 0x90]).unwrap();
+        assert_eq!(decoded.identifier(), 0xF190);
+        assert!(decoded.data().is_empty());
+    }
+
+    #[test]
+    fn wdbi_request_rejects_short_buffer() {
+        assert!(matches!(
+            <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1]),
+            Err(Error::InsufficientData(2))
+        ));
     }
 }
