@@ -2,18 +2,25 @@
 
 use crate::Encode;
 
-/// Assert that an [`Encode`] value writes exactly `encoded_size()` bytes.
+/// Assert that an [`Encode`] value writes exactly `encoded_size()` bytes — both the
+/// returned count AND the number of bytes actually consumed from the writer.
 ///
-/// Guards against the two methods drifting, which would corrupt callers that pre-size
-/// a buffer from `encoded_size()`.
+/// Guards against `encode` and `encoded_size` drifting, and against `encode` returning
+/// a count that disagrees with how many bytes it actually wrote — either corrupts callers
+/// that pre-size a buffer from `encoded_size()`.
 pub(crate) fn assert_encode_size_agrees<T: Encode>(value: &T) {
     let mut buf = [0u8; 512];
-    let mut writer = buf.as_mut_slice();
+    let cap = buf.len();
+    let mut writer: &mut [u8] = &mut buf;
     let written = value.encode(&mut writer).unwrap();
+    let consumed = cap - writer.len();
+    let size = value.encoded_size();
     assert_eq!(
-        written,
-        value.encoded_size(),
-        "encode wrote {written} bytes but encoded_size() reported {}",
-        value.encoded_size()
+        written, size,
+        "encode returned {written}, encoded_size() is {size}"
+    );
+    assert_eq!(
+        consumed, size,
+        "encode consumed {consumed} bytes, encoded_size() is {size}"
     );
 }
