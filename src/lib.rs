@@ -168,7 +168,7 @@ mod no_std_api_tests {
 
     #[test]
     fn read_dtc_info_request_encodes_through_public_api() {
-        // Public-surface construction: types reached via crate root, not common::/services::.
+        // Public-surface construction: types reached via crate root, not shared::/services::.
         let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(
             DTCStatusMask::from(0xFF),
         ));
