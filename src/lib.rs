@@ -53,10 +53,6 @@ pub use services::{
     TransferDataResponse, WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
 };
 
-/// UDS `requestCorrectlyReceivedResponsePending` negative response code (`0x78`).
-/// Signals that the server received the request but needs additional time to process it.
-pub const PENDING: u8 = 0x78;
-
 #[cfg(test)]
 mod no_std_api_tests {
     use super::*;
