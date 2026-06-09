@@ -49,14 +49,13 @@ pub enum Request<'a> {
     TransferData(TransferDataRequest<'a>),
     /// Write data by identifier request.
     WriteDataByIdentifier(WriteDataByIdentifierRequest<'a>),
-    /// A known-but-unmodeled (or unrecognized) service. Carries the service type and
+    /// A known-but-unmodeled (or unrecognized) service. Carries the raw service byte and
     /// the raw payload bytes following the service identifier, for pass-through.
     ///
-    /// Re-encoding is lossless for any service byte in the ISO 14229-1 table; a byte
-    /// that maps to [`UdsServiceType::UnsupportedDiagnosticService`] re-encodes as `0x7F`.
+    /// Re-encoding is lossless for every service byte: the raw `sid` is echoed verbatim.
     Other {
-        /// The service this frame addresses.
-        service: UdsServiceType,
+        /// The raw service identifier byte from the wire.
+        sid: u8,
         /// Raw payload bytes after the service byte.
         data: &'a [u8],
     },
@@ -113,7 +112,7 @@ impl<'a> Decode<'a> for Request<'a> {
                 <WriteDataByIdentifierRequest as Decode>::decode_exact(payload)?,
             ),
             _ => Self::Other {
-                service,
+                sid: buf[0],
                 data: payload,
             },
         };
@@ -145,9 +144,11 @@ impl Encode for Request<'_> {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[self.service().request_service_to_byte()])
-            .map_err(Error::io)?;
+        let sid = match self {
+            Self::Other { sid, .. } => *sid,
+            other => other.service().request_service_to_byte(),
+        };
+        writer.write_all(&[sid]).map_err(Error::io)?;
         let payload = match self {
             Self::ClearDiagnosticInfo(req) => req.encode(writer)?,
             Self::CommunicationControl(req) => req.encode(writer)?,
@@ -211,7 +212,7 @@ impl Request<'_> {
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
-            Self::Other { service, .. } => *service,
+            Self::Other { sid, .. } => UdsServiceType::service_from_request_byte(*sid),
         }
     }
 }
@@ -276,8 +277,8 @@ mod tests {
         let (req, rest) = Request::decode(&frame).unwrap();
         assert!(rest.is_empty());
         match req {
-            Request::Other { service, data } => {
-                assert_eq!(service, UdsServiceType::ReadMemoryByAddress);
+            Request::Other { sid, data } => {
+                assert_eq!(sid, 0x23);
                 assert_eq!(data, &[0xAA, 0xBB]);
             }
             other => panic!("expected Other, got {other:?}"),
@@ -285,5 +286,23 @@ mod tests {
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &frame);
+    }
+
+    #[test]
+    fn unknown_request_byte_round_trips_losslessly() {
+        // 0x40 is not in the ISO request table; it must survive a decode→encode round-trip.
+        let frame = [0x40, 0xAA, 0xBB];
+        let (req, rest) = Request::decode(&frame).unwrap();
+        assert!(rest.is_empty());
+        match req {
+            Request::Other { sid, data } => {
+                assert_eq!(sid, 0x40);
+                assert_eq!(data, &[0xAA, 0xBB]);
+            }
+            other => panic!("expected Other, got {other:?}"),
+        }
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &frame); // previously re-encoded as 0x7F
     }
 }

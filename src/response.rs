@@ -45,14 +45,13 @@ pub enum Response<'a> {
     TransferData(TransferDataResponse<'a>),
     /// Positive response to `WriteDataByIdentifier`. Contains the echoed DID.
     WriteDataByIdentifier(WriteDataByIdentifierResponse),
-    /// A known-but-unmodeled (or unrecognized) service response. Carries the service
-    /// type and the raw payload bytes following the service identifier.
+    /// A known-but-unmodeled (or unrecognized) service response. Carries the raw service
+    /// byte and the raw payload bytes following the service identifier.
     ///
-    /// Re-encoding is lossless for any service byte in the ISO 14229-1 table; a byte
-    /// that maps to [`UdsServiceType::UnsupportedDiagnosticService`] re-encodes as `0x7F`.
+    /// Re-encoding is lossless for every service byte: the raw `sid` is echoed verbatim.
     Other {
-        /// The service this response addresses.
-        service: UdsServiceType,
+        /// The raw service identifier byte from the wire.
+        sid: u8,
         /// Raw payload bytes after the service byte.
         data: &'a [u8],
     },
@@ -110,7 +109,7 @@ impl<'a> Decode<'a> for Response<'a> {
                 <WriteDataByIdentifierResponse as Decode>::decode_exact(payload)?,
             ),
             _ => Self::Other {
-                service,
+                sid: buf[0],
                 data: payload,
             },
         };
@@ -119,6 +118,18 @@ impl<'a> Decode<'a> for Response<'a> {
 }
 
 impl Response<'_> {
+    /// The [`UdsServiceType`] this response frame addresses.
+    ///
+    /// For `NegativeResponse` this returns [`UdsServiceType::NegativeResponse`] (the frame's
+    /// own type); the *failed* request service is `NegativeResponse.request_service`.
+    #[must_use]
+    pub fn service(&self) -> UdsServiceType {
+        match self {
+            Self::Other { sid, .. } => UdsServiceType::response_from_byte(*sid),
+            other => UdsServiceType::response_from_byte(other.response_sid()),
+        }
+    }
+
     /// Returns the response service-ID byte that frames this response on the wire.
     fn response_sid(&self) -> u8 {
         match self {
@@ -146,7 +157,7 @@ impl Response<'_> {
             Self::WriteDataByIdentifier(_) => {
                 UdsServiceType::WriteDataByIdentifier.response_to_byte()
             }
-            Self::Other { service, .. } => service.response_to_byte(),
+            Self::Other { sid, .. } => *sid,
         }
     }
 }
@@ -240,8 +251,8 @@ mod tests {
         let (resp, rest) = Response::decode(&frame).unwrap();
         assert!(rest.is_empty());
         match resp {
-            Response::Other { service, data } => {
-                assert_eq!(service, UdsServiceType::ReadMemoryByAddress);
+            Response::Other { sid, data } => {
+                assert_eq!(sid, 0x63);
                 assert_eq!(data, &[0x01, 0x02]);
             }
             other => panic!("expected Other, got {other:?}"),
@@ -249,5 +260,16 @@ mod tests {
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &frame);
+    }
+
+    #[test]
+    fn unknown_response_byte_round_trips_losslessly() {
+        let frame = [0x99, 0x01, 0x02];
+        let (resp, _) = Response::decode(&frame).unwrap();
+        assert!(matches!(resp, Response::Other { sid: 0x99, .. }));
+        assert_eq!(resp.service(), UdsServiceType::response_from_byte(0x99));
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &frame); // previously became 0x7F (NegativeResponse)
     }
 }
