@@ -8,6 +8,11 @@ use crate::{Decode, Encode, Error, NegativeResponseCode, UdsServiceType};
 #[non_exhaustive]
 pub struct NegativeResponse {
     /// The service that triggered this negative response.
+    ///
+    /// For a service this library does not model, an unrecognized echoed byte decodes to
+    /// [`UdsServiceType::UnsupportedDiagnosticService`] and re-encodes as `0x7F` — an
+    /// accepted, documented edge (a one-byte normalization on an already-unsupported
+    /// service, far less consequential than the service being unsupported at all).
     pub request_service: UdsServiceType,
     /// The negative response code indicating why the request failed.
     pub nrc: NegativeResponseCode,
