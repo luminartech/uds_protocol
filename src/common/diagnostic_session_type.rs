@@ -17,7 +17,7 @@ pub enum DiagnosticSessionType {
     ISOSAEReserved(u8),
     /// The `DefaultSession` (0x01) enables the standard diagnostic functionality
     /// - No `TesterPresent` messages are required to remain in this session
-    /// - Any other diagnostic sessions are stopped upon succesful entry into this session
+    /// - Any other diagnostic sessions are stopped upon successful entry into this session
     /// - Any security authorization is revoked
     /// - This session is initialized on startup
     DefaultSession,

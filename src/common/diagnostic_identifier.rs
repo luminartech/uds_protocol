@@ -54,7 +54,7 @@ pub enum UDSIdentifier {
     /// format shall be server specific and defined by the vehicle manufacturer.
     VehicleManufacturerKitAssemblyPartNumber = 0xF18E,
     /// See 14229-1 C.1 for details on Regulation X information.
-    /// Recurive ASCII string
+    /// Recursive ASCII string
     RegulationXSoftwareIdentificationNumbers = 0xF18F,
     /// Vehicle Identification Number (`0xF190`).
     VIN = 0xF190,
