@@ -86,13 +86,15 @@ impl From<RoutineControlSubFunction> for u8 {
     }
 }
 
-impl From<u8> for RoutineControlSubFunction {
-    fn from(value: u8) -> Self {
+impl TryFrom<u8> for RoutineControlSubFunction {
+    type Error = Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0x01 => RoutineControlSubFunction::StartRoutine,
-            0x02 => RoutineControlSubFunction::StopRoutine,
-            0x03 => RoutineControlSubFunction::RequestRoutineResults,
-            _ => panic!("Invalid routine control subfunction: {value}"),
+            0x01 => Ok(RoutineControlSubFunction::StartRoutine),
+            0x02 => Ok(RoutineControlSubFunction::StopRoutine),
+            0x03 => Ok(RoutineControlSubFunction::RequestRoutineResults),
+            _ => Err(Error::InvalidRoutineControlSubFunction(value)),
         }
     }
 }
@@ -148,12 +150,14 @@ impl From<DtcSettings> for u8 {
     }
 }
 
-impl From<u8> for DtcSettings {
-    fn from(value: u8) -> Self {
+impl TryFrom<u8> for DtcSettings {
+    type Error = Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0x01 => Self::On,
-            0x02 => Self::Off,
-            _ => panic!("Invalid DTC setting: {value}"),
+            0x01 => Ok(Self::On),
+            0x02 => Ok(Self::Off),
+            _ => Err(Error::InvalidDtcSetting(value)),
         }
     }
 }

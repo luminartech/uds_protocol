@@ -58,6 +58,12 @@ pub enum Error {
     /// The DTC format identifier byte is not recognised.
     #[error("Invalid DTC Format Identifier: {0}")]
     InvalidDtcFormatIdentifier(u8),
+    /// The routine-control sub-function byte is not a valid [`RoutineControlSubFunction`](crate::RoutineControlSubFunction).
+    #[error("Invalid Routine Control Sub-Function: {0}")]
+    InvalidRoutineControlSubFunction(u8),
+    /// The DTC-setting byte is not a valid [`DtcSettings`](crate::DtcSettings) value.
+    #[error("Invalid DTC Setting: {0}")]
+    InvalidDtcSetting(u8),
     /// The value is reserved for legislative use and must not be used.
     #[error("Reserved for legislative use: {0} ({1})")]
     ReservedForLegislativeUse(String, u8),
