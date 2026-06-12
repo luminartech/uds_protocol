@@ -163,15 +163,16 @@ mod request {
 
     proptest! {
         #[test]
-        fn prop_diagnostic_session_control_request_roundtrip(byte in 0x01u8..=0x7E) {
-            // Valid session types: 0x01..=0x7E (0x80+ has SPRMIB bit set)
-            if let Ok(req) = DiagnosticSessionControlRequest::decode(&mut [byte].as_slice()) {
-                let mut buf = Vec::new();
-                req.encode(&mut buf).unwrap();
-                let decoded = DiagnosticSessionControlRequest::decode(&mut buf.as_slice()).unwrap();
-                prop_assert_eq!(req.session_type(), decoded.session_type());
-                prop_assert_eq!(req.suppress_positive_response(), decoded.suppress_positive_response());
-            }
+        fn prop_diagnostic_session_control_request_roundtrip(byte in 0x00u8..=0xFF) {
+            // Full range: lower 7 bits encode session type, bit 7 is SPRMIB
+            let req = DiagnosticSessionControlRequest::decode(&mut [byte].as_slice()).unwrap();
+            let mut buf = Vec::new();
+            req.encode(&mut buf).unwrap();
+            let decoded = DiagnosticSessionControlRequest::decode(&mut buf.as_slice()).unwrap();
+            prop_assert_eq!(req.session_type(), decoded.session_type());
+            prop_assert_eq!(req.suppress_positive_response(), decoded.suppress_positive_response());
+            // Verify SPRMIB bit is correctly interpreted
+            prop_assert_eq!(req.suppress_positive_response(), byte & 0x80 != 0);
         }
     }
 }

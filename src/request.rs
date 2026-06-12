@@ -527,7 +527,7 @@ mod tests {
         }
 
         #[test]
-        fn prop_clear_dtc_roundtrip(
+        fn prop_clear_dtc_encode_decode_not_implemented(
             a in any::<u8>(),
             b in any::<u8>(),
             c in any::<u8>(),
@@ -540,9 +540,12 @@ mod tests {
             let mut buf = Vec::new();
             request.encode(&mut buf).unwrap();
 
-            // ClearDiagnosticInfo decode is not yet implemented (returns ServiceNotImplemented)
-            // so we only verify encoding doesn't panic
-            let _ = ProtocolRequest::decode(&mut buf.as_slice());
+            // ClearDiagnosticInfo decode is not yet implemented
+            let err = ProtocolRequest::decode(&mut buf.as_slice()).unwrap_err();
+            prop_assert!(
+                matches!(err, Error::ServiceNotImplemented(UdsServiceType::ClearDiagnosticInfo)),
+                "expected ServiceNotImplemented(ClearDiagnosticInfo), got {:?}", err
+            );
         }
     }
 
