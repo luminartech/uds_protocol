@@ -1,0 +1,34 @@
+name: Task
+description: A standalone task or implementation item.
+title: "[Task]: "
+labels: [task]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line description of the task.
+      placeholder: "Implement feature X"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Any background or links needed to understand the task.
+      placeholder: |
+        - Related issue: #123
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: What must be true for this to be "done"?
+      placeholder: |
+        - Unit tests written
+        - Compiles without warnings
+    validations:
+      required: false

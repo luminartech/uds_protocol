@@ -142,6 +142,7 @@ impl SingleValueWireFormat for DiagnosticSessionControlResponse {
 mod request {
     use super::*;
     use crate::DiagnosticSessionType;
+    use proptest::prelude::*;
 
     #[test]
     fn test_diagnostic_session_control_request() {
@@ -159,12 +160,27 @@ mod request {
         assert_eq!(buffer, bytes);
         assert_eq!(req.required_size(), 1);
     }
+
+    proptest! {
+        #[test]
+        fn prop_diagnostic_session_control_request_roundtrip(byte in 0x01u8..=0x7E) {
+            // Valid session types: 0x01..=0x7E (0x80+ has SPRMIB bit set)
+            if let Ok(req) = DiagnosticSessionControlRequest::decode(&mut [byte].as_slice()) {
+                let mut buf = Vec::new();
+                req.encode(&mut buf).unwrap();
+                let decoded = DiagnosticSessionControlRequest::decode(&mut buf.as_slice()).unwrap();
+                prop_assert_eq!(req.session_type(), decoded.session_type());
+                prop_assert_eq!(req.suppress_positive_response(), decoded.suppress_positive_response());
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
     use crate::DiagnosticSessionType;
+    use proptest::prelude::*;
 
     #[test]
     fn test_diagnostic_session_control_response() {
@@ -179,5 +195,22 @@ mod response {
         resp.encode(&mut buffer).unwrap();
         assert_eq!(buffer, bytes);
         assert_eq!(resp.required_size(), 5);
+    }
+
+    proptest! {
+        #[test]
+        fn prop_diagnostic_session_control_response_roundtrip(
+            session_byte in 0x01u8..=0x04,
+            p2 in any::<u16>(),
+            p2_star in any::<u16>(),
+        ) {
+            let session = DiagnosticSessionType::try_from(session_byte).unwrap();
+            let resp = DiagnosticSessionControlResponse::new(session, p2, p2_star);
+            let mut buf = Vec::new();
+            resp.encode(&mut buf).unwrap();
+
+            let decoded = DiagnosticSessionControlResponse::decode(&mut buf.as_slice()).unwrap();
+            prop_assert_eq!(resp, decoded);
+        }
     }
 }
