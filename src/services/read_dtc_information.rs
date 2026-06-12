@@ -391,7 +391,7 @@ impl WireFormat for ReadDTCInfoSubFunction {
             Self::ReportDTC_ByStatusMask(_) => 1,
             Self::ReportDTCSnapshotIdentification => 0,
             Self::ReportDTCSnapshotRecord_ByDTCNumber(_, _) => 4,
-            Self::ReportDTCStoredData_ByRecordNumber(_) => 2,
+            Self::ReportDTCStoredData_ByRecordNumber(_) => 1,
             Self::ReportDTCExtDataRecord_ByDTCNumber(_, _) => 4,
             Self::ReportNumberOfDTC_BySeverityMaskRecord(_, _) => 2,
             Self::ReportDTC_BySeverityMaskRecord(_, _) => 2,
@@ -596,12 +596,13 @@ type SubFunctionID = u8;
 #[non_exhaustive]
 pub enum ReadDTCInfoResponse<UserPayload> {
     /// * Parameter: [`DTCStatusMask`] (1)
+    /// * Parameter: [`DTCFormatIdentifier`] (1)
     /// * Parameter: `NumberOfDTCs`(2)
     ///
     /// For subfunctions 0x01, 0x07
     ///   * 0x01: [`ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask`]
     ///   * 0x07: [`ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord`]
-    NumberOfDTCs(SubFunctionID, DTCStatusAvailabilityMask, NumberOfDTCs),
+    NumberOfDTCs(SubFunctionID, DTCStatusAvailabilityMask, DTCFormatIdentifier, NumberOfDTCs),
 
     /// A list of DTCs matching the subfunction request
     ///
@@ -783,7 +784,7 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
     fn required_size(&self) -> usize {
         // subfunction ID + subfunction contents
         1 + match self {
-            Self::NumberOfDTCs(_, _, _) => 3,
+            Self::NumberOfDTCs(_, _, _, _) => 4,
             Self::DTCList(_, _, list) => 1 + list.len() * 4,
             Self::DTCSnapshotList(list) => 1 + list.len() * 4,
             Self::DTCSnapshotRecordList(list) => list.required_size(),
@@ -814,9 +815,10 @@ impl<UserPayload: IterableWireFormat> WireFormat for ReadDTCInfoResponse<UserPay
     #[allow(clippy::too_many_lines)]
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         match self {
-            Self::NumberOfDTCs(id, mask, count) => {
+            Self::NumberOfDTCs(id, mask, format_id, count) => {
                 writer.write_u8(*id)?;
                 writer.write_u8(mask.bits())?;
+                writer.write_u8(u8::from(*format_id))?;
                 writer.write_u16::<byteorder::BigEndian>(*count)?;
             }
             Self::DTCList(id, mask, list) => {
@@ -926,8 +928,9 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat for ReadDTCInfoRespo
         match subfunction_id {
             0x01 | 0x07 => {
                 let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);
+                let format_id = DTCFormatIdentifier::from(reader.read_u8()?);
                 let count = reader.read_u16::<byteorder::BigEndian>()?;
-                Ok(Self::NumberOfDTCs(subfunction_id, status, count))
+                Ok(Self::NumberOfDTCs(subfunction_id, status, format_id, count))
             }
             0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
                 let status = DTCStatusAvailabilityMask::from(reader.read_u8()?);

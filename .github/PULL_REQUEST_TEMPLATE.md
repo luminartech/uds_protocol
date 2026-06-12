@@ -6,16 +6,6 @@ Scope (area of the codebase), e.g., request|response|services|ci|common
 
 ## Commit Message Details
 
-<!-- Describe "what" you did and "why" in a way that is useful for the historical record.
-     This sections get appended to the final commit message as the message body.
-     Can be omitted if the title is sufficient.
-     Specific notes on "how" can be left as self-review comments or in "Notes". -->
-
-<!--
-## Notes
-  Optional section that does NOT become part of the merge commit message.
-  Use for screenshots, alternatives explored, performance metrics, etc.
--->
 
 ## Issue URL
 

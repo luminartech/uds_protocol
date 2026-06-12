@@ -135,6 +135,11 @@ impl WireFormat for SizePayload {
 impl SingleValueWireFormat for SizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let file_size_parameter_length = reader.read_u8()?;
+        if file_size_parameter_length > 16 {
+            return Err(Error::InvalidFileSizeParameterLength(
+                u16::from(file_size_parameter_length),
+            ));
+        }
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
         let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
 
@@ -396,8 +401,11 @@ impl WireFormat for SentDataPayload {
 impl SingleValueWireFormat for SentDataPayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let length_format_identifier = reader.read_u8()?;
+        // Per ISO 14229-1 Table 395: high nibble (bits 7-4) specifies the
+        // number of bytes for maxNumberOfBlockLength; low nibble is reserved.
+        let block_length_size = ((length_format_identifier >> 4) & 0x0F) as usize;
 
-        let mut max_number_of_block_length: Vec<u8> = vec![0; length_format_identifier as usize];
+        let mut max_number_of_block_length: Vec<u8> = vec![0; block_length_size];
         reader.read_exact(&mut max_number_of_block_length)?;
         Ok(Self {
             length_format_identifier,
@@ -460,6 +468,11 @@ impl WireFormat for FileSizePayload {
 impl SingleValueWireFormat for FileSizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let file_size_parameter_length = reader.read_u16::<byteorder::BE>()?;
+        if file_size_parameter_length > 16 {
+            return Err(Error::InvalidFileSizeParameterLength(
+                file_size_parameter_length,
+            ));
+        }
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
         let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
 
@@ -533,6 +546,11 @@ impl WireFormat for DirSizePayload {
 impl SingleValueWireFormat for DirSizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let dir_info_parameter_length = reader.read_u16::<byteorder::BigEndian>()?;
+        if dir_info_parameter_length > 16 {
+            return Err(Error::InvalidFileSizeParameterLength(
+                dir_info_parameter_length,
+            ));
+        }
         let mut dir_info_length = vec![0; dir_info_parameter_length as usize];
         reader.read_exact(&mut dir_info_length)?;
 
@@ -991,7 +1009,8 @@ mod response_tests {
         // SentDataPayload
         if mode != FileOperationMode::DeleteFile {
             let len_max_block_len = param_length_u32(max_block_len);
-            bytes.write_u8(len_max_block_len).unwrap();
+            // Per ISO 14229-1 Table 395: high nibble = length of maxNumberOfBlockLength
+            bytes.write_u8(len_max_block_len << 4).unwrap();
             let source = max_block_len.to_be_bytes();
             bytes.extend_from_slice(&source[4 - len_max_block_len as usize..]);
 
@@ -1042,7 +1061,7 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::AddFile(mode, sent_data, data_format) => {
                 assert_eq!(mode, FileOperationMode::AddFile);
-                assert_eq!(sent_data.length_format_identifier, 2);
+                assert_eq!(sent_data.length_format_identifier, 0x20);
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x12, 0x34]);
                 assert_eq!(data_format, DataFormatIdentifier::new(0, 0).unwrap());
             }
@@ -1085,7 +1104,7 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::ReplaceFile(mode, sent_data, data_format) => {
                 assert_eq!(mode, FileOperationMode::ReplaceFile);
-                assert_eq!(sent_data.length_format_identifier, 3);
+                assert_eq!(sent_data.length_format_identifier, 0x30);
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
                 assert_eq!(data_format, DataFormatIdentifier::new(0, 0).unwrap());
             }
@@ -1108,7 +1127,7 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::ReadFile(mode, sent_data, df, size) => {
                 assert_eq!(mode, FileOperationMode::ReadFile);
-                assert_eq!(sent_data.length_format_identifier, 1);
+                assert_eq!(sent_data.length_format_identifier, 0x10);
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01]);
                 assert_eq!(df, DataFormatIdentifier::new(0x01, 0x01).unwrap());
                 assert_eq!(size.file_size_parameter_length, 5);
@@ -1134,7 +1153,7 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::ReadDir(mode, sent_data, df, size) => {
                 assert_eq!(mode, FileOperationMode::ReadDir);
-                assert_eq!(sent_data.length_format_identifier, 3);
+                assert_eq!(sent_data.length_format_identifier, 0x30);
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
                 assert_eq!(df, DataFormatIdentifier::new(0, 0).unwrap());
                 assert_eq!(size.dir_info_parameter_length, 5);
@@ -1165,7 +1184,7 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::ResumeFile(mode, sent_data, df, pos) => {
                 assert_eq!(mode, FileOperationMode::ResumeFile);
-                assert_eq!(sent_data.length_format_identifier, 3);
+                assert_eq!(sent_data.length_format_identifier, 0x30);
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
                 assert_eq!(df, DataFormatIdentifier::new(1, 1).unwrap());
                 assert_eq!(pos.file_position, 0x1234_5678_9ABC_DEF0);
