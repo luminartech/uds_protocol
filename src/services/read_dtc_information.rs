@@ -1116,7 +1116,7 @@ impl<UserPayload: IterableWireFormat> SingleValueWireFormat for ReadDTCInfoRespo
                     },
                 ))
             }
-            _ => todo!(), // _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
+            _ => Err(Error::InvalidDtcSubfunctionType(subfunction_id)),
         }
     }
 }

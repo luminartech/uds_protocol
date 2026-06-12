@@ -306,18 +306,8 @@ impl FunctionalGroupIdentifier {
             FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
             FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,
             FunctionalGroupIdentifier::VODBSystem => 0xFE,
-            FunctionalGroupIdentifier::LegislativeSystemGroup(value) => {
-                todo!(
-                    "FunctionalGroupIdentifiers::LegislativeSystemGroup is not a valid value {}",
-                    value
-                )
-            }
-            FunctionalGroupIdentifier::ISOSAEReserved(value) => {
-                todo!(
-                    "FunctionalGroupIdentifiers::ISOSAEReserved is not a valid value {}",
-                    value
-                )
-            }
+            FunctionalGroupIdentifier::LegislativeSystemGroup(value)
+            | FunctionalGroupIdentifier::ISOSAEReserved(value) => *value,
         }
     }
 }
