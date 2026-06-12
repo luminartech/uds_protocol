@@ -17,8 +17,8 @@ fn main() {
             // OUT_DIR is deep inside target/; walk up to the profile directory
             // (e.g. target/x86_64-pc-windows-msvc/release/)
             if let Some(profile_dir) = find_profile_dir(&out_dir) {
-                let dest = std::path::Path::new(&profile_dir)
-                    .join("clang_rt.asan_dynamic-x86_64.dll");
+                let dest =
+                    std::path::Path::new(&profile_dir).join("clang_rt.asan_dynamic-x86_64.dll");
                 if !dest.exists() {
                     let _ = std::fs::copy(&dll_path, &dest);
                 }
@@ -30,13 +30,10 @@ fn main() {
 #[cfg(windows)]
 fn find_asan_dll() -> Option<std::path::PathBuf> {
     // Check common MSVC toolchain locations
-    let vswhere_paths = [
-        std::env::var("VCToolsInstallDir").ok(),
-        glob_msvc_path(),
-    ];
+    let vswhere_paths = [std::env::var("VCToolsInstallDir").ok(), glob_msvc_path()];
     for base in vswhere_paths.into_iter().flatten() {
-        let candidate =
-            std::path::PathBuf::from(&base).join("bin/Hostx64/x64/clang_rt.asan_dynamic-x86_64.dll");
+        let candidate = std::path::PathBuf::from(&base)
+            .join("bin/Hostx64/x64/clang_rt.asan_dynamic-x86_64.dll");
         if candidate.exists() {
             return Some(candidate);
         }
@@ -44,7 +41,9 @@ fn find_asan_dll() -> Option<std::path::PathBuf> {
     // Fallback: LLVM installation
     for entry in std::fs::read_dir("C:/Program Files/LLVM/lib/clang").ok()? {
         let entry = entry.ok()?;
-        let candidate = entry.path().join("lib/windows/clang_rt.asan_dynamic-x86_64.dll");
+        let candidate = entry
+            .path()
+            .join("lib/windows/clang_rt.asan_dynamic-x86_64.dll");
         if candidate.exists() {
             return Some(candidate);
         }
@@ -81,7 +80,10 @@ fn find_profile_dir(out_dir: &str) -> Option<String> {
     // Walk up until we find a directory containing "release" or "debug"
     let mut path = std::path::Path::new(out_dir);
     while let Some(parent) = path.parent() {
-        if path.file_name().is_some_and(|n| n == "release" || n == "debug") {
+        if path
+            .file_name()
+            .is_some_and(|n| n == "release" || n == "debug")
+        {
             return Some(path.to_string_lossy().into_owned());
         }
         path = parent;

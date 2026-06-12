@@ -602,7 +602,12 @@ pub enum ReadDTCInfoResponse<UserPayload> {
     /// For subfunctions 0x01, 0x07
     ///   * 0x01: [`ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask`]
     ///   * 0x07: [`ReadDTCInfoSubFunction::ReportNumberOfDTC_BySeverityMaskRecord`]
-    NumberOfDTCs(SubFunctionID, DTCStatusAvailabilityMask, DTCFormatIdentifier, NumberOfDTCs),
+    NumberOfDTCs(
+        SubFunctionID,
+        DTCStatusAvailabilityMask,
+        DTCFormatIdentifier,
+        NumberOfDTCs,
+    ),
 
     /// A list of DTCs matching the subfunction request
     ///

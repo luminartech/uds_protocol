@@ -6,7 +6,6 @@ Scope (area of the codebase), e.g., request|response|services|ci|common
 
 ## Commit Message Details
 
-
 ## Issue URL
 
 Closes #<issue ID>

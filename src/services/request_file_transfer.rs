@@ -136,9 +136,9 @@ impl SingleValueWireFormat for SizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let file_size_parameter_length = reader.read_u8()?;
         if file_size_parameter_length > 16 {
-            return Err(Error::InvalidFileSizeParameterLength(
-                u16::from(file_size_parameter_length),
-            ));
+            return Err(Error::InvalidFileSizeParameterLength(u16::from(
+                file_size_parameter_length,
+            )));
         }
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
         let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
