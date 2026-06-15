@@ -1,4 +1,4 @@
-clear//! `RequestFileTransfer` (0x38) service implementation
+//! `RequestFileTransfer` (0x38) service implementation
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::Read;
 
