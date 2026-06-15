@@ -185,19 +185,16 @@ impl ProtocolRoutinePayload {
 }
 
 impl WireFormat for ProtocolRoutinePayload {
-    /// Size includes the 2-byte identifier and the raw payload bytes.
+    /// Size of the raw payload only — the identifier is written by the request.
     fn required_size(&self) -> usize {
-        2 + self.payload.len()
+        self.payload.len()
     }
 
-    /// Writes the routine identifier followed by the raw payload bytes.
-    /// Note: this type is a non-standard extension. For ISO 14229-1 compliance,
-    /// use `Vec<u8>` as the `RoutinePayload` type instead.
+    /// Writes only the raw payload bytes. The routine identifier is already
+    /// encoded by [`RoutineControlRequest::encode`](crate::RoutineControlRequest).
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        let id_bytes = u16::from(self.identifier).to_be_bytes();
-        writer.write_all(&id_bytes)?;
         writer.write_all(&self.payload)?;
-        Ok(2 + self.payload.len())
+        Ok(self.payload.len())
     }
 }
 
