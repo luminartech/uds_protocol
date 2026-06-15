@@ -44,9 +44,7 @@ pub struct UdsSpec;
 impl DiagnosticDefinition for UdsSpec {
     type RID = UDSRoutineIdentifier;
     type DID = ProtocolIdentifier;
-    /// Per ISO 14229-1, routineOptionRecord and routineStatusRecord are raw
-    /// unstructured bytes. Use `Vec<u8>` for spec compliance.
-    type RoutinePayload = Vec<u8>;
+    type RoutinePayload = ProtocolRoutinePayload;
     type DiagnosticPayload = ProtocolPayload;
 }
 

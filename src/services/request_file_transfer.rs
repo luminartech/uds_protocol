@@ -1,4 +1,4 @@
-//! `RequestFileTransfer` (0x38) service implementation
+clear//! `RequestFileTransfer` (0x38) service implementation
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::Read;
 
@@ -135,7 +135,7 @@ impl WireFormat for SizePayload {
 impl SingleValueWireFormat for SizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let file_size_parameter_length = reader.read_u8()?;
-        if file_size_parameter_length > 16 {
+        if !matches!(file_size_parameter_length, 0 | 1 | 2 | 3 | 4 | 8 | 16) {
             return Err(Error::InvalidFileSizeParameterLength(u16::from(
                 file_size_parameter_length,
             )));
@@ -401,7 +401,7 @@ impl WireFormat for SentDataPayload {
 impl SingleValueWireFormat for SentDataPayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let length_format_identifier = reader.read_u8()?;
-        // Per ISO 14229-1 Table 395: high nibble (bits 7-4) specifies the
+        // Per ISO 14229-1 Table 422: high nibble (bits 7-4) specifies the
         // number of bytes for maxNumberOfBlockLength; low nibble is reserved.
         let block_length_size = ((length_format_identifier >> 4) & 0x0F) as usize;
 
@@ -468,7 +468,7 @@ impl WireFormat for FileSizePayload {
 impl SingleValueWireFormat for FileSizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let file_size_parameter_length = reader.read_u16::<byteorder::BE>()?;
-        if file_size_parameter_length > 16 {
+        if !matches!(file_size_parameter_length, 0 | 1 | 2 | 3 | 4 | 8 | 16) {
             return Err(Error::InvalidFileSizeParameterLength(
                 file_size_parameter_length,
             ));
@@ -546,7 +546,7 @@ impl WireFormat for DirSizePayload {
 impl SingleValueWireFormat for DirSizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let dir_info_parameter_length = reader.read_u16::<byteorder::BigEndian>()?;
-        if dir_info_parameter_length > 16 {
+        if !matches!(dir_info_parameter_length, 0 | 1 | 2 | 3 | 4 | 8 | 16) {
             return Err(Error::InvalidFileSizeParameterLength(
                 dir_info_parameter_length,
             ));
@@ -814,7 +814,8 @@ mod request_tests {
     #[allow(clippy::cast_lossless)]
     fn add_file() {
         let compare_string = "test.txt";
-        let file_size: u128 = (u64::MAX as u128) + 1000u128;
+        // Use a value that requires exactly 8 bytes (valid parameter length)
+        let file_size: u128 = u64::MAX as u128;
         let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
         let req: crate::RequestFileTransferRequest =
             RequestFileTransferRequest::decode(&mut bytes.as_slice()).unwrap();
@@ -830,7 +831,7 @@ mod request_tests {
                 assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
                 assert_eq!(pl.file_path_and_name, compare_string);
                 assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(file_size_pl.file_size_parameter_length, 9);
+                assert_eq!(file_size_pl.file_size_parameter_length, 8);
                 assert_eq!(file_size_pl.file_size_uncompressed, file_size);
                 assert_eq!(file_size_pl.file_size_compressed, file_size);
             }
@@ -1114,7 +1115,8 @@ mod response_tests {
 
     #[test]
     fn read_file() {
-        let bytes = get_bytes(FileOperationMode::ReadFile, 0x1, 0x11, 0x11_1111_1111, 0);
+        // Use a value that requires exactly 4 bytes (valid parameter length)
+        let bytes = get_bytes(FileOperationMode::ReadFile, 0x1, 0x11, 0x1111_1111, 0);
         let reader = &mut &bytes[..];
         let resp = RequestFileTransferResponse::decode(reader).unwrap();
         assert!(reader.is_empty());
@@ -1130,9 +1132,9 @@ mod response_tests {
                 assert_eq!(sent_data.length_format_identifier, 0x10);
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01]);
                 assert_eq!(df, DataFormatIdentifier::new(0x01, 0x01).unwrap());
-                assert_eq!(size.file_size_parameter_length, 5);
-                assert_eq!(size.file_size_uncompressed, 0x11_1111_1111);
-                assert_eq!(size.file_size_compressed, 0x11_1111_1111);
+                assert_eq!(size.file_size_parameter_length, 4);
+                assert_eq!(size.file_size_uncompressed, 0x1111_1111);
+                assert_eq!(size.file_size_compressed, 0x1111_1111);
             }
             _ => panic!("Expected ReadFile"),
         }
@@ -1140,7 +1142,8 @@ mod response_tests {
 
     #[test]
     fn read_dir() {
-        let bytes = get_bytes(FileOperationMode::ReadDir, 0x1_1234, 0, 0x11_1111_1111, 0);
+        // Use a value that requires exactly 4 bytes (valid parameter length)
+        let bytes = get_bytes(FileOperationMode::ReadDir, 0x1_1234, 0, 0x1111_1111, 0);
         let reader = &mut &bytes[..];
         let resp = RequestFileTransferResponse::decode(reader).unwrap();
         assert!(reader.is_empty());
@@ -1156,8 +1159,8 @@ mod response_tests {
                 assert_eq!(sent_data.length_format_identifier, 0x30);
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
                 assert_eq!(df, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(size.dir_info_parameter_length, 5);
-                assert_eq!(size.dir_info_length, 0x11_1111_1111);
+                assert_eq!(size.dir_info_parameter_length, 4);
+                assert_eq!(size.dir_info_length, 0x1111_1111);
             }
             _ => panic!("Expected ReadDir"),
         }
