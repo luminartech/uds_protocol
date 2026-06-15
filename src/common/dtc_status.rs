@@ -308,12 +308,14 @@ impl FunctionalGroupIdentifier {
             FunctionalGroupIdentifier::VODBSystem => 0xFE,
             FunctionalGroupIdentifier::LegislativeSystemGroup(value) => {
                 todo!(
-                    "FunctionalGroupIdentifier::LegislativeSystemGroup is not yet implemented: {value}"
+                    "FunctionalGroupIdentifiers::LegislativeSystemGroup is not a valid value {}",
+                    value
                 )
             }
             FunctionalGroupIdentifier::ISOSAEReserved(value) => {
                 todo!(
-                    "FunctionalGroupIdentifier::ISOSAEReserved is not yet implemented: {value}"
+                    "FunctionalGroupIdentifiers::ISOSAEReserved is not a valid value {}",
+                    value
                 )
             }
         }
