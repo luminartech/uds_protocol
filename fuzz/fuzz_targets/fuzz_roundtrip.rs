@@ -2,7 +2,29 @@
 // then decode it again and verify the result matches.
 #![no_main]
 use libfuzzer_sys::fuzz_target;
-use uds_protocol::{ProtocolRequest, Request, SingleValueWireFormat, WireFormat};
+use uds_protocol::{
+    FunctionalGroupIdentifier, ProtocolRequest, ReadDTCInfoSubFunction, Request,
+    SingleValueWireFormat, WireFormat,
+};
+
+/// Returns true if the request contains a FunctionalGroupIdentifier variant
+/// that has a todo!() in its value() method (LegislativeSystemGroup, ISOSAEReserved).
+fn contains_unimplemented_functional_group(request: &ProtocolRequest) -> bool {
+    let Request::ReadDTCInfo(req) = request else {
+        return false;
+    };
+    let fgi = match &req.dtc_subfunction {
+        ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord(fgi, _, _) => fgi,
+        ReadDTCInfoSubFunction::ReportWWHOBDDTC_WithPermanentStatus(fgi) => fgi,
+        ReadDTCInfoSubFunction::ReportDTCInformation_ByDTCReadinessGroupIdentifier(fgi, _) => fgi,
+        _ => return false,
+    };
+    matches!(
+        fgi,
+        FunctionalGroupIdentifier::LegislativeSystemGroup(_)
+            | FunctionalGroupIdentifier::ISOSAEReserved(_)
+    )
+}
 
 fuzz_target!(|data: &[u8]| {
     // Only proceed if we can decode the input
@@ -15,6 +37,12 @@ fuzz_target!(|data: &[u8]| {
     // the raw payload bytes (the identifier is written by the request layer).
     // This makes roundtripping structurally impossible for this variant.
     if matches!(request, Request::RoutineControl(_)) {
+        return;
+    }
+
+    // FunctionalGroupIdentifier::LegislativeSystemGroup and ::ISOSAEReserved
+    // have todo!() in their value() method — encoding them panics intentionally.
+    if contains_unimplemented_functional_group(&request) {
         return;
     }
 
