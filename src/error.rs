@@ -49,15 +49,9 @@ pub enum Error {
     /// The `RequestFileTransfer` `modeOfOperation` byte is not valid.
     #[error("Invalid FileTransfer modeOfOperation (server will send requestOutOfRange): {0}")]
     InvalidFileOperationMode(u8),
-    /// The file-size parameter length (request, 1-byte field) is not one of the allowed values (1, 2, 3, 4, 8, 16).
-    #[error("Invalid file size parameter length (valid values: 1,2,3,4,8,16): {0}")]
+    /// The `fileSizeParameterLength` / `fileSizeOrDirInfoParameterLength` value is outside 1–16.
+    #[error("Invalid fileSizeParameterLength (valid range: 1..=16): {0}")]
     InvalidFileSizeParameterLength(u8),
-    /// The file-size parameter length (response, 2-byte field) is not one of the allowed values (1, 2, 3, 4, 8, 16).
-    #[error("Invalid file size response parameter length (valid values: 1,2,3,4,8,16): {0}")]
-    InvalidFileSizeResponseParameterLength(u16),
-    /// The dir-info parameter length is not one of the allowed values (1, 2, 3, 4, 8, 16).
-    #[error("Invalid dir info parameter length (valid values: 1,2,3,4,8,16): {0}")]
-    InvalidDirInfoParameterLength(u16),
     /// The `ReadDTCInformation` sub-function byte is not valid.
     #[error("Invalid DTC Subfunction Type: {0}")]
     InvalidDtcSubfunctionType(u8),
