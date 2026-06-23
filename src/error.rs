@@ -51,7 +51,7 @@ pub enum Error {
     InvalidFileOperationMode(u8),
     /// The `fileSizeParameterLength` / `fileSizeOrDirInfoParameterLength` value is outside 1–16.
     #[error("Invalid fileSizeParameterLength (valid range: 1..=16): {0}")]
-    InvalidFileSizeParameterLength(u8),
+    InvalidFileSizeParameterLength(u16),
     /// The `ReadDTCInformation` sub-function byte is not valid.
     #[error("Invalid DTC Subfunction Type: {0}")]
     InvalidDtcSubfunctionType(u8),

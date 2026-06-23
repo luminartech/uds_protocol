@@ -117,9 +117,9 @@ impl WireFormat for SizePayload {
 
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         if !(1..=16).contains(&self.file_size_parameter_length) {
-            return Err(Error::InvalidFileSizeParameterLength(
+            return Err(Error::InvalidFileSizeParameterLength(u16::from(
                 self.file_size_parameter_length,
-            ));
+            )));
         }
         // Always write the file size as 1 byte
         writer.write_u8(self.file_size_parameter_length)?;
@@ -143,9 +143,9 @@ impl SingleValueWireFormat for SizePayload {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let file_size_parameter_length = reader.read_u8()?;
         if !(1..=16).contains(&file_size_parameter_length) {
-            return Err(Error::InvalidFileSizeParameterLength(
+            return Err(Error::InvalidFileSizeParameterLength(u16::from(
                 file_size_parameter_length,
-            ));
+            )));
         }
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
         let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
@@ -459,7 +459,7 @@ impl WireFormat for FileSizePayload {
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         if !(1..=16).contains(&self.file_size_parameter_length) {
             return Err(Error::InvalidFileSizeParameterLength(
-                self.file_size_parameter_length as u8,
+                self.file_size_parameter_length,
             ));
         }
         writer.write_u16::<byteorder::BE>(self.file_size_parameter_length)?;
@@ -484,7 +484,7 @@ impl SingleValueWireFormat for FileSizePayload {
         let file_size_parameter_length = reader.read_u16::<byteorder::BE>()?;
         if !(1..=16).contains(&file_size_parameter_length) {
             return Err(Error::InvalidFileSizeParameterLength(
-                file_size_parameter_length as u8,
+                file_size_parameter_length,
             ));
         }
         let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
@@ -542,7 +542,7 @@ impl WireFormat for DirSizePayload {
     fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
         if !(1..=16).contains(&self.dir_info_parameter_length) {
             return Err(Error::InvalidFileSizeParameterLength(
-                self.dir_info_parameter_length as u8,
+                self.dir_info_parameter_length,
             ));
         }
         let mut len = 0;
@@ -567,7 +567,7 @@ impl SingleValueWireFormat for DirSizePayload {
         let dir_info_parameter_length = reader.read_u16::<byteorder::BigEndian>()?;
         if !(1..=16).contains(&dir_info_parameter_length) {
             return Err(Error::InvalidFileSizeParameterLength(
-                dir_info_parameter_length as u8,
+                dir_info_parameter_length,
             ));
         }
         let mut dir_info_length = vec![0; dir_info_parameter_length as usize];
