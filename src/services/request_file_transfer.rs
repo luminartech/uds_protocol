@@ -2,7 +2,9 @@
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::Read;
 
-use crate::{DataFormatIdentifier, Error, LengthFormatIdentifier, SingleValueWireFormat, WireFormat};
+use crate::{
+    DataFormatIdentifier, Error, LengthFormatIdentifier, SingleValueWireFormat, WireFormat,
+};
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 /// Mode of operation for file transfer requests
@@ -1079,7 +1081,10 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::AddFile(mode, sent_data, data_format) => {
                 assert_eq!(mode, FileOperationMode::AddFile);
-                assert_eq!(sent_data.length_format_identifier, LengthFormatIdentifier::from(0x20));
+                assert_eq!(
+                    sent_data.length_format_identifier,
+                    LengthFormatIdentifier::from(0x20)
+                );
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x12, 0x34]);
                 assert_eq!(data_format, DataFormatIdentifier::new(0, 0).unwrap());
             }
@@ -1122,7 +1127,10 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::ReplaceFile(mode, sent_data, data_format) => {
                 assert_eq!(mode, FileOperationMode::ReplaceFile);
-                assert_eq!(sent_data.length_format_identifier, LengthFormatIdentifier::from(0x30));
+                assert_eq!(
+                    sent_data.length_format_identifier,
+                    LengthFormatIdentifier::from(0x30)
+                );
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
                 assert_eq!(data_format, DataFormatIdentifier::new(0, 0).unwrap());
             }
@@ -1146,7 +1154,10 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::ReadFile(mode, sent_data, df, size) => {
                 assert_eq!(mode, FileOperationMode::ReadFile);
-                assert_eq!(sent_data.length_format_identifier, LengthFormatIdentifier::from(0x10));
+                assert_eq!(
+                    sent_data.length_format_identifier,
+                    LengthFormatIdentifier::from(0x10)
+                );
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01]);
                 assert_eq!(df, DataFormatIdentifier::new(0x01, 0x01).unwrap());
                 assert_eq!(size.file_size_parameter_length, 4);
@@ -1173,7 +1184,10 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::ReadDir(mode, sent_data, df, size) => {
                 assert_eq!(mode, FileOperationMode::ReadDir);
-                assert_eq!(sent_data.length_format_identifier, LengthFormatIdentifier::from(0x30));
+                assert_eq!(
+                    sent_data.length_format_identifier,
+                    LengthFormatIdentifier::from(0x30)
+                );
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
                 assert_eq!(df, DataFormatIdentifier::new(0, 0).unwrap());
                 assert_eq!(size.dir_info_parameter_length, 4);
@@ -1204,7 +1218,10 @@ mod response_tests {
         match resp {
             RequestFileTransferResponse::ResumeFile(mode, sent_data, df, pos) => {
                 assert_eq!(mode, FileOperationMode::ResumeFile);
-                assert_eq!(sent_data.length_format_identifier, LengthFormatIdentifier::from(0x30));
+                assert_eq!(
+                    sent_data.length_format_identifier,
+                    LengthFormatIdentifier::from(0x30)
+                );
                 assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
                 assert_eq!(df, DataFormatIdentifier::new(1, 1).unwrap());
                 assert_eq!(pos.file_position, 0x1234_5678_9ABC_DEF0);
