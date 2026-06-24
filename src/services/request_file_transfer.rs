@@ -779,7 +779,7 @@ mod request_tests {
     fn name_payload(mode: FileOperationMode, path: &str) -> NamePayload<'_> {
         NamePayload {
             mode_of_operation: mode,
-            file_path_and_name_length: path.len() as u16,
+            file_path_and_name_length: u16::try_from(path.len()).unwrap(),
             file_path_and_name: path,
         }
     }
@@ -801,7 +801,7 @@ mod request_tests {
     fn size_payload_roundtrip() {
         let s = SizePayload {
             file_size_parameter_length: 9,
-            file_size_uncompressed: (u64::MAX as u128) + 1000,
+            file_size_uncompressed: u128::from(u64::MAX) + 1000,
             file_size_compressed: 0x12_3456,
         };
         let mut buf = [0u8; 32];
@@ -903,9 +903,9 @@ mod response_tests {
     use super::*;
     use crate::test_util::assert_encode_size_agrees;
 
-    fn sent_data<'a>(block: &'a [u8]) -> SentDataPayload<'a> {
+    fn sent_data(block: &[u8]) -> SentDataPayload<'_> {
         SentDataPayload {
-            length_format_identifier: block.len() as u8,
+            length_format_identifier: u8::try_from(block.len()).unwrap(),
             max_number_of_block_length: block,
         }
     }
@@ -921,8 +921,8 @@ mod response_tests {
         let mut buf = [0u8; 32];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, resp.encoded_size());
-        let (decoded, rest) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
-        assert!(rest.is_empty());
+        let (decoded, remaining) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
+        assert!(remaining.is_empty());
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
     }

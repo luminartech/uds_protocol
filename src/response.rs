@@ -229,8 +229,8 @@ mod tests {
     fn write_data_by_identifier_response_roundtrips() {
         // SID 0x6E, echoed DID 0xF190
         let wire = [0x6E, 0xF1, 0x90];
-        let (resp, rest) = Response::decode(&wire).unwrap();
-        assert!(rest.is_empty());
+        let (resp, remaining) = Response::decode(&wire).unwrap();
+        assert!(remaining.is_empty());
         assert!(matches!(resp, Response::WriteDataByIdentifier(_)));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
@@ -241,8 +241,8 @@ mod tests {
     fn routine_control_response_roundtrips() {
         // SID 0x71, sub 0x01, RID 0xFF00, status 0x10
         let wire = [0x71, 0x01, 0xFF, 0x00, 0x10];
-        let (resp, rest) = Response::decode(&wire).unwrap();
-        assert!(rest.is_empty());
+        let (resp, remaining) = Response::decode(&wire).unwrap();
+        assert!(remaining.is_empty());
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &wire);
@@ -252,8 +252,8 @@ mod tests {
     fn unmodeled_response_decodes_to_other() {
         // 0x63 = ReadMemoryByAddress positive response, not modeled.
         let frame = [0x63, 0x01, 0x02];
-        let (resp, rest) = Response::decode(&frame).unwrap();
-        assert!(rest.is_empty());
+        let (resp, remaining) = Response::decode(&frame).unwrap();
+        assert!(remaining.is_empty());
         match resp {
             Response::Other { sid, data } => {
                 assert_eq!(sid, 0x63);

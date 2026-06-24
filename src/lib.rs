@@ -119,8 +119,8 @@ mod no_std_api_tests {
 
         let records: Vec<_> = iter.map(|r| r.unwrap()).collect();
         assert_eq!(records.len(), 2);
-        assert_eq!(u32::from(records[0].0), 0x010203);
-        assert_eq!(u32::from(records[1].0), 0x040506);
+        assert_eq!(u32::from(records[0].0), 0x01_0203);
+        assert_eq!(u32::from(records[1].0), 0x04_0506);
     }
 
     #[test]

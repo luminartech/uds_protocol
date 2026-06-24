@@ -66,7 +66,7 @@ impl<'a> Decode<'a> for DTCSnapshotRecordNumber {
 }
 
 #[cfg(test)]
-mod snapshot {
+mod tests {
     use super::*;
 
     #[test]
