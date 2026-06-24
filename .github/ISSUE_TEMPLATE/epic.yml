@@ -1,0 +1,13 @@
+name: Epic
+description: High-level initiative composed of multiple tasks.
+title: "[Epic]: "
+labels: [epic]
+body:
+  - type: input
+    id: objective
+    attributes:
+      label: Objective
+      description: What is this epic trying to achieve?
+      placeholder: "Add capability"
+    validations:
+      required: true

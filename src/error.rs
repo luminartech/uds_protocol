@@ -49,15 +49,21 @@ pub enum Error {
     /// The `RequestFileTransfer` `modeOfOperation` byte is not valid.
     #[error("Invalid FileTransfer modeOfOperation (server will send requestOutOfRange): {0}")]
     InvalidFileOperationMode(u8),
-    /// The file-size parameter length is not one of the allowed values (1, 2, 3, 4, 8, 16).
-    #[error("Invalid file size parameter length (valid values = 1,2,3,4,8,16): {0}")]
-    InvalidFileSizeParameterLength(u8),
+    /// The `fileSizeParameterLength` / `fileSizeOrDirInfoParameterLength` value is outside 1–16.
+    #[error("Invalid fileSizeParameterLength (valid range: 1..=16): {0}")]
+    InvalidFileSizeParameterLength(u16),
     /// The `ReadDTCInformation` sub-function byte is not valid.
     #[error("Invalid DTC Subfunction Type: {0}")]
     InvalidDtcSubfunctionType(u8),
     /// The DTC format identifier byte is not recognised.
     #[error("Invalid DTC Format Identifier: {0}")]
     InvalidDtcFormatIdentifier(u8),
+    /// The routine-control sub-function byte is not a valid [`RoutineControlSubFunction`](crate::RoutineControlSubFunction).
+    #[error("Invalid Routine Control Sub-Function: {0}")]
+    InvalidRoutineControlSubFunction(u8),
+    /// The DTC-setting byte is not a valid [`DtcSettings`](crate::DtcSettings) value.
+    #[error("Invalid DTC Setting: {0}")]
+    InvalidDtcSetting(u8),
     /// The value is reserved for legislative use and must not be used.
     #[error("Reserved for legislative use: {0} ({1})")]
     ReservedForLegislativeUse(String, u8),

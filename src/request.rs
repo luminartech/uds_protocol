@@ -471,6 +471,83 @@ mod tests {
     use crate::{
         CommunicationControlType, CommunicationType, ProtocolRequest, ResetType, SecurityAccessType,
     };
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_tester_present_roundtrip(suppress in any::<bool>()) {
+            let request = ProtocolRequest::tester_present(suppress);
+            let mut buf = Vec::new();
+            request.encode(&mut buf).unwrap();
+
+            let decoded = ProtocolRequest::decode(&mut buf.as_slice()).unwrap();
+            prop_assert_eq!(request, decoded);
+        }
+
+        #[test]
+        fn prop_ecu_reset_roundtrip(suppress in any::<bool>()) {
+            // Use HardReset as a known-valid reset type
+            let request = ProtocolRequest::ecu_reset(suppress, ResetType::HardReset);
+            let mut buf = Vec::new();
+            request.encode(&mut buf).unwrap();
+
+            let decoded = ProtocolRequest::decode(&mut buf.as_slice()).unwrap();
+            prop_assert_eq!(request, decoded);
+        }
+
+        #[test]
+        fn prop_diagnostic_session_control_roundtrip(
+            suppress in any::<bool>(),
+            session_byte in 0x01u8..=0x04,
+        ) {
+            let session = DiagnosticSessionType::try_from(session_byte).unwrap();
+            let request = ProtocolRequest::diagnostic_session_control(suppress, session);
+            let mut buf = Vec::new();
+            request.encode(&mut buf).unwrap();
+
+            let decoded = ProtocolRequest::decode(&mut buf.as_slice()).unwrap();
+            prop_assert_eq!(request, decoded);
+        }
+
+        #[test]
+        fn prop_security_access_roundtrip(
+            suppress in any::<bool>(),
+            data in proptest::collection::vec(any::<u8>(), 0..64),
+        ) {
+            let request = ProtocolRequest::security_access(
+                suppress,
+                SecurityAccessType::RequestSeed(0x01),
+                data,
+            );
+            let mut buf = Vec::new();
+            request.encode(&mut buf).unwrap();
+
+            let decoded = ProtocolRequest::decode(&mut buf.as_slice()).unwrap();
+            prop_assert_eq!(request, decoded);
+        }
+
+        #[test]
+        fn prop_clear_dtc_encode_decode_not_implemented(
+            a in any::<u8>(),
+            b in any::<u8>(),
+            c in any::<u8>(),
+            mem in any::<u8>(),
+        ) {
+            let request = ProtocolRequest::clear_diagnostic_info(
+                DTCRecord::new(a, b, c),
+                mem,
+            );
+            let mut buf = Vec::new();
+            request.encode(&mut buf).unwrap();
+
+            // ClearDiagnosticInfo decode is not yet implemented
+            let err = ProtocolRequest::decode(&mut buf.as_slice()).unwrap_err();
+            prop_assert!(
+                matches!(err, Error::ServiceNotImplemented(UdsServiceType::ClearDiagnosticInfo)),
+                "expected ServiceNotImplemented(ClearDiagnosticInfo), got {:?}", err
+            );
+        }
+    }
 
     #[test]
     fn test_is_positive_response_suppressed() {

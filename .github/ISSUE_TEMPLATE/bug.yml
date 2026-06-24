@@ -1,0 +1,48 @@
+name: Bug Report
+description: Report a reproducible defect.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Brief description of the bug.
+      placeholder: "Brief summary"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Clear steps to make the bug happen.
+      placeholder: |
+        1. Do thing
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: "N/A"
+    validations:
+      required: false
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      placeholder: "N/A"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or Dumps
+      description: Paste logs or attach relevant binary/debug dumps.
+      placeholder: "Include only relevant logs"
+    validations:
+      required: false

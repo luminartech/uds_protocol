@@ -260,3 +260,18 @@ impl From<u8> for NegativeResponseCode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_negative_response_code_roundtrip(byte in any::<u8>()) {
+            let code = NegativeResponseCode::from(byte);
+            let back: u8 = code.into();
+            prop_assert_eq!(byte, back);
+        }
+    }
+}

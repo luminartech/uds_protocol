@@ -43,7 +43,7 @@ impl WireFormat for ControlDTCSettingsRequest {
 impl SingleValueWireFormat for ControlDTCSettingsRequest {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
         let request_byte = reader.read_u8()?;
-        let setting = DtcSettings::from(request_byte & !SUCCESS);
+        let setting = DtcSettings::try_from(request_byte & !SUCCESS)?;
         let suppress_response = request_byte & SUCCESS != 0;
         Ok(Self {
             setting,
@@ -83,7 +83,7 @@ impl WireFormat for ControlDTCSettingsResponse {
 
 impl SingleValueWireFormat for ControlDTCSettingsResponse {
     fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let setting = DtcSettings::from(reader.read_u8()?);
+        let setting = DtcSettings::try_from(reader.read_u8()?)?;
         Ok(Self { setting })
     }
 }

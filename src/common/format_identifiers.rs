@@ -224,4 +224,38 @@ mod tests {
             Err(Error::InvalidEncryptionCompressionMethod(0x1F))
         ));
     }
+
+    mod prop {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            #[test]
+            fn prop_data_format_identifier_roundtrip(byte in any::<u8>()) {
+                let dfi = DataFormatIdentifier::from(byte);
+                let back: u8 = dfi.into();
+                prop_assert_eq!(byte, back);
+            }
+
+            #[test]
+            fn prop_length_format_identifier_roundtrip(high_nibble in 0u8..=15) {
+                // LengthFormatIdentifier only stores the high nibble
+                let byte = high_nibble << 4;
+                let lfi = LengthFormatIdentifier::from(byte);
+                let back: u8 = lfi.into();
+                prop_assert_eq!(byte, back);
+            }
+
+            #[test]
+            fn prop_memory_format_identifier_roundtrip(
+                size_len in 1u8..=3,
+                addr_len in 1u8..=4,
+            ) {
+                let byte = (size_len << 4) | addr_len;
+                let mfi = MemoryFormatIdentifier::try_from(byte).unwrap();
+                let back: u8 = mfi.into();
+                prop_assert_eq!(byte, back);
+            }
+        }
+    }
 }

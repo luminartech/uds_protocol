@@ -109,7 +109,7 @@ mod maybe_utoipa {
 
 /// Trait for types that can be used as identifiers (ie Data Identifiers and Routine Identifiers)
 ///
-/// Use the [`impl_identifier!`] macro to implement this trait for your types.
+/// Use the [`impl_identifier!`](crate::impl_identifier) macro to implement this trait for your types.
 pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bound {
     /// Returns a `Vec<Self>` from a reader that contains a list of Identifier values
     /// # Errors
@@ -126,7 +126,7 @@ pub trait Identifier: TryFrom<u16> + Into<u16> + Clone + Copy + maybe_serde::Bou
     }
 
     /// Intended to be used in a payload where the identifier is the first value and not a list of identifiers
-    /// IE `DataIdentifer` (DID) payloads and `RoutineIdentifier` (RID) payloads
+    /// IE `DataIdentifier` (DID) payloads and `RoutineIdentifier` (RID) payloads
     ///
     /// Returns the identifier, or None if the reader is empty
     ///

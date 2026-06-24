@@ -17,7 +17,7 @@ pub enum DiagnosticSessionType {
     ISOSAEReserved(u8),
     /// The `DefaultSession` (0x01) enables the standard diagnostic functionality
     /// - No `TesterPresent` messages are required to remain in this session
-    /// - Any other diagnostic sessions are stopped upon succesful entry into this session
+    /// - Any other diagnostic sessions are stopped upon successful entry into this session
     /// - Any security authorization is revoked
     /// - This session is initialized on startup
     DefaultSession,
@@ -76,6 +76,8 @@ impl TryFrom<u8> for DiagnosticSessionType {
 #[cfg(test)]
 mod test {
     use super::*;
+    use proptest::prelude::*;
+
     /// Check that we properly decode and encode hex bytes
     #[test]
     fn from_all_u8_values() {
@@ -136,5 +138,15 @@ mod test {
             u8::from(DiagnosticSessionType::SafetySystemDiagnosticSession),
             0x04
         );
+    }
+
+    proptest! {
+        #[test]
+        fn prop_diagnostic_session_type_roundtrip(byte in 0x00u8..=0x7E) {
+            // All values 0x00..=0x7E are valid; 0x80..=0xFF fail due to SPRMIB bit
+            let session = DiagnosticSessionType::try_from(byte).unwrap();
+            let back: u8 = session.into();
+            prop_assert_eq!(byte, back);
+        }
     }
 }

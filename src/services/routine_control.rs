@@ -63,7 +63,7 @@ impl<RoutineIdentifier: Identifier, RoutinePayload: IterableWireFormat> SingleVa
     for RoutineControlRequest<RoutineIdentifier, RoutinePayload>
 {
     fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
-        let sub_function = RoutineControlSubFunction::from(reader.read_u8()?);
+        let sub_function = RoutineControlSubFunction::try_from(reader.read_u8()?)?;
         let routine_id = RoutineIdentifier::decode(reader)?;
         let data = RoutinePayload::decode_next(reader)?;
         Ok(Self {
@@ -133,7 +133,7 @@ impl<RoutineStatusRecord: SingleValueWireFormat> SingleValueWireFormat
     for RoutineControlResponse<RoutineStatusRecord>
 {
     fn decode<T: Read>(reader: &mut T) -> Result<Self, Error> {
-        let routine_control_type = RoutineControlSubFunction::from(reader.read_u8()?);
+        let routine_control_type = RoutineControlSubFunction::try_from(reader.read_u8()?)?;
         // Reads the identifier, then can read 0 bytes, 1 byte, or more
         let routine_status_record = RoutineStatusRecord::decode(reader)?;
         Ok(Self {
