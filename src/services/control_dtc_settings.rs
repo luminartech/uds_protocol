@@ -32,7 +32,7 @@ impl TryFrom<u8> for DtcSettings {
         match value {
             0x01 => Ok(Self::On),
             0x02 => Ok(Self::Off),
-            _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
+            _ => Err(Error::InvalidDtcSetting(value)),
         }
     }
 }
@@ -155,6 +155,14 @@ mod request {
         assert_eq!(parsed.setting(), DtcSettings::On);
         assert!(parsed.suppress_positive_response());
         assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn invalid_setting_byte_carries_the_value() {
+        // An unrecognized setting must surface the offending byte, like every other
+        // service's Invalid<Service>Type error, not the generic length/format error.
+        let err = <ControlDTCSettingsRequest as Decode>::decode(&[0x09]).unwrap_err();
+        assert!(matches!(err, Error::InvalidDtcSetting(0x09)));
     }
 }
 
