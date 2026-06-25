@@ -8,9 +8,8 @@ mod suppressable_positive_response;
 pub(crate) use suppressable_positive_response::SuppressablePositiveResponse;
 
 mod format_identifiers;
-pub(crate) use format_identifiers::{
-    DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier,
-};
+pub use format_identifiers::DataFormatIdentifier;
+pub(crate) use format_identifiers::{LengthFormatIdentifier, MemoryFormatIdentifier};
 
 mod util;
 pub use util::{param_length_u16, param_length_u32, param_length_u64, param_length_u128};

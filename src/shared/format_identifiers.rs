@@ -108,6 +108,14 @@ pub struct DataFormatIdentifier {
 }
 
 impl DataFormatIdentifier {
+    /// Build a `DataFormatIdentifier` from its compression and encryption method nibbles.
+    ///
+    /// `0x00` for both means no compression and no encryption (the default). Both values
+    /// occupy a single nibble on the wire.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidEncryptionCompressionMethod`] if either value does not fit
+    /// in a nibble (i.e. is greater than `0x0F`).
     pub fn new(encryption_method: u8, compression_method: u8) -> Result<Self, Error> {
         Ok(Self {
             encryption_method: Self::check_value(encryption_method)?,

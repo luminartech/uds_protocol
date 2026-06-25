@@ -23,8 +23,8 @@ pub use dtc::{
 
 mod shared;
 pub use shared::{
-    NegativeResponseCode, UDSIdentifier, UDSRoutineIdentifier, param_length_u16, param_length_u32,
-    param_length_u64, param_length_u128,
+    DataFormatIdentifier, NegativeResponseCode, UDSIdentifier, UDSRoutineIdentifier,
+    param_length_u16, param_length_u32, param_length_u64, param_length_u128,
 };
 
 mod request;
@@ -189,6 +189,18 @@ mod no_std_api_tests {
             <WriteDataByIdentifierResponse as Decode>::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert!(remainder.is_empty());
+    }
+
+    #[test]
+    fn data_format_identifier_reachable_for_request_construction() {
+        // `DataFormatIdentifier` must be nameable from the crate root: it is a required
+        // argument to `RequestDownloadRequest::new` and appears in `RequestFileTransfer`
+        // request/response variants, so without a public path those are unconstructible.
+        let dfi = DataFormatIdentifier::new(0x00, 0x00).unwrap();
+        let req = RequestDownloadRequest::new(dfi, 0x1234, 0x10).unwrap();
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, req.encoded_size());
     }
 
     #[test]
