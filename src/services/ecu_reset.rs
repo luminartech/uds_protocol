@@ -181,7 +181,7 @@ pub struct EcuResetRequest {
 impl EcuResetRequest {
     /// Create a new '`EcuResetRequest`'
     #[must_use]
-    pub fn new(suppress_positive_response: bool, reset_type: ResetType) -> Self {
+    pub const fn new(suppress_positive_response: bool, reset_type: ResetType) -> Self {
         Self {
             reset_type: SuppressablePositiveResponse::new(suppress_positive_response, reset_type),
         }
@@ -244,7 +244,7 @@ pub struct EcuResetResponse {
 impl EcuResetResponse {
     /// Create a new '`EcuResetResponse`'
     #[must_use]
-    pub fn new(reset_type: ResetType, power_down_time: u8) -> Self {
+    pub const fn new(reset_type: ResetType, power_down_time: u8) -> Self {
         Self {
             reset_type,
             power_down_time,

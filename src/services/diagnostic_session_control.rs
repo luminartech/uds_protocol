@@ -169,7 +169,10 @@ pub struct DiagnosticSessionControlRequest {
 impl DiagnosticSessionControlRequest {
     /// Create a new `DiagnosticSessionControlRequest`
     #[must_use]
-    pub fn new(suppress_positive_response: bool, session_type: DiagnosticSessionType) -> Self {
+    pub const fn new(
+        suppress_positive_response: bool,
+        session_type: DiagnosticSessionType,
+    ) -> Self {
         Self {
             session_type: SuppressablePositiveResponse::new(
                 suppress_positive_response,
@@ -236,7 +239,7 @@ pub struct DiagnosticSessionControlResponse {
 impl DiagnosticSessionControlResponse {
     /// Create a new `DiagnosticSessionControlResponse`
     #[must_use]
-    pub fn new(
+    pub const fn new(
         session_type: DiagnosticSessionType,
         p2_server_max: u16,
         p2_star_server_max: u16,

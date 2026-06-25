@@ -24,7 +24,7 @@ pub struct ClearDiagnosticInfoRequest {
 impl ClearDiagnosticInfoRequest {
     /// Create a request to clear a specific DTC group from the given memory location.
     #[must_use]
-    pub fn new(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
+    pub const fn new(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
         Self {
             group_of_dtc,
             memory_selection,
@@ -33,7 +33,7 @@ impl ClearDiagnosticInfoRequest {
 
     /// Create a request to clear all DTCs from the given memory location.
     #[must_use]
-    pub fn clear_all(memory_selection: u8) -> Self {
+    pub const fn clear_all(memory_selection: u8) -> Self {
         Self {
             group_of_dtc: CLEAR_ALL_DTCS,
             memory_selection,

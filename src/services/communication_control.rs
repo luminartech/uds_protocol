@@ -412,7 +412,7 @@ pub struct CommunicationControlResponse {
 impl CommunicationControlResponse {
     /// Create a new `CommunicationControlResponse`.
     #[must_use]
-    pub fn new(control_type: CommunicationControlType) -> Self {
+    pub const fn new(control_type: CommunicationControlType) -> Self {
         Self { control_type }
     }
 }

@@ -49,7 +49,7 @@ pub struct ControlDTCSettingsRequest {
 impl ControlDTCSettingsRequest {
     /// Create a new `ControlDTCSettingsRequest`.
     #[must_use]
-    pub fn new(suppress_positive_response: bool, setting: DtcSettings) -> Self {
+    pub const fn new(suppress_positive_response: bool, setting: DtcSettings) -> Self {
         Self {
             setting: SuppressablePositiveResponse::new(suppress_positive_response, setting),
         }
@@ -106,7 +106,7 @@ pub struct ControlDTCSettingsResponse {
 impl ControlDTCSettingsResponse {
     /// Create a new `ControlDTCSettingsResponse`.
     #[must_use]
-    pub fn new(setting: DtcSettings) -> Self {
+    pub const fn new(setting: DtcSettings) -> Self {
         Self { setting }
     }
 }
