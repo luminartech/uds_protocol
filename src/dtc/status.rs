@@ -155,7 +155,6 @@ pub enum DTCFormatIdentifier {
     ISOSAEReserved(u8),
 }
 
-impl DTCFormatIdentifier {}
 impl From<u8> for DTCFormatIdentifier {
     fn from(value: u8) -> Self {
         match value {
@@ -472,21 +471,6 @@ impl<'a> Decode<'a> for DTCStoredDataRecordNumber {
         }
         Ok((Self::from(buf[0]), &buf[1..]))
     }
-}
-
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
-/// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).
-pub struct DTCSeverityRecord {
-    ///  The severity mask associated with the DTC, indicating the level of severity.
-    pub severity: DTCSeverityMask,
-    /// Identifier for the functional group associated with the DTC.
-    pub functional_group_identifier: FunctionalGroupIdentifier,
-    /// The actual DTC record containing diagnostic information.
-    pub dtc_record: DTCRecord,
-    ///  The status mask of the DTC, representing its current state.
-    pub dtc_status_mask: DTCStatusMask,
 }
 
 #[cfg(test)]

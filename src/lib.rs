@@ -17,8 +17,7 @@ pub use traits::{Decode, DecodeIter, Encode};
 mod dtc;
 pub use dtc::{
     CLEAR_ALL_DTCS, DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
-    DTCSeverityRecord, DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber,
-    FunctionalGroupIdentifier,
+    DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, FunctionalGroupIdentifier,
 };
 
 mod shared;
