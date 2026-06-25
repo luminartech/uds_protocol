@@ -1,7 +1,17 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
 use crate::shared::{DataFormatIdentifier, read_be_uint, write_be_uint};
-use crate::{Decode, Encode, Error};
+use crate::{Decode, Encode, Error, param_length_u128};
+
+/// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
+/// values. Used to derive the on-wire `parameterLength` prefix from the data itself,
+/// so the declared length can never disagree with the value it describes.
+fn size_param_width(a: u128, b: u128) -> usize {
+    let a = param_length_u128(a) as usize;
+    let b = param_length_u128(b) as usize;
+    let w = a.max(b);
+    w.max(1)
+}
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 /// Mode of operation for file transfer requests
@@ -79,17 +89,6 @@ impl TryFrom<u8> for FileOperationMode {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SizePayload {
-    /// Length in bytes for both `file_size_uncompressed` and `file_size_compressed`
-    ///
-    /// Not included in the *Request* message if `mode_of_operation` is one of:
-    ///  * `DeleteFile` (0x02)
-    ///  * `ReadFile` (0x04)
-    ///  * `ReadDir` (0x05)
-    ///
-    /// Not included in the *Response* message if `mode_of_operation` is one of:
-    ///    * `DeleteFile` (0x02)
-    pub file_size_parameter_length: u8,
-
     /// Specifies the size of the uncompressed file in bytes.
     ///
     /// Not included in the request message if `mode_of_operation` is one of:
@@ -105,6 +104,18 @@ pub struct SizePayload {
     ///     * `ReadFile` (0x04)
     ///     * `ReadDir` (0x05)
     pub file_size_compressed: u128,
+}
+
+impl SizePayload {
+    /// Build a size payload. The on-wire `fileSizeParameterLength` is derived from the
+    /// values themselves (the byte-width needed to hold the larger of the two).
+    #[must_use]
+    pub const fn new(file_size_uncompressed: u128, file_size_compressed: u128) -> Self {
+        Self {
+            file_size_uncompressed,
+            file_size_compressed,
+        }
+    }
 }
 
 /// Payload used for all [`RequestFileTransferRequest`] requests.
@@ -130,11 +141,23 @@ pub struct NamePayload<'a> {
     /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
     pub mode_of_operation: FileOperationMode,
 
-    /// Length in bytes of the `file_path_and_name` field
-    pub file_path_and_name_length: u16,
-
-    /// The path and name of the file or directory on the server
+    /// The path and name of the file or directory on the server.
+    ///
+    /// The on-wire length prefix is derived from this field during encoding, so it can
+    /// never disagree with the name it describes.
     pub file_path_and_name: &'a str,
+}
+
+impl<'a> NamePayload<'a> {
+    /// Build a name payload. The on-wire length prefix is computed from
+    /// `file_path_and_name` at encode time.
+    #[must_use]
+    pub const fn new(mode_of_operation: FileOperationMode, file_path_and_name: &'a str) -> Self {
+        Self {
+            mode_of_operation,
+            file_path_and_name,
+        }
+    }
 }
 
 /// A request to the server to transfer a file, either upload or download.
@@ -210,8 +233,6 @@ pub enum RequestFileTransferRequest<'a> {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SentDataPayload<'a> {
-    /// Not related to `RequestDownload`
-    pub length_format_identifier: u8,
     /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
     /// data bytes (maxNumberOfBlockLength) to include in each `TransferData` request message from the client or how
     /// many data bytes the server will include in a `TransferData` positive response when uploading data. This length
@@ -229,6 +250,17 @@ pub struct SentDataPayload<'a> {
     /// If the modeOfOperation parameter equals to 0x02 (`DeleteFile`) this parameter shall be not be included in the
     /// response message.
     pub max_number_of_block_length: &'a [u8],
+}
+
+impl<'a> SentDataPayload<'a> {
+    /// Build a sent-data payload. The on-wire `lengthFormatIdentifier` is derived from
+    /// the length of `max_number_of_block_length` at encode time.
+    #[must_use]
+    pub const fn new(max_number_of_block_length: &'a [u8]) -> Self {
+        Self {
+            max_number_of_block_length,
+        }
+    }
 }
 
 /// Used to inform the client of the size of the file to be transferred
@@ -249,12 +281,27 @@ pub struct SentDataPayload<'a> {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FileSizePayload {
-    /// Length in bytes of both `file_size_uncompressed` and `file_size_compressed`.
-    pub file_size_parameter_length: u16,
     /// Size of the uncompressed file in bytes.
     pub file_size_uncompressed: u128,
     /// Size of the compressed file in bytes.
     pub file_size_compressed: u128,
+}
+
+impl FileSizePayload {
+    /// Build a file-size payload. The on-wire `fileSizeOrDirInfoParameterLength` is
+    /// derived from the values (the byte-width needed to hold the larger of the two).
+    #[must_use]
+    pub const fn new(file_size_uncompressed: u128, file_size_compressed: u128) -> Self {
+        Self {
+            file_size_uncompressed,
+            file_size_compressed,
+        }
+    }
+
+    /// Byte-width of each size field on the wire, derived from the values.
+    fn width(&self) -> usize {
+        size_param_width(self.file_size_uncompressed, self.file_size_compressed)
+    }
 }
 
 /// Used to inform the client of the size of the directory to be transferred
@@ -274,10 +321,22 @@ pub struct FileSizePayload {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DirSizePayload {
-    /// Length in bytes of the `dir_info_length` field.
-    pub dir_info_parameter_length: u16,
     /// Total size of the directory information in bytes.
     pub dir_info_length: u128,
+}
+
+impl DirSizePayload {
+    /// Build a directory-size payload. The on-wire
+    /// `fileSizeOrDirInfoParameterLength` is derived from `dir_info_length`.
+    #[must_use]
+    pub const fn new(dir_info_length: u128) -> Self {
+        Self { dir_info_length }
+    }
+
+    /// Byte-width of the `dir_info_length` field on the wire, derived from the value.
+    fn width(&self) -> usize {
+        size_param_width(self.dir_info_length, 0)
+    }
 }
 
 /// Used to inform the client of the byte position within the file at which the Tester will resume downloading after an initial download is suspended
@@ -306,6 +365,14 @@ pub struct PositionPayload {
     /// Not included for [`AddFile`][FileOperationMode::AddFile], [`DeleteFile`][FileOperationMode::DeleteFile], [`ReplaceFile`][FileOperationMode::ReplaceFile], [`ReadFile`][FileOperationMode::ReadFile], or [`ReadDir`][FileOperationMode::ReadDir]
     /// Only present if `mode_of_operation` is [`ResumeFile`][FileOperationMode::ResumeFile] (for ISO 14229-1:2020)
     pub file_position: u64,
+}
+
+impl PositionPayload {
+    /// Build a position payload from the resume byte position (fixed 8 bytes on the wire).
+    #[must_use]
+    pub const fn new(file_position: u64) -> Self {
+        Self { file_position }
+    }
 }
 
 /// Response to a [`RequestFileTransferRequest`] from the server
@@ -364,15 +431,16 @@ impl Encode for NamePayload<'_> {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let name = self.file_path_and_name.as_bytes();
+        let name_len = u16::try_from(name.len())
+            .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
         writer
             .write_all(&[u8::from(self.mode_of_operation)])
             .map_err(Error::io)?;
         writer
-            .write_all(&self.file_path_and_name_length.to_be_bytes())
+            .write_all(&name_len.to_be_bytes())
             .map_err(Error::io)?;
-        writer
-            .write_all(self.file_path_and_name.as_bytes())
-            .map_err(Error::io)?;
+        writer.write_all(name).map_err(Error::io)?;
         Ok(self.encoded_size())
     }
 }
@@ -383,8 +451,7 @@ impl<'a> Decode<'a> for NamePayload<'a> {
             return Err(Error::InsufficientData(3));
         }
         let mode_of_operation = FileOperationMode::try_from(buf[0])?;
-        let file_path_and_name_length = u16::from_be_bytes([buf[1], buf[2]]);
-        let name_len = file_path_and_name_length as usize;
+        let name_len = u16::from_be_bytes([buf[1], buf[2]]) as usize;
         let total = 3 + name_len;
         if buf.len() < total {
             return Err(Error::InsufficientData(total));
@@ -394,7 +461,6 @@ impl<'a> Decode<'a> for NamePayload<'a> {
         Ok((
             Self {
                 mode_of_operation,
-                file_path_and_name_length,
                 file_path_and_name,
             },
             &buf[total..],
@@ -402,16 +468,22 @@ impl<'a> Decode<'a> for NamePayload<'a> {
     }
 }
 
+impl SizePayload {
+    /// Byte-width of each size field on the wire, derived from the values.
+    fn width(&self) -> usize {
+        size_param_width(self.file_size_uncompressed, self.file_size_compressed)
+    }
+}
+
 impl Encode for SizePayload {
     fn encoded_size(&self) -> usize {
-        1 + 2 * self.file_size_parameter_length as usize
+        1 + 2 * self.width()
     }
 
+    #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u8
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let n = self.file_size_parameter_length as usize;
-        writer
-            .write_all(&[self.file_size_parameter_length])
-            .map_err(Error::io)?;
+        let n = self.width();
+        writer.write_all(&[n as u8]).map_err(Error::io)?;
         write_be_uint(self.file_size_uncompressed, n, writer)?;
         write_be_uint(self.file_size_compressed, n, writer)?;
         Ok(self.encoded_size())
@@ -423,8 +495,7 @@ impl<'a> Decode<'a> for SizePayload {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        let file_size_parameter_length = buf[0];
-        let n = file_size_parameter_length as usize;
+        let n = buf[0] as usize;
         let total = 1 + 2 * n;
         if buf.len() < total {
             return Err(Error::InsufficientData(total));
@@ -433,7 +504,6 @@ impl<'a> Decode<'a> for SizePayload {
         let file_size_compressed = read_be_uint(&buf[1 + n..], n)?;
         Ok((
             Self {
-                file_size_parameter_length,
                 file_size_uncompressed,
                 file_size_compressed,
             },
@@ -448,9 +518,9 @@ impl Encode for SentDataPayload<'_> {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[self.length_format_identifier])
-            .map_err(Error::io)?;
+        let len = u8::try_from(self.max_number_of_block_length.len())
+            .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
+        writer.write_all(&[len]).map_err(Error::io)?;
         writer
             .write_all(self.max_number_of_block_length)
             .map_err(Error::io)?;
@@ -463,15 +533,13 @@ impl<'a> Decode<'a> for SentDataPayload<'a> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        let length_format_identifier = buf[0];
-        let n = length_format_identifier as usize;
+        let n = buf[0] as usize;
         let total = 1 + n;
         if buf.len() < total {
             return Err(Error::InsufficientData(total));
         }
         Ok((
             Self {
-                length_format_identifier,
                 max_number_of_block_length: &buf[1..total],
             },
             &buf[total..],
@@ -481,13 +549,14 @@ impl<'a> Decode<'a> for SentDataPayload<'a> {
 
 impl Encode for FileSizePayload {
     fn encoded_size(&self) -> usize {
-        2 + 2 * self.file_size_parameter_length as usize
+        2 + 2 * self.width()
     }
 
+    #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let n = self.file_size_parameter_length as usize;
+        let n = self.width();
         writer
-            .write_all(&self.file_size_parameter_length.to_be_bytes())
+            .write_all(&(n as u16).to_be_bytes())
             .map_err(Error::io)?;
         write_be_uint(self.file_size_uncompressed, n, writer)?;
         write_be_uint(self.file_size_compressed, n, writer)?;
@@ -500,8 +569,7 @@ impl<'a> Decode<'a> for FileSizePayload {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(2));
         }
-        let file_size_parameter_length = u16::from_be_bytes([buf[0], buf[1]]);
-        let n = file_size_parameter_length as usize;
+        let n = u16::from_be_bytes([buf[0], buf[1]]) as usize;
         let total = 2 + 2 * n;
         if buf.len() < total {
             return Err(Error::InsufficientData(total));
@@ -510,7 +578,6 @@ impl<'a> Decode<'a> for FileSizePayload {
         let file_size_compressed = read_be_uint(&buf[2 + n..], n)?;
         Ok((
             Self {
-                file_size_parameter_length,
                 file_size_uncompressed,
                 file_size_compressed,
             },
@@ -521,13 +588,14 @@ impl<'a> Decode<'a> for FileSizePayload {
 
 impl Encode for DirSizePayload {
     fn encoded_size(&self) -> usize {
-        2 + self.dir_info_parameter_length as usize
+        2 + self.width()
     }
 
+    #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let n = self.dir_info_parameter_length as usize;
+        let n = self.width();
         writer
-            .write_all(&self.dir_info_parameter_length.to_be_bytes())
+            .write_all(&(n as u16).to_be_bytes())
             .map_err(Error::io)?;
         write_be_uint(self.dir_info_length, n, writer)?;
         Ok(self.encoded_size())
@@ -539,20 +607,13 @@ impl<'a> Decode<'a> for DirSizePayload {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(2));
         }
-        let dir_info_parameter_length = u16::from_be_bytes([buf[0], buf[1]]);
-        let n = dir_info_parameter_length as usize;
+        let n = u16::from_be_bytes([buf[0], buf[1]]) as usize;
         let total = 2 + n;
         if buf.len() < total {
             return Err(Error::InsufficientData(total));
         }
         let dir_info_length = read_be_uint(&buf[2..], n)?;
-        Ok((
-            Self {
-                dir_info_parameter_length,
-                dir_info_length,
-            },
-            &buf[total..],
-        ))
+        Ok((Self { dir_info_length }, &buf[total..]))
     }
 }
 
@@ -777,11 +838,7 @@ mod request_tests {
     }
 
     fn name_payload(mode: FileOperationMode, path: &str) -> NamePayload<'_> {
-        NamePayload {
-            mode_of_operation: mode,
-            file_path_and_name_length: u16::try_from(path.len()).unwrap(),
-            file_path_and_name: path,
-        }
+        NamePayload::new(mode, path)
     }
 
     #[test]
@@ -799,11 +856,7 @@ mod request_tests {
 
     #[test]
     fn size_payload_roundtrip() {
-        let s = SizePayload {
-            file_size_parameter_length: 9,
-            file_size_uncompressed: u128::from(u64::MAX) + 1000,
-            file_size_compressed: 0x12_3456,
-        };
+        let s = SizePayload::new(u128::from(u64::MAX) + 1000, 0x12_3456);
         let mut buf = [0u8; 32];
         let written = Encode::encode(&s, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, s.encoded_size());
@@ -814,16 +867,32 @@ mod request_tests {
     }
 
     #[test]
+    fn size_payload_derives_minimal_width_from_data() {
+        // Small values must serialize with a 1-byte width derived from the data,
+        // not a caller-supplied length that could disagree with the value.
+        let s = SizePayload::new(0x12, 0x34);
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&s, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &[0x01, 0x12, 0x34]);
+    }
+
+    #[test]
+    fn name_payload_length_prefix_matches_name() {
+        // The 2-byte length prefix is always exactly the UTF-8 length of the name.
+        let n = NamePayload::new(FileOperationMode::DeleteFile, "abc");
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        // mode=0x02, length=0x0003, "abc"
+        assert_eq!(&buf[..written], &[0x02, 0x00, 0x03, b'a', b'b', b'c']);
+    }
+
+    #[test]
     fn add_file_request_roundtrip() {
         let path = "test.txt";
         let req = RequestFileTransferRequest::AddFile(
             name_payload(FileOperationMode::AddFile, path),
             DataFormatIdentifier::from(0x00),
-            SizePayload {
-                file_size_parameter_length: 2,
-                file_size_uncompressed: 0x1234,
-                file_size_compressed: 0x1234,
-            },
+            SizePayload::new(0x1234, 0x1234),
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
@@ -884,11 +953,7 @@ mod request_tests {
         let req = RequestFileTransferRequest::ResumeFile(
             name_payload(FileOperationMode::ResumeFile, path),
             DataFormatIdentifier::from(0x00),
-            SizePayload {
-                file_size_parameter_length: 4,
-                file_size_uncompressed: 0xDEAD_BEEF,
-                file_size_compressed: 0xDEAD_BEEF,
-            },
+            SizePayload::new(0xDEAD_BEEF, 0xDEAD_BEEF),
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
@@ -904,10 +969,7 @@ mod response_tests {
     use crate::test_util::assert_encode_size_agrees;
 
     fn sent_data(block: &[u8]) -> SentDataPayload<'_> {
-        SentDataPayload {
-            length_format_identifier: u8::try_from(block.len()).unwrap(),
-            max_number_of_block_length: block,
-        }
+        SentDataPayload::new(block)
     }
 
     #[test]
@@ -945,11 +1007,7 @@ mod response_tests {
             FileOperationMode::ReadFile,
             sent_data(&block),
             DataFormatIdentifier::from(0x00),
-            FileSizePayload {
-                file_size_parameter_length: 4,
-                file_size_uncompressed: 0xAABB_CCDD,
-                file_size_compressed: 0x1122_3344,
-            },
+            FileSizePayload::new(0xAABB_CCDD, 0x1122_3344),
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
@@ -965,10 +1023,7 @@ mod response_tests {
             FileOperationMode::ReadDir,
             sent_data(&block),
             DataFormatIdentifier::from(0x00),
-            DirSizePayload {
-                dir_info_parameter_length: 4,
-                dir_info_length: 0x1234_5678,
-            },
+            DirSizePayload::new(0x1234_5678),
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();

@@ -138,17 +138,19 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
 /// Positive response to a [`RequestDownloadRequest`] indicating the server is ready to receive data.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RequestDownloadResponse<'d> {
-    length_format_identifier: LengthFormatIdentifier,
     /// Maximum number of bytes per [`TransferDataRequest`](crate::TransferDataRequest).
+    ///
+    /// The on-wire `lengthFormatIdentifier` nibble is derived from this slice's length
+    /// at encode time, so the declared length can never disagree with the bytes present.
     pub max_number_of_block_length: &'d [u8],
 }
 
 impl<'d> RequestDownloadResponse<'d> {
-    /// Create a new request download response from a raw format byte and block length.
+    /// Create a new request download response. The `lengthFormatIdentifier` is derived
+    /// from `max_number_of_block_length` during encoding.
     #[must_use]
-    pub fn new(length_format_byte: u8, max_number_of_block_length: &'d [u8]) -> Self {
+    pub const fn new(max_number_of_block_length: &'d [u8]) -> Self {
         Self {
-            length_format_identifier: LengthFormatIdentifier::from(length_format_byte),
             max_number_of_block_length,
         }
     }
@@ -160,8 +162,17 @@ impl Encode for RequestDownloadResponse<'_> {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        // The block-length field width is carried in a single nibble, so the slice
+        // can be at most 0x0F bytes long.
+        let nibble = u8::try_from(self.max_number_of_block_length.len())
+            .ok()
+            .filter(|n| *n <= 0x0F)
+            .ok_or(Error::IncorrectMessageLengthOrInvalidFormat)?;
+        let length_format_identifier = LengthFormatIdentifier {
+            max_number_of_block_length: nibble,
+        };
         writer
-            .write_all(&[self.length_format_identifier.into()])
+            .write_all(&[length_format_identifier.into()])
             .map_err(Error::io)?;
         writer
             .write_all(self.max_number_of_block_length)
@@ -183,7 +194,6 @@ impl<'a> Decode<'a> for RequestDownloadResponse<'a> {
         }
         Ok((
             Self {
-                length_format_identifier,
                 max_number_of_block_length: &buf[1..total],
             },
             &buf[total..],
@@ -289,7 +299,7 @@ mod tests {
     #[test]
     fn response_encode_size_agrees() {
         let block = [0x10u8, 0x00, 0x00];
-        let resp = RequestDownloadResponse::new(0x30, &block);
+        let resp = RequestDownloadResponse::new(&block);
         assert_encode_size_agrees(&resp);
     }
 }
