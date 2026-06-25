@@ -161,6 +161,7 @@ const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct DiagnosticSessionControlRequest {
     session_type: SuppressablePositiveResponse<DiagnosticSessionType>,
 }

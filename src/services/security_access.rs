@@ -179,6 +179,7 @@ const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
 ///
 /// Zero-alloc request for security access. Borrows from the caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct SecurityAccessRequest<'d> {
     access_type: SuppressablePositiveResponse<SecurityAccessType>,
     request_data: &'d [u8],
@@ -255,6 +256,7 @@ impl<'a> Decode<'a> for SecurityAccessRequest<'a> {
 
 /// Zero-alloc response for security access. Borrows from the caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct SecurityAccessResponse<'d> {
     /// The security access type echoed from the request.
     pub access_type: SecurityAccessType,
