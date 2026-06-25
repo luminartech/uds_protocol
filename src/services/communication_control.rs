@@ -265,10 +265,8 @@ const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] =
 #[non_exhaustive]
 pub struct CommunicationControlRequest {
     control_type: SuppressablePositiveResponse<CommunicationControlType>,
-    /// The communication type to apply the control to.
-    pub communication_type: CommunicationType,
-    /// Optional node identifier, present only for enhanced-address variants.
-    pub node_id: Option<u16>,
+    communication_type: CommunicationType,
+    node_id: Option<u16>,
 }
 
 impl CommunicationControlRequest {
@@ -335,6 +333,18 @@ impl CommunicationControlRequest {
     #[must_use]
     pub fn control_type(&self) -> CommunicationControlType {
         self.control_type.value()
+    }
+
+    /// The [`CommunicationType`] the control applies to.
+    #[must_use]
+    pub const fn communication_type(&self) -> CommunicationType {
+        self.communication_type
+    }
+
+    /// The node identifier, present only for enhanced-address control types.
+    #[must_use]
+    pub const fn node_id(&self) -> Option<u16> {
+        self.node_id
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
@@ -456,8 +466,8 @@ mod request {
             req.control_type(),
             CommunicationControlType::EnableRxAndDisableTx
         );
-        assert_eq!(req.communication_type, CommunicationType::NetworkManagement);
-        assert_eq!(req.node_id, None);
+        assert_eq!(req.communication_type(), CommunicationType::NetworkManagement);
+        assert_eq!(req.node_id(), None);
 
         let mut buffer = Vec::new();
         let written = Encode::encode(&req, &mut buffer).unwrap();
@@ -475,8 +485,8 @@ mod request {
             req.control_type(),
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
         );
-        assert_eq!(req.communication_type, CommunicationType::NetworkManagement);
-        assert_eq!(req.node_id, Some(258));
+        assert_eq!(req.communication_type(), CommunicationType::NetworkManagement);
+        assert_eq!(req.node_id(), Some(258));
 
         let mut buffer = Vec::new();
         let written = Encode::encode(&req, &mut buffer).unwrap();
@@ -494,7 +504,7 @@ mod request {
             258,
         )
         .unwrap();
-        assert_eq!(req.node_id, Some(258));
+        assert_eq!(req.node_id(), Some(258));
         assert!(req.suppress_positive_response());
     }
 

@@ -31,13 +31,12 @@ pub struct RequestDownloadRequest {
     data_format_identifier: DataFormatIdentifier,
     /// 7-4: length (# of bytes) of `memory_size` param, 3-0: length (# of bytes) of `memory_address` param
     address_and_length_format_identifier: MemoryFormatIdentifier,
-    /// Starting address of the server memory. Size is determined by `address_and_length_format_identifier`
-    /// Has a variable number of bytes, max of 5
-    pub memory_address: u64,
-    /// Size of the data to be downloaded. Number of bytes sent is determined by `address_and_length_format_identifier`
-    /// Used by the server to validate the data transferred by the [`TransferDataRequest`](crate::TransferDataRequest) service
-    /// Has a variable number of bytes, max of 4
-    pub memory_size: u32,
+    /// Starting address of the server memory. The on-wire byte width is derived from this
+    /// value (max 5 bytes), so it is private to keep it in sync with the format identifier.
+    memory_address: u64,
+    /// Size of the data to be downloaded. The on-wire byte width is derived from this value
+    /// (max 4 bytes), so it is private to keep it in sync with the format identifier.
+    memory_size: u32,
 }
 
 impl RequestDownloadRequest {
@@ -71,6 +70,18 @@ impl RequestDownloadRequest {
             memory_address,
             memory_size,
         })
+    }
+
+    /// Starting address of the server memory.
+    #[must_use]
+    pub const fn memory_address(&self) -> u64 {
+        self.memory_address
+    }
+
+    /// Size of the data to be downloaded.
+    #[must_use]
+    pub const fn memory_size(&self) -> u32 {
+        self.memory_size
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
@@ -230,8 +241,8 @@ mod tests {
             4
         );
 
-        assert_eq!(req.memory_address, 0xF0FF_FF67);
-        assert_eq!(req.memory_size, 0x0A);
+        assert_eq!(req.memory_address(), 0xF0FF_FF67);
+        assert_eq!(req.memory_size(), 0x0A);
     }
 
     #[test]
@@ -280,8 +291,8 @@ mod tests {
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         let (decoded, _) = <RequestDownloadRequest as Decode>::decode(&buf[..written]).unwrap();
-        assert_eq!(decoded.memory_address, 0);
-        assert_eq!(decoded.memory_size, 0);
+        assert_eq!(decoded.memory_address(), 0);
+        assert_eq!(decoded.memory_size(), 0);
     }
 
     #[cfg(feature = "alloc")]

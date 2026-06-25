@@ -18,8 +18,11 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct WriteDataByIdentifierRequest<'d> {
-    identifier: u16,
-    data: &'d [u8],
+    /// The 2-byte big-endian Data Identifier (DID) being written. Any `u16` is valid;
+    /// the big-endian encoding is handled on the wire.
+    pub identifier: u16,
+    /// The opaque data record written after the identifier.
+    pub data: &'d [u8],
 }
 
 impl<'d> WriteDataByIdentifierRequest<'d> {
@@ -27,18 +30,6 @@ impl<'d> WriteDataByIdentifierRequest<'d> {
     #[must_use]
     pub const fn new(identifier: u16, data: &'d [u8]) -> Self {
         Self { identifier, data }
-    }
-
-    /// The Data Identifier being written.
-    #[must_use]
-    pub const fn identifier(&self) -> u16 {
-        self.identifier
-    }
-
-    /// The opaque data record to write.
-    #[must_use]
-    pub const fn data(&self) -> &[u8] {
-        self.data
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request.
@@ -160,16 +151,16 @@ mod test {
         assert_eq!(&buf[..n], &[0xF1, 0x90, 0x01, 0x02, 0x03]);
         let (decoded, rest) = <WriteDataByIdentifierRequest as Decode>::decode(&buf[..n]).unwrap();
         assert!(rest.is_empty());
-        assert_eq!(decoded.identifier(), 0xF190);
-        assert_eq!(decoded.data(), &[0x01, 0x02, 0x03]);
+        assert_eq!(decoded.identifier, 0xF190);
+        assert_eq!(decoded.data, &[0x01, 0x02, 0x03]);
         assert_encode_size_agrees(&req);
     }
 
     #[test]
     fn wdbi_request_allows_empty_data() {
         let (decoded, _) = <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1, 0x90]).unwrap();
-        assert_eq!(decoded.identifier(), 0xF190);
-        assert!(decoded.data().is_empty());
+        assert_eq!(decoded.identifier, 0xF190);
+        assert!(decoded.data.is_empty());
     }
 
     #[test]
