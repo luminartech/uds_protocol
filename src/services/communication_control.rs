@@ -274,45 +274,55 @@ pub struct CommunicationControlRequest {
 impl CommunicationControlRequest {
     /// Create a `CommunicationControlRequest` with standard address information.
     ///
-    /// # Panics
-    /// Panics (debug) if an extended-address control type is passed.
-    #[must_use]
+    /// # Errors
+    /// Returns [`Error::InvalidCommunicationControlType`] if `control_type` is an
+    /// enhanced-address variant — those require a node identifier and must be built
+    /// with [`new_with_node_id`](Self::new_with_node_id).
     pub fn new(
         suppress_positive_response: bool,
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
-    ) -> Self {
-        debug_assert!(!control_type.is_extended_address_variant());
-        Self {
+    ) -> Result<Self, Error> {
+        if control_type.is_extended_address_variant() {
+            return Err(Error::InvalidCommunicationControlType(u8::from(
+                control_type,
+            )));
+        }
+        Ok(Self {
             control_type: SuppressablePositiveResponse::new(
                 suppress_positive_response,
                 control_type,
             ),
             communication_type,
             node_id: None,
-        }
+        })
     }
 
     /// Create a `CommunicationControlRequest` with enhanced address information.
     ///
-    /// # Panics
-    /// Panics if a non-extended control type is passed.
-    #[must_use]
+    /// # Errors
+    /// Returns [`Error::InvalidCommunicationControlType`] if `control_type` is not an
+    /// enhanced-address variant — a node identifier is only carried by the
+    /// `*WithEnhancedAddressInfo` variants.
     pub fn new_with_node_id(
         suppress_positive_response: bool,
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
         node_id: u16,
-    ) -> Self {
-        assert!(control_type.is_extended_address_variant());
-        Self {
+    ) -> Result<Self, Error> {
+        if !control_type.is_extended_address_variant() {
+            return Err(Error::InvalidCommunicationControlType(u8::from(
+                control_type,
+            )));
+        }
+        Ok(Self {
             control_type: SuppressablePositiveResponse::new(
                 suppress_positive_response,
                 control_type,
             ),
             communication_type,
             node_id: Some(node_id),
-        }
+        })
     }
 
     /// Getter for whether a positive response should be suppressed
@@ -482,20 +492,52 @@ mod request {
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo,
             CommunicationType::NetworkManagement,
             258,
-        );
+        )
+        .unwrap();
         assert_eq!(req.node_id, Some(258));
         assert!(req.suppress_positive_response());
     }
+
     #[test]
     fn new_extra() {
         let req = CommunicationControlRequest::new(
             false,
             CommunicationControlType::EnableRxAndDisableTx,
             CommunicationType::NetworkManagement,
-        );
+        )
+        .unwrap();
         assert!(!req.suppress_positive_response());
 
         assert_eq!(CommunicationControlRequest::allowed_nack_codes().len(), 4);
+    }
+
+    #[test]
+    fn new_rejects_enhanced_address_variant() {
+        // An enhanced-address control type has no node id via `new`; it must error
+        // rather than silently encode a frame missing the mandatory node identifier.
+        let result = CommunicationControlRequest::new(
+            false,
+            CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo,
+            CommunicationType::NetworkManagement,
+        );
+        assert!(matches!(
+            result,
+            Err(Error::InvalidCommunicationControlType(0x05))
+        ));
+    }
+
+    #[test]
+    fn new_with_node_id_rejects_standard_variant() {
+        let result = CommunicationControlRequest::new_with_node_id(
+            false,
+            CommunicationControlType::EnableRxAndDisableTx,
+            CommunicationType::NetworkManagement,
+            258,
+        );
+        assert!(matches!(
+            result,
+            Err(Error::InvalidCommunicationControlType(0x01))
+        ));
     }
 }
 
