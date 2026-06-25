@@ -25,7 +25,15 @@ pub enum Response<'a> {
     EcuReset(EcuResetResponse),
     /// Negative response to any request.
     NegativeResponse(NegativeResponse),
-    /// Positive response to `ReadDataByIdentifier`. Raw payload bytes.
+    /// Positive response to `ReadDataByIdentifier`: raw `[DID][data record]…` bytes.
+    ///
+    /// Unlike the request (a self-delimiting list of 2-byte DIDs, parsed by
+    /// [`ReadDataByIdentifierRequest::dids`](crate::ReadDataByIdentifierRequest::dids)),
+    /// this response is left opaque **by design**: each data record's length is defined by
+    /// the ECU's configuration for that DID and is *not* present on the wire, so the library
+    /// cannot split it into `(DID, value)` pairs. Parse it caller-side once you know each
+    /// DID's record length — read the 2-byte big-endian DID, take the application-defined
+    /// number of data bytes, then repeat on the remainder.
     ReadDataByIdentifier(&'a [u8]),
     /// Positive response to `ReadDTCInformation` with lazy iterators.
     ReadDTCInfo(ReadDTCInfoResponse<'a>),
