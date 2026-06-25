@@ -147,7 +147,7 @@ impl<'a> Decode<'a> for RoutineControlRequest<'a> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlResponse<'d> {
-    routine_control_type: RoutineControlSubFunction,
+    sub_function: RoutineControlSubFunction,
     routine_id: u16,
     status_record: &'d [u8],
 }
@@ -156,21 +156,21 @@ impl<'d> RoutineControlResponse<'d> {
     /// Create a new `RoutineControlResponse`.
     #[must_use]
     pub const fn new(
-        routine_control_type: RoutineControlSubFunction,
+        sub_function: RoutineControlSubFunction,
         routine_id: u16,
         status_record: &'d [u8],
     ) -> Self {
         Self {
-            routine_control_type,
+            sub_function,
             routine_id,
             status_record,
         }
     }
 
-    /// The routine control type echoed from the request.
+    /// The routine control operation echoed from the request (start, stop, or request results).
     #[must_use]
-    pub const fn routine_control_type(&self) -> RoutineControlSubFunction {
-        self.routine_control_type
+    pub const fn sub_function(&self) -> RoutineControlSubFunction {
+        self.sub_function
     }
 
     /// The 16-bit routine identifier echoed from the request.
@@ -193,7 +193,7 @@ impl Encode for RoutineControlResponse<'_> {
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
-            .write_all(&[u8::from(self.routine_control_type)])
+            .write_all(&[u8::from(self.sub_function)])
             .map_err(Error::io)?;
         writer
             .write_all(&self.routine_id.to_be_bytes())
@@ -209,11 +209,11 @@ impl<'a> Decode<'a> for RoutineControlResponse<'a> {
             return Err(Error::InsufficientData(3));
         }
         // Plain try_from (no SPRMIB mask): a set 0x80 bit on a response is malformed.
-        let routine_control_type = RoutineControlSubFunction::try_from(buf[0])?;
+        let sub_function = RoutineControlSubFunction::try_from(buf[0])?;
         let routine_id = u16::from_be_bytes([buf[1], buf[2]]);
         Ok((
             Self {
-                routine_control_type,
+                sub_function,
                 routine_id,
                 status_record: &buf[3..],
             },
@@ -262,7 +262,7 @@ mod test {
         assert_eq!(&buf[..n], &[0x01, 0xFF, 0x00, 0x10]);
         let (d, _) = <RoutineControlResponse as Decode>::decode(&buf[..n]).unwrap();
         assert_eq!(
-            d.routine_control_type(),
+            d.sub_function(),
             RoutineControlSubFunction::StartRoutine
         );
         assert_eq!(d.routine_id(), 0xFF00);
