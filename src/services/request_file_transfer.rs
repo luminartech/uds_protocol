@@ -432,8 +432,8 @@ impl Encode for NamePayload<'_> {
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let name = self.file_path_and_name.as_bytes();
-        let name_len = u16::try_from(name.len())
-            .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
+        let name_len =
+            u16::try_from(name.len()).map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
         writer
             .write_all(&[u8::from(self.mode_of_operation)])
             .map_err(Error::io)?;

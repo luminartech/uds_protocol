@@ -261,10 +261,7 @@ mod test {
         let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..n], &[0x01, 0xFF, 0x00, 0x10]);
         let (d, _) = <RoutineControlResponse as Decode>::decode(&buf[..n]).unwrap();
-        assert_eq!(
-            d.sub_function(),
-            RoutineControlSubFunction::StartRoutine
-        );
+        assert_eq!(d.sub_function(), RoutineControlSubFunction::StartRoutine);
         assert_eq!(d.routine_id(), 0xFF00);
         // A response with the SPRMIB bit set (0x81) is malformed and rejected.
         assert!(<RoutineControlResponse as Decode>::decode(&[0x81, 0xFF, 0x00]).is_err());

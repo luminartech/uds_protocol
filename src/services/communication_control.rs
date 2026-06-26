@@ -466,7 +466,10 @@ mod request {
             req.control_type(),
             CommunicationControlType::EnableRxAndDisableTx
         );
-        assert_eq!(req.communication_type(), CommunicationType::NetworkManagement);
+        assert_eq!(
+            req.communication_type(),
+            CommunicationType::NetworkManagement
+        );
         assert_eq!(req.node_id(), None);
 
         let mut buffer = Vec::new();
@@ -485,7 +488,10 @@ mod request {
             req.control_type(),
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo
         );
-        assert_eq!(req.communication_type(), CommunicationType::NetworkManagement);
+        assert_eq!(
+            req.communication_type(),
+            CommunicationType::NetworkManagement
+        );
         assert_eq!(req.node_id(), Some(258));
 
         let mut buffer = Vec::new();
