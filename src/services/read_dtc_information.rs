@@ -533,10 +533,10 @@ impl<'a> DtcAndStatusIter<'a> {
         self.remaining.len() / 4
     }
 
-    /// Whether there are no records.
+    /// Whether there are no complete records.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.remaining.is_empty()
+        self.len() == 0
     }
 
     /// Collect all records into a `Vec`.
@@ -579,6 +579,18 @@ impl<'a> DtcFaultDetectionIter<'a> {
     #[must_use]
     pub const fn new(data: &'a [u8]) -> Self {
         Self { remaining: data }
+    }
+
+    /// Number of complete records available.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.remaining.len() / 4
+    }
+
+    /// Whether there are no complete records.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Collect all records into a `Vec`.
@@ -624,6 +636,18 @@ impl<'a> DtcSeverityAndStatusIter<'a> {
     #[must_use]
     pub const fn new(data: &'a [u8]) -> Self {
         Self { remaining: data }
+    }
+
+    /// Number of complete records available.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.remaining.len() / 5
+    }
+
+    /// Whether there are no complete records.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Collect all triples into a `Vec`.
@@ -901,5 +925,37 @@ impl Encode for ReadDTCInfoResponse<'_> {
             }
         }
         Ok(self.encoded_size())
+    }
+}
+
+#[cfg(test)]
+mod iter_tests {
+    use super::*;
+
+    #[test]
+    fn len_counts_complete_records_and_is_empty_agrees() {
+        // 4-byte records; a trailing partial (5 bytes = 1 complete + 1 partial byte)
+        // counts as one complete record and is surfaced during iteration as an error.
+        let one_and_partial = [0x01, 0x02, 0x03, 0x0A, 0xFF];
+        let iter = DtcAndStatusIter::new(&one_and_partial);
+        assert_eq!(iter.len(), 1);
+        assert!(!iter.is_empty());
+
+        // A buffer shorter than one record has zero complete records, and is_empty()
+        // agrees with len() == 0 (the previous bug reported is_empty() == false here).
+        let partial_only = [0x01, 0x02, 0x03];
+        let iter = DtcAndStatusIter::new(&partial_only);
+        assert_eq!(iter.len(), 0);
+        assert!(iter.is_empty());
+    }
+
+    #[test]
+    fn all_three_iterators_expose_consistent_len() {
+        // 4-byte fault-detection records.
+        assert_eq!(DtcFaultDetectionIter::new(&[0u8; 8]).len(), 2);
+        assert!(DtcFaultDetectionIter::new(&[0u8; 3]).is_empty());
+        // 5-byte severity/DTC/status records.
+        assert_eq!(DtcSeverityAndStatusIter::new(&[0u8; 10]).len(), 2);
+        assert!(DtcSeverityAndStatusIter::new(&[0u8; 4]).is_empty());
     }
 }
