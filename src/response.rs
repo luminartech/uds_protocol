@@ -131,7 +131,7 @@ impl Response<'_> {
     /// The [`UdsServiceType`] this response frame addresses.
     ///
     /// For `NegativeResponse` this returns [`UdsServiceType::NegativeResponse`] (the frame's
-    /// own type); the *failed* request service is `NegativeResponse.request_service`.
+    /// own type); the *failed* request service is `NegativeResponse::request_service()`.
     #[must_use]
     pub fn service(&self) -> UdsServiceType {
         match self {
