@@ -18,7 +18,9 @@ pub enum DTCSnapshotRecordNumber {
 }
 
 impl DTCSnapshotRecordNumber {
-    /// Create a new `DTCSnapshotRecordNumber` validating that it is in the range we expect
+    /// Create a `DTCSnapshotRecordNumber`, classifying the raw byte into `Reserved`
+    /// (`0x00`/`0xF0`), `All` (`0xFF`), or `Number`. Every byte is accepted (decoding is
+    /// deliberately liberal); no value is rejected.
     #[must_use]
     pub fn new(record_number: u8) -> Self {
         match record_number {

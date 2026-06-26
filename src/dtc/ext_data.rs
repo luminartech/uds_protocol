@@ -1,7 +1,7 @@
 use crate::{Decode, Encode, Error};
 
 /// The `DTCExtDataRecordNumber` is used in the request message to get a stored `DTCExtDataRecord`
-/// Its used to specify the type of `DTCExtDataRecord` to be reported.
+/// It's used to specify the type of `DTCExtDataRecord` to be reported.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -9,7 +9,7 @@ pub enum DTCExtDataRecordNumber {
     /// ISO/SAE reserved record numbers (`0x00`, `0xF0-0xFD`).
     ISOSAEReserved(u8),
 
-    /// Vehicle manufactured specific stored `DTCExtDataRecord`s
+    /// Vehicle manufacturer-specific stored `DTCExtDataRecord`s
     ///
     /// 0x01-0x8F
     VehicleManufacturer(u8),

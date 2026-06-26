@@ -11,10 +11,14 @@ use crate::Encode;
 pub(crate) fn assert_encode_size_agrees<T: Encode>(value: &T) {
     let mut buf = [0u8; 512];
     let cap = buf.len();
+    let size = value.encoded_size();
+    assert!(
+        size <= cap,
+        "test helper buffer too small: encoded_size() is {size}, buffer is {cap}"
+    );
     let mut writer: &mut [u8] = &mut buf;
     let written = value.encode(&mut writer).unwrap();
     let consumed = cap - writer.len();
-    let size = value.encoded_size();
     assert_eq!(
         written, size,
         "encode returned {written}, encoded_size() is {size}"

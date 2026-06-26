@@ -1,4 +1,6 @@
-//! Compute the number of bytes needed to represent a value using core
+//! Variable-width big-endian integer helpers ([`read_be_uint`]/[`write_be_uint`]) and the
+//! `param_length_*` functions that compute the minimum number of bytes needed to represent
+//! a value — all `core`-only (no `std`/`alloc`).
 use crate::Error;
 
 /// Maximum width of a big-endian unsigned integer this codec handles.
