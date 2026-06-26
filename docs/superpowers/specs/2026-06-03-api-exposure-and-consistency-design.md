@@ -54,19 +54,19 @@ Each commit builds and tests green on its own across the CI matrix.
 1. **Explicit crate-root re-exports.** Replace `pub use services::*;` and
    `pub use common::*;` in `src/lib.rs` with explicit named re-exports. No type changes;
    pure surface tightening. Verify nothing public is dropped or newly hidden.
-2. **`Encode` for the 1-byte DTC parameter types** currently lacking it:
+1. **`Encode` for the 1-byte DTC parameter types** currently lacking it:
    `DTCSeverityMask`, `FunctionalGroupIdentifier`, `DTCSnapshotRecordNumber`,
    `DTCExtDataRecordNumber`, `DTCStoredDataRecordNumber`. (`DTCStatusMask` and
    `DTCRecord` already implement `Encode`.) Each is a small, faithful 1-byte/3-byte
    spec encoder with `assert_encode_size_agrees` coverage.
-3. **`Encode` + `encoded_size` for `ReadDTCInfoRequest`** over all 25
+1. **`Encode` + `encoded_size` for `ReadDTCInfoRequest`** over all 25
    `ReadDTCInfoSubFunction` variants: write the sub-function byte, then encode each
    variant's typed parameters (now that they all implement `Encode`). Add encode tests
    with `assert_encode_size_agrees` for representative variants (no-param,
    single-param, multi-param, `ISOSAEReserved`).
-4. **`Decode` for `WriteDataByIdentifierResponse`** (2-byte big-endian `u16`), with a
+1. **`Decode` for `WriteDataByIdentifierResponse`** (2-byte big-endian `u16`), with a
    round-trip test.
-5. **Usage / round-trip tests for the TX builders** so none is dead:
+1. **Usage / round-trip tests for the TX builders** so none is dead:
    `ReadDataByIdentifierRequestTx`, `WriteDataByIdentifierRequestTx`,
    `RoutineControlRequestTx`, `RoutineControlResponseTx`. Confirms each is constructible
    and encodes to the expected wire bytes.
@@ -93,19 +93,19 @@ re-parse-to-raw migration.
    yet carry the TX-only `...Tx` suffix. They are really *bidirectional borrowed* types,
    a case Decision 4 never named. Ruling needed: rename to `...Rx`, keep `...Tx`, or
    define a bidirectional/no-suffix convention.
-2. **Typed-vs-raw RX symmetry (the core fork).** The enums are inconsistent:
+1. **Typed-vs-raw RX symmetry (the core fork).** The enums are inconsistent:
    `SecurityAccess` / `TransferData` / `RequestFileTransfer` / `RequestDownload` wrap a
    typed descriptor, while `ReadDataByIdentifier` / `WriteDataByIdentifier` /
    `ReadDTCInfo` / `RoutineControl` hand back raw `&[u8]` or decomposed
    `{ sub_function: u8, raw_payload }`. Decide whether decode should produce the typed
    descriptors (symmetric, round-trippable) or whether the raw holdouts should be
    normalized further toward raw. This is the inconsistency the code review flagged.
-3. **Dedup the variable-length integer codec.** The
+1. **Dedup the variable-length integer codec.** The
    `[0u8; N]` + `copy_from_slice` + `from_be_bytes` pattern (and its `to_be_bytes`
    encode twin) is duplicated across `SizePayload`, `FileSizePayload`, `DirSizePayload`
    (`request_file_transfer.rs`) and `RequestDownloadRequest` (`request_download.rs`).
    Extract a shared `read_var_be_uint` / `write_var_be_uint` helper.
-4. **Merge the duplicated primitive macros.** `unsigned_primitive_encode_decode!` and
+1. **Merge the duplicated primitive macros.** `unsigned_primitive_encode_decode!` and
    `signed_primitive_encode_decode!` in `primitive_generics.rs` have byte-for-byte
    identical bodies; collapse to one macro.
 

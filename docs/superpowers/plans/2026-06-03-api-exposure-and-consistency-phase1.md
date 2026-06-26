@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-03-api-exposure-and-consistency-design.md`
 
----
+______________________________________________________________________
 
 ## Conventions for every task
 
@@ -23,13 +23,14 @@
   ```
 - Do **not** touch `Request`/`Response` enum variant shapes anywhere in this plan.
 
----
+______________________________________________________________________
 
 ## Task 1: De-glob the crate-root re-exports
 
 Replace the two wildcard re-exports in `src/lib.rs` with explicit named lists so the public surface is intentional and individually documented. The compiler is the safety net: every internal module imports common/service types via `crate::…`, so a missing name fails the build.
 
 **Files:**
+
 - Modify: `src/lib.rs:18` (`pub use common::*;`) and `src/lib.rs:30` (`pub use services::*;`)
 
 - [ ] **Step 1: Replace `pub use common::*;`**
@@ -83,15 +84,18 @@ git add src/lib.rs
 git commit -m "$(printf 'make crate-root re-exports explicit (drop glob re-exports)\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 2: `Encode` for the five DTC parameter types
 
 `ReadDTCInfoSubFunction` (Task 3) encodes its parameters by delegating to each parameter type's own `Encode`. `DTCStatusMask` and `DTCRecord` already implement `Encode`; these five do not yet. Each is a 1-byte value. This task also fixes a latent `todo!()` panic in `FunctionalGroupIdentifier::value()`.
 
 **Files:**
+
 - Modify: `src/common/dtc_snapshot.rs` (add `use` + `Encode` for `DTCSnapshotRecordNumber`)
+
 - Modify: `src/common/dtc_ext_data.rs` (add `use` + `Encode` for `DTCExtDataRecordNumber`)
+
 - Modify: `src/common/dtc_status.rs` (`Encode` for `DTCStoredDataRecordNumber`, `DTCSeverityMask`, `FunctionalGroupIdentifier`; fix `FunctionalGroupIdentifier::value()`)
 
 - [ ] **Step 1: Write failing tests for all five `Encode` impls**
@@ -291,13 +295,14 @@ git add src/common/dtc_snapshot.rs src/common/dtc_ext_data.rs src/common/dtc_sta
 git commit -m "$(printf 'add Encode to DTC parameter types; fix FunctionalGroupIdentifier::value panic\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 3: `Encode` for `ReadDTCInfoSubFunction` and `ReadDTCInfoRequest`
 
 Give the 25-variant `ReadDTCInfoSubFunction` a faithful `Encode` (sub-function byte + each variant's typed parameters, delegating to the parameter `Encode` impls from Task 2), and have `ReadDTCInfoRequest` delegate to it. The two match arms (in `encode` and `encoded_size`) use identical variant grouping and reference `encoded_size()` rather than hard-coded widths; `assert_encode_size_agrees` guards drift.
 
 **Files:**
+
 - Modify: `src/services/read_dtc_information.rs` (already imports `Decode, Encode, Error`)
 
 - [ ] **Step 1: Write failing tests**
@@ -509,13 +514,14 @@ git add src/services/read_dtc_information.rs
 git commit -m "$(printf 'implement Encode for ReadDTCInfoSubFunction and ReadDTCInfoRequest\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 4: `Decode` for `WriteDataByIdentifierResponse`
 
 The fixed 2-byte echo response currently has `Encode` but no `Decode`, so it cannot round-trip. Add a 2-byte big-endian `Decode`.
 
 **Files:**
+
 - Modify: `src/services/write_data_by_identifier.rs:2` (imports) and add a `Decode` impl
 
 - [ ] **Step 1: Write a failing round-trip test**
@@ -586,13 +592,14 @@ git add src/services/write_data_by_identifier.rs
 git commit -m "$(printf 'add Decode for WriteDataByIdentifierResponse (2-byte round-trip)\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 5: Crate-root integration tests for the completed types
 
 Prove the two newly-completed types are reachable through the explicit crate-root re-exports (validating Task 1) and behave correctly end-to-end (validating Tasks 3–4). Tests import only via `crate::…` (the public surface), not via internal module paths.
 
 **Files:**
+
 - Modify: `src/lib.rs` (`#[cfg(test)] mod no_std_api_tests`)
 
 - [ ] **Step 1: Write the integration tests**
@@ -636,7 +643,7 @@ git add src/lib.rs
 git commit -m "$(printf 'add crate-root integration tests for completed descriptor types\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 6: Full-matrix verification
 
@@ -650,43 +657,51 @@ Expected: installed (or "up to date").
 - [ ] **Step 2: Build + test (host, all features)**
 
 Run:
+
 ```bash
 cargo build --all-features --release
 cargo test --all-features
 ```
+
 Expected: PASS.
 
 - [ ] **Step 3: no_std / no_alloc builds**
 
 Run:
+
 ```bash
 cargo build --no-default-features --target thumbv6m-none-eabi
 cargo build --no-default-features --features alloc --target thumbv6m-none-eabi
 ```
+
 Expected: PASS.
 
 - [ ] **Step 4: Clippy on all host feature combos**
 
 Run:
+
 ```bash
 cargo clippy --all-features
 cargo clippy --no-default-features
 cargo clippy --no-default-features --features alloc
 ```
+
 Expected: no warnings. (The crate sets `#![warn(clippy::pedantic, missing_docs)]`; resolve any new lints — all added items are documented and `#[must_use]` where applicable.)
 
 - [ ] **Step 5: Formatting + docs**
 
 Run:
+
 ```bash
 cargo fmt -- --check
 cargo doc --release --all-features --no-deps
 ```
+
 Expected: PASS (no diffs, no doc warnings).
 
 - [ ] **Step 6: (No commit)** — verification only. Phase 1 complete.
 
----
+______________________________________________________________________
 
 ## Self-review notes
 

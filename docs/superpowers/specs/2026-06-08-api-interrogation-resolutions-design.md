@@ -22,7 +22,7 @@ Rust is a first-class goal. Where ISO structures a message element, model it; wh
 payload is opaque/caller-defined, carry it as a borrowed `&[u8]`. The one Rust concept that
 cannot be designed away — borrowing — is taught explicitly in the docs.
 
----
+______________________________________________________________________
 
 ## Decision A (+G) — `ReadDataByIdentifier` request: bidirectional, built-or-parsed
 
@@ -56,6 +56,7 @@ Public surface stays small and endianness-free: `new(dids: &[u16])`,
 arm of this iterator), plus `Encode`/`Decode`. `Decode` rejects odd-length payloads.
 
 **Consequences.**
+
 - The type is bidirectional, so it drops the `…Tx` suffix and composes into
   `Request::ReadDataByIdentifier(ReadDataByIdentifierRequest<'a>)`.
 - This removes the last suffixed type in the crate. **The `…Tx`/`…Rx` suffix convention is
@@ -65,8 +66,7 @@ arm of this iterator), plus `Encode`/`Decode`. `Decode` rejects odd-length paylo
 - This is the single type with a built-vs-parsed internal backing. That is justified because
   RDBI is the *only* modeled service that builds a **variable-length list** of multi-byte
   identifiers on TX. (Single fixed identifiers and RX-only lists are both strictly easier —
-  see Decision B and the DTC iterators.) The `Dids` pattern would be reused if `0x2C
-  DynamicallyDefinedDataIdentifier` were ever modeled; not built now (YAGNI).
+  see Decision B and the DTC iterators.) The `Dids` pattern would be reused if `0x2C DynamicallyDefinedDataIdentifier` were ever modeled; not built now (YAGNI).
 
 **`Response::ReadDataByIdentifier(&'a [u8])` stays raw — deliberately.** A read-DID response
 is `[DID][data record]…` where data-record lengths are application-defined; the library
@@ -78,8 +78,7 @@ asymmetry (structured request, opaque response), not a leftover inconsistency.
 **Problem.** Every `[16-bit identifier][opaque tail]` service buried the identifier as the
 first two big-endian bytes of an opaque `&[u8]` on the request side — the same endianness
 footgun as RDBI — and did so inconsistently with its own response:
-`WriteDataByIdentifierRequest { payload: &[u8] }` vs `WriteDataByIdentifierResponse
-{ identifier: u16 }`; `RoutineControlRequest { sub_function, raw_payload: &[u8] }` with the
+`WriteDataByIdentifierRequest { payload: &[u8] }` vs `WriteDataByIdentifierResponse { identifier: u16 }`; `RoutineControlRequest { sub_function, raw_payload: &[u8] }` with the
 RID buried in `raw_payload`.
 
 **Resolution.** Pull the identifier out as a typed `u16`; keep the genuinely-opaque tail as
@@ -96,6 +95,7 @@ swap is hidden there). No two-way backing is needed — these are single fixed i
 not lists.
 
 **Decisions within B:**
+
 - **Raw `u16`, not the identifier enums.** DIDs/RIDs are overwhelmingly manufacturer-defined;
   forcing `UDSIdentifier`/`UDSRoutineIdentifier` would make the common case awkward and decode
   lossy. A caller who wants a name calls `TryFrom`.
@@ -235,7 +235,7 @@ RequestTransferExitResponse<'a> { parameter_record: &'a [u8] }
 
 Wrapped in the enums and round-tripped losslessly (empty slice when the record is absent).
 
----
+______________________________________________________________________
 
 ## Components touched
 
@@ -301,7 +301,7 @@ variable tail to be empty.**
 - Any transport, session, or async layer.
 - Merging `feature/no_std` to `main` — after this pass and an implementation-details review.
 
----
+______________________________________________________________________
 
 ## Appendix — Authoritative DID partition (ISO 14229-1:2020 Table C.1)
 
@@ -309,42 +309,42 @@ The total, infallible `UDSIdentifier::From<u16>` rebuild (Decision B-followup) m
 `u16` per this table. Open ranges carry the raw `u16`; named values are unit variants.
 `0xF180–0xF19F` are the ~32 named singletons already modeled.
 
-| Range | Class |
-|-------|-------|
-| `0x0000–0x00FF` | ISOSAEReserved |
-| `0x0100–0xA5FF` | VehicleManufacturerSpecific |
-| `0xA600–0xA7FF` | ReservedForLegislativeUse |
-| `0xA800–0xACFF` | VehicleManufacturerSpecific |
-| `0xAD00–0xAFFF` | ReservedForLegislativeUse |
-| `0xB000–0xB1FF` | VehicleManufacturerSpecific |
-| `0xB200–0xBFFF` | ReservedForLegislativeUse |
-| `0xC000–0xC2FF` | VehicleManufacturerSpecific |
-| `0xC300–0xCEFF` | ReservedForLegislativeUse |
-| `0xCF00–0xEFFF` | VehicleManufacturerSpecific |
-| `0xF000–0xF00F` | NetworkConfigDataForTractorTrailerApplication |
-| `0xF010–0xF0FF` | VehicleManufacturerSpecific |
+| Range           | Class                                           |
+| --------------- | ----------------------------------------------- |
+| `0x0000–0x00FF` | ISOSAEReserved                                  |
+| `0x0100–0xA5FF` | VehicleManufacturerSpecific                     |
+| `0xA600–0xA7FF` | ReservedForLegislativeUse                       |
+| `0xA800–0xACFF` | VehicleManufacturerSpecific                     |
+| `0xAD00–0xAFFF` | ReservedForLegislativeUse                       |
+| `0xB000–0xB1FF` | VehicleManufacturerSpecific                     |
+| `0xB200–0xBFFF` | ReservedForLegislativeUse                       |
+| `0xC000–0xC2FF` | VehicleManufacturerSpecific                     |
+| `0xC300–0xCEFF` | ReservedForLegislativeUse                       |
+| `0xCF00–0xEFFF` | VehicleManufacturerSpecific                     |
+| `0xF000–0xF00F` | NetworkConfigDataForTractorTrailerApplication   |
+| `0xF010–0xF0FF` | VehicleManufacturerSpecific                     |
 | `0xF100–0xF17F` | identificationOptionVehicleManufacturerSpecific |
-| `0xF180–0xF19F` | named singletons (existing) |
+| `0xF180–0xF19F` | named singletons (existing)                     |
 | `0xF1A0–0xF1EF` | identificationOptionVehicleManufacturerSpecific |
-| `0xF1F0–0xF1FF` | identificationOptionSystemSupplierSpecific |
-| `0xF200–0xF2FF` | PeriodicDataIdentifier |
-| `0xF300–0xF3FF` | DynamicallyDefinedDataIdentifier |
-| `0xF400–0xF5FF` | OBDDataIdentifier |
-| `0xF600–0xF6FF` | OBDMonitorDataIdentifier |
-| `0xF700–0xF7FF` | OBDDataIdentifier |
-| `0xF800–0xF8FF` | OBDInfoTypeDataIdentifier |
-| `0xF900–0xF9FF` | TachographDataIdentifier |
-| `0xFA00–0xFA0F` | AirbagDeploymentDataIdentifier |
-| `0xFA10` | NumberOfEDRDevices |
-| `0xFA11` | EDRIdentification |
-| `0xFA12` | EDRDeviceAddressInformation |
-| `0xFA13–0xFA18` | EDREntries |
-| `0xFA19–0xFAFF` | SafetySystemDataIdentifier |
-| `0xFB00–0xFCFF` | ReservedForLegislativeUse |
-| `0xFD00–0xFEFF` | SystemSupplierSpecific |
-| `0xFF00` | UDSVersionData |
-| `0xFF01` | ReservedForISO15765-5 |
-| `0xFF02–0xFFFF` | ISOSAEReserved |
+| `0xF1F0–0xF1FF` | identificationOptionSystemSupplierSpecific      |
+| `0xF200–0xF2FF` | PeriodicDataIdentifier                          |
+| `0xF300–0xF3FF` | DynamicallyDefinedDataIdentifier                |
+| `0xF400–0xF5FF` | OBDDataIdentifier                               |
+| `0xF600–0xF6FF` | OBDMonitorDataIdentifier                        |
+| `0xF700–0xF7FF` | OBDDataIdentifier                               |
+| `0xF800–0xF8FF` | OBDInfoTypeDataIdentifier                       |
+| `0xF900–0xF9FF` | TachographDataIdentifier                        |
+| `0xFA00–0xFA0F` | AirbagDeploymentDataIdentifier                  |
+| `0xFA10`        | NumberOfEDRDevices                              |
+| `0xFA11`        | EDRIdentification                               |
+| `0xFA12`        | EDRDeviceAddressInformation                     |
+| `0xFA13–0xFA18` | EDREntries                                      |
+| `0xFA19–0xFAFF` | SafetySystemDataIdentifier                      |
+| `0xFB00–0xFCFF` | ReservedForLegislativeUse                       |
+| `0xFD00–0xFEFF` | SystemSupplierSpecific                          |
+| `0xFF00`        | UDSVersionData                                  |
+| `0xFF01`        | ReservedForISO15765-5                           |
+| `0xFF02–0xFFFF` | ISOSAEReserved                                  |
 
 `UDSRoutineIdentifier` was verified against Table F.1 and is already faithful/total
 (`0x0000–0x00FF` ISOSAEReserved · `0x0100–0x01FF` TachographTestIds · `0x0200–0xDFFF` VMS ·

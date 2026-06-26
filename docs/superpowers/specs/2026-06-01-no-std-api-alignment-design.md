@@ -44,7 +44,7 @@ buffer — so the documentation must teach that model explicitly in C-familiar t
   pattern — this is the model the rest of the RX surface should resemble.
 - The existing `no_std` / `alloc` / bare-metal CI matrix.
 
----
+______________________________________________________________________
 
 ## Decisions
 
@@ -67,6 +67,7 @@ pluggable, user-defined identifier types — which the payload-carrying model no
 needs.
 
 **Remove:**
+
 - The `Identifier` and `RoutineIdentifier` traits.
 - The `impl_identifier!` macro.
 - The blanket `Encode` / `Decode` / `DecodeIter` impls for `T: Identifier`
@@ -75,6 +76,7 @@ needs.
   (`src/protocol_definitions.rs` — the module is deleted).
 
 **Keep:**
+
 - `UDSIdentifier` and `UDSRoutineIdentifier` enums, with their existing
   `TryFrom<u16>` / `From<UDSIdentifier> for u16` conversions.
 - Because these enums currently obtain `Encode`/`Decode` via the blanket impl, give
@@ -90,13 +92,13 @@ needs.
 The TX builders for the identifier services are the last place generics survive.
 De-genericize them so TX mirrors the raw-bytes RX side.
 
-| Service | Current (TX) | New (TX) carries |
-|---|---|---|
-| ReadDataByIdentifier | `ReadDataByIdentifierRequestTx<'d, DID>` | `&'d [u16]` DID list (BE-encoded on write) |
-| WriteDataByIdentifier | `WriteDataByIdentifierRequest<Payload>` | `&'d [u8]` raw (DID + data) |
-| WriteDataByIdentifier (resp) | `WriteDataByIdentifierResponse<DID>` | `u16` echoed identifier (fixed, 2 bytes) |
-| RoutineControl (req) | `RoutineControlRequest<RI, RP>` | `sub_function` + `&'d [u8]` raw (RID + data) |
-| RoutineControl (resp) | `RoutineControlResponse<RSR>` | `routine_control_type` + `&'d [u8]` raw status record |
+| Service                      | Current (TX)                             | New (TX) carries                                      |
+| ---------------------------- | ---------------------------------------- | ----------------------------------------------------- |
+| ReadDataByIdentifier         | `ReadDataByIdentifierRequestTx<'d, DID>` | `&'d [u16]` DID list (BE-encoded on write)            |
+| WriteDataByIdentifier        | `WriteDataByIdentifierRequest<Payload>`  | `&'d [u8]` raw (DID + data)                           |
+| WriteDataByIdentifier (resp) | `WriteDataByIdentifierResponse<DID>`     | `u16` echoed identifier (fixed, 2 bytes)              |
+| RoutineControl (req)         | `RoutineControlRequest<RI, RP>`          | `sub_function` + `&'d [u8]` raw (RID + data)          |
+| RoutineControl (resp)        | `RoutineControlResponse<RSR>`            | `routine_control_type` + `&'d [u8]` raw status record |
 
 Rationale for `&[u16]` on the Read-DID request: it is a list of identifiers, and a
 `u16` slice avoids an endianness footgun while staying alloc-free and generic-free. A
@@ -112,11 +114,11 @@ types take **`...Tx`**; zero-copy borrowed RX types take **`...Rx`**.
 
 Renames required to make the existing (correct) intent consistent:
 
-| Current name | New name | Reason |
-|---|---|---|
+| Current name                   | New name                         | Reason                     |
+| ------------------------------ | -------------------------------- | -------------------------- |
 | `WriteDataByIdentifierRequest` | `WriteDataByIdentifierRequestTx` | now carries borrowed bytes |
-| `RoutineControlRequest` | `RoutineControlRequestTx` | now carries borrowed bytes |
-| `RoutineControlResponse` | `RoutineControlResponseTx` | now carries borrowed bytes |
+| `RoutineControlRequest`        | `RoutineControlRequestTx`        | now carries borrowed bytes |
+| `RoutineControlResponse`       | `RoutineControlResponseTx`       | now carries borrowed bytes |
 
 Types already conforming and unchanged: `ReadDataByIdentifierRequestTx`,
 `TransferDataRequestTx`, `SecurityAccessRequestTx`, `RequestFileTransferRequestTx`,
@@ -192,7 +194,7 @@ With Decision 5, frames for these decode into `Other` rather than erroring. Docu
 in the crate root, the explicit list of fully-modeled services vs. those reached only
 through `Other`, so coverage is a stated decision rather than an accident.
 
----
+______________________________________________________________________
 
 ## Components touched
 

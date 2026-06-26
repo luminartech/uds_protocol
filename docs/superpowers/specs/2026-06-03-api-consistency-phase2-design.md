@@ -15,10 +15,10 @@ reviewer sees immediately:
 1. The `…Tx`/`…Rx` suffixes mislead — most "Tx" descriptors are actually bidirectional
    (they implement both `Encode` and `Decode` and appear in both the `Request` and
    `Response` enums).
-2. The dispatch enums model the same class of service two different ways — some variants wrap
+1. The dispatch enums model the same class of service two different ways — some variants wrap
    a named descriptor type, others hold a bare `&[u8]` or inline fields.
-3. The variable-length big-endian integer codec is hand-rolled in ~5 places.
-4. Two byte-identical primitive macros exist where one would do.
+1. The variable-length big-endian integer codec is hand-rolled in ~5 places.
+1. Two byte-identical primitive macros exist where one would do.
 
 All of this lands on `feature/no_std` so the entire breaking change ships together.
 
@@ -30,7 +30,7 @@ variable-length RX sequences. Simplicity for C developers new to Rust is a first
 which is why the naming rule below removes the `Tx`/`Rx` jargon everywhere it is not
 load-bearing.
 
----
+______________________________________________________________________
 
 ## Decision 1 — Suffix marks asymmetry, not direction
 
@@ -42,21 +42,21 @@ that a type borrows from the wire buffer.
 
 **Renames (all verified bidirectional — they implement both `Encode` and `Decode`):**
 
-| Current | New |
-|---|---|
-| `SecurityAccessRequestTx` | `SecurityAccessRequest` |
-| `SecurityAccessResponseTx` | `SecurityAccessResponse` |
-| `TransferDataRequestTx` | `TransferDataRequest` |
-| `TransferDataResponseTx` | `TransferDataResponse` |
-| `RequestFileTransferRequestTx` | `RequestFileTransferRequest` |
-| `RequestFileTransferResponseTx` | `RequestFileTransferResponse` |
-| `RequestDownloadResponseTx` | `RequestDownloadResponse` |
-| `RoutineControlRequestTx` | `RoutineControlRequest` |
-| `RoutineControlResponseTx` | `RoutineControlResponse` |
+| Current                          | New                            |
+| -------------------------------- | ------------------------------ |
+| `SecurityAccessRequestTx`        | `SecurityAccessRequest`        |
+| `SecurityAccessResponseTx`       | `SecurityAccessResponse`       |
+| `TransferDataRequestTx`          | `TransferDataRequest`          |
+| `TransferDataResponseTx`         | `TransferDataResponse`         |
+| `RequestFileTransferRequestTx`   | `RequestFileTransferRequest`   |
+| `RequestFileTransferResponseTx`  | `RequestFileTransferResponse`  |
+| `RequestDownloadResponseTx`      | `RequestDownloadResponse`      |
+| `RoutineControlRequestTx`        | `RoutineControlRequest`        |
+| `RoutineControlResponseTx`       | `RoutineControlResponse`       |
 | `WriteDataByIdentifierRequestTx` | `WriteDataByIdentifierRequest` |
-| `ReadDTCInfoResponseRx` | `ReadDTCInfoResponse` |
-| `NamePayloadTx` | `NamePayload` |
-| `SentDataPayloadTx` | `SentDataPayload` |
+| `ReadDTCInfoResponseRx`          | `ReadDTCInfoResponse`          |
+| `NamePayloadTx`                  | `NamePayload`                  |
+| `SentDataPayloadTx`              | `SentDataPayload`              |
 
 **Keeps its suffix — the single genuine asymmetry:** `ReadDataByIdentifierRequestTx`
 (`&[u16]` DID list on TX; the wire cannot be reinterpreted as `&[u16]` zero-copy, so RX is
@@ -76,13 +76,13 @@ zero-copy decode allows it, replacing bare `&[u8]` and inline-field variants. Th
 the orphaned descriptor types (the enums now construct them) and makes the variants
 round-trippable.
 
-| Variant | Before | After | Decode work |
-|---|---|---|---|
-| `Request::WriteDataByIdentifier` | `(&[u8])` | `(WriteDataByIdentifierRequest)` | add trivial `Decode` (borrow whole payload) |
-| `Request::ReadDTCInfo` | `(&[u8])` | `(ReadDTCInfoRequest)` | add **25-variant `Decode`** (inverse of Phase 1 `Encode`) |
-| `Request::RoutineControl` | `{ sub_function: u8, raw_payload: &[u8] }` | `(RoutineControlRequest)` | add `Decode` via `SuppressablePositiveResponse<RoutineControlSubFunction>` + borrowed payload (see below) |
-| `Response::WriteDataByIdentifier` | `(&[u8])` | `(WriteDataByIdentifierResponse)` | `Decode` already added in Phase 1 |
-| `Response::RoutineControl` | `{ routine_control_type: u8, raw_status_record: &[u8] }` | `(RoutineControlResponse)` | add `Decode` |
+| Variant                           | Before                                                   | After                             | Decode work                                                                                               |
+| --------------------------------- | -------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `Request::WriteDataByIdentifier`  | `(&[u8])`                                                | `(WriteDataByIdentifierRequest)`  | add trivial `Decode` (borrow whole payload)                                                               |
+| `Request::ReadDTCInfo`            | `(&[u8])`                                                | `(ReadDTCInfoRequest)`            | add **25-variant `Decode`** (inverse of Phase 1 `Encode`)                                                 |
+| `Request::RoutineControl`         | `{ sub_function: u8, raw_payload: &[u8] }`               | `(RoutineControlRequest)`         | add `Decode` via `SuppressablePositiveResponse<RoutineControlSubFunction>` + borrowed payload (see below) |
+| `Response::WriteDataByIdentifier` | `(&[u8])`                                                | `(WriteDataByIdentifierResponse)` | `Decode` already added in Phase 1                                                                         |
+| `Response::RoutineControl`        | `{ routine_control_type: u8, raw_status_record: &[u8] }` | `(RoutineControlResponse)`        | add `Decode`                                                                                              |
 
 **RDBI is the documented exception.** `Request::ReadDataByIdentifier(&[u8])` and
 `Response::ReadDataByIdentifier(&[u8])` stay raw, because the DID list cannot be produced as
@@ -106,13 +106,14 @@ pub struct RoutineControlRequest<'d> {
 ```
 
 `RoutineControlSubFunction` already satisfies the wrapper's bounds (`TryFrom<u8, Error = Error>`
-+ `From<…> for u8`). On decode, `SuppressablePositiveResponse::try_from(payload[0])?` splits the
-byte into `(suppress_flag, RoutineControlSubFunction::try_from(byte & 0x7F))`; on encode,
-`u8::from(self.sub_function)` re-applies the bit — so the suppress bit round-trips losslessly.
-Following the `EcuResetRequest` pattern, the `SuppressablePositiveResponse` field is private
-(the type stays `pub(crate)`); the public surface is
-`new(suppress_positive_response: bool, sub_function: RoutineControlSubFunction, raw_payload: &'d [u8])`
-plus `suppress_positive_response()`, `sub_function()`, and `raw_payload()` getters.
+
+- `From<…> for u8`). On decode, `SuppressablePositiveResponse::try_from(payload[0])?` splits the
+  byte into `(suppress_flag, RoutineControlSubFunction::try_from(byte & 0x7F))`; on encode,
+  `u8::from(self.sub_function)` re-applies the bit — so the suppress bit round-trips losslessly.
+  Following the `EcuResetRequest` pattern, the `SuppressablePositiveResponse` field is private
+  (the type stays `pub(crate)`); the public surface is
+  `new(suppress_positive_response: bool, sub_function: RoutineControlSubFunction, raw_payload: &'d [u8])`
+  plus `suppress_positive_response()`, `sub_function()`, and `raw_payload()` getters.
 
 This also lets `Request::is_positive_response_suppressed()` forward to RoutineControl (today it
 falls through to `false`).
@@ -155,7 +156,7 @@ site. Whether these helpers are part of the public API or `pub(crate)` is settle
 `from_be_bytes`). Merge into a single `primitive_encode_decode!` macro invoked once with all
 ten integer types (`u8, u16, u32, u64, u128, i8, i16, i32, i64, i128`).
 
----
+______________________________________________________________________
 
 ## Components touched
 

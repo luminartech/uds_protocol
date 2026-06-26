@@ -12,17 +12,20 @@
 
 **Execute tasks in order.** Each task ends green (builds + tests pass) and is committed independently.
 
----
+______________________________________________________________________
 
 ## File Structure
 
 Files created:
+
 - `src/test_util.rs` — `#[cfg(test)]` helper asserting `encode` length equals `encoded_size()`.
 
 Files deleted:
+
 - `src/protocol_definitions.rs` — `ProtocolIdentifier` / `ProtocolPayloadTx` / `ProtocolRoutinePayloadTx` are removed.
 
 Files modified (primary responsibility):
+
 - `src/traits.rs` — remove `Identifier`/`RoutineIdentifier`/`impl_identifier!`, blanket impls, `DiagnosticDefinition`, and `Encode::is_positive_response_suppressed`; expand `Decode` docs.
 - `src/lib.rs` — register `test_util`; drop removed re-exports + `UdsSpec`; add service-coverage docs.
 - `src/common/diagnostic_identifier.rs` — direct `Encode`/`Decode` for `UDSIdentifier`/`UDSRoutineIdentifier`.
@@ -34,14 +37,16 @@ Files modified (primary responsibility):
 - `src/error.rs` — remove `ServiceNotImplemented`.
 - `README.md` — integration + borrow-model docs.
 
----
+______________________________________________________________________
 
 ## Task 1: Add the `encode`/`encoded_size` agreement test helper
 
 Created first so every later task can assert the invariant directly.
 
 **Files:**
+
 - Create: `src/test_util.rs`
+
 - Modify: `src/lib.rs`
 
 - [ ] **Step 1: Create the helper module**
@@ -91,11 +96,12 @@ git add src/test_util.rs src/lib.rs
 git commit -m "$(printf 'add encode/encoded_size agreement test helper\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 2: De-genericize `ReadDataByIdentifierRequestTx` to `&[u16]`
 
 **Files:**
+
 - Modify: `src/services/read_data_by_identifier.rs`
 
 - [ ] **Step 1: Replace the file with a concrete `&[u16]` version**
@@ -183,11 +189,12 @@ git add src/services/read_data_by_identifier.rs
 git commit -m "$(printf 'de-genericize ReadDataByIdentifierRequestTx to &[u16]\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 3: De-genericize `WriteDataByIdentifier` request + response
 
 **Files:**
+
 - Modify: `src/services/write_data_by_identifier.rs`
 
 - [ ] **Step 1: Replace the file with concrete raw-bytes request + `u16` response**
@@ -316,12 +323,14 @@ git add src/services/write_data_by_identifier.rs
 git commit -m "$(printf 'de-genericize WriteDataByIdentifier to raw bytes + u16 response\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 4: De-genericize `RoutineControl` and rename to `...Tx`
 
 **Files:**
+
 - Modify: `src/services/routine_control.rs`
+
 - Modify: `src/services/mod.rs` (only if it names the old types explicitly)
 
 - [ ] **Step 1: Replace the file with concrete raw-bytes `...Tx` types**
@@ -462,12 +471,14 @@ git add src/services/routine_control.rs src/services/mod.rs
 git commit -m "$(printf 'de-genericize RoutineControl to raw-bytes RoutineControl*Tx types\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 5: Remove `DiagnosticDefinition` and `UdsSpec`
 
 **Files:**
+
 - Modify: `src/traits.rs`
+
 - Modify: `src/lib.rs`
 
 - [ ] **Step 1: Delete the `DiagnosticDefinition` trait from `src/traits.rs`**
@@ -521,12 +532,14 @@ git add src/traits.rs src/lib.rs
 git commit -m "$(printf 'remove orphaned DiagnosticDefinition trait and UdsSpec\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 6: Delete `protocol_definitions.rs`
 
 **Files:**
+
 - Delete: `src/protocol_definitions.rs`
+
 - Modify: `src/lib.rs`
 
 - [ ] **Step 1: Confirm no remaining references outside the module itself**
@@ -559,15 +572,18 @@ git add -A src/protocol_definitions.rs src/lib.rs
 git commit -m "$(printf 'delete protocol_definitions module (ProtocolIdentifier/PayloadTx)\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 7: Remove identifier machinery; add direct codec to UDS identifiers
 
 This task is atomic: the blanket `impl<T: Identifier>` and a direct `impl` for `UDSIdentifier` cannot coexist (coherence conflict), so the traits and direct impls must change together.
 
 **Files:**
+
 - Modify: `src/traits.rs`
+
 - Modify: `src/common/diagnostic_identifier.rs`
+
 - Modify: `src/lib.rs`
 
 - [ ] **Step 1: Remove identifier traits, macro, and blanket impls from `src/traits.rs`**
@@ -696,13 +712,16 @@ git add src/traits.rs src/common/diagnostic_identifier.rs src/lib.rs
 git commit -m "$(printf 'remove Identifier machinery; add direct codec to UDS identifiers\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 8: Move `is_positive_response_suppressed` off the `Encode` trait
 
 **Files:**
+
 - Modify: `src/traits.rs`
+
 - Modify: `src/services/ecu_reset.rs`, `control_dtc_settings.rs`, `tester_present.rs`, `security_access.rs`, `diagnostic_session_control.rs`
+
 - Modify: `src/request.rs`
 
 - [ ] **Step 1: Remove the method from the `Encode` trait**
@@ -768,14 +787,18 @@ git add src/traits.rs src/request.rs src/services/
 git commit -m "$(printf 'move is_positive_response_suppressed off the Encode trait\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 9: Add symmetric `Other` escape hatch; remove `UdsResponse` and `ServiceNotImplemented`
 
 **Files:**
+
 - Modify: `src/request.rs`
+
 - Modify: `src/response.rs`
+
 - Modify: `src/error.rs`
+
 - Modify: `src/lib.rs`
 
 - [ ] **Step 1: Write failing tests for the `Other` variants**
@@ -936,11 +959,12 @@ git add src/request.rs src/response.rs src/error.rs src/lib.rs
 git commit -m "$(printf 'add symmetric Other escape hatch; drop UdsResponse + ServiceNotImplemented\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 10: Document the `Decode` remainder / borrow contract
 
 **Files:**
+
 - Modify: `src/traits.rs`
 
 - [ ] **Step 1: Expand the `Decode` trait doc comment**
@@ -973,11 +997,12 @@ git add src/traits.rs
 git commit -m "$(printf 'document the Decode remainder / borrow contract\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 11: README integration + borrow-model docs
 
 **Files:**
+
 - Modify: `README.md`
 
 - [ ] **Step 1: Append an Integration section to `README.md`**
@@ -1035,11 +1060,12 @@ git add README.md
 git commit -m "$(printf 'document runtime-agnostic integration model and borrow semantics\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 12: Apply the agreement helper to the remaining service tests
 
 **Files:**
+
 - Modify: `src/services/ecu_reset.rs`, `tester_present.rs`, `communication_control.rs`, `diagnostic_session_control.rs`, `clear_dtc_information.rs`, `security_access.rs`, `request_download.rs`, `transfer_data.rs`, `request_file_transfer.rs`, `control_dtc_settings.rs`, `negative_response.rs`
 
 - [ ] **Step 1: Add an agreement assertion to each service's existing encode test**
@@ -1066,11 +1092,12 @@ git add src/services/
 git commit -m "$(printf 'assert encode/encoded_size agreement across all services\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 13: Document the service-coverage boundary
 
 **Files:**
+
 - Modify: `src/lib.rs`
 
 - [ ] **Step 1: Add a crate-root doc block listing modeled vs pass-through services**
@@ -1104,7 +1131,7 @@ git add src/lib.rs
 git commit -m "$(printf 'document the modeled vs pass-through service coverage boundary\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Task 14: Full verification across the feature matrix
 
@@ -1117,6 +1144,7 @@ cargo build
 cargo build --no-default-features --features alloc
 cargo build --no-default-features
 ```
+
 Expected: all succeed.
 
 - [ ] **Step 2: Tests**
@@ -1131,6 +1159,7 @@ cargo clippy --all-targets
 cargo clippy --no-default-features --features alloc --all-targets
 cargo clippy --no-default-features --all-targets
 ```
+
 Expected: zero warnings.
 
 - [ ] **Step 4: Bare-metal target**
@@ -1139,6 +1168,7 @@ Expected: zero warnings.
 cargo build --no-default-features --target thumbv6m-none-eabi
 cargo build --no-default-features --features alloc --target thumbv6m-none-eabi
 ```
+
 Expected: success. (If missing: `rustup target add thumbv6m-none-eabi`.)
 
 - [ ] **Step 5: Confirm no orphaned references remain**
@@ -1155,7 +1185,7 @@ git add -A
 git commit -m "$(printf 'verification fixes across the no_std feature matrix\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>')"
 ```
 
----
+______________________________________________________________________
 
 ## Self-Review Notes
 

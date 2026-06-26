@@ -9,6 +9,7 @@
 **Tech Stack:** Rust 2024, `no_std` + `no_alloc` baseline (`std`/`alloc` additive), `embedded-io` traits, `byteorder-embedded-io`. Codec via crate-local `Encode`/`Decode`/`DecodeIter` traits. Test matrix: default (`std`), `--no-default-features --features alloc`, `--no-default-features`, `thumbv6m-none-eabi`.
 
 **Standing verification (run after every task that changes code) — matches CI exactly:**
+
 ```bash
 cargo test
 cargo clippy --all-features
@@ -16,6 +17,7 @@ cargo clippy --no-default-features
 cargo clippy --no-default-features --features alloc
 cargo fmt --check
 ```
+
 CI does **not** use `-D warnings` or `--all-targets`. Do not add them: the base branch
 already carries ~11 `clippy::pedantic` warnings in *test* code (`similar_names`,
 `unreadable_literal`, `cast_possible_truncation`, etc.) that CI does not gate and that are
@@ -25,16 +27,18 @@ exit 0. Do not introduce *new* clippy warnings.
 
 The full breaking matrix (`--no-default-features [--features alloc]` + `cargo build --target thumbv6m-none-eabi ...`) is validated at the end (Task 15), and in CI.
 
----
+______________________________________________________________________
 
 ## File Structure
 
 **Phase 0 (mechanical moves):**
+
 - `src/common/` → `src/shared/` (rename module; `mod.rs` + every `crate::common` path).
 - `src/dtc/` (new): `mod.rs`, `status.rs`, `snapshot.rs`, `ext_data.rs` — the DTC vocabulary (`DTCRecord`, masks, severity, format, record-numbers, `FunctionalGroupIdentifier`, `CLEAR_ALL_DTCS`) moved out of `shared/`. Read-DTC iterators stay in `src/services/read_dtc_information.rs`.
 - Single-service enums move from `shared/` (or `lib.rs`) into their service module: `ResetType`→`ecu_reset.rs`, `DiagnosticSessionType`→`diagnostic_session_control.rs`, `SecurityAccessType`→`security_access.rs`, `CommunicationControlType`+`CommunicationType`→`communication_control.rs`, `DtcSettings`→`control_dtc_settings.rs`, `RoutineControlSubFunction`→`routine_control.rs`.
 
 **Phase 1+ (semantic):**
+
 - `src/test_util.rs` — strengthen `assert_encode_size_agrees`.
 - `src/shared/diagnostic_identifier.rs` — `UDSIdentifier` faithful total `From<u16>`; drop `TryFrom`; remove `Encode`/`Decode` on both identifier enums.
 - `src/error.rs` — remove `InvalidDiagnosticIdentifier`.
@@ -43,20 +47,24 @@ The full breaking matrix (`--no-default-features [--features alloc]` + `cargo bu
 - `src/services/request_transfer_exit.rs` (new) — the `RequestTransferExit{Request,Response}` descriptors.
 - `src/lib.rs` — re-export updates; delete `SUCCESS`/`PENDING`.
 
----
+______________________________________________________________________
 
 # PHASE 0 — Mechanical module reorg (move-first)
 
 ### Task 1: Rename `common/` → `shared/`
 
 **Files:**
+
 - Rename: `src/common/` → `src/shared/` (all files within)
+
 - Modify: `src/lib.rs` (the `mod common;` declaration and its `pub use common::{…}`)
+
 - Modify: every file importing `crate::common` — `src/shared/util.rs`, `src/services/{communication_control,diagnostic_session_control,ecu_reset,request_download,request_file_transfer,routine_control,security_access,tester_present}.rs`
 
 - [ ] **Step 1: Move the directory with git**
 
 Run:
+
 ```bash
 git mv src/common src/shared
 ```
@@ -64,6 +72,7 @@ git mv src/common src/shared
 - [ ] **Step 2: Repoint every `common` path to `shared`**
 
 Replace `crate::common` → `crate::shared`, `use crate::common` → `use crate::shared`, and `super::common` → `super::shared` across `src/`. In `src/lib.rs` change `mod common;` → `mod shared;` and `pub use common::{` → `pub use shared::{`. Verify none remain:
+
 ```bash
 rg -n "\bcommon\b" src   # expect: no module-path hits (CommunicationControl etc. are unrelated)
 ```
@@ -83,19 +92,25 @@ git commit -m "rename common/ module to shared/ (no behavior change)"
 ### Task 2: Extract the `dtc/` domain module
 
 **Files:**
+
 - Create: `src/dtc/mod.rs`
+
 - Move: `src/shared/dtc_status.rs`→`src/dtc/status.rs`, `src/shared/dtc_snapshot.rs`→`src/dtc/snapshot.rs`, `src/shared/dtc_ext_data.rs`→`src/dtc/ext_data.rs`
+
 - Modify: `src/lib.rs` (add `mod dtc;`, move the DTC re-exports off the `shared` list onto a `dtc` list), `src/shared/mod.rs` (drop the three `mod dtc_*` + their `pub use`)
+
 - Modify: importers of DTC types — `src/services/clear_dtc_information.rs`, `src/services/read_dtc_information.rs`
 
 - [ ] **Step 1: Move the three DTC files**
 
 Run:
+
 ```bash
 git mv src/shared/dtc_status.rs src/dtc/status.rs
 git mv src/shared/dtc_snapshot.rs src/dtc/snapshot.rs
 git mv src/shared/dtc_ext_data.rs src/dtc/ext_data.rs
 ```
+
 (`git mv` to a non-existent dir: create `src/dtc/` first if needed — `mkdir src/dtc` then move.)
 
 - [ ] **Step 2: Create `src/dtc/mod.rs`**
@@ -136,12 +151,19 @@ git commit -m "extract dtc/ domain module from shared/"
 ### Task 3: Relocate single-service enums into their service modules
 
 **Files (one enum per move; each carries its impls, tests, and derives):**
+
 - `ResetType` (`src/shared/reset_type.rs`) → into `src/services/ecu_reset.rs`; delete the file
+
 - `DiagnosticSessionType` (`src/shared/diagnostic_session_type.rs`) → `src/services/diagnostic_session_control.rs`
+
 - `SecurityAccessType` (`src/shared/security_access_type.rs`) → `src/services/security_access.rs`
+
 - `CommunicationControlType` (`src/shared/communication_control_type.rs`) + `CommunicationType` (`src/shared/communication_type.rs`) → `src/services/communication_control.rs`
+
 - `DtcSettings` (defined in `src/lib.rs`) → `src/services/control_dtc_settings.rs`
+
 - `RoutineControlSubFunction` (defined in `src/lib.rs`) → `src/services/routine_control.rs`
+
 - Modify: `src/shared/mod.rs` (drop the moved `mod`/`pub use`), `src/lib.rs` (the moved enums now re-export from `services::`, and `DtcSettings`/`RoutineControlSubFunction` definitions leave `lib.rs`)
 
 - [ ] **Step 1: Move each enum's source into its service module**
@@ -160,9 +182,11 @@ Expected: PASS, unchanged test count.
 - [ ] **Step 4: Verify no public-path drift**
 
 Compare the set of re-exported names against the pre-Phase-0 `lib.rs`. Capture the baseline once at the start of Phase 0 (`git show <pre-phase-0-rev>:src/lib.rs`), then:
+
 ```bash
 rg -o "pub use \w+::\{[^}]*\}" src/lib.rs
 ```
+
 Expected: the union of re-exported identifiers is identical to before Phase 0 (only their source module changed). No name added or dropped.
 
 - [ ] **Step 5: Commit**
@@ -172,13 +196,14 @@ git add -A
 git commit -m "relocate single-service enums into their service modules"
 ```
 
----
+______________________________________________________________________
 
 # PHASE 1 — Test helper + standalone identifier rebuild
 
 ### Task 4: Strengthen `assert_encode_size_agrees`
 
 **Files:**
+
 - Modify: `src/test_util.rs`
 
 - [ ] **Step 1: Replace the helper body to also check bytes consumed**
@@ -221,6 +246,7 @@ git commit -m "assert_encode_size_agrees: also check actual bytes consumed"
 ### Task 5: `UDSIdentifier` faithful rebuild + drop enum codecs (Decision B-followup, I1)
 
 **Files:**
+
 - Modify: `src/shared/diagnostic_identifier.rs`
 - Modify: `src/error.rs` (remove `InvalidDiagnosticIdentifier`)
 - Test: in `src/shared/diagnostic_identifier.rs`
@@ -230,6 +256,7 @@ Reference: the authoritative partition is the Appendix of the design spec. Add t
 - [ ] **Step 1: Write the failing round-trip + classification test**
 
 Add to the test module in `src/shared/diagnostic_identifier.rs`:
+
 ```rust
 #[test]
 fn uds_identifier_from_is_total_and_round_trips() {
@@ -265,6 +292,7 @@ Expected: FAIL — `From<u16>` does not exist for `UDSIdentifier` yet (only `Try
 - [ ] **Step 3: Add the new variants to the enum**
 
 In `pub enum UDSIdentifier`, keep the existing `0xF180–0xF19F` named singletons, `UDSVersionData = 0xFF00`, `ReservedForISO15765_5 = 0xFF01`, and `ISOSAEReserved(u16)` / `SystemSupplierSpecific(u16)`. **Rename** the existing `VehicleManufacturerSpecific(u16)` semantics so it covers the true broad ranges, and **add** these range/singleton variants (drop the now-wrong `#[clap(skip)]`-only doc ranges; keep `#[clap(skip)]` on the `(u16)` variants):
+
 ```rust
     ReservedForLegislativeUse(u16),
     NetworkConfigDataForTractorTrailer(u16),          // 0xF000–0xF00F
@@ -283,6 +311,7 @@ In `pub enum UDSIdentifier`, keep the existing `0xF180–0xF19F` named singleton
     EDREntries(u16),                                  // 0xFA13–0xFA18
     SafetySystemDataIdentifier(u16),                  // 0xFA19–0xFAFF
 ```
+
 (Singletons `NumberOfEDRDevices`/`EDRIdentification`/`EDRDeviceAddressInformation` carry no value; their fixed byte is set in `From<UDSIdentifier> for u16`.)
 
 - [ ] **Step 4: Replace `impl TryFrom<u16>` with a total `impl From<u16>`**
@@ -365,6 +394,7 @@ impl From<u16> for UDSIdentifier {
 - [ ] **Step 5: Extend `impl From<UDSIdentifier> for u16` for the new variants**
 
 Add arms returning the carried value for the `(u16)` variants, and the fixed bytes for the EDR singletons:
+
 ```rust
             UDSIdentifier::ReservedForLegislativeUse(v) => v,
             UDSIdentifier::NetworkConfigDataForTractorTrailer(v) => v,
@@ -383,6 +413,7 @@ Add arms returning the carried value for the `(u16)` variants, and the fixed byt
             UDSIdentifier::EDREntries(v) => v,
             UDSIdentifier::SafetySystemDataIdentifier(v) => v,
 ```
+
 (Keep existing arms; the old `VehicleManufacturerSpecific(v) => v` already returns `v`.)
 
 - [ ] **Step 6: Remove `Encode`/`Decode` for both identifier enums**
@@ -392,6 +423,7 @@ Delete `impl Encode for UDSIdentifier`, `impl Decode<'a> for UDSIdentifier`, `im
 - [ ] **Step 7: Remove the dead error variant**
 
 In `src/error.rs`, delete the `InvalidDiagnosticIdentifier(u16)` variant (and its `thiserror` attribute line). Confirm no other reference:
+
 ```bash
 rg -n "InvalidDiagnosticIdentifier" src   # expect: no matches
 ```
@@ -408,18 +440,20 @@ git add -A
 git commit -m "rebuild UDSIdentifier as faithful total From<u16>; drop identifier-enum codecs"
 ```
 
----
+______________________________________________________________________
 
 # PHASE 2 — Dispatch enum + descriptor reshaping
 
 ### Task 6: `Other { sid: u8, data }` + `Response::service()` (Decisions C, F)
 
 **Files:**
+
 - Modify: `src/request.rs`, `src/response.rs`
 
 - [ ] **Step 1: Write failing lossless + service() tests**
 
 In `src/request.rs` tests, replace the body of `unmodeled_service_decodes_to_other` and add a truly-unknown-byte case:
+
 ```rust
 #[test]
 fn unknown_request_byte_round_trips_losslessly() {
@@ -439,7 +473,9 @@ fn unknown_request_byte_round_trips_losslessly() {
     assert_eq!(&buf[..written], &frame); // previously re-encoded as 0x7F
 }
 ```
+
 In `src/response.rs` tests:
+
 ```rust
 #[test]
 fn unknown_response_byte_round_trips_losslessly() {
@@ -465,6 +501,7 @@ In `src/request.rs`: change the variant to `Other { sid: u8, data: &'a [u8] }`. 
 - [ ] **Step 4: Reshape `Response::Other` + add `Response::service()`**
 
 In `src/response.rs`: change the variant to `Other { sid: u8, data: &'a [u8] }`; `decode`'s `_ =>` arm → `Self::Other { sid: buf[0], data: payload }`. In `response_sid()`, `Self::Other { sid, .. } => *sid`. Add a public method:
+
 ```rust
 impl Response<'_> {
     /// The [`UdsServiceType`] this response frame addresses.
@@ -480,6 +517,7 @@ impl Response<'_> {
     }
 }
 ```
+
 (`response_sid()` stays private; `service()` derives from it for non-`Other`, and from the raw `sid` for `Other`.)
 
 - [ ] **Step 5: Update the doc comments**
@@ -501,11 +539,13 @@ git commit -m "Other carries raw sid for lossless pass-through; add Response::se
 ### Task 7: `WriteDataByIdentifierRequest { identifier: u16, data }` (Decision B)
 
 **Files:**
+
 - Modify: `src/services/write_data_by_identifier.rs`, `src/request.rs` (match arms unchanged in shape — variant still wraps the descriptor)
 
 - [ ] **Step 1: Write the failing round-trip + short-buffer tests**
 
 Replace the request portion of the test module in `write_data_by_identifier.rs`:
+
 ```rust
 #[test]
 fn wdbi_request_round_trips() {
@@ -599,6 +639,7 @@ impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
     }
 }
 ```
+
 (Add `use crate::Error;` imports as needed; `assert_encode_size_agrees` import in the test module.)
 
 - [ ] **Step 4: Run tests**
@@ -616,6 +657,7 @@ git commit -m "WriteDataByIdentifierRequest: typed u16 identifier + opaque data"
 ### Task 8: RoutineControl typed `routine_id` (Decision B)
 
 **Files:**
+
 - Modify: `src/services/routine_control.rs`
 
 - [ ] **Step 1: Write failing tests (request round-trip incl. SPRMIB, response, short buffer)**
@@ -765,6 +807,7 @@ impl<'a> Decode<'a> for RoutineControlResponse<'a> {
     }
 }
 ```
+
 (`u8::from(RoutineControlSubFunction)` already exists in `lib.rs`/moved module.)
 
 - [ ] **Step 5: Run tests**
@@ -782,6 +825,7 @@ git commit -m "RoutineControl req/resp: typed u16 routine_id + opaque record"
 ### Task 9: `ReadDataByIdentifierRequest` bidirectional `Dids` backing (Decisions A, G)
 
 **Files:**
+
 - Modify: `src/services/read_data_by_identifier.rs`, `src/request.rs` (variant becomes `ReadDataByIdentifier(ReadDataByIdentifierRequest<'a>)`), `src/lib.rs` (rename re-export), `src/services/mod.rs` (rename re-export)
 
 - [ ] **Step 1: Write failing tests (native build, wire decode, cross-backing, odd/empty rejects)**
@@ -826,7 +870,9 @@ fn rdbi_rejects_empty_and_odd() {
     assert!(<ReadDataByIdentifierRequest as Decode>::decode(&[0xF1, 0x90, 0xF1]).is_err());
 }
 ```
+
 Note for the iterate test: collect into a fixed array via a manual loop to stay `no_std`/no-alloc — replace with:
+
 ```rust
     let mut it = req.dids();
     assert_eq!(it.next(), Some(0xF190));
@@ -948,6 +994,7 @@ In `src/services/mod.rs` and `src/lib.rs`: rename the re-export `ReadDataByIdent
 
 Run: `cargo test rdbi_ && cargo test && cargo clippy --all-targets -- -D warnings`
 Expected: PASS. Confirm the suffix is gone:
+
 ```bash
 rg -n "RequestTx|ResponseTx|\bRx\b" src   # expect: only CommunicationControl Rx/Tx domain terms
 ```
@@ -962,7 +1009,9 @@ git commit -m "ReadDataByIdentifierRequest: bidirectional Dids backing; drop las
 ### Task 10: `RequestTransferExit` descriptors (Decision H)
 
 **Files:**
+
 - Create: `src/services/request_transfer_exit.rs`
+
 - Modify: `src/services/mod.rs` (`mod request_transfer_exit; pub use …`), `src/lib.rs` (re-export the two types), `src/request.rs` + `src/response.rs` (wrap the descriptors)
 
 - [ ] **Step 1: Write failing round-trip tests (in the new file)**
@@ -1058,12 +1107,15 @@ git commit -m "RequestTransferExit: descriptors carry the optional parameter rec
 ### Task 11: `ControlDTCSettings` → `SuppressablePositiveResponse<DtcSettings>` (Decisions D, I2)
 
 **Files:**
+
 - Modify: `src/services/control_dtc_settings.rs` (now also home to `DtcSettings` after Task 3)
+
 - Modify: `src/lib.rs` (delete `SUCCESS`)
 
 - [ ] **Step 1: Update the failing test for the new ctor order + getters**
 
 Replace `simple_request`:
+
 ```rust
 #[cfg(feature = "alloc")]
 #[test]
@@ -1129,11 +1181,13 @@ impl<'a> Decode<'a> for ControlDTCSettingsRequest {
     }
 }
 ```
+
 (Use the correct post-Phase-0 path `crate::shared::SuppressablePositiveResponse` — it is `pub(crate)`. The response type is unchanged.)
 
 - [ ] **Step 4: Delete the `SUCCESS` constant**
 
 In `src/lib.rs`, remove `pub const SUCCESS: u8 = 0x80;` and its doc comment. Confirm no references:
+
 ```bash
 rg -n "\bSUCCESS\b" src   # expect: no matches
 ```
@@ -1153,11 +1207,13 @@ git commit -m "ControlDTCSettings onto SuppressablePositiveResponse; remove SUCC
 ### Task 12: Delete the `PENDING` constant (Decision D)
 
 **Files:**
+
 - Modify: `src/lib.rs`
 
 - [ ] **Step 1: Remove the constant**
 
 Delete `pub const PENDING: u8 = 0x78;` and its doc comment from `src/lib.rs`. Confirm nothing used it:
+
 ```bash
 rg -n "\bPENDING\b" src   # expect: no matches
 ```
@@ -1174,13 +1230,14 @@ git add src/lib.rs
 git commit -m "remove unused PENDING constant (use NegativeResponseCode instead)"
 ```
 
----
+______________________________________________________________________
 
 # PHASE 3 — Final verification
 
 ### Task 13: `NegativeResponse` echoed-service edge doc (Decision F)
 
 **Files:**
+
 - Modify: `src/services/negative_response.rs`
 
 - [ ] **Step 1: Document the accepted edge on `request_service`**
@@ -1190,6 +1247,7 @@ Update the doc comment on `NegativeResponse.request_service` to state: "For a se
 - [ ] **Step 2: Build + commit**
 
 Run: `cargo test && cargo fmt --check`
+
 ```bash
 git add src/services/negative_response.rs
 git commit -m "document NegativeResponse echoed-service normalization edge"
@@ -1198,6 +1256,7 @@ git commit -m "document NegativeResponse echoed-service normalization edge"
 ### Task 14: README + crate-root coverage docs sweep
 
 **Files:**
+
 - Modify: `README.md`, `src/lib.rs` (crate-root docs if they name renamed types)
 
 - [ ] **Step 1: Grep for stale names in docs**
@@ -1205,11 +1264,13 @@ git commit -m "document NegativeResponse echoed-service normalization edge"
 ```bash
 rg -n "RequestTransferExit|ReadDataByIdentifierRequestTx|SUCCESS|PENDING|common::" README.md src/lib.rs
 ```
+
 Fix any reference to the removed `*Tx` name, `SUCCESS`/`PENDING`, or `common::` paths in prose/snippets. Verify the modeled-vs-`Other` service-coverage list still reads correctly.
 
 - [ ] **Step 2: rustdoc + commit**
 
 Run: `cargo doc --no-deps` (expect no broken intra-doc links) then:
+
 ```bash
 git add README.md src/lib.rs
 git commit -m "docs: update for reshaped API surface"
@@ -1231,6 +1292,7 @@ cargo clippy --no-default-features
 cargo fmt --check
 cargo doc --no-deps
 ```
+
 Expected: all green.
 
 - [ ] **Step 2: Final surface grep**
@@ -1238,11 +1300,12 @@ Expected: all green.
 ```bash
 rg -n "\bSUCCESS\b|\bPENDING\b|RequestTx|ReadDataByIdentifierRequestTx|crate::common|InvalidDiagnosticIdentifier" src
 ```
+
 Expected: no matches (CommunicationControl `Rx`/`Tx` domain names are fine).
 
 - [ ] **Step 3: No commit** — this is a validation gate before merge.
 
----
+______________________________________________________________________
 
 ## Notes for the executor
 
