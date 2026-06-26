@@ -294,7 +294,6 @@ impl core::fmt::Debug for UDSIdentifier {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-#[repr(u16)]
 pub enum UDSRoutineIdentifier {
     /// ISO/SAE reserved routine identifier (`0x0000–0x00FF`, `0xE300–0xEFFF`, `0xFF02–0xFFFF`).
     ISOSAEReserved(u16),
@@ -314,12 +313,12 @@ pub enum UDSRoutineIdentifier {
     /// Execute Service Programming Loop (SPL)
     ///
     /// 0xE200
-    ExecuteSPL = 0xE200,
+    ExecuteSPL,
 
     /// Deploy Loop Routine ID
     ///
     /// 0xE201
-    DeployLoopRoutineID = 0xE201,
+    DeployLoopRoutineID,
 
     /// 0xE202-0xE2FF
     SafetySystemRoutineID(u16),
@@ -332,12 +331,12 @@ pub enum UDSRoutineIdentifier {
     /// Erase Memory
     ///
     /// 0xFF00
-    EraseMemory = 0xFF00,
+    EraseMemory,
 
     /// Check Programming Dependencies
     ///
     /// 0xFF01
-    CheckProgrammingDependencies = 0xFF01,
+    CheckProgrammingDependencies,
 }
 
 /// We know all values for the Routine Identifier, so we can implement `From<u16>` for `UDSRoutineIdentifier`
@@ -385,6 +384,15 @@ mod tests {
         // Every u16 maps to a variant and round-trips back to itself.
         for raw in 0u16..=u16::MAX {
             let id = UDSIdentifier::from(raw);
+            assert_eq!(u16::from(id), raw, "round-trip failed for {raw:#06X}");
+        }
+    }
+
+    #[test]
+    fn uds_routine_identifier_from_is_total_and_round_trips() {
+        // Every u16 maps to a variant and round-trips back to itself.
+        for raw in 0u16..=u16::MAX {
+            let id = UDSRoutineIdentifier::from(raw);
             assert_eq!(u16::from(id), raw, "round-trip failed for {raw:#06X}");
         }
     }
