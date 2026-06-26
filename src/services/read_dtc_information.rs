@@ -660,6 +660,15 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
 ///
 /// Stores raw bytes for record collections and provides lazy iterators
 /// that parse on demand without allocation.
+///
+/// # Coverage
+///
+/// This enum models the sub-functions the library currently parses: `0x01`/`0x07`
+/// (number of DTCs), `0x02`/`0x0A`–`0x0E`/`0x15` (DTC + status lists), `0x14` (fault
+/// detection counters), `0x08`/`0x09` (DTC severity lists), and `0x42` (WWH-OBD by mask).
+/// `ReadDTCInformation` defines further sub-functions that are **not yet modeled**;
+/// [`decode`](Self::decode) returns [`Error::InvalidDtcSubfunctionType`] for those. See the
+/// support table in the crate README. This is the "Partial" coverage noted there, not a bug.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
 pub enum ReadDTCInfoResponse<'a> {
@@ -692,7 +701,10 @@ pub enum ReadDTCInfoResponse<'a> {
         sub_function_id: u8,
         /// DTC status availability mask.
         status_availability_mask: DTCStatusAvailabilityMask,
-        /// Raw record bytes (6 bytes per record) — use [`DtcSeverityAndStatusIter`] iteration.
+        /// Raw `DTCAndSeverityRecord` bytes (6 bytes each: severity + DTC functional unit +
+        /// 3-byte DTC + status). These differ from the 5-byte WWH-OBD records, so
+        /// [`DtcSeverityAndStatusIter`] does **not** apply here; no severity-list iterator is
+        /// wired yet, so parse these bytes caller-side until one is added.
         raw_records: &'a [u8],
     },
     /// Sub-function 0x42: WWH-OBD DTC by mask with severity info.
