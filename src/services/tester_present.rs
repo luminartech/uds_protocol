@@ -1,9 +1,6 @@
 //! `TesterPresent` (0x3E) service implementation
-use crate::{
-    Error, NegativeResponseCode, SingleValueWireFormat, SuppressablePositiveResponse, WireFormat,
-};
-
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use crate::shared::SuppressablePositiveResponse;
+use crate::{Decode, Encode, Error, NegativeResponseCode};
 
 const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -24,13 +21,6 @@ enum ZeroSubFunction {
     NoSubFunctionSupported,
     /// Request only.
     ISOSAEReserved(u8),
-}
-
-impl ZeroSubFunction {
-    #[inline]
-    fn new() -> Self {
-        Self::default()
-    }
 }
 
 impl Default for ZeroSubFunction {
@@ -71,8 +61,9 @@ pub struct TesterPresentRequest {
 
 impl TesterPresentRequest {
     /// Create a new `TesterPresentRequest`
-    pub(crate) fn new(suppress_positive_response: bool) -> Self {
-        Self::with_subfunction(suppress_positive_response, ZeroSubFunction::new())
+    #[must_use]
+    pub fn new(suppress_positive_response: bool) -> Self {
+        Self::with_subfunction(suppress_positive_response, ZeroSubFunction::default())
     }
 
     fn with_subfunction(
@@ -100,25 +91,26 @@ impl TesterPresentRequest {
     }
 }
 
-impl WireFormat for TesterPresentRequest {
-    fn required_size(&self) -> usize {
+impl Encode for TesterPresentRequest {
+    fn encoded_size(&self) -> usize {
         1
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.zero_sub_function))?;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.zero_sub_function)])
+            .map_err(Error::io)?;
         Ok(1)
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_positive_response()
     }
 }
 
-impl SingleValueWireFormat for TesterPresentRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let zero_sub_function = SuppressablePositiveResponse::try_from(reader.read_u8()?)?;
-        Ok(Self { zero_sub_function })
+impl<'a> Decode<'a> for TesterPresentRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let zero_sub_function = SuppressablePositiveResponse::try_from(buf[0])?;
+        Ok((Self { zero_sub_function }, &buf[1..]))
     }
 }
 
@@ -133,34 +125,49 @@ pub struct TesterPresentResponse {
 
 impl TesterPresentResponse {
     /// Create a new `TesterPresentResponse`
-    pub(crate) fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
-            zero_sub_function: ZeroSubFunction::new(),
+            zero_sub_function: ZeroSubFunction::default(),
         }
     }
 }
 
-impl WireFormat for TesterPresentResponse {
-    fn required_size(&self) -> usize {
+impl Default for TesterPresentResponse {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Encode for TesterPresentResponse {
+    fn encoded_size(&self) -> usize {
         1
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.zero_sub_function))?;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.zero_sub_function)])
+            .map_err(Error::io)?;
         Ok(1)
     }
 }
 
-impl SingleValueWireFormat for TesterPresentResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let zero_sub_function = ZeroSubFunction::try_from(reader.read_u8()?)?;
-        Ok(Self { zero_sub_function })
+impl<'a> Decode<'a> for TesterPresentResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let zero_sub_function = ZeroSubFunction::try_from(buf[0])?;
+        Ok((Self { zero_sub_function }, &buf[1..]))
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn try_from_all_zero_subfunction() {
@@ -193,11 +200,14 @@ mod test {
         }
     }
 
+    #[cfg(feature = "alloc")]
     fn make_request(byte: u8) -> Result<TesterPresentRequest, Error> {
         let bytes = vec![byte];
-        TesterPresentRequest::decode(&mut bytes.as_slice())
+        let (val, _) = <TesterPresentRequest as Decode>::decode(&bytes)?;
+        Ok(val)
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn read_request_type() {
         for i in 0..u8::MAX {
@@ -231,30 +241,35 @@ mod test {
         }
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn write_request_type() {
         let test_type = TesterPresentRequest::new(false);
         let mut buffer = Vec::new();
-        test_type.encode(&mut buffer).unwrap();
+        Encode::encode(&test_type, &mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
+        assert_encode_size_agrees(&test_type);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn read_response_type() {
         let bytes = vec![0u8];
-        let test_type = TesterPresentResponse::decode(&mut bytes.as_slice()).unwrap();
+        let (test_type, _) = <TesterPresentResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(test_type, TesterPresentResponse::new());
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn write_response_type() {
         let test_type = TesterPresentResponse::new();
         let mut buffer = Vec::new();
-        test_type.encode(&mut buffer).unwrap();
+        Encode::encode(&test_type, &mut buffer).unwrap();
 
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
+        assert_encode_size_agrees(&test_type);
     }
 }

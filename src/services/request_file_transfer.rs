@@ -1,10 +1,17 @@
 //! `RequestFileTransfer` (0x38) service implementation
-use byteorder::{ReadBytesExt, WriteBytesExt};
-use std::io::Read;
 
-use crate::{
-    DataFormatIdentifier, Error, LengthFormatIdentifier, SingleValueWireFormat, WireFormat,
-};
+use crate::shared::{DataFormatIdentifier, read_be_uint, write_be_uint};
+use crate::{Decode, Encode, Error, param_length_u128};
+
+/// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
+/// values. Used to derive the on-wire `parameterLength` prefix from the data itself,
+/// so the declared length can never disagree with the value it describes.
+fn size_param_width(a: u128, b: u128) -> usize {
+    let a = param_length_u128(a) as usize;
+    let b = param_length_u128(b) as usize;
+    let w = a.max(b);
+    w.max(1)
+}
 
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 /// Mode of operation for file transfer requests
@@ -75,24 +82,13 @@ impl TryFrom<u8> for FileOperationMode {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
-/// [Response]: RequestFileTransferResponse (RequestFileTransferResponse)
+/// [Request]: RequestFileTransferRequest
+/// [Response]: RequestFileTransferResponse
 #[allow(clippy::struct_field_names)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SizePayload {
-    /// Length in bytes for both `file_size_uncompressed` and `file_size_compressed`
-    ///
-    /// Not included in the *Request* message if `mode_of_operation` is one of:
-    ///  * `DeleteFile` (0x02)
-    ///  * `ReadFile` (0x04)
-    ///  * `ReadDir` (0x05)
-    ///
-    /// Not included in the *Response* message if `mode_of_operation` is one of:
-    ///    * `DeleteFile` (0x02)
-    pub file_size_parameter_length: u8,
-
     /// Specifies the size of the uncompressed file in bytes.
     ///
     /// Not included in the request message if `mode_of_operation` is one of:
@@ -110,68 +106,21 @@ pub struct SizePayload {
     pub file_size_compressed: u128,
 }
 
-impl WireFormat for SizePayload {
-    fn required_size(&self) -> usize {
-        1 + (2 * self.file_size_parameter_length as usize)
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        if !(1..=16).contains(&self.file_size_parameter_length) {
-            return Err(Error::InvalidFileSizeParameterLength(u16::from(
-                self.file_size_parameter_length,
-            )));
+impl SizePayload {
+    /// Build a size payload. The on-wire `fileSizeParameterLength` is derived from the
+    /// values themselves (the byte-width needed to hold the larger of the two).
+    #[must_use]
+    pub const fn new(file_size_uncompressed: u128, file_size_compressed: u128) -> Self {
+        Self {
+            file_size_uncompressed,
+            file_size_compressed,
         }
-        // Always write the file size as 1 byte
-        writer.write_u8(self.file_size_parameter_length)?;
-        // write the file size only as many bytes as needed
-        // Slice off only the number of bytes we need from the end of the file_size bytes
-        let uncompressed = self.file_size_uncompressed.to_be_bytes();
-        let compressed = self.file_size_compressed.to_be_bytes();
-        // file_size_uncompressed
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes.extend_from_slice(&uncompressed[16 - self.file_size_parameter_length as usize..]);
-        // file_size_compressed
-        bytes.extend_from_slice(&compressed[16 - self.file_size_parameter_length as usize..]);
-
-        writer.write_all(&bytes)?;
-
-        Ok(self.required_size())
     }
 }
 
-impl SingleValueWireFormat for SizePayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let file_size_parameter_length = reader.read_u8()?;
-        if !(1..=16).contains(&file_size_parameter_length) {
-            return Err(Error::InvalidFileSizeParameterLength(u16::from(
-                file_size_parameter_length,
-            )));
-        }
-        let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
-        let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
-
-        reader.read_exact(&mut file_size_uncompressed)?;
-        reader.read_exact(&mut file_size_compressed)?;
-
-        Ok(Self {
-            file_size_parameter_length,
-            file_size_uncompressed: u128::from_be_bytes({
-                let mut bytes = [0; 16];
-                bytes[16 - file_size_parameter_length as usize..]
-                    .copy_from_slice(&file_size_uncompressed);
-                bytes
-            }),
-            file_size_compressed: u128::from_be_bytes({
-                let mut bytes = [0; 16];
-                bytes[16 - file_size_parameter_length as usize..]
-                    .copy_from_slice(&file_size_compressed);
-                bytes
-            }),
-        })
-    }
-}
-
-/// Payload used for all [`RequestFileTransfer` requests][RequestFileTransferRequest]
+/// Payload used for all [`RequestFileTransferRequest`] requests.
+///
+/// Borrows `file_path_and_name` from the caller.
 ///
 /// #### ***Request*** Message
 /// |               | [AddFile] | [DeleteFile] | [ReplaceFile] | [ReadFile] | [ReadDir] | [ResumeFile] |
@@ -184,57 +133,33 @@ impl SingleValueWireFormat for SizePayload {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Request]: RequestFileTransferRequest (RequestFileTransferRequest)
+/// [Request]: RequestFileTransferRequest
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
-pub struct NamePayload {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NamePayload<'a> {
     /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
+    pub mode_of_operation: FileOperationMode,
+
+    /// The path and name of the file or directory on the server.
     ///
-    /// Duplicated as we need to read and store it somewhere
-    mode_of_operation: FileOperationMode,
-
-    /// Length in bytes of the `file_path_and_name` field
-    file_path_and_name_length: u16,
-
-    /// The path and name of the file or directory on the server
-    file_path_and_name: String,
+    /// The on-wire length prefix is derived from this field during encoding, so it can
+    /// never disagree with the name it describes.
+    pub file_path_and_name: &'a str,
 }
 
-impl WireFormat for NamePayload {
-    fn required_size(&self) -> usize {
-        1 + 2 + self.file_path_and_name.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Write the mode of operation
-        writer.write_u8((self.mode_of_operation).into())?;
-        // Write the file path and name length
-        writer.write_u16::<byteorder::BigEndian>(self.file_path_and_name_length)?;
-        // Write the file path and name
-        writer.write_all(self.file_path_and_name.as_bytes())?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for NamePayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
-        let file_path_and_name_length = reader.read_u16::<byteorder::BigEndian>()?;
-
-        // Read # of bytes specified by `file_path_and_name_length`
-        let mut file_path_and_name = String::new();
-        reader
-            .take(u64::from(file_path_and_name_length))
-            .read_to_string(&mut file_path_and_name)?;
-
-        Ok(Self {
+impl<'a> NamePayload<'a> {
+    /// Build a name payload. The on-wire length prefix is computed from
+    /// `file_path_and_name` at encode time.
+    #[must_use]
+    pub const fn new(mode_of_operation: FileOperationMode, file_path_and_name: &'a str) -> Self {
+        Self {
             mode_of_operation,
-            file_path_and_name_length,
             file_path_and_name,
-        })
+        }
     }
 }
+
 /// A request to the server to transfer a file, either upload or download.
 ///
 /// Capabilities:
@@ -250,107 +175,43 @@ impl SingleValueWireFormat for NamePayload {
 /// there is no need to use the `TransferData` or [`crate::UdsServiceType::RequestTransferExit`] services.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
-pub enum RequestFileTransferRequest {
+pub enum RequestFileTransferRequest<'a> {
     /// Add a file to the server
-    AddFile(NamePayload, DataFormatIdentifier, SizePayload),
+    AddFile(
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>,
+        DataFormatIdentifier,
+        SizePayload,
+    ),
 
     /// Delete the specified file from the server
-    DeleteFile(NamePayload),
+    DeleteFile(#[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>),
 
     /// Replace the specified file on the server, if it does not exist, add it
-    ReplaceFile(NamePayload, DataFormatIdentifier, SizePayload),
+    ReplaceFile(
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>,
+        DataFormatIdentifier,
+        SizePayload,
+    ),
 
     /// Read the specified file from the server (upload)
-    ReadFile(NamePayload, DataFormatIdentifier),
+    ReadFile(
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>,
+        DataFormatIdentifier,
+    ),
 
     /// Read the directory from the server
     /// Implies that the request does not include a `fileName`
-    ReadDir(NamePayload),
+    ReadDir(#[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>),
 
     /// Resume a file transfer at the returned `filePosition` indicator
     /// The file must already exist in the ECU's filesystem
-    ResumeFile(NamePayload, DataFormatIdentifier, SizePayload),
-}
-
-impl WireFormat for RequestFileTransferRequest {
-    fn required_size(&self) -> usize {
-        match self {
-            Self::AddFile(name_payload, data_format_identifier, file_size_payload)
-            | Self::ReplaceFile(name_payload, data_format_identifier, file_size_payload)
-            | Self::ResumeFile(name_payload, data_format_identifier, file_size_payload) => {
-                name_payload.required_size()
-                    + data_format_identifier.required_size()
-                    + file_size_payload.required_size()
-            }
-            Self::ReadFile(name_payload, data_format_identifier) => {
-                name_payload.required_size() + data_format_identifier.required_size()
-            }
-            Self::DeleteFile(name_payload) | Self::ReadDir(name_payload) => {
-                name_payload.required_size()
-            }
-        }
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        let mut len = 0;
-        Ok(match self {
-            Self::AddFile(name_payload, data_format_identifier, file_size_payload)
-            | Self::ReplaceFile(name_payload, data_format_identifier, file_size_payload)
-            | Self::ResumeFile(name_payload, data_format_identifier, file_size_payload) => {
-                len += name_payload.encode(writer)?;
-                len += data_format_identifier.encode(writer)?;
-                len += file_size_payload.encode(writer)?;
-                len
-            }
-            Self::ReadFile(name_payload, data_format_identifier) => {
-                len += name_payload.encode(writer)?;
-                len += data_format_identifier.encode(writer)?;
-                len
-            }
-            Self::DeleteFile(name_payload) | Self::ReadDir(name_payload) => {
-                len += name_payload.encode(writer)?;
-                len
-            }
-        })
-    }
-}
-
-impl SingleValueWireFormat for RequestFileTransferRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let name_payload = NamePayload::decode(reader)?;
-
-        // read the filename
-        Ok(match name_payload.mode_of_operation {
-            // Complicated
-            FileOperationMode::AddFile => Self::AddFile(
-                name_payload,
-                DataFormatIdentifier::decode(reader)?,
-                SizePayload::decode(reader)?,
-            ),
-            FileOperationMode::ReplaceFile => Self::ReplaceFile(
-                name_payload,
-                DataFormatIdentifier::decode(reader)?,
-                SizePayload::decode(reader)?,
-            ),
-            FileOperationMode::ResumeFile => Self::ResumeFile(
-                name_payload,
-                DataFormatIdentifier::decode(reader)?,
-                SizePayload::decode(reader)?,
-            ),
-            FileOperationMode::ReadFile => {
-                Self::ReadFile(name_payload, DataFormatIdentifier::decode(reader)?)
-            }
-            FileOperationMode::ReadDir => Self::ReadDir(name_payload),
-            FileOperationMode::DeleteFile => Self::DeleteFile(name_payload),
-            FileOperationMode::ISOSAEReserved(_) => {
-                return Err(Error::InvalidFileOperationMode(
-                    name_payload.mode_of_operation.into(),
-                ));
-            }
-        })
-    }
+    ResumeFile(
+        #[cfg_attr(feature = "serde", serde(borrow))] NamePayload<'a>,
+        DataFormatIdentifier,
+        SizePayload,
+    ),
 }
 
 ///////////////////////////////////////// - Response - ///////////////////////////////////////////////////
@@ -367,14 +228,11 @@ impl SingleValueWireFormat for RequestFileTransferRequest {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
+/// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
-pub struct SentDataPayload {
-    /// Per ISO 14229-1 Table 422: high nibble (bits 7-4) specifies the
-    /// number of bytes for maxNumberOfBlockLength; low nibble is reserved.
-    length_format_identifier: LengthFormatIdentifier,
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SentDataPayload<'a> {
     /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
     /// data bytes (maxNumberOfBlockLength) to include in each `TransferData` request message from the client or how
     /// many data bytes the server will include in a `TransferData` positive response when uploading data. This length
@@ -391,37 +249,17 @@ pub struct SentDataPayload {
     /// affect the memory address of where the subsequent transferData request data would be written.
     /// If the modeOfOperation parameter equals to 0x02 (`DeleteFile`) this parameter shall be not be included in the
     /// response message.
-    pub max_number_of_block_length: Vec<u8>,
+    pub max_number_of_block_length: &'a [u8],
 }
 
-impl WireFormat for SentDataPayload {
-    fn required_size(&self) -> usize {
-        1 + self.max_number_of_block_length.len()
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.length_format_identifier.into())?;
-        writer.write_all(&self.max_number_of_block_length)?;
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for SentDataPayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let raw = reader.read_u8()?;
-        // Per ISO 14229-1 Table 422: low nibble (bits 3-0) is reserved and must be zero.
-        if raw & 0x0F != 0 {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-        }
-        let length_format_identifier = LengthFormatIdentifier::from(raw);
-
-        let mut max_number_of_block_length: Vec<u8> =
-            vec![0; length_format_identifier.max_number_of_block_length as usize];
-        reader.read_exact(&mut max_number_of_block_length)?;
-        Ok(Self {
-            length_format_identifier,
+impl<'a> SentDataPayload<'a> {
+    /// Build a sent-data payload. The on-wire `lengthFormatIdentifier` is derived from
+    /// the length of `max_number_of_block_length` at encode time.
+    #[must_use]
+    pub const fn new(max_number_of_block_length: &'a [u8]) -> Self {
+        Self {
             max_number_of_block_length,
-        })
+        }
     }
 }
 
@@ -437,77 +275,32 @@ impl SingleValueWireFormat for SentDataPayload {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
+/// [Response]: RequestFileTransferResponse
 #[allow(clippy::struct_field_names)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FileSizePayload {
-    /// Length in bytes of both `file_size_uncompressed` and `file_size_compressed`.
-    pub file_size_parameter_length: u16,
     /// Size of the uncompressed file in bytes.
     pub file_size_uncompressed: u128,
     /// Size of the compressed file in bytes.
     pub file_size_compressed: u128,
 }
 
-impl WireFormat for FileSizePayload {
-    fn required_size(&self) -> usize {
-        2 + (2 * self.file_size_parameter_length as usize)
+impl FileSizePayload {
+    /// Build a file-size payload. The on-wire `fileSizeOrDirInfoParameterLength` is
+    /// derived from the values (the byte-width needed to hold the larger of the two).
+    #[must_use]
+    pub const fn new(file_size_uncompressed: u128, file_size_compressed: u128) -> Self {
+        Self {
+            file_size_uncompressed,
+            file_size_compressed,
+        }
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        if !(1..=16).contains(&self.file_size_parameter_length) {
-            return Err(Error::InvalidFileSizeParameterLength(
-                self.file_size_parameter_length,
-            ));
-        }
-        writer.write_u16::<byteorder::BE>(self.file_size_parameter_length)?;
-        // write the file size only as many bytes as needed
-        // Slice off only the number of bytes we need from the end of the file_size bytes
-        let uncompressed = self.file_size_uncompressed.to_be_bytes();
-        let compressed = self.file_size_compressed.to_be_bytes();
-        // file_size_uncompressed
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes.extend_from_slice(&uncompressed[16 - self.file_size_parameter_length as usize..]);
-        // file_size_compressed
-        bytes.extend_from_slice(&compressed[16 - self.file_size_parameter_length as usize..]);
-
-        writer.write_all(&bytes)?;
-
-        Ok(self.required_size())
-    }
-}
-
-impl SingleValueWireFormat for FileSizePayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let file_size_parameter_length = reader.read_u16::<byteorder::BE>()?;
-        if !(1..=16).contains(&file_size_parameter_length) {
-            return Err(Error::InvalidFileSizeParameterLength(
-                file_size_parameter_length,
-            ));
-        }
-        let mut file_size_uncompressed = vec![0; file_size_parameter_length as usize];
-        let mut file_size_compressed = vec![0; file_size_parameter_length as usize];
-
-        reader.read_exact(&mut file_size_uncompressed)?;
-        reader.read_exact(&mut file_size_compressed)?;
-
-        Ok(Self {
-            file_size_parameter_length,
-            file_size_uncompressed: u128::from_be_bytes({
-                let mut bytes = [0; 16];
-                bytes[16 - file_size_parameter_length as usize..]
-                    .copy_from_slice(&file_size_uncompressed);
-                bytes
-            }),
-            file_size_compressed: u128::from_be_bytes({
-                let mut bytes = [0; 16];
-                bytes[16 - file_size_parameter_length as usize..]
-                    .copy_from_slice(&file_size_compressed);
-                bytes
-            }),
-        })
+    /// Byte-width of each size field on the wire, derived from the values.
+    fn width(&self) -> usize {
+        size_param_width(self.file_size_uncompressed, self.file_size_compressed)
     }
 }
 
@@ -523,64 +316,26 @@ impl SingleValueWireFormat for FileSizePayload {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
+/// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DirSizePayload {
-    /// Length in bytes of the `dir_info_length` field.
-    pub dir_info_parameter_length: u16,
     /// Total size of the directory information in bytes.
     pub dir_info_length: u128,
 }
 
-impl WireFormat for DirSizePayload {
-    fn required_size(&self) -> usize {
-        2 + self.dir_info_parameter_length as usize
+impl DirSizePayload {
+    /// Build a directory-size payload. The on-wire
+    /// `fileSizeOrDirInfoParameterLength` is derived from `dir_info_length`.
+    #[must_use]
+    pub const fn new(dir_info_length: u128) -> Self {
+        Self { dir_info_length }
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        if !(1..=16).contains(&self.dir_info_parameter_length) {
-            return Err(Error::InvalidFileSizeParameterLength(
-                self.dir_info_parameter_length,
-            ));
-        }
-        let mut len = 0;
-        writer.write_u16::<byteorder::BigEndian>(self.dir_info_parameter_length)?;
-        len += 2;
-        // write the file size only as many bytes as needed
-        // Slice off only the number of bytes we need from the end of the file_size bytes
-        let dir_info_length = self.dir_info_length.to_be_bytes();
-        let mut bytes: Vec<u8> = Vec::new();
-
-        bytes.extend_from_slice(&dir_info_length[16 - self.dir_info_parameter_length as usize..]);
-        writer.write_all(&bytes)?;
-
-        len += bytes.len();
-
-        Ok(len)
-    }
-}
-
-impl SingleValueWireFormat for DirSizePayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let dir_info_parameter_length = reader.read_u16::<byteorder::BigEndian>()?;
-        if !(1..=16).contains(&dir_info_parameter_length) {
-            return Err(Error::InvalidFileSizeParameterLength(
-                dir_info_parameter_length,
-            ));
-        }
-        let mut dir_info_length = vec![0; dir_info_parameter_length as usize];
-        reader.read_exact(&mut dir_info_length)?;
-
-        Ok(Self {
-            dir_info_parameter_length,
-            dir_info_length: u128::from_be_bytes({
-                let mut bytes = [0; 16];
-                bytes[16 - dir_info_parameter_length as usize..].copy_from_slice(&dir_info_length);
-                bytes
-            }),
-        })
+    /// Byte-width of the `dir_info_length` field on the wire, derived from the value.
+    fn width(&self) -> usize {
+        size_param_width(self.dir_info_length, 0)
     }
 }
 
@@ -596,7 +351,7 @@ impl SingleValueWireFormat for DirSizePayload {
 /// [ReadFile]: FileOperationMode::ReadFile
 /// [ReadDir]: FileOperationMode::ReadDir
 /// [ResumeFile]: FileOperationMode::ResumeFile
-/// [Response]: RequestFileTransferRequest (RequestFileTransferResponse)
+/// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -612,23 +367,11 @@ pub struct PositionPayload {
     pub file_position: u64,
 }
 
-impl WireFormat for PositionPayload {
-    // For PositionPayload
-    fn required_size(&self) -> usize {
-        8
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u64::<byteorder::BigEndian>(self.file_position)?;
-        Ok(8)
-    }
-}
-
-impl SingleValueWireFormat for PositionPayload {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        Ok(Self {
-            file_position: reader.read_u64::<byteorder::BigEndian>()?,
-        })
+impl PositionPayload {
+    /// Build a position payload from the resume byte position (fixed 8 bytes on the wire).
+    #[must_use]
+    pub const fn new(file_position: u64) -> Self {
+        Self { file_position }
     }
 }
 
@@ -638,360 +381,446 @@ impl SingleValueWireFormat for PositionPayload {
 /// `DataFormatIdentifier` - Echoes the value of the request
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
-pub enum RequestFileTransferResponse {
+pub enum RequestFileTransferResponse<'a> {
     /// Positive response to an [`AddFile`](FileOperationMode::AddFile) request.
-    AddFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
+    AddFile(
+        FileOperationMode,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
+        DataFormatIdentifier,
+    ),
     /// Positive response to a [`DeleteFile`](FileOperationMode::DeleteFile) request.
     DeleteFile(FileOperationMode),
     /// Positive response to a [`ReplaceFile`](FileOperationMode::ReplaceFile) request.
-    ReplaceFile(FileOperationMode, SentDataPayload, DataFormatIdentifier),
+    ReplaceFile(
+        FileOperationMode,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
+        DataFormatIdentifier,
+    ),
     /// Positive response to a [`ReadFile`](FileOperationMode::ReadFile) request, including file size.
     ReadFile(
         FileOperationMode,
-        SentDataPayload,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
         DataFormatIdentifier,
         FileSizePayload,
     ),
     /// Positive response to a [`ReadDir`](FileOperationMode::ReadDir) request, including directory size.
     ReadDir(
         FileOperationMode,
-        SentDataPayload,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
         DataFormatIdentifier,
         DirSizePayload,
     ),
     /// Positive response to a [`ResumeFile`](FileOperationMode::ResumeFile) request, including file position.
     ResumeFile(
         FileOperationMode,
-        SentDataPayload,
+        #[cfg_attr(feature = "serde", serde(borrow))] SentDataPayload<'a>,
         DataFormatIdentifier,
         PositionPayload,
     ),
 }
 
-impl WireFormat for RequestFileTransferResponse {
-    // For RequestFileTransferResponse
-    fn required_size(&self) -> usize {
+// ---------------------------------------------------------------------------
+// Encode / Decode impls
+// ---------------------------------------------------------------------------
+
+impl Encode for NamePayload<'_> {
+    fn encoded_size(&self) -> usize {
+        1 + 2 + self.file_path_and_name.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let name = self.file_path_and_name.as_bytes();
+        let name_len =
+            u16::try_from(name.len()).map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
+        writer
+            .write_all(&[u8::from(self.mode_of_operation)])
+            .map_err(Error::io)?;
+        writer
+            .write_all(&name_len.to_be_bytes())
+            .map_err(Error::io)?;
+        writer.write_all(name).map_err(Error::io)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for NamePayload<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 3 {
+            return Err(Error::InsufficientData(3));
+        }
+        let mode_of_operation = FileOperationMode::try_from(buf[0])?;
+        let name_len = u16::from_be_bytes([buf[1], buf[2]]) as usize;
+        let total = 3 + name_len;
+        if buf.len() < total {
+            return Err(Error::InsufficientData(total));
+        }
+        let file_path_and_name = core::str::from_utf8(&buf[3..total])
+            .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
+        Ok((
+            Self {
+                mode_of_operation,
+                file_path_and_name,
+            },
+            &buf[total..],
+        ))
+    }
+}
+
+impl SizePayload {
+    /// Byte-width of each size field on the wire, derived from the values.
+    fn width(&self) -> usize {
+        size_param_width(self.file_size_uncompressed, self.file_size_compressed)
+    }
+}
+
+impl Encode for SizePayload {
+    fn encoded_size(&self) -> usize {
+        1 + 2 * self.width()
+    }
+
+    #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u8
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let n = self.width();
+        writer.write_all(&[n as u8]).map_err(Error::io)?;
+        write_be_uint(self.file_size_uncompressed, n, writer)?;
+        write_be_uint(self.file_size_compressed, n, writer)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for SizePayload {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let n = buf[0] as usize;
+        let total = 1 + 2 * n;
+        if buf.len() < total {
+            return Err(Error::InsufficientData(total));
+        }
+        let file_size_uncompressed = read_be_uint(&buf[1..], n)?;
+        let file_size_compressed = read_be_uint(&buf[1 + n..], n)?;
+        Ok((
+            Self {
+                file_size_uncompressed,
+                file_size_compressed,
+            },
+            &buf[total..],
+        ))
+    }
+}
+
+impl Encode for SentDataPayload<'_> {
+    fn encoded_size(&self) -> usize {
+        1 + self.max_number_of_block_length.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let len = u8::try_from(self.max_number_of_block_length.len())
+            .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
+        writer.write_all(&[len]).map_err(Error::io)?;
+        writer
+            .write_all(self.max_number_of_block_length)
+            .map_err(Error::io)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for SentDataPayload<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let n = buf[0] as usize;
+        let total = 1 + n;
+        if buf.len() < total {
+            return Err(Error::InsufficientData(total));
+        }
+        Ok((
+            Self {
+                max_number_of_block_length: &buf[1..total],
+            },
+            &buf[total..],
+        ))
+    }
+}
+
+impl Encode for FileSizePayload {
+    fn encoded_size(&self) -> usize {
+        2 + 2 * self.width()
+    }
+
+    #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let n = self.width();
+        writer
+            .write_all(&(n as u16).to_be_bytes())
+            .map_err(Error::io)?;
+        write_be_uint(self.file_size_uncompressed, n, writer)?;
+        write_be_uint(self.file_size_compressed, n, writer)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for FileSizePayload {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::InsufficientData(2));
+        }
+        let n = u16::from_be_bytes([buf[0], buf[1]]) as usize;
+        let total = 2 + 2 * n;
+        if buf.len() < total {
+            return Err(Error::InsufficientData(total));
+        }
+        let file_size_uncompressed = read_be_uint(&buf[2..], n)?;
+        let file_size_compressed = read_be_uint(&buf[2 + n..], n)?;
+        Ok((
+            Self {
+                file_size_uncompressed,
+                file_size_compressed,
+            },
+            &buf[total..],
+        ))
+    }
+}
+
+impl Encode for DirSizePayload {
+    fn encoded_size(&self) -> usize {
+        2 + self.width()
+    }
+
+    #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let n = self.width();
+        writer
+            .write_all(&(n as u16).to_be_bytes())
+            .map_err(Error::io)?;
+        write_be_uint(self.dir_info_length, n, writer)?;
+        Ok(self.encoded_size())
+    }
+}
+
+impl<'a> Decode<'a> for DirSizePayload {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::InsufficientData(2));
+        }
+        let n = u16::from_be_bytes([buf[0], buf[1]]) as usize;
+        let total = 2 + n;
+        if buf.len() < total {
+            return Err(Error::InsufficientData(total));
+        }
+        let dir_info_length = read_be_uint(&buf[2..], n)?;
+        Ok((Self { dir_info_length }, &buf[total..]))
+    }
+}
+
+impl Encode for PositionPayload {
+    fn encoded_size(&self) -> usize {
+        8
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&self.file_position.to_be_bytes())
+            .map_err(Error::io)?;
+        Ok(8)
+    }
+}
+
+impl<'a> Decode<'a> for PositionPayload {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 8 {
+            return Err(Error::InsufficientData(8));
+        }
+        let file_position = u64::from_be_bytes([
+            buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
+        ]);
+        Ok((Self { file_position }, &buf[8..]))
+    }
+}
+
+impl Encode for RequestFileTransferRequest<'_> {
+    fn encoded_size(&self) -> usize {
         match self {
-            Self::AddFile(_, sent_data, data_format)
-            | Self::ReplaceFile(_, sent_data, data_format) => {
-                1 + sent_data.required_size() + data_format.required_size()
-            }
-            Self::DeleteFile(_) => 1,
-            Self::ReadFile(_, sent_data, data_format, file_size) => {
-                1 + sent_data.required_size()
-                    + data_format.required_size()
-                    + file_size.required_size()
-            }
-            Self::ReadDir(_, sent_data, data_format, dir_size) => {
-                1 + sent_data.required_size()
-                    + data_format.required_size()
-                    + dir_size.required_size()
-            }
-            Self::ResumeFile(_, sent_data, data_format, position) => {
-                1 + sent_data.required_size()
-                    + data_format.required_size()
-                    + position.required_size()
-            }
+            Self::AddFile(name, _, size)
+            | Self::ReplaceFile(name, _, size)
+            | Self::ResumeFile(name, _, size) => name.encoded_size() + 1 + size.encoded_size(),
+            Self::ReadFile(name, _) => name.encoded_size() + 1,
+            Self::DeleteFile(name) | Self::ReadDir(name) => name.encoded_size(),
         }
     }
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Every variant has a mode of operation
-        let mut len = 1;
 
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let mut len;
         match self {
-            Self::AddFile(mode_of_operation, sent_data_payload, data_format_identifier)
-            | Self::ReplaceFile(mode_of_operation, sent_data_payload, data_format_identifier) => {
-                writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.encode(writer)?;
-                len += data_format_identifier.encode(writer)?;
+            Self::AddFile(name, dfi, size)
+            | Self::ReplaceFile(name, dfi, size)
+            | Self::ResumeFile(name, dfi, size) => {
+                len = name.encode(writer)?;
+                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
+                len += 1;
+                len += size.encode(writer)?;
             }
-            Self::DeleteFile(mode_of_operation) => {
-                writer.write_u8((*mode_of_operation).into())?;
+            Self::ReadFile(name, dfi) => {
+                len = name.encode(writer)?;
+                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
+                len += 1;
             }
-            Self::ReadFile(
-                mode_of_operation,
-                sent_data_payload,
-                data_format_identifier,
-                size_payload,
-            ) => {
-                writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.encode(writer)?;
-                len += data_format_identifier.encode(writer)?;
-                len += size_payload.encode(writer)?;
-            }
-            Self::ReadDir(
-                mode_of_operation,
-                sent_data_payload,
-                data_format_identifier,
-                dir_size_payload,
-            ) => {
-                writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.encode(writer)?;
-                len += data_format_identifier.encode(writer)?;
-                len += dir_size_payload.encode(writer)?;
-            }
-            Self::ResumeFile(
-                mode_of_operation,
-                sent_data_payload,
-                data_format_identifier,
-                position_payload,
-            ) => {
-                writer.write_u8((*mode_of_operation).into())?;
-                len += sent_data_payload.encode(writer)?;
-                len += data_format_identifier.encode(writer)?;
-                len += position_payload.encode(writer)?;
+            Self::DeleteFile(name) | Self::ReadDir(name) => {
+                len = name.encode(writer)?;
             }
         }
         Ok(len)
     }
 }
 
-impl SingleValueWireFormat for RequestFileTransferResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        // Read the mode of operation
-        let mode_of_operation = FileOperationMode::try_from(reader.read_u8()?)?;
-        Ok(match mode_of_operation {
-            FileOperationMode::AddFile => Self::AddFile(
-                mode_of_operation,
-                SentDataPayload::decode(reader)?,
-                DataFormatIdentifier::decode(reader)?,
-            ),
-            FileOperationMode::DeleteFile => Self::DeleteFile(mode_of_operation),
-            FileOperationMode::ReplaceFile => Self::ReplaceFile(
-                mode_of_operation,
-                SentDataPayload::decode(reader)?,
-                DataFormatIdentifier::decode(reader)?,
-            ),
-            FileOperationMode::ReadFile => Self::ReadFile(
-                mode_of_operation,
-                SentDataPayload::decode(reader)?,
-                DataFormatIdentifier::decode(reader)?,
-                FileSizePayload::decode(reader)?,
-            ),
-            FileOperationMode::ReadDir => Self::ReadDir(
-                mode_of_operation,
-                SentDataPayload::decode(reader)?,
-                DataFormatIdentifier::decode(reader)?,
-                DirSizePayload::decode(reader)?,
-            ),
-            FileOperationMode::ResumeFile => Self::ResumeFile(
-                mode_of_operation,
-                SentDataPayload::decode(reader)?,
-                DataFormatIdentifier::decode(reader)?,
-                PositionPayload::decode(reader)?,
-            ),
-            FileOperationMode::ISOSAEReserved(_) => {
-                return Err(Error::InvalidFileOperationMode(mode_of_operation.into()));
+impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        let (name, rest) = NamePayload::decode(buf)?;
+        match name.mode_of_operation {
+            FileOperationMode::DeleteFile => Ok((Self::DeleteFile(name), rest)),
+            FileOperationMode::ReadDir => Ok((Self::ReadDir(name), rest)),
+            FileOperationMode::ReadFile => {
+                if rest.is_empty() {
+                    return Err(Error::InsufficientData(1));
+                }
+                let dfi = DataFormatIdentifier::from(rest[0]);
+                Ok((Self::ReadFile(name, dfi), &rest[1..]))
             }
-        })
+            mode @ (FileOperationMode::AddFile
+            | FileOperationMode::ReplaceFile
+            | FileOperationMode::ResumeFile) => {
+                if rest.is_empty() {
+                    return Err(Error::InsufficientData(1));
+                }
+                let dfi = DataFormatIdentifier::from(rest[0]);
+                let (size, rest) = SizePayload::decode(&rest[1..])?;
+                let value = match mode {
+                    FileOperationMode::AddFile => Self::AddFile(name, dfi, size),
+                    FileOperationMode::ReplaceFile => Self::ReplaceFile(name, dfi, size),
+                    FileOperationMode::ResumeFile => Self::ResumeFile(name, dfi, size),
+                    _ => unreachable!(),
+                };
+                Ok((value, rest))
+            }
+            FileOperationMode::ISOSAEReserved(b) => Err(Error::InvalidFileOperationMode(b)),
+        }
+    }
+}
+
+impl Encode for RequestFileTransferResponse<'_> {
+    fn encoded_size(&self) -> usize {
+        match self {
+            Self::DeleteFile(_) => 1,
+            Self::AddFile(_, sent, _) | Self::ReplaceFile(_, sent, _) => {
+                1 + sent.encoded_size() + 1
+            }
+            Self::ReadFile(_, sent, _, fs) => 1 + sent.encoded_size() + 1 + fs.encoded_size(),
+            Self::ReadDir(_, sent, _, ds) => 1 + sent.encoded_size() + 1 + ds.encoded_size(),
+            Self::ResumeFile(_, sent, _, pos) => 1 + sent.encoded_size() + 1 + pos.encoded_size(),
+        }
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let mut len = 1;
+        match self {
+            Self::DeleteFile(mode) => {
+                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+            }
+            Self::AddFile(mode, sent, dfi) | Self::ReplaceFile(mode, sent, dfi) => {
+                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += sent.encode(writer)?;
+                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
+                len += 1;
+            }
+            Self::ReadFile(mode, sent, dfi, fs) => {
+                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += sent.encode(writer)?;
+                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
+                len += 1;
+                len += fs.encode(writer)?;
+            }
+            Self::ReadDir(mode, sent, dfi, ds) => {
+                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += sent.encode(writer)?;
+                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
+                len += 1;
+                len += ds.encode(writer)?;
+            }
+            Self::ResumeFile(mode, sent, dfi, pos) => {
+                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += sent.encode(writer)?;
+                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
+                len += 1;
+                len += pos.encode(writer)?;
+            }
+        }
+        Ok(len)
+    }
+}
+
+impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let mode = FileOperationMode::try_from(buf[0])?;
+        let rest = &buf[1..];
+        match mode {
+            FileOperationMode::DeleteFile => Ok((Self::DeleteFile(mode), rest)),
+            FileOperationMode::AddFile | FileOperationMode::ReplaceFile => {
+                let (sent, rest) = SentDataPayload::decode(rest)?;
+                if rest.is_empty() {
+                    return Err(Error::InsufficientData(1));
+                }
+                let dfi = DataFormatIdentifier::from(rest[0]);
+                let rest = &rest[1..];
+                let value = match mode {
+                    FileOperationMode::AddFile => Self::AddFile(mode, sent, dfi),
+                    FileOperationMode::ReplaceFile => Self::ReplaceFile(mode, sent, dfi),
+                    _ => unreachable!(),
+                };
+                Ok((value, rest))
+            }
+            FileOperationMode::ReadFile => {
+                let (sent, rest) = SentDataPayload::decode(rest)?;
+                if rest.is_empty() {
+                    return Err(Error::InsufficientData(1));
+                }
+                let dfi = DataFormatIdentifier::from(rest[0]);
+                let (fs, rest) = FileSizePayload::decode(&rest[1..])?;
+                Ok((Self::ReadFile(mode, sent, dfi, fs), rest))
+            }
+            FileOperationMode::ReadDir => {
+                let (sent, rest) = SentDataPayload::decode(rest)?;
+                if rest.is_empty() {
+                    return Err(Error::InsufficientData(1));
+                }
+                let dfi = DataFormatIdentifier::from(rest[0]);
+                let (ds, rest) = DirSizePayload::decode(&rest[1..])?;
+                Ok((Self::ReadDir(mode, sent, dfi, ds), rest))
+            }
+            FileOperationMode::ResumeFile => {
+                let (sent, rest) = SentDataPayload::decode(rest)?;
+                if rest.is_empty() {
+                    return Err(Error::InsufficientData(1));
+                }
+                let dfi = DataFormatIdentifier::from(rest[0]);
+                let (pos, rest) = PositionPayload::decode(&rest[1..])?;
+                Ok((Self::ResumeFile(mode, sent, dfi, pos), rest))
+            }
+            FileOperationMode::ISOSAEReserved(b) => Err(Error::InvalidFileOperationMode(b)),
+        }
     }
 }
 
 #[cfg(test)]
 mod request_tests {
     use super::*;
-    use crate::param_length_u128;
-
-    // helper function to get some bytes to read from
-    #[allow(clippy::cast_possible_truncation)]
-    fn get_bytes(mode: FileOperationMode, file_name: &str, file_size: u128) -> Vec<u8> {
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes.push(mode.into()); // AddFile (u8)
-        // write file_name len as 2 bytes
-        bytes
-            .write_u16::<byteorder::BigEndian>(file_name.len() as u16)
-            .unwrap();
-        bytes.extend_from_slice(file_name.as_bytes());
-
-        if mode != FileOperationMode::DeleteFile && mode != FileOperationMode::ReadDir {
-            bytes.push(0x00); // No compression or encryption (u8)
-        }
-        // only add file size if not DeleteFile, ReadDir, or ReadFile
-        if mode != FileOperationMode::DeleteFile
-            && mode != FileOperationMode::ReadDir
-            && mode != FileOperationMode::ReadFile
-        {
-            // count the number of bytes occupied by the file size
-            let num = param_length_u128(file_size) as u8;
-            // use write exact
-            bytes.write_u8(num).unwrap();
-            // write the file size only as many bytes as needed
-            // Slice off only the number of bytes we need from the end of the file_size bytes
-            let source = file_size.to_be_bytes();
-            // file_size_uncompressed
-            bytes.extend_from_slice(&source[16 - num as usize..]);
-            // file_size_compressed
-            bytes.extend_from_slice(&source[16 - num as usize..]);
-        }
-        bytes
-    }
-
-    #[test]
-    #[allow(clippy::cast_possible_truncation)]
-    #[allow(clippy::cast_lossless)]
-    fn add_file() {
-        let compare_string = "test.txt";
-        // Use a value that requires exactly 8 bytes (valid parameter length)
-        let file_size: u128 = u64::MAX as u128;
-        let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
-        let req: crate::RequestFileTransferRequest =
-            RequestFileTransferRequest::decode(&mut bytes.as_slice()).unwrap();
-
-        let mut written_bytes = Vec::new();
-        let written = req.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.required_size());
-
-        match req {
-            RequestFileTransferRequest::AddFile(pl, data_format_pl, file_size_pl) => {
-                assert_eq!(pl.mode_of_operation, FileOperationMode::AddFile);
-                assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
-                assert_eq!(pl.file_path_and_name, compare_string);
-                assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(file_size_pl.file_size_parameter_length, 8);
-                assert_eq!(file_size_pl.file_size_uncompressed, file_size);
-                assert_eq!(file_size_pl.file_size_compressed, file_size);
-            }
-            _ => panic!("Expected AddFile"),
-        }
-    }
-
-    #[test]
-    #[allow(clippy::cast_possible_truncation)]
-    fn delete_file() {
-        let compare_string = "/var/tmp/delete_file.bin";
-        let bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
-        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice()).unwrap();
-
-        let mut written_bytes = Vec::new();
-        let written = req.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.required_size());
-
-        match req {
-            RequestFileTransferRequest::DeleteFile(pl) => {
-                assert_eq!(pl.mode_of_operation, FileOperationMode::DeleteFile);
-                assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
-                assert_eq!(pl.file_path_and_name, compare_string);
-            }
-            _ => panic!("Expected DeleteFile"),
-        }
-    }
-
-    #[test]
-    #[allow(clippy::cast_possible_truncation)]
-    fn write_add_file() {
-        let compare_string = "test.txt";
-        let file_size: u128 = 0x1234;
-        let bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice()).unwrap();
-
-        let mut bytes = Vec::new();
-        let written = req.encode(&mut bytes).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(written, req.required_size());
-
-        // Should be equivalent to our helper function
-        let expected_bytes = get_bytes(FileOperationMode::AddFile, compare_string, file_size);
-        assert_eq!(bytes, expected_bytes);
-    }
-
-    #[test]
-    #[allow(clippy::cast_possible_truncation)]
-    fn write_delete_file() {
-        let compare_string = "/var/tmp/delete_file.bin";
-        let req = RequestFileTransferRequest::DeleteFile(NamePayload {
-            mode_of_operation: FileOperationMode::DeleteFile,
-            file_path_and_name_length: compare_string.len() as u16,
-            file_path_and_name: compare_string.to_string(),
-        });
-        let mut bytes = Vec::new();
-        let written = req.encode(&mut bytes).unwrap();
-        // Should be equivalent to our helper function
-        let expected_bytes = get_bytes(FileOperationMode::DeleteFile, compare_string, 0);
-        assert_eq!(bytes, expected_bytes);
-        assert_eq!(bytes.len(), written);
-        assert_eq!(req.required_size(), written);
-    }
-
-    #[test]
-    #[allow(clippy::cast_possible_truncation)]
-    fn replace_file() {
-        let compare_string = "/opt/testing/replace_file.bin";
-        let file_size: u128 = 0x1234;
-        let bytes = get_bytes(FileOperationMode::ReplaceFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice()).unwrap();
-
-        let mut written_bytes = Vec::new();
-        let written = req.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.required_size());
-
-        match req {
-            RequestFileTransferRequest::ReplaceFile(pl, data_format_pl, file_size_pl) => {
-                assert_eq!(pl.mode_of_operation, FileOperationMode::ReplaceFile);
-                assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
-                assert_eq!(pl.file_path_and_name, compare_string);
-                assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(file_size_pl.file_size_parameter_length, 2);
-                assert_eq!(file_size_pl.file_size_uncompressed, file_size);
-                assert_eq!(file_size_pl.file_size_compressed, file_size);
-            }
-            _ => panic!("Expected ReplaceFile"),
-        }
-    }
-
-    #[test]
-    #[allow(clippy::cast_possible_truncation)]
-    fn read_file() {
-        let compare_string = "/opt/testing/just_reading_stuff.txt";
-        let file_size: u128 = 0x0;
-        let bytes = get_bytes(FileOperationMode::ReadFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice()).unwrap();
-
-        let mut written_bytes = Vec::new();
-        let written = req.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.required_size());
-
-        match req {
-            RequestFileTransferRequest::ReadFile(pl, data_format_pl) => {
-                assert_eq!(pl.mode_of_operation, FileOperationMode::ReadFile);
-                assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
-                assert_eq!(pl.file_path_and_name, compare_string);
-                assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-            }
-            _ => panic!("Expected ReadFile"),
-        }
-    }
-
-    #[test]
-    #[allow(clippy::cast_possible_truncation)]
-    fn resume_file() {
-        let compare_string = "/var/tmp/resume_file.bin";
-        let file_size = 0x1234;
-        let bytes = get_bytes(FileOperationMode::ResumeFile, compare_string, file_size);
-        let req = RequestFileTransferRequest::decode(&mut bytes.as_slice()).unwrap();
-        let mut written_bytes = Vec::new();
-        let written = req.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.required_size());
-
-        match req {
-            RequestFileTransferRequest::ResumeFile(pl, data_format_pl, file_size_pl) => {
-                assert_eq!(pl.mode_of_operation, FileOperationMode::ResumeFile);
-                assert_eq!(pl.file_path_and_name_length, compare_string.len() as u16);
-                assert_eq!(pl.file_path_and_name, compare_string);
-                assert_eq!(data_format_pl, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(file_size_pl.file_size_parameter_length, 2);
-                assert_eq!(file_size_pl.file_size_uncompressed, file_size);
-                assert_eq!(file_size_pl.file_size_compressed, file_size);
-            }
-            _ => panic!("Expected ResumeFile"),
-        }
-    }
+    use crate::test_util::assert_encode_size_agrees;
 
     #[test]
     fn test_file_operation_mode() {
@@ -1007,226 +836,217 @@ mod request_tests {
             FileOperationMode::try_from(0x07).unwrap()
         );
     }
+
+    fn name_payload(mode: FileOperationMode, path: &str) -> NamePayload<'_> {
+        NamePayload::new(mode, path)
+    }
+
+    #[test]
+    fn name_payload_roundtrip() {
+        let path = "/tmp/foo.bin";
+        let n = name_payload(FileOperationMode::AddFile, path);
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, n.encoded_size());
+        let (decoded, rest) = NamePayload::decode(&buf[..written]).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(decoded, n);
+        assert_encode_size_agrees(&n);
+    }
+
+    #[test]
+    fn size_payload_roundtrip() {
+        let s = SizePayload::new(u128::from(u64::MAX) + 1000, 0x12_3456);
+        let mut buf = [0u8; 32];
+        let written = Encode::encode(&s, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, s.encoded_size());
+        let (decoded, rest) = SizePayload::decode(&buf[..written]).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(decoded, s);
+        assert_encode_size_agrees(&s);
+    }
+
+    #[test]
+    fn size_payload_derives_minimal_width_from_data() {
+        // Small values must serialize with a 1-byte width derived from the data,
+        // not a caller-supplied length that could disagree with the value.
+        let s = SizePayload::new(0x12, 0x34);
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&s, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &[0x01, 0x12, 0x34]);
+    }
+
+    #[test]
+    fn name_payload_length_prefix_matches_name() {
+        // The 2-byte length prefix is always exactly the UTF-8 length of the name.
+        let n = NamePayload::new(FileOperationMode::DeleteFile, "abc");
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        // mode=0x02, length=0x0003, "abc"
+        assert_eq!(&buf[..written], &[0x02, 0x00, 0x03, b'a', b'b', b'c']);
+    }
+
+    #[test]
+    fn add_file_request_roundtrip() {
+        let path = "test.txt";
+        let req = RequestFileTransferRequest::AddFile(
+            name_payload(FileOperationMode::AddFile, path),
+            DataFormatIdentifier::from(0x00),
+            SizePayload::new(0x1234, 0x1234),
+        );
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, req.encoded_size());
+        let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn delete_file_request_roundtrip() {
+        let path = "/var/tmp/delete_file.bin";
+        let req = RequestFileTransferRequest::DeleteFile(name_payload(
+            FileOperationMode::DeleteFile,
+            path,
+        ));
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, req.encoded_size());
+        let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn read_file_request_roundtrip() {
+        let path = "/etc/passwd";
+        let req = RequestFileTransferRequest::ReadFile(
+            name_payload(FileOperationMode::ReadFile, path),
+            DataFormatIdentifier::from(0x11),
+        );
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, req.encoded_size());
+        let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn read_dir_request_roundtrip() {
+        let path = "/var/log";
+        let req =
+            RequestFileTransferRequest::ReadDir(name_payload(FileOperationMode::ReadDir, path));
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, _) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn resume_file_request_roundtrip() {
+        let path = "/big/file.bin";
+        let req = RequestFileTransferRequest::ResumeFile(
+            name_payload(FileOperationMode::ResumeFile, path),
+            DataFormatIdentifier::from(0x00),
+            SizePayload::new(0xDEAD_BEEF, 0xDEAD_BEEF),
+        );
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, _) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, req);
+        assert_encode_size_agrees(&req);
+    }
 }
 
 #[cfg(test)]
 mod response_tests {
-
-    use crate::{param_length_u32, param_length_u128};
-
     use super::*;
+    use crate::test_util::assert_encode_size_agrees;
 
-    fn get_bytes(
-        mode: FileOperationMode,
-        max_block_len: u32,
-        data_format: u8,
-        file_size: u128,
-        file_position: u64,
-    ) -> Vec<u8> {
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes.push(mode.into());
-
-        // SentDataPayload
-        if mode != FileOperationMode::DeleteFile {
-            let len_max_block_len = param_length_u32(max_block_len);
-            // Per ISO 14229-1 Table 395: high nibble = length of maxNumberOfBlockLength
-            bytes.write_u8(len_max_block_len << 4).unwrap();
-            let source = max_block_len.to_be_bytes();
-            bytes.extend_from_slice(&source[4 - len_max_block_len as usize..]);
-
-            let mut data_format = data_format;
-            if mode == FileOperationMode::ReadDir {
-                data_format = 0x00;
-            }
-            // DataFormatIdentifier
-            bytes.write_u8(data_format).unwrap();
-        }
-
-        // File or dir size
-        let num = param_length_u128(file_size);
-        if mode == FileOperationMode::ReadFile {
-            print!("{mode:?}");
-
-            bytes.write_u16::<byteorder::BE>(num).unwrap();
-            let source = file_size.to_be_bytes();
-            // Compressed
-            bytes.extend_from_slice(&source[16 - num as usize..]);
-            // Uncompressed
-            bytes.extend_from_slice(&source[16 - num as usize..]);
-        } else if mode == FileOperationMode::ReadDir {
-            bytes.write_u16::<byteorder::BE>(num).unwrap();
-            let source = file_size.to_be_bytes();
-            // Compressed
-            bytes.extend_from_slice(&source[16 - num as usize..]);
-        }
-
-        if mode == FileOperationMode::ResumeFile {
-            bytes.write_u64::<byteorder::BE>(file_position).unwrap();
-        }
-        bytes
+    fn sent_data(block: &[u8]) -> SentDataPayload<'_> {
+        SentDataPayload::new(block)
     }
 
     #[test]
-    fn response_add() {
-        let bytes = get_bytes(FileOperationMode::AddFile, 0x1234, 0x00, 0x1234, 0);
-        let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::decode(reader).unwrap();
-        assert!(reader.is_empty());
-
-        let mut written_bytes = Vec::new();
-        let written = resp.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(resp.required_size(), bytes.len());
-
-        match resp {
-            RequestFileTransferResponse::AddFile(mode, sent_data, data_format) => {
-                assert_eq!(mode, FileOperationMode::AddFile);
-                assert_eq!(
-                    sent_data.length_format_identifier,
-                    LengthFormatIdentifier::from(0x20)
-                );
-                assert_eq!(sent_data.max_number_of_block_length, vec![0x12, 0x34]);
-                assert_eq!(data_format, DataFormatIdentifier::new(0, 0).unwrap());
-            }
-            _ => panic!("Expected AddFile"),
-        }
-    }
-
-    #[test]
-    fn delete_file() {
-        let bytes = get_bytes(FileOperationMode::DeleteFile, 0, 0, 0, 0);
-        let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::decode(reader).unwrap();
-        assert!(reader.is_empty());
-
-        let mut written_bytes = Vec::new();
-        let written = resp.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(resp.required_size(), bytes.len());
-
-        match resp {
-            RequestFileTransferResponse::DeleteFile(mode) => {
-                assert_eq!(mode, FileOperationMode::DeleteFile);
-            }
-            _ => panic!("Expected DeleteFile"),
-        }
-    }
-
-    #[test]
-    fn replace_file() {
-        let bytes = get_bytes(FileOperationMode::ReplaceFile, 0x1_1234, 0, 0, 0);
-        let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::decode(reader).unwrap();
-        assert!(reader.is_empty());
-
-        let mut written_bytes = Vec::new();
-        let written = resp.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(resp.required_size(), bytes.len());
-
-        match resp {
-            RequestFileTransferResponse::ReplaceFile(mode, sent_data, data_format) => {
-                assert_eq!(mode, FileOperationMode::ReplaceFile);
-                assert_eq!(
-                    sent_data.length_format_identifier,
-                    LengthFormatIdentifier::from(0x30)
-                );
-                assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
-                assert_eq!(data_format, DataFormatIdentifier::new(0, 0).unwrap());
-            }
-            _ => panic!("Expected ReplaceFile"),
-        }
-    }
-
-    #[test]
-    fn read_file() {
-        // Use a value that requires exactly 4 bytes (valid parameter length)
-        let bytes = get_bytes(FileOperationMode::ReadFile, 0x1, 0x11, 0x1111_1111, 0);
-        let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::decode(reader).unwrap();
-        assert!(reader.is_empty());
-
-        let mut written_bytes = Vec::new();
-        let written = resp.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(resp.required_size(), bytes.len());
-
-        match resp {
-            RequestFileTransferResponse::ReadFile(mode, sent_data, df, size) => {
-                assert_eq!(mode, FileOperationMode::ReadFile);
-                assert_eq!(
-                    sent_data.length_format_identifier,
-                    LengthFormatIdentifier::from(0x10)
-                );
-                assert_eq!(sent_data.max_number_of_block_length, vec![0x01]);
-                assert_eq!(df, DataFormatIdentifier::new(0x01, 0x01).unwrap());
-                assert_eq!(size.file_size_parameter_length, 4);
-                assert_eq!(size.file_size_uncompressed, 0x1111_1111);
-                assert_eq!(size.file_size_compressed, 0x1111_1111);
-            }
-            _ => panic!("Expected ReadFile"),
-        }
-    }
-
-    #[test]
-    fn read_dir() {
-        // Use a value that requires exactly 4 bytes (valid parameter length)
-        let bytes = get_bytes(FileOperationMode::ReadDir, 0x1_1234, 0, 0x1111_1111, 0);
-        let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::decode(reader).unwrap();
-        assert!(reader.is_empty());
-
-        let mut written_bytes = Vec::new();
-        let written = resp.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(resp.required_size(), bytes.len());
-
-        match resp {
-            RequestFileTransferResponse::ReadDir(mode, sent_data, df, size) => {
-                assert_eq!(mode, FileOperationMode::ReadDir);
-                assert_eq!(
-                    sent_data.length_format_identifier,
-                    LengthFormatIdentifier::from(0x30)
-                );
-                assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
-                assert_eq!(df, DataFormatIdentifier::new(0, 0).unwrap());
-                assert_eq!(size.dir_info_parameter_length, 4);
-                assert_eq!(size.dir_info_length, 0x1111_1111);
-            }
-            _ => panic!("Expected ReadDir"),
-        }
-    }
-
-    #[test]
-    fn resume_file() {
-        let bytes = get_bytes(
-            FileOperationMode::ResumeFile,
-            0x1_1234,
-            0x11,
-            0x11_1111_1111,
-            0x1234_5678_9ABC_DEF0,
+    fn add_file_response_roundtrip() {
+        let block = [0x10u8, 0x00];
+        let resp = RequestFileTransferResponse::AddFile(
+            FileOperationMode::AddFile,
+            sent_data(&block),
+            DataFormatIdentifier::from(0x00),
         );
-        let reader = &mut &bytes[..];
-        let resp = RequestFileTransferResponse::decode(reader).unwrap();
-        assert!(reader.is_empty());
+        let mut buf = [0u8; 32];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, resp.encoded_size());
+        let (decoded, remaining) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
+        assert!(remaining.is_empty());
+        assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
+    }
 
-        let mut written_bytes = Vec::new();
-        let written = resp.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, bytes.len());
-        assert_eq!(resp.required_size(), bytes.len());
+    #[test]
+    fn delete_file_response_roundtrip() {
+        let resp = RequestFileTransferResponse::DeleteFile(FileOperationMode::DeleteFile);
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
+    }
 
-        match resp {
-            RequestFileTransferResponse::ResumeFile(mode, sent_data, df, pos) => {
-                assert_eq!(mode, FileOperationMode::ResumeFile);
-                assert_eq!(
-                    sent_data.length_format_identifier,
-                    LengthFormatIdentifier::from(0x30)
-                );
-                assert_eq!(sent_data.max_number_of_block_length, vec![0x01, 0x12, 0x34]);
-                assert_eq!(df, DataFormatIdentifier::new(1, 1).unwrap());
-                assert_eq!(pos.file_position, 0x1234_5678_9ABC_DEF0);
-            }
-            _ => panic!("Expected ResumeFile"),
-        }
+    #[test]
+    fn read_file_response_roundtrip() {
+        let block = [0x04u8, 0x00];
+        let resp = RequestFileTransferResponse::ReadFile(
+            FileOperationMode::ReadFile,
+            sent_data(&block),
+            DataFormatIdentifier::from(0x00),
+            FileSizePayload::new(0xAABB_CCDD, 0x1122_3344),
+        );
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
+    }
+
+    #[test]
+    fn read_dir_response_roundtrip() {
+        let block = [0x04u8, 0x00];
+        let resp = RequestFileTransferResponse::ReadDir(
+            FileOperationMode::ReadDir,
+            sent_data(&block),
+            DataFormatIdentifier::from(0x00),
+            DirSizePayload::new(0x1234_5678),
+        );
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
+    }
+
+    #[test]
+    fn resume_file_response_roundtrip() {
+        let block = [0x04u8, 0x00];
+        let resp = RequestFileTransferResponse::ResumeFile(
+            FileOperationMode::ResumeFile,
+            sent_data(&block),
+            DataFormatIdentifier::from(0x00),
+            PositionPayload {
+                file_position: 0xDEAD_BEEF_CAFE_BABE,
+            },
+        );
+        let mut buf = [0u8; 64];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, resp);
+        assert_encode_size_agrees(&resp);
     }
 }

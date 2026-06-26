@@ -1,7 +1,6 @@
 use bitmask_enum::bitmask;
-use byteorder::{ReadBytesExt, WriteBytesExt};
 
-use crate::{Error, IterableWireFormat, SingleValueWireFormat, WireFormat};
+use crate::{Decode, DecodeIter, Encode, Error};
 
 /// Bit-packed DTC status information used by the `ReadDTCInformation` service
 ///
@@ -107,21 +106,22 @@ pub enum DTCStatusMask {
     WarningIndicatorRequested,
 }
 
-impl WireFormat for DTCStatusMask {
-    fn required_size(&self) -> usize {
+impl Encode for DTCStatusMask {
+    fn encoded_size(&self) -> usize {
         1
     }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
-        writer.write_u8(self.bits())?;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.bits()]).map_err(Error::io)?;
         Ok(1)
     }
 }
 
-impl SingleValueWireFormat for DTCStatusMask {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
-        let status_byte = reader.read_u8()?;
-        Ok(Self::from(status_byte))
+impl<'a> Decode<'a> for DTCStatusMask {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::from(buf[0]), &buf[1..]))
     }
 }
 
@@ -155,7 +155,6 @@ pub enum DTCFormatIdentifier {
     ISOSAEReserved(u8),
 }
 
-impl DTCFormatIdentifier {}
 impl From<u8> for DTCFormatIdentifier {
     fn from(value: u8) -> Self {
         match value {
@@ -230,42 +229,41 @@ impl From<DTCRecord> for u32 {
     }
 }
 
-impl WireFormat for DTCRecord {
-    fn required_size(&self) -> usize {
+impl Encode for DTCRecord {
+    fn encoded_size(&self) -> usize {
         3
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, crate::Error> {
-        writer.write_all(&[self.high_byte, self.middle_byte, self.low_byte])?;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[self.high_byte, self.middle_byte, self.low_byte])
+            .map_err(Error::io)?;
         Ok(3)
     }
 }
 
-impl SingleValueWireFormat for DTCRecord {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, crate::Error> {
-        let high_byte = reader.read_u8()?;
-        let middle_byte = reader.read_u8()?;
-        let low_byte = reader.read_u8()?;
-        Ok(Self {
-            high_byte,
-            middle_byte,
-            low_byte,
-        })
+impl<'a> Decode<'a> for DTCRecord {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 3 {
+            return Err(Error::InsufficientData(3));
+        }
+        Ok((
+            Self {
+                high_byte: buf[0],
+                middle_byte: buf[1],
+                low_byte: buf[2],
+            },
+            &buf[3..],
+        ))
     }
 }
 
-impl IterableWireFormat for DTCRecord {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, crate::Error> {
-        let Ok(high_byte) = reader.read_u8() else {
+impl<'a> DecodeIter<'a> for DTCRecord {
+    fn decode_next(buf: &'a [u8]) -> Result<Option<(Self, &'a [u8])>, Error> {
+        if buf.is_empty() {
             return Ok(None);
-        };
-        let middle_byte = reader.read_u8()?;
-        let low_byte = reader.read_u8()?;
-        Ok(Some(Self {
-            high_byte,
-            middle_byte,
-            low_byte,
-        }))
+        }
+        Decode::decode(buf).map(Some)
     }
 }
 
@@ -306,18 +304,8 @@ impl FunctionalGroupIdentifier {
             FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
             FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,
             FunctionalGroupIdentifier::VODBSystem => 0xFE,
-            FunctionalGroupIdentifier::LegislativeSystemGroup(value) => {
-                todo!(
-                    "FunctionalGroupIdentifiers::LegislativeSystemGroup is not a valid value {}",
-                    value
-                )
-            }
-            FunctionalGroupIdentifier::ISOSAEReserved(value) => {
-                todo!(
-                    "FunctionalGroupIdentifiers::ISOSAEReserved is not a valid value {}",
-                    value
-                )
-            }
+            FunctionalGroupIdentifier::LegislativeSystemGroup(value)
+            | FunctionalGroupIdentifier::ISOSAEReserved(value) => *value,
         }
     }
 }
@@ -337,6 +325,26 @@ impl From<u8> for FunctionalGroupIdentifier {
 impl From<FunctionalGroupIdentifier> for u8 {
     fn from(value: FunctionalGroupIdentifier) -> Self {
         value.value()
+    }
+}
+
+impl Encode for FunctionalGroupIdentifier {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.value()]).map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for FunctionalGroupIdentifier {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::from(buf[0]), &buf[1..]))
     }
 }
 
@@ -385,7 +393,7 @@ pub enum DTCSeverityMask {
 }
 
 impl DTCSeverityMask {
-    /// Returns `true` if at least one DTC class bit (bits 0–4) is set.
+    /// Returns `true` if at least one DTC class bit (bits 0-4) is set.
     /// Multiple class bits may be set to query multiple DTC classes at once.
     #[must_use]
     pub fn is_valid(&self) -> bool {
@@ -396,6 +404,26 @@ impl DTCSeverityMask {
                 | Self::DTCClass_3
                 | Self::DTCClass_4,
         )
+    }
+}
+
+impl Encode for DTCSeverityMask {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.bits()]).map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for DTCSeverityMask {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::from(buf[0]), &buf[1..]))
     }
 }
 
@@ -413,37 +441,19 @@ impl DTCStoredDataRecordNumber {
     /// Will return `Err(Error::ReservedForLegislativeUse()` if the record number == 0x00 or 0xF0
     pub fn new(record_number: u8) -> Result<Self, Error> {
         if record_number == 0 || record_number == 0xF0 {
-            return Err(Error::ReservedForLegislativeUse(
-                "DTCStoredDataRecordNumber".to_string(),
-                record_number,
-            ));
+            return Err(Error::ReservedForLegislativeUse(record_number));
         }
         Ok(Self(record_number))
     }
-}
 
-impl WireFormat for DTCStoredDataRecordNumber {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.0)?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for DTCStoredDataRecordNumber {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let value = reader.read_u8()?;
-        if value == 0x00 {
-            // Reserved for Legislative purposes
-            return Err(Error::ReservedForLegislativeUse(
-                "DTCStoredDataRecordNumber".to_string(),
-                value,
-            ));
-        }
-        Ok(Self(value))
+    /// Return the raw record-number byte.
+    ///
+    /// A value obtained from [`From<u8>`](Self::from) or [`Decode`] may be a reserved
+    /// `0x00`/`0xF0` that [`new`](Self::new) would reject — decoding is deliberately liberal
+    /// so responses from foreign implementations can still be inspected.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        self.0
     }
 }
 
@@ -453,52 +463,81 @@ impl From<u8> for DTCStoredDataRecordNumber {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
-/// Represents a record containing information about the severity of a Diagnostic Trouble Code (DTC).
-pub struct DTCSeverityRecord {
-    ///  The severity mask associated with the DTC, indicating the level of severity.
-    pub severity: DTCSeverityMask,
-    /// Identifier for the functional group associated with the DTC.
-    pub functional_group_identifier: FunctionalGroupIdentifier,
-    /// The actual DTC record containing diagnostic information.
-    pub dtc_record: DTCRecord,
-    ///  The status mask of the DTC, representing its current state.
-    pub dtc_status_mask: DTCStatusMask,
-}
-
-impl WireFormat for DTCSeverityRecord {
-    fn required_size(&self) -> usize {
-        6
+impl Encode for DTCStoredDataRecordNumber {
+    fn encoded_size(&self) -> usize {
+        1
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.severity.bits())?;
-        writer.write_u8(self.functional_group_identifier.value())?;
-        self.dtc_record.encode(writer)?;
-        self.dtc_status_mask.encode(writer)?;
-        Ok(self.required_size())
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(&[self.0]).map_err(Error::io)?;
+        Ok(1)
     }
 }
 
-impl IterableWireFormat for DTCSeverityRecord {
-    fn decode_next<T: std::io::Read>(reader: &mut T) -> Result<Option<Self>, Error> {
-        let Ok(sev) = reader.read_u8() else {
-            return Ok(None);
-        };
+impl<'a> Decode<'a> for DTCStoredDataRecordNumber {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((Self::from(buf[0]), &buf[1..]))
+    }
+}
 
-        let severity = DTCSeverityMask::from(sev);
-        let functional_group_identifier = FunctionalGroupIdentifier::from(reader.read_u8()?);
-        let dtc_record = DTCRecord::decode(reader)?;
-        let dtc_status_mask = DTCStatusMask::from(reader.read_u8()?);
+#[cfg(test)]
+mod encode_param_tests {
+    use super::*;
+    use crate::test_util::assert_encode_size_agrees;
 
-        Ok(Some(Self {
-            severity,
-            functional_group_identifier,
-            dtc_record,
-            dtc_status_mask,
-        }))
+    #[test]
+    fn encode_stored_data_record_number() {
+        let n = DTCStoredDataRecordNumber::new(0x05).unwrap();
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buf[0], 0x05);
+        assert_encode_size_agrees(&n);
+    }
+
+    #[test]
+    fn stored_data_record_number_construction_is_strict_parsing_is_liberal() {
+        // TX: constructing a reserved value is rejected.
+        assert!(matches!(
+            DTCStoredDataRecordNumber::new(0xF0),
+            Err(Error::ReservedForLegislativeUse(0xF0))
+        ));
+        // RX: a reserved value from a foreign implementation still decodes, and value()
+        // lets the caller inspect it.
+        let (decoded, _) = <DTCStoredDataRecordNumber as Decode>::decode(&[0xF0]).unwrap();
+        assert_eq!(decoded.value(), 0xF0);
+    }
+
+    #[test]
+    fn encode_severity_mask() {
+        let m = DTCSeverityMask::CheckImmediately;
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&m, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buf[0], 0b1000_0000);
+        assert_encode_size_agrees(&m);
+    }
+
+    #[test]
+    fn encode_functional_group_identifier_named() {
+        let g = FunctionalGroupIdentifier::EmissionsSystemGroup;
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&g, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 1);
+        assert_eq!(buf[0], 0x33);
+        assert_encode_size_agrees(&g);
+    }
+
+    #[test]
+    fn functional_group_identifier_value_does_not_panic_on_reserved() {
+        // Regression: value() previously called todo!() for carried-byte variants.
+        let g = FunctionalGroupIdentifier::from(0x10); // -> ISOSAEReserved(0x10)
+        assert_eq!(g.value(), 0x10);
+        let g2 = FunctionalGroupIdentifier::from(0xD5); // -> LegislativeSystemGroup(0xD5)
+        assert_eq!(g2.value(), 0xD5);
     }
 }
 
@@ -531,11 +570,13 @@ mod dtc_status_tests {
     }
 
     #[test]
-    fn dtc_record() {
+    fn dtc_record_encode_decode() {
         let record = DTCRecord::new(0x01, 0x02, 0x03);
-        let mut writer = Vec::new();
-        let written_number = record.encode(&mut writer).unwrap();
-        assert_eq!(record.required_size(), 3);
-        assert_eq!(written_number, 3);
+        let mut buf = [0u8; 3];
+        let written = Encode::encode(&record, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 3);
+        let (decoded, rest) = <DTCRecord as Decode>::decode(&buf).unwrap();
+        assert_eq!(decoded, record);
+        assert!(rest.is_empty());
     }
 }

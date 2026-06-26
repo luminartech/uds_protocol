@@ -1,65 +1,38 @@
-// Fuzz encode→decode roundtrip: encode a successfully-decoded request,
-// then decode it again and verify the result matches.
+// Fuzz encode→decode roundtrip: decode arbitrary bytes into a Request,
+// re-encode it, and verify the encoding is idempotent at the byte level.
+//
+// `Request` does not implement `PartialEq`, so we compare the canonical wire
+// bytes rather than the decoded values: encoding a decoded message, decoding
+// those bytes again, and re-encoding must yield identical bytes.
 #![no_main]
 use libfuzzer_sys::fuzz_target;
-use uds_protocol::{
-    FunctionalGroupIdentifier, ProtocolRequest, ReadDTCInfoSubFunction, Request,
-    SingleValueWireFormat, WireFormat,
-};
-
-/// Returns true if the request contains a FunctionalGroupIdentifier variant
-/// that has a todo!() in its value() method (LegislativeSystemGroup, ISOSAEReserved).
-fn contains_unimplemented_functional_group(request: &ProtocolRequest) -> bool {
-    let Request::ReadDTCInfo(req) = request else {
-        return false;
-    };
-    let fgi = match &req.dtc_subfunction {
-        ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord(fgi, _, _) => fgi,
-        ReadDTCInfoSubFunction::ReportWWHOBDDTC_WithPermanentStatus(fgi) => fgi,
-        ReadDTCInfoSubFunction::ReportDTCInformation_ByDTCReadinessGroupIdentifier(fgi, _) => fgi,
-        _ => return false,
-    };
-    matches!(
-        fgi,
-        FunctionalGroupIdentifier::LegislativeSystemGroup(_)
-            | FunctionalGroupIdentifier::ISOSAEReserved(_)
-    )
-}
+use uds_protocol::{Decode, Encode, Request};
 
 fuzz_target!(|data: &[u8]| {
-    // Only proceed if we can decode the input
-    let Ok(request) = ProtocolRequest::decode(&mut &data[..]) else {
+    // Only proceed if we can decode the input.
+    let Ok((request, _rest)) = Request::decode(data) else {
         return;
     };
 
-    // RoutineControl has a known encode/decode asymmetry in ProtocolRoutinePayload:
-    // decode_next reads a 2-byte identifier from the stream, but encode writes only
-    // the raw payload bytes (the identifier is written by the request layer).
-    // This makes roundtripping structurally impossible for this variant.
-    if matches!(request, Request::RoutineControl(_)) {
+    // Encode the decoded request into its canonical wire form.
+    let mut first = vec![0u8; request.encoded_size()];
+    if Encode::encode(&request, &mut first.as_mut_slice()).is_err() {
         return;
     }
 
-    // FunctionalGroupIdentifier::LegislativeSystemGroup and ::ISOSAEReserved
-    // have todo!() in their value() method — encoding them panics intentionally.
-    if contains_unimplemented_functional_group(&request) {
-        return;
-    }
-
-    // Encode it back
-    let mut buf = Vec::with_capacity(request.required_size() + 1);
-    if request.encode(&mut buf).is_err() {
-        return;
-    }
-
-    // Decode the re-encoded form
-    let Ok(roundtripped) = ProtocolRequest::decode(&mut buf.as_slice()) else {
-        panic!("Failed to decode a message that was just encoded successfully");
+    // Re-decoding freshly encoded bytes must succeed.
+    let Ok((reparsed, _)) = Request::decode(&first) else {
+        panic!("failed to decode a message that was just encoded successfully");
     };
 
-    // The roundtripped value must equal the original
+    // Encoding must be idempotent: re-encoding the reparsed message produces
+    // the same bytes.
+    let mut second = vec![0u8; reparsed.encoded_size()];
+    Encode::encode(&reparsed, &mut second.as_mut_slice())
+        .expect("failed to re-encode a decoded message");
+
     assert_eq!(
-        request, roundtripped,
-        "Roundtrip mismatch: encode(decode(data)) != decode(data)"
+        first, second,
+        "Roundtrip mismatch: encode(decode(encode(decode(data)))) != encode(decode(data))"
     );
 });

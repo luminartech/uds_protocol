@@ -1,54 +1,93 @@
 //! `ControlDTCSetting` (0x85) service implementation
-use crate::{DtcSettings, Error, SUCCESS, SingleValueWireFormat, WireFormat};
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use crate::shared::SuppressablePositiveResponse;
+use crate::{Decode, Encode, Error};
 
-/// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct ControlDTCSettingsRequest {
-    /// The requested DTC logging setting
-    pub setting: DtcSettings,
-    /// Whether the ECU should suppress a response
-    pub suppress_response: bool,
+/// Controls whether the server should enable or disable DTC status-bit updates.
+///
+/// Used by [`ControlDTCSettingsRequest`] to instruct the server.
+pub enum DtcSettings {
+    /// Re-enable DTC status-bit updates.
+    On,
+    /// Disable DTC status-bit updates.
+    Off,
 }
 
-impl ControlDTCSettingsRequest {
-    pub(crate) fn new(setting: DtcSettings, suppress_response: bool) -> Self {
-        Self {
-            setting,
-            suppress_response,
+impl From<DtcSettings> for u8 {
+    fn from(value: DtcSettings) -> Self {
+        match value {
+            DtcSettings::On => 0x01,
+            DtcSettings::Off => 0x02,
         }
     }
 }
 
-impl WireFormat for ControlDTCSettingsRequest {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        let request_byte =
-            u8::from(self.setting) | if self.suppress_response { SUCCESS } else { 0 };
-        writer.write_u8(request_byte)?;
-        Ok(1)
-    }
-
-    fn is_positive_response_suppressed(&self) -> bool {
-        self.suppress_response
+impl TryFrom<u8> for DtcSettings {
+    type Error = Error;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x01 => Ok(Self::On),
+            0x02 => Ok(Self::Off),
+            _ => Err(Error::InvalidDtcSetting(value)),
+        }
     }
 }
 
-impl SingleValueWireFormat for ControlDTCSettingsRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let request_byte = reader.read_u8()?;
-        let setting = DtcSettings::try_from(request_byte & !SUCCESS)?;
-        let suppress_response = request_byte & SUCCESS != 0;
-        Ok(Self {
-            setting,
-            suppress_response,
-        })
+/// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct ControlDTCSettingsRequest {
+    setting: SuppressablePositiveResponse<DtcSettings>,
+}
+
+impl ControlDTCSettingsRequest {
+    /// Create a new `ControlDTCSettingsRequest`.
+    #[must_use]
+    pub const fn new(suppress_positive_response: bool, setting: DtcSettings) -> Self {
+        Self {
+            setting: SuppressablePositiveResponse::new(suppress_positive_response, setting),
+        }
+    }
+
+    /// Returns the requested DTC logging setting.
+    #[must_use]
+    pub fn setting(&self) -> DtcSettings {
+        self.setting.value()
+    }
+
+    /// Whether the server should suppress the positive response (SPRMIB).
+    #[must_use]
+    pub fn suppress_positive_response(&self) -> bool {
+        self.setting.suppress_positive_response()
+    }
+}
+
+impl Encode for ControlDTCSettingsRequest {
+    fn encoded_size(&self) -> usize {
+        1
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.setting)])
+            .map_err(Error::io)?;
+        Ok(1)
+    }
+}
+
+impl<'a> Decode<'a> for ControlDTCSettingsRequest {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let setting = SuppressablePositiveResponse::try_from(buf[0])?;
+        Ok((Self { setting }, &buf[1..]))
     }
 }
 
@@ -65,64 +104,87 @@ pub struct ControlDTCSettingsResponse {
 }
 
 impl ControlDTCSettingsResponse {
-    pub(crate) fn new(setting: DtcSettings) -> Self {
+    /// Create a new `ControlDTCSettingsResponse`.
+    #[must_use]
+    pub const fn new(setting: DtcSettings) -> Self {
         Self { setting }
     }
 }
 
-impl WireFormat for ControlDTCSettingsResponse {
-    fn required_size(&self) -> usize {
+impl Encode for ControlDTCSettingsResponse {
+    fn encoded_size(&self) -> usize {
         1
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(self.setting))?;
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[u8::from(self.setting)])
+            .map_err(Error::io)?;
         Ok(1)
     }
 }
 
-impl SingleValueWireFormat for ControlDTCSettingsResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let setting = DtcSettings::try_from(reader.read_u8()?)?;
-        Ok(Self { setting })
+impl<'a> Decode<'a> for ControlDTCSettingsResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        let setting = DtcSettings::try_from(buf[0])?;
+        Ok((Self { setting }, &buf[1..]))
     }
 }
 
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::DtcSettings;
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::{vec, vec::Vec};
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn simple_request() {
-        let req = ControlDTCSettingsRequest::new(DtcSettings::On, true);
+        let req = ControlDTCSettingsRequest::new(true, DtcSettings::On);
         let mut buffer = Vec::new();
-        let written = req.encode(&mut buffer).unwrap();
+        let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
         assert_eq!(written, buffer.len());
-        assert_eq!(req.required_size(), buffer.len());
+        assert_eq!(req.encoded_size(), buffer.len());
 
-        let parsed = ControlDTCSettingsRequest::decode(&mut buffer.as_slice()).unwrap();
-        assert_eq!(parsed.setting, DtcSettings::On);
-        assert!(parsed.suppress_response);
+        let (parsed, _) = <ControlDTCSettingsRequest as Decode>::decode(&buffer).unwrap();
+        assert_eq!(parsed.setting(), DtcSettings::On);
+        assert!(parsed.suppress_positive_response());
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn invalid_setting_byte_carries_the_value() {
+        // An unrecognized setting must surface the offending byte, like every other
+        // service's Invalid<Service>Type error, not the generic length/format error.
+        let err = <ControlDTCSettingsRequest as Decode>::decode(&[0x09]).unwrap_err();
+        assert!(matches!(err, Error::InvalidDtcSetting(0x09)));
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
-    use crate::DtcSettings;
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::{vec, vec::Vec};
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let req = ControlDTCSettingsResponse::new(DtcSettings::On);
         let mut buffer = Vec::new();
-        let written = req.encode(&mut buffer).unwrap();
+        let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x01]);
         assert_eq!(written, buffer.len());
-        assert_eq!(req.required_size(), buffer.len());
+        assert_eq!(req.encoded_size(), buffer.len());
 
-        let parsed = ControlDTCSettingsResponse::decode(&mut buffer.as_slice()).unwrap();
+        let (parsed, _) = <ControlDTCSettingsResponse as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
+        assert_encode_size_agrees(&req);
     }
 }

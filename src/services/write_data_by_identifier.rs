@@ -1,5 +1,5 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
-use crate::{Error, Identifier, NegativeResponseCode, SingleValueWireFormat, WireFormat};
+use crate::{Decode, Encode, Error, NegativeResponseCode};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -9,196 +9,165 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::GeneralProgrammingFailure,
 ];
 
+/// Zero-alloc request to write data by identifier. Borrows the data record from the caller.
+///
+/// The `identifier` is the 2-byte big-endian Data Identifier (DID); `data` is the opaque
+/// data record that follows it on the wire.
+///
 /// See ISO-14229-1:2020, Section 11.7.2.1
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct WriteDataByIdentifierRequest<Payload> {
-    /// The payload to write, which includes the DID and data.
-    pub payload: Payload,
+pub struct WriteDataByIdentifierRequest<'d> {
+    /// The 2-byte big-endian Data Identifier (DID) being written. Any `u16` is valid;
+    /// the big-endian encoding is handled on the wire.
+    pub identifier: u16,
+    /// The opaque data record written after the identifier.
+    pub data: &'d [u8],
 }
 
-impl<Payload: SingleValueWireFormat> WriteDataByIdentifierRequest<Payload> {
-    /// Create a new request with the given payload.
-    pub fn new(payload: Payload) -> Self {
-        Self { payload }
+impl<'d> WriteDataByIdentifierRequest<'d> {
+    /// Create a request to write `data` to the given Data Identifier.
+    #[must_use]
+    pub const fn new(identifier: u16, data: &'d [u8]) -> Self {
+        Self { identifier, data }
     }
 
-    /// Get the allowed Nack codes for this request
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
         &WRITE_DID_NEGATIVE_RESPONSE_CODES
     }
 }
 
-impl<Payload: WireFormat> WireFormat for WriteDataByIdentifierRequest<Payload> {
-    fn required_size(&self) -> usize {
-        self.payload.required_size()
+impl Encode for WriteDataByIdentifierRequest<'_> {
+    fn encoded_size(&self) -> usize {
+        2 + self.data.len()
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
-        self.payload.encode(writer)
-    }
-}
-
-impl<Payload: SingleValueWireFormat> SingleValueWireFormat
-    for WriteDataByIdentifierRequest<Payload>
-{
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
-        let payload = Payload::decode(reader)?;
-        Ok(Self { payload })
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&self.identifier.to_be_bytes())
+            .map_err(Error::io)?;
+        writer.write_all(self.data).map_err(Error::io)?;
+        Ok(self.encoded_size())
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
+impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::InsufficientData(2));
+        }
+        let identifier = u16::from_be_bytes([buf[0], buf[1]]);
+        Ok((
+            Self {
+                identifier,
+                data: &buf[2..],
+            },
+            &[],
+        ))
+    }
+}
 
+/// Positive response to `WriteDataByIdentifier`: echoes the DID that was written.
+///
 /// See ISO-14229-1:2020, Section 11.7.3.1
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct WriteDataByIdentifierResponse<DataIdentifier> {
+pub struct WriteDataByIdentifierResponse {
     /// The DID that was written to.
-    pub identifier: DataIdentifier,
+    pub identifier: u16,
 }
 
-impl<DataIdentifier: Identifier> WriteDataByIdentifierResponse<DataIdentifier> {
+impl WriteDataByIdentifierResponse {
     /// Create a new response echoing the identifier that was written.
-    pub fn new(identifier: DataIdentifier) -> Self {
+    #[must_use]
+    pub const fn new(identifier: u16) -> Self {
         Self { identifier }
     }
 }
 
-impl<DataIdentifier: Identifier> WireFormat for WriteDataByIdentifierResponse<DataIdentifier> {
-    fn required_size(&self) -> usize {
-        self.identifier.required_size()
+impl Encode for WriteDataByIdentifierResponse {
+    fn encoded_size(&self) -> usize {
+        2
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        // Payload must implement the extra bytes, because `decode` needs to know how to interpret payload message
-        self.identifier.encode(writer)
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&self.identifier.to_be_bytes())
+            .map_err(Error::io)?;
+        Ok(2)
     }
 }
 
-impl<DataIdentifier: Identifier> SingleValueWireFormat
-    for WriteDataByIdentifierResponse<DataIdentifier>
-{
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, Error> {
-        let identifier = DataIdentifier::decode(reader)?;
-        Ok(Self::new(identifier))
+impl<'a> Decode<'a> for WriteDataByIdentifierResponse {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.len() < 2 {
+            return Err(Error::InsufficientData(2));
+        }
+        let identifier = u16::from_be_bytes([buf[0], buf[1]]);
+        Ok((Self { identifier }, &buf[2..]))
     }
 }
-///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::impl_identifier;
-    use byteorder::WriteBytesExt;
-
-    #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-    #[derive(Clone, Copy, Debug, PartialEq)]
-    pub enum TestIdentifier {
-        Abracadabra = 0xBEEF,
-    }
-    impl_identifier!(TestIdentifier);
-    impl From<u16> for TestIdentifier {
-        fn from(value: u16) -> Self {
-            match value {
-                0xBEEF => TestIdentifier::Abracadabra,
-                _ => panic!("Invalid test identifier: {value}"),
-            }
-        }
-    }
-
-    impl From<TestIdentifier> for u16 {
-        fn from(value: TestIdentifier) -> Self {
-            match value {
-                TestIdentifier::Abracadabra => 0xBEEF,
-            }
-        }
-    }
-
-    impl PartialEq<u16> for TestIdentifier {
-        fn eq(&self, other: &u16) -> bool {
-            match self {
-                TestIdentifier::Abracadabra => *other == 0xBEEF,
-            }
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-
-    #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-    #[derive(Clone, Copy, Debug, PartialEq)]
-    enum TestPayload {
-        Abracadabra(u8),
-    }
-
-    impl WireFormat for TestPayload {
-        fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-            let id_bytes: u16 = match self {
-                TestPayload::Abracadabra(_) => 0xBEEF,
-            };
-
-            writer.write_all(&id_bytes.to_be_bytes())?;
-
-            match self {
-                TestPayload::Abracadabra(value) => {
-                    writer.write_u8(*value)?;
-                    Ok(self.required_size())
-                }
-            }
-        }
-
-        fn required_size(&self) -> usize {
-            3
-        }
-    }
-
-    impl SingleValueWireFormat for TestPayload {
-        fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-            let mut buf = [0u8; 2];
-            reader.read_exact(&mut buf)?;
-
-            let value = u16::from_be_bytes(buf);
-
-            if value == TestIdentifier::Abracadabra as u16 {
-                let mut byte = [0u8; 1];
-                reader.read_exact(&mut byte)?;
-                Ok(TestPayload::Abracadabra(byte[0]))
-            } else {
-                Err(Error::NoDataAvailable)
-            }
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
+    use crate::test_util::assert_encode_size_agrees;
 
     #[test]
-    fn test_write_request() {
-        let request = WriteDataByIdentifierRequest::new(TestPayload::Abracadabra(42));
-
-        let mut written_bytes = Vec::new();
-        let written = request.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, request.required_size());
-        assert_eq!(written, written_bytes.len());
-
-        let request2 =
-            WriteDataByIdentifierRequest::<TestPayload>::decode(&mut written_bytes.as_slice())
-                .unwrap();
-        assert_eq!(request, request2);
+    fn test_write_response_encode() {
+        let response = WriteDataByIdentifierResponse::new(0xBEEF);
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&response, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(written, 2);
+        assert_eq!(buf[0], 0xBE);
+        assert_eq!(buf[1], 0xEF);
+        assert_encode_size_agrees(&response);
     }
 
     #[test]
-    fn test_write_response() {
-        let response = WriteDataByIdentifierResponse::new(TestIdentifier::Abracadabra);
+    fn write_response_roundtrip() {
+        let response = WriteDataByIdentifierResponse::new(0xF186);
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&response, &mut buf.as_mut_slice()).unwrap();
+        let (decoded, rest) =
+            <WriteDataByIdentifierResponse as Decode>::decode(&buf[..written]).unwrap();
+        assert_eq!(decoded, response);
+        assert!(rest.is_empty());
+    }
 
-        let mut written_bytes = Vec::new();
-        let written = response.encode(&mut written_bytes).unwrap();
-        assert_eq!(written, written_bytes.len());
-        assert_eq!(written, response.required_size());
+    #[test]
+    fn write_response_decode_rejects_short_buffer() {
+        let err = <WriteDataByIdentifierResponse as Decode>::decode(&[0x01]);
+        assert!(matches!(err, Err(Error::InsufficientData(2))));
+    }
+
+    #[test]
+    fn wdbi_request_round_trips() {
+        let req = WriteDataByIdentifierRequest::new(0xF190, &[0x01, 0x02, 0x03]);
+        let mut buf = [0u8; 8];
+        let n = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..n], &[0xF1, 0x90, 0x01, 0x02, 0x03]);
+        let (decoded, rest) = <WriteDataByIdentifierRequest as Decode>::decode(&buf[..n]).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(decoded.identifier, 0xF190);
+        assert_eq!(decoded.data, &[0x01, 0x02, 0x03]);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn wdbi_request_allows_empty_data() {
+        let (decoded, _) = <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1, 0x90]).unwrap();
+        assert_eq!(decoded.identifier, 0xF190);
+        assert!(decoded.data.is_empty());
+    }
+
+    #[test]
+    fn wdbi_request_rejects_short_buffer() {
+        assert!(matches!(
+            <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1]),
+            Err(Error::InsufficientData(2))
+        ));
     }
 }

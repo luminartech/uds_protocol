@@ -1,5 +1,4 @@
-use crate::{Error, SingleValueWireFormat, WireFormat};
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use crate::Error;
 
 const LOW_NIBBLE_MASK: u8 = 0b0000_1111;
 const HIGH_NIBBLE_MASK: u8 = 0b1111_0000;
@@ -30,19 +29,6 @@ pub(crate) struct MemoryFormatIdentifier {
 }
 
 impl MemoryFormatIdentifier {
-    /// Takes in the actual memory address to be used and the size of the memory to be used
-    /// and computes how many bytes are needed to represent them
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn from_values(memory_size: u32, memory_address: u64) -> Self {
-        let memory_address_length = (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
-        let memory_size_length = (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
-
-        Self {
-            memory_size_length,
-            memory_address_length,
-        }
-    }
-
     /// Get the total length of the `memory_size` and `memory_address` fields
     pub fn len(self) -> usize {
         self.memory_size_length as usize + self.memory_address_length as usize
@@ -122,6 +108,14 @@ pub struct DataFormatIdentifier {
 }
 
 impl DataFormatIdentifier {
+    /// Build a `DataFormatIdentifier` from its compression and encryption method nibbles.
+    ///
+    /// `0x00` for both means no compression and no encryption (the default). Both values
+    /// occupy a single nibble on the wire.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidEncryptionCompressionMethod`] if either value does not fit
+    /// in a nibble (i.e. is greater than `0x0F`).
     pub fn new(encryption_method: u8, compression_method: u8) -> Result<Self, Error> {
         Ok(Self {
             encryption_method: Self::check_value(encryption_method)?,
@@ -157,24 +151,6 @@ impl PartialEq<u8> for DataFormatIdentifier {
     fn eq(&self, other: &u8) -> bool {
         let other_data_format_identifier = DataFormatIdentifier::from(*other);
         self == &other_data_format_identifier
-    }
-}
-
-impl WireFormat for DataFormatIdentifier {
-    fn required_size(&self) -> usize {
-        1
-    }
-
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(u8::from(*self))?;
-        Ok(1)
-    }
-}
-
-impl SingleValueWireFormat for DataFormatIdentifier {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let value = reader.read_u8()?;
-        Ok(DataFormatIdentifier::from(value))
     }
 }
 

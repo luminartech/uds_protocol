@@ -133,7 +133,6 @@ pub enum UdsServiceType {
     RequestFileTransfer,
     /// This response is given when a service request could not be performed,
     /// for example a request for an unsupported Data Identifier.
-    /// for example a request for an unsupported Data Identifier.
     /// A Negative Response Code will be included.
     NegativeResponse,
     /// While additional uds may exist, only the above are supported by this library
@@ -179,7 +178,7 @@ impl UdsServiceType {
 
     /// Return the request-message service byte for this service type.
     #[must_use]
-    pub fn request_service_to_byte(&self) -> u8 {
+    pub fn request_service_to_byte(self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x10,
             Self::EcuReset => 0x11,
@@ -283,8 +282,8 @@ impl UdsServiceType {
     }
 }
 
-impl std::fmt::Display for UdsServiceType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for UdsServiceType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{self:?}")
     }
 }

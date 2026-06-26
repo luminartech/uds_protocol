@@ -89,6 +89,10 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings -D clippy::pedantic
+      - name: Run clippy (no_std + no_alloc)
+        run: cargo clippy --no-default-features -- -D warnings -D clippy::pedantic
+      - name: Run clippy (no_std + alloc)
+        run: cargo clippy --no-default-features --features alloc -- -D warnings -D clippy::pedantic
 
   # =================================================================================================
   # Build
@@ -102,6 +106,24 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build release
         run: cargo build --release --all-features
+
+  # =================================================================================================
+  # Bare-metal no_std Build
+  # =================================================================================================
+  no-std:
+    name: Build no_std (bare-metal)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv6m-none-eabi
+      - uses: Swatinem/rust-cache@v2
+      - name: Build no_std + no_alloc
+        run: cargo build --no-default-features --target thumbv6m-none-eabi
+      - name: Build no_std + alloc
+        run: cargo build --no-default-features --features alloc --target thumbv6m-none-eabi
 
   # =================================================================================================
   # Unit Tests

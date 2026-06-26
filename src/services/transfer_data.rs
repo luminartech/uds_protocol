@@ -1,7 +1,6 @@
 //! `TransferData` (0x36) service implementation
-use byteorder::{ReadBytesExt, WriteBytesExt};
 
-use crate::{Error, SingleValueWireFormat, WireFormat};
+use crate::{Decode, Encode, Error};
 
 /// A request to the server to transfer data (either upload or download)
 ///
@@ -11,32 +10,30 @@ use crate::{Error, SingleValueWireFormat, WireFormat};
 ///
 /// Step 1 Response: The server sends a [`RequestDownloadResponse`](crate::RequestDownloadResponse) or `RequestUploadResponse` message to the client
 ///
-/// Step 2: The client shall send many `TransferDataRequest` messages written in blocks
+/// Step 2: The client shall send many [`TransferDataRequest`] messages written in blocks
 ///     to the server with a max number of bytes equal to `MNROB_B`# from the `RequestDownloadResponse` message
 ///    74  .. 20   .. 00 81
 ///   RSID .. LFID .. `MNROB_B`#
 ///
-/// Step 2 Response: The server sends a [`crate::TransferDataResponse`] message confirming the block sequence
+/// Step 2 Response: The server sends a [`TransferDataResponse`] message confirming the block sequence
 ///
 /// Step 3: The client sends a [`crate::UdsServiceType::RequestTransferExit`] message to the server (SID 0x37)
 ///
 /// Step 3 Response: The server sends a [`crate::UdsServiceType::RequestTransferExit`] response message to the client (RID 0x77)
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-pub struct TransferDataRequest {
-    /// Starts at 0x01 from the server when a `RequestDownload` or `RequestUpload` or `RequestFileTransfer` is received
-    /// Increments by 0x01 for each `TransferDataRequest` message
-    /// At 0xFF the counter wraps around to 0x00
+///
+/// Zero-alloc request to transfer data. Borrows from the caller.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransferDataRequest<'d> {
+    /// Block sequence counter (wraps 0xFF → 0x00).
     pub block_sequence_counter: u8,
-    /// The data to be transferred, the server sends the amount of data (# of bytes) it can handle in the
-    /// [`crate::RequestDownloadResponse`] message
-    pub data: Vec<u8>,
+    /// The data to be transferred.
+    pub data: &'d [u8],
 }
 
-impl TransferDataRequest {
-    pub(crate) fn new(block_sequence_counter: u8, data: Vec<u8>) -> Self {
+impl<'d> TransferDataRequest<'d> {
+    /// Create a new transfer data request.
+    #[must_use]
+    pub const fn new(block_sequence_counter: u8, data: &'d [u8]) -> Self {
         Self {
             block_sequence_counter,
             data,
@@ -44,56 +41,48 @@ impl TransferDataRequest {
     }
 }
 
-impl WireFormat for TransferDataRequest {
-    fn required_size(&self) -> usize {
+impl Encode for TransferDataRequest<'_> {
+    fn encoded_size(&self) -> usize {
         1 + self.data.len()
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.block_sequence_counter)?;
-        writer.write_all(&self.data)?;
-        Ok(self.required_size())
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[self.block_sequence_counter])
+            .map_err(Error::io)?;
+        writer.write_all(self.data).map_err(Error::io)?;
+        Ok(self.encoded_size())
     }
 }
 
-impl SingleValueWireFormat for TransferDataRequest {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let block_sequence_counter = reader.read_u8()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Self {
-            block_sequence_counter,
-            data,
-        })
+impl<'a> Decode<'a> for TransferDataRequest<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((
+            Self {
+                block_sequence_counter: buf[0],
+                data: &buf[1..],
+            },
+            &[],
+        ))
     }
 }
 
-/// Positive response to a [`TransferDataRequest`].
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-pub struct TransferDataResponse {
-    /// Starts at 0x01 from the server when a `RequestDownload` or `RequestUpload` or `RequestFileTransfer` is received
-    /// Increments by 0x01 for each `TransferDataRequest` message
-    /// At 0xFF the counter wraps around to 0x00
-    ///
-    /// This is an ECHO of the `block_sequence_counter` from the [`TransferDataRequest`] message
-    /// Check against the request to ensure the correct block is being acknowledged
-    /// If the `block_sequence_counter` is not as expected or does not arrive, the client should retransmit the block
+/// Zero-alloc response for transfer data. Borrows from the caller.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TransferDataResponse<'d> {
+    /// Echo of the block sequence counter.
     pub block_sequence_counter: u8,
-
-    /// Contains data required by the client to support the transfer of data.
-    /// Vehicle manufacturer specific
-    ///
-    /// For download (client to server), this might be a checksum for the client to verify correct transfer
-    ///     This should not repeat the data sent from the client
-    /// For upload (server to client), this will include the data from the server
-    pub data: Vec<u8>,
+    /// Response data (vendor-specific).
+    pub data: &'d [u8],
 }
 
-impl TransferDataResponse {
-    pub(crate) fn new(block_sequence_counter: u8, data: Vec<u8>) -> Self {
+impl<'d> TransferDataResponse<'d> {
+    /// Create a new transfer data response.
+    #[must_use]
+    pub const fn new(block_sequence_counter: u8, data: &'d [u8]) -> Self {
         Self {
             block_sequence_counter,
             data,
@@ -101,68 +90,81 @@ impl TransferDataResponse {
     }
 }
 
-impl WireFormat for TransferDataResponse {
-    fn required_size(&self) -> usize {
+impl Encode for TransferDataResponse<'_> {
+    fn encoded_size(&self) -> usize {
         1 + self.data.len()
     }
 
-    fn encode<T: std::io::Write>(&self, writer: &mut T) -> Result<usize, Error> {
-        writer.write_u8(self.block_sequence_counter)?;
-        writer.write_all(&self.data)?;
-        Ok(self.required_size())
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer
+            .write_all(&[self.block_sequence_counter])
+            .map_err(Error::io)?;
+        writer.write_all(self.data).map_err(Error::io)?;
+        Ok(self.encoded_size())
     }
 }
 
-impl SingleValueWireFormat for TransferDataResponse {
-    fn decode<T: std::io::Read>(reader: &mut T) -> Result<Self, Error> {
-        let block_sequence_counter = reader.read_u8()?;
-        let mut data = Vec::new();
-        reader.read_to_end(&mut data)?;
-        Ok(Self {
-            block_sequence_counter,
-            data,
-        })
+impl<'a> Decode<'a> for TransferDataResponse<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        if buf.is_empty() {
+            return Err(Error::InsufficientData(1));
+        }
+        Ok((
+            Self {
+                block_sequence_counter: buf[0],
+                data: &buf[1..],
+            },
+            &[],
+        ))
     }
 }
 
 #[cfg(test)]
 mod request {
     use super::*;
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
     #[test]
     fn test_transfer_data_request() {
-        let bytes = [0x01, 0x02, 0x03, 0x04];
-        let req = TransferDataRequest::new(0x01, bytes.to_vec());
-        let bytes = req.data.clone();
-        let expected = vec![0x01, 0x02, 0x03, 0x04];
+        let data = [0x01, 0x02, 0x03, 0x04];
+        let req = TransferDataRequest::new(0x01, &data);
         assert_eq!(1, req.block_sequence_counter);
-        assert_eq!(bytes, expected);
+        assert_eq!(req.data, &[0x01, 0x02, 0x03, 0x04]);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn read_request() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let req = TransferDataRequest::decode(&mut bytes.as_slice()).unwrap();
+        let (req, _) = <TransferDataRequest as Decode>::decode(&bytes).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = req.encode(&mut written_bytes).unwrap();
+        let written = Encode::encode(&req, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.required_size());
+        assert_eq!(written, req.encoded_size());
+        assert_encode_size_agrees(&req);
     }
 }
 
 #[cfg(test)]
 mod response {
     use super::*;
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
-        let resp = TransferDataResponse::decode(&mut bytes.as_slice()).unwrap();
+        let (resp, _) = <TransferDataResponse as Decode>::decode(&bytes).unwrap();
 
         let mut written_bytes = Vec::new();
-        let written = resp.encode(&mut written_bytes).unwrap();
+        let written = Encode::encode(&resp, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
-        assert_eq!(written, resp.required_size());
+        assert_eq!(written, resp.encoded_size());
+        assert_encode_size_agrees(&resp);
     }
 }
