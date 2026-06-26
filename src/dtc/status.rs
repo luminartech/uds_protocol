@@ -445,6 +445,16 @@ impl DTCStoredDataRecordNumber {
         }
         Ok(Self(record_number))
     }
+
+    /// Return the raw record-number byte.
+    ///
+    /// A value obtained from [`From<u8>`](Self::from) or [`Decode`] may be a reserved
+    /// `0x00`/`0xF0` that [`new`](Self::new) would reject — decoding is deliberately liberal
+    /// so responses from foreign implementations can still be inspected.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        self.0
+    }
 }
 
 impl From<u8> for DTCStoredDataRecordNumber {
@@ -486,6 +496,19 @@ mod encode_param_tests {
         assert_eq!(written, 1);
         assert_eq!(buf[0], 0x05);
         assert_encode_size_agrees(&n);
+    }
+
+    #[test]
+    fn stored_data_record_number_construction_is_strict_parsing_is_liberal() {
+        // TX: constructing a reserved value is rejected.
+        assert!(matches!(
+            DTCStoredDataRecordNumber::new(0xF0),
+            Err(Error::ReservedForLegislativeUse(0xF0))
+        ));
+        // RX: a reserved value from a foreign implementation still decodes, and value()
+        // lets the caller inspect it.
+        let (decoded, _) = <DTCStoredDataRecordNumber as Decode>::decode(&[0xF0]).unwrap();
+        assert_eq!(decoded.value(), 0xF0);
     }
 
     #[test]
