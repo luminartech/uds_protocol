@@ -11,11 +11,11 @@ documentation = "https://docs.rs/uds_protocol"
 keywords = ["uds", "iso-14229", "automotive", "diagnostics", "obd"]
 categories = ["encoding", "embedded", "hardware-support"]
 authors = [
-    "Justin Kovacich<justin.kovacich@luminartech.com>",
-    "Kimberly Kryger <kim.kryger@luminartech.com>",
-    "Matthew Beisser <matthew.beisser@luminartech.com>",
-    "Parth Patel <parth.patel@luminartech.com>",
-    "Zachary Heylmun <zachary.heylmun@luminartech.com>",
+    "Justin Kovacich <justin_kovacich@microvision.com>",
+    "Kimberly Kryger <kim_kryger@microvision.com>",
+    "Matthew Beisser <matthew_beisser@microvision.com>",
+    "Parth Patel <parth_patel@microvision.com>",
+    "Zachary Heylmun <zachary_heylmun@microvision.com>",
 ]
 
 [features]
