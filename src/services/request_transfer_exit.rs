@@ -7,18 +7,14 @@ macro_rules! transfer_exit_descriptor {
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         #[non_exhaustive]
         pub struct $name<'d> {
-            parameter_record: &'d [u8],
+            /// The optional, opaque parameter record (empty slice if absent).
+            pub parameter_record: &'d [u8],
         }
         impl<'d> $name<'d> {
             /// Create from the optional parameter record (empty slice if absent).
             #[must_use]
             pub const fn new(parameter_record: &'d [u8]) -> Self {
                 Self { parameter_record }
-            }
-            /// The optional, opaque parameter record.
-            #[must_use]
-            pub const fn parameter_record(&self) -> &[u8] {
-                self.parameter_record
             }
         }
         impl Encode for $name<'_> {
@@ -66,7 +62,7 @@ mod tests {
             assert_eq!(&buf[..n], rec);
             let (d, rest) = <RequestTransferExitRequest as Decode>::decode(&buf[..n]).unwrap();
             assert!(rest.is_empty());
-            assert_eq!(d.parameter_record(), rec);
+            assert_eq!(d.parameter_record, rec);
             assert_encode_size_agrees(&req);
         }
     }

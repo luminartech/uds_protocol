@@ -130,9 +130,12 @@ impl<'a> Decode<'a> for RoutineControlRequest<'a> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlResponse<'d> {
-    sub_function: RoutineControlSubFunction,
-    routine_id: u16,
-    status_record: &'d [u8],
+    /// The routine control operation echoed from the request (start, stop, or request results).
+    pub sub_function: RoutineControlSubFunction,
+    /// The 16-bit routine identifier echoed from the request.
+    pub routine_id: u16,
+    /// Optional routine status bytes (may be empty).
+    pub status_record: &'d [u8],
 }
 
 impl<'d> RoutineControlResponse<'d> {
@@ -148,24 +151,6 @@ impl<'d> RoutineControlResponse<'d> {
             routine_id,
             status_record,
         }
-    }
-
-    /// The routine control operation echoed from the request (start, stop, or request results).
-    #[must_use]
-    pub const fn sub_function(&self) -> RoutineControlSubFunction {
-        self.sub_function
-    }
-
-    /// The 16-bit routine identifier echoed from the request.
-    #[must_use]
-    pub const fn routine_id(&self) -> u16 {
-        self.routine_id
-    }
-
-    /// Optional routine status bytes (may be empty).
-    #[must_use]
-    pub const fn status_record(&self) -> &[u8] {
-        self.status_record
     }
 }
 
@@ -244,8 +229,8 @@ mod test {
         let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..n], &[0x01, 0xFF, 0x00, 0x10]);
         let (d, _) = <RoutineControlResponse as Decode>::decode(&buf[..n]).unwrap();
-        assert_eq!(d.sub_function(), RoutineControlSubFunction::StartRoutine);
-        assert_eq!(d.routine_id(), 0xFF00);
+        assert_eq!(d.sub_function, RoutineControlSubFunction::StartRoutine);
+        assert_eq!(d.routine_id, 0xFF00);
         // A response with the SPRMIB bit set (0x81) is malformed and rejected.
         assert!(<RoutineControlResponse as Decode>::decode(&[0x81, 0xFF, 0x00]).is_err());
         assert_encode_size_agrees(&resp);
