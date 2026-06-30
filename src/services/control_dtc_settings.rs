@@ -43,7 +43,10 @@ impl TryFrom<u8> for DtcSettings {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsRequest {
-    setting: SuppressablePositiveResponse<DtcSettings>,
+    /// Whether the server should suppress the positive response (SPRMIB).
+    pub suppress_positive_response: bool,
+    /// The requested DTC logging setting.
+    pub setting: DtcSettings,
 }
 
 impl ControlDTCSettingsRequest {
@@ -51,20 +54,9 @@ impl ControlDTCSettingsRequest {
     #[must_use]
     pub const fn new(suppress_positive_response: bool, setting: DtcSettings) -> Self {
         Self {
-            setting: SuppressablePositiveResponse::new(suppress_positive_response, setting),
+            suppress_positive_response,
+            setting,
         }
-    }
-
-    /// Returns the requested DTC logging setting.
-    #[must_use]
-    pub fn setting(&self) -> DtcSettings {
-        self.setting.value()
-    }
-
-    /// Whether the server should suppress the positive response (SPRMIB).
-    #[must_use]
-    pub fn suppress_positive_response(&self) -> bool {
-        self.setting.suppress_positive_response()
     }
 }
 
@@ -74,8 +66,10 @@ impl Encode for ControlDTCSettingsRequest {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let sub_function =
+            SuppressablePositiveResponse::new(self.suppress_positive_response, self.setting);
         writer
-            .write_all(&[u8::from(self.setting)])
+            .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
         Ok(1)
     }
@@ -86,8 +80,14 @@ impl<'a> Decode<'a> for ControlDTCSettingsRequest {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        let setting = SuppressablePositiveResponse::try_from(buf[0])?;
-        Ok((Self { setting }, &buf[1..]))
+        let sub_function = SuppressablePositiveResponse::<DtcSettings>::try_from(buf[0])?;
+        Ok((
+            Self {
+                suppress_positive_response: sub_function.suppress_positive_response(),
+                setting: sub_function.value(),
+            },
+            &buf[1..],
+        ))
     }
 }
 
@@ -152,8 +152,8 @@ mod request {
         assert_eq!(req.encoded_size(), buffer.len());
 
         let (parsed, _) = <ControlDTCSettingsRequest as Decode>::decode(&buffer).unwrap();
-        assert_eq!(parsed.setting(), DtcSettings::On);
-        assert!(parsed.suppress_positive_response());
+        assert_eq!(parsed.setting, DtcSettings::On);
+        assert!(parsed.suppress_positive_response);
         assert_encode_size_agrees(&req);
     }
 

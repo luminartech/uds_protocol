@@ -56,9 +56,14 @@ impl TryFrom<u8> for RoutineControlSubFunction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlRequest<'d> {
-    sub_function: SuppressablePositiveResponse<RoutineControlSubFunction>,
-    routine_id: u16,
-    option_record: &'d [u8],
+    /// Whether the server should suppress the positive response (SPRMIB).
+    pub suppress_positive_response: bool,
+    /// The routine control operation (start, stop, or request results).
+    pub sub_function: RoutineControlSubFunction,
+    /// The 16-bit routine identifier.
+    pub routine_id: u16,
+    /// Optional routine input parameters (may be empty).
+    pub option_record: &'d [u8],
 }
 
 impl<'d> RoutineControlRequest<'d> {
@@ -71,37 +76,11 @@ impl<'d> RoutineControlRequest<'d> {
         option_record: &'d [u8],
     ) -> Self {
         Self {
-            sub_function: SuppressablePositiveResponse::new(
-                suppress_positive_response,
-                sub_function,
-            ),
+            suppress_positive_response,
+            sub_function,
             routine_id,
             option_record,
         }
-    }
-
-    /// Whether the server should suppress the positive response (SPRMIB).
-    #[must_use]
-    pub fn suppress_positive_response(&self) -> bool {
-        self.sub_function.suppress_positive_response()
-    }
-
-    /// The routine control operation (start, stop, or request results).
-    #[must_use]
-    pub fn sub_function(&self) -> RoutineControlSubFunction {
-        self.sub_function.value()
-    }
-
-    /// The 16-bit routine identifier.
-    #[must_use]
-    pub const fn routine_id(&self) -> u16 {
-        self.routine_id
-    }
-
-    /// Optional routine input parameters (may be empty).
-    #[must_use]
-    pub const fn option_record(&self) -> &[u8] {
-        self.option_record
     }
 }
 
@@ -111,8 +90,10 @@ impl Encode for RoutineControlRequest<'_> {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let sub_function =
+            SuppressablePositiveResponse::new(self.suppress_positive_response, self.sub_function);
         writer
-            .write_all(&[u8::from(self.sub_function)])
+            .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
         writer
             .write_all(&self.routine_id.to_be_bytes())
@@ -127,11 +108,13 @@ impl<'a> Decode<'a> for RoutineControlRequest<'a> {
         if buf.len() < 3 {
             return Err(Error::InsufficientData(3));
         }
-        let sub_function = SuppressablePositiveResponse::try_from(buf[0])?;
+        let sub_function =
+            SuppressablePositiveResponse::<RoutineControlSubFunction>::try_from(buf[0])?;
         let routine_id = u16::from_be_bytes([buf[1], buf[2]]);
         Ok((
             Self {
-                sub_function,
+                suppress_positive_response: sub_function.suppress_positive_response(),
+                sub_function: sub_function.value(),
                 routine_id,
                 option_record: &buf[3..],
             },
@@ -241,10 +224,10 @@ mod test {
         assert_eq!(&buf[..n], &[0x81, 0xFF, 0x00, 0xAA]); // 0x81 = StartRoutine | SPRMIB
         let (d, rest) = <RoutineControlRequest as Decode>::decode(&buf[..n]).unwrap();
         assert!(rest.is_empty());
-        assert!(d.suppress_positive_response());
-        assert_eq!(d.sub_function(), RoutineControlSubFunction::StartRoutine);
-        assert_eq!(d.routine_id(), 0xFF00);
-        assert_eq!(d.option_record(), &[0xAA]);
+        assert!(d.suppress_positive_response);
+        assert_eq!(d.sub_function, RoutineControlSubFunction::StartRoutine);
+        assert_eq!(d.routine_id, 0xFF00);
+        assert_eq!(d.option_record, &[0xAA]);
         assert_encode_size_agrees(&req);
     }
 
