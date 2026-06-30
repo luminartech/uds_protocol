@@ -203,10 +203,8 @@ impl Encode for DiagnosticSessionControlRequest {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let sub_function = SuppressablePositiveResponse::new(
-            self.suppress_positive_response,
-            self.session_type,
-        );
+        let sub_function =
+            SuppressablePositiveResponse::new(self.suppress_positive_response, self.session_type);
         writer
             .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
@@ -219,8 +217,7 @@ impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        let sub_function =
-            SuppressablePositiveResponse::<DiagnosticSessionType>::try_from(buf[0])?;
+        let sub_function = SuppressablePositiveResponse::<DiagnosticSessionType>::try_from(buf[0])?;
         Ok((
             Self {
                 suppress_positive_response: sub_function.suppress_positive_response(),
@@ -311,10 +308,7 @@ mod request {
         let bytes: [u8; 1] = [0x02];
         let (req, _) = <DiagnosticSessionControlRequest as Decode>::decode(&bytes).unwrap();
         assert!(!req.suppress_positive_response);
-        assert_eq!(
-            req.session_type,
-            DiagnosticSessionType::ProgrammingSession
-        );
+        assert_eq!(req.session_type, DiagnosticSessionType::ProgrammingSession);
 
         let mut buffer = Vec::new();
         Encode::encode(&req, &mut buffer).unwrap();
