@@ -35,6 +35,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-release --version '^0.25' --locked
-      - run: cargo release publish --no-confirm --execute
+      # --allow-branch '*': a tag-push CI run is in detached-HEAD state, which
+      # cargo-release's branch check would otherwise reject. Publishing is
+      # already gated by the job `if:` above; this only relaxes the ref check.
+      - run: cargo release publish --allow-branch '*' --no-confirm --execute
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
