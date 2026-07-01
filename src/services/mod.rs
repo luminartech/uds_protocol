@@ -1,5 +1,5 @@
 mod clear_dtc_information;
-pub use clear_dtc_information::ClearDiagnosticInfoRequest;
+pub use clear_dtc_information::{ClearDiagnosticInfoRequest, ClearDiagnosticInfoResponse};
 
 mod communication_control;
 pub use communication_control::{

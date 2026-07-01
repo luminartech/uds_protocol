@@ -1,5 +1,5 @@
 use crate::{
-    CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
+    ClearDiagnosticInfoResponse, CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
     DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, NegativeResponse,
     ReadDTCInfoResponse, RequestDownloadResponse, RequestFileTransferResponse,
     RequestTransferExitResponse, RoutineControlResponse, SecurityAccessResponse,
@@ -14,7 +14,7 @@ use crate::{
 #[non_exhaustive]
 pub enum Response<'a> {
     /// Positive response to `ClearDiagnosticInfo`.
-    ClearDiagnosticInfo,
+    ClearDiagnosticInfo(ClearDiagnosticInfoResponse),
     /// Positive response to `CommunicationControl`.
     CommunicationControl(CommunicationControlResponse),
     /// Positive response to `ControlDTCSettings`.
@@ -74,7 +74,9 @@ impl<'a> Decode<'a> for Response<'a> {
         let payload = &buf[1..];
 
         let response = match service {
-            UdsServiceType::ClearDiagnosticInfo => Self::ClearDiagnosticInfo,
+            UdsServiceType::ClearDiagnosticInfo => Self::ClearDiagnosticInfo(
+                <ClearDiagnosticInfoResponse as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::CommunicationControl => Self::CommunicationControl(
                 <CommunicationControlResponse as Decode>::decode_exact(payload)?,
             ),
@@ -143,7 +145,7 @@ impl Response<'_> {
     /// Returns the response service-ID byte that frames this response on the wire.
     fn response_sid(&self) -> u8 {
         match self {
-            Self::ClearDiagnosticInfo => UdsServiceType::ClearDiagnosticInfo.response_to_byte(),
+            Self::ClearDiagnosticInfo(_) => UdsServiceType::ClearDiagnosticInfo.response_to_byte(),
             Self::CommunicationControl(_) => {
                 UdsServiceType::CommunicationControl.response_to_byte()
             }
@@ -175,7 +177,7 @@ impl Response<'_> {
 impl Encode for Response<'_> {
     fn encoded_size(&self) -> usize {
         let payload = match self {
-            Self::ClearDiagnosticInfo => 0,
+            Self::ClearDiagnosticInfo(resp) => resp.encoded_size(),
             Self::RequestTransferExit(resp) => resp.encoded_size(),
             Self::Other { data, .. } => data.len(),
             Self::CommunicationControl(resp) => resp.encoded_size(),
@@ -201,7 +203,7 @@ impl Encode for Response<'_> {
             .write_all(&[self.response_sid()])
             .map_err(Error::io)?;
         let payload = match self {
-            Self::ClearDiagnosticInfo => 0,
+            Self::ClearDiagnosticInfo(resp) => resp.encode(writer)?,
             Self::RequestTransferExit(resp) => resp.encode(writer)?,
             Self::CommunicationControl(resp) => resp.encode(writer)?,
             Self::ControlDTCSettings(resp) => resp.encode(writer)?,

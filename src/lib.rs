@@ -37,7 +37,8 @@ pub use service::UdsServiceType;
 
 mod services;
 pub use services::{
-    ClearDiagnosticInfoRequest, CommunicationControlRequest, CommunicationControlResponse,
+    ClearDiagnosticInfoRequest, ClearDiagnosticInfoResponse, CommunicationControlRequest,
+    CommunicationControlResponse,
     CommunicationControlType, CommunicationType, ControlDTCSettingsRequest,
     ControlDTCSettingsResponse, DiagnosticSessionControlRequest, DiagnosticSessionControlResponse,
     DiagnosticSessionType, DirSizePayload, DtcAndStatusIter, DtcFaultDetectionIter, DtcSettings,
