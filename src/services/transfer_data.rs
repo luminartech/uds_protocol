@@ -22,11 +22,15 @@ use crate::{Decode, Encode, Error};
 /// Step 3 Response: The server sends a [`crate::UdsServiceType::RequestTransferExit`] response message to the client (RID 0x77)
 ///
 /// Zero-alloc request to transfer data. Borrows from the caller.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct TransferDataRequest<'d> {
     /// Block sequence counter (wraps 0xFF → 0x00).
     pub block_sequence_counter: u8,
     /// The data to be transferred.
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub data: &'d [u8],
 }
 
@@ -71,11 +75,15 @@ impl<'a> Decode<'a> for TransferDataRequest<'a> {
 }
 
 /// Zero-alloc response for transfer data. Borrows from the caller.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct TransferDataResponse<'d> {
     /// Echo of the block sequence counter.
     pub block_sequence_counter: u8,
     /// Response data (vendor-specific).
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub data: &'d [u8],
 }
 
@@ -125,6 +133,19 @@ mod request {
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
+
+    #[test]
+    fn derive_contract() {
+        use crate::test_util::assert_impl_eq;
+        assert_impl_eq::<TransferDataRequest<'static>>();
+        assert_impl_eq::<TransferDataResponse<'static>>();
+        #[cfg(feature = "serde")]
+        {
+            use crate::test_util::assert_impl_serde;
+            assert_impl_serde::<TransferDataRequest<'_>>();
+            assert_impl_serde::<TransferDataResponse<'_>>();
+        }
+    }
 
     #[test]
     fn test_transfer_data_request() {
