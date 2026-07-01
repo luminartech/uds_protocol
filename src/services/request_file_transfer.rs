@@ -87,7 +87,7 @@ impl TryFrom<u8> for FileOperationMode {
 #[allow(clippy::struct_field_names)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SizePayload {
     /// Specifies the size of the uncompressed file in bytes.
     ///
@@ -136,7 +136,7 @@ impl SizePayload {
 /// [Request]: RequestFileTransferRequest
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NamePayload<'a> {
     /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
     pub mode_of_operation: FileOperationMode,
@@ -175,7 +175,7 @@ impl<'a> NamePayload<'a> {
 /// there is no need to use the `TransferData` or [`crate::UdsServiceType::RequestTransferExit`] services.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum RequestFileTransferRequest<'a> {
     /// Add a file to the server
@@ -231,7 +231,7 @@ pub enum RequestFileTransferRequest<'a> {
 /// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SentDataPayload<'a> {
     /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
     /// data bytes (maxNumberOfBlockLength) to include in each `TransferData` request message from the client or how
@@ -279,7 +279,7 @@ impl<'a> SentDataPayload<'a> {
 #[allow(clippy::struct_field_names)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FileSizePayload {
     /// Size of the uncompressed file in bytes.
     pub file_size_uncompressed: u128,
@@ -319,7 +319,7 @@ impl FileSizePayload {
 /// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DirSizePayload {
     /// Total size of the directory information in bytes.
     pub dir_info_length: u128,
@@ -354,7 +354,7 @@ impl DirSizePayload {
 /// [Response]: RequestFileTransferResponse
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PositionPayload {
     /// Specifies the byte position within the file at which the Tester will resume downloading after an initial download is suspended
     /// A download is suspended when the ECU stops receiving [`crate::TransferDataRequest`] requests and does not receive the
@@ -381,7 +381,7 @@ impl PositionPayload {
 /// `DataFormatIdentifier` - Echoes the value of the request
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum RequestFileTransferResponse<'a> {
     /// Positive response to an [`AddFile`](FileOperationMode::AddFile) request.
@@ -1048,5 +1048,21 @@ mod response_tests {
         let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
+    }
+
+    #[test]
+    const fn derive_contract() {
+        use crate::test_util::assert_impl_eq;
+
+        // Verify all nine types implement Eq
+        assert_impl_eq::<FileOperationMode>();
+        assert_impl_eq::<SizePayload>();
+        assert_impl_eq::<NamePayload<'static>>();
+        assert_impl_eq::<RequestFileTransferRequest<'static>>();
+        assert_impl_eq::<SentDataPayload<'static>>();
+        assert_impl_eq::<FileSizePayload>();
+        assert_impl_eq::<DirSizePayload>();
+        assert_impl_eq::<PositionPayload>();
+        assert_impl_eq::<RequestFileTransferResponse<'static>>();
     }
 }
