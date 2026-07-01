@@ -15,6 +15,8 @@ const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 /// data record that follows it on the wire.
 ///
 /// See ISO-14229-1:2020, Section 11.7.2.1
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct WriteDataByIdentifierRequest<'d> {
@@ -22,6 +24,7 @@ pub struct WriteDataByIdentifierRequest<'d> {
     /// the big-endian encoding is handled on the wire.
     pub identifier: u16,
     /// The opaque data record written after the identifier.
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub data: &'d [u8],
 }
 
@@ -72,6 +75,8 @@ impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
 /// Positive response to `WriteDataByIdentifier`: echoes the DID that was written.
 ///
 /// See ISO-14229-1:2020, Section 11.7.3.1
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct WriteDataByIdentifierResponse {
@@ -114,6 +119,19 @@ impl<'a> Decode<'a> for WriteDataByIdentifierResponse {
 mod test {
     use super::*;
     use crate::test_util::assert_encode_size_agrees;
+
+    #[test]
+    fn derive_contract() {
+        use crate::test_util::assert_impl_eq;
+        assert_impl_eq::<WriteDataByIdentifierRequest<'static>>();
+        assert_impl_eq::<WriteDataByIdentifierResponse>();
+        #[cfg(feature = "serde")]
+        {
+            use crate::test_util::assert_impl_serde;
+            assert_impl_serde::<WriteDataByIdentifierRequest<'_>>();
+            assert_impl_serde::<WriteDataByIdentifierResponse>();
+        }
+    }
 
     #[test]
     fn test_write_response_encode() {
