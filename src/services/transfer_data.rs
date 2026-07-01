@@ -1,6 +1,15 @@
 //! `TransferData` (0x36) service implementation
 
-use crate::{Decode, Encode, Error};
+use crate::{Decode, Encode, Error, NegativeResponseCode};
+
+const TRANSFER_DATA_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::RequestSequenceError,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::TransferDataSuspended,
+    NegativeResponseCode::GeneralProgrammingFailure,
+    NegativeResponseCode::WrongBlockSequenceCounter,
+];
 
 /// A request to the server to transfer data (either upload or download)
 ///
@@ -42,6 +51,12 @@ impl<'d> TransferDataRequest<'d> {
             block_sequence_counter,
             data,
         }
+    }
+
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &TRANSFER_DATA_NEGATIVE_RESPONSE_CODES
     }
 }
 
@@ -130,9 +145,15 @@ impl<'a> Decode<'a> for TransferDataResponse<'a> {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees, NegativeResponseCode};
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
+
+    #[test]
+    fn test_allowed_nack_codes() {
+        let codes = TransferDataRequest::allowed_nack_codes();
+        assert!(codes.contains(&NegativeResponseCode::WrongBlockSequenceCounter));
+    }
 
     #[test]
     fn derive_contract() {

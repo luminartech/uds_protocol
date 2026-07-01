@@ -1,5 +1,5 @@
 //! `RequestTransferExit` (0x37 / 0x77) service implementation.
-use crate::{Decode, Encode, Error};
+use crate::{Decode, Encode, Error, NegativeResponseCode};
 
 macro_rules! transfer_exit_descriptor {
     ($name:ident, $doc:literal) => {
@@ -48,10 +48,31 @@ transfer_exit_descriptor!(
     "Positive response to `RequestTransferExit`, carrying an optional parameter record."
 );
 
+const REQUEST_TRANSFER_EXIT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::RequestSequenceError,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::GeneralProgrammingFailure,
+];
+
+impl RequestTransferExitRequest<'_> {
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &REQUEST_TRANSFER_EXIT_NEGATIVE_RESPONSE_CODES
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees, NegativeResponseCode};
+
+    #[test]
+    fn test_allowed_nack_codes() {
+        let codes = RequestTransferExitRequest::allowed_nack_codes();
+        assert!(codes.contains(&NegativeResponseCode::RequestSequenceError));
+    }
 
     #[test]
     fn rte_request_round_trips_with_and_without_record() {

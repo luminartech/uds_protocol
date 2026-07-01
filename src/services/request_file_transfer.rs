@@ -1,7 +1,7 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
 use crate::shared::{DataFormatIdentifier, read_be_uint, write_be_uint};
-use crate::{Decode, Encode, Error, param_length_u128};
+use crate::{Decode, Encode, Error, param_length_u128, NegativeResponseCode};
 
 /// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
 /// values. Used to derive the on-wire `parameterLength` prefix from the data itself,
@@ -212,6 +212,21 @@ pub enum RequestFileTransferRequest<'a> {
         DataFormatIdentifier,
         SizePayload,
     ),
+}
+
+const REQUEST_FILE_TRANSFER_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::ConditionsNotCorrect,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::UploadDownloadNotAccepted,
+];
+
+impl RequestFileTransferRequest<'_> {
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &REQUEST_FILE_TRANSFER_NEGATIVE_RESPONSE_CODES
+    }
 }
 
 ///////////////////////////////////////// - Response - ///////////////////////////////////////////////////
@@ -821,6 +836,13 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
 mod request_tests {
     use super::*;
     use crate::test_util::assert_encode_size_agrees;
+    use crate::NegativeResponseCode;
+
+    #[test]
+    fn test_allowed_nack_codes() {
+        let codes = RequestFileTransferRequest::allowed_nack_codes();
+        assert!(codes.contains(&NegativeResponseCode::UploadDownloadNotAccepted));
+    }
 
     #[test]
     fn test_file_operation_mode() {
