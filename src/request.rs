@@ -184,12 +184,12 @@ impl Request<'_> {
     pub fn is_positive_response_suppressed(&self) -> bool {
         match self {
             Self::CommunicationControl(req) => req.suppress_positive_response(),
-            Self::ControlDTCSettings(req) => req.suppress_positive_response(),
-            Self::DiagnosticSessionControl(req) => req.suppress_positive_response(),
-            Self::EcuReset(req) => req.suppress_positive_response(),
-            Self::RoutineControl(req) => req.suppress_positive_response(),
-            Self::SecurityAccess(req) => req.suppress_positive_response(),
-            Self::TesterPresent(req) => req.suppress_positive_response(),
+            Self::ControlDTCSettings(req) => req.suppress_positive_response,
+            Self::DiagnosticSessionControl(req) => req.suppress_positive_response,
+            Self::EcuReset(req) => req.suppress_positive_response,
+            Self::RoutineControl(req) => req.suppress_positive_response,
+            Self::SecurityAccess(req) => req.suppress_positive_response,
+            Self::TesterPresent(req) => req.suppress_positive_response,
             _ => false,
         }
     }

@@ -47,7 +47,9 @@ pub use routine_control::{
 };
 
 mod security_access;
-pub use security_access::{SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType};
+pub use security_access::{
+    SecurityAccessLevel, SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType,
+};
 
 mod tester_present;
 pub use tester_present::{TesterPresentRequest, TesterPresentResponse};

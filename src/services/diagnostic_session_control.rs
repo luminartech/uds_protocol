@@ -25,7 +25,10 @@ use crate::{Decode, Encode, Error, NegativeResponseCode};
 #[non_exhaustive]
 pub enum DiagnosticSessionType {
     /// This value is reserved by the ISO 14229-1 Specification
+    ///
+    /// Construct through [`DiagnosticSessionType::try_from`] so the raw byte is range-checked and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     ISOSAEReserved(u8),
     /// The `DefaultSession` (0x01) enables the standard diagnostic functionality
     /// - No `TesterPresent` messages are required to remain in this session
@@ -42,10 +45,16 @@ pub enum DiagnosticSessionType {
     /// The `SafetySystemDiagnosticSession` (0x04) enables diagnostics functionality for safety systems
     SafetySystemDiagnosticSession,
     /// Value reserved for use by vehicle manufacturers
+    ///
+    /// Construct through [`DiagnosticSessionType::try_from`] so the raw byte is range-checked and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     VehicleManufacturerSpecificSession(u8),
     /// Value reserved for use by system suppliers
+    ///
+    /// Construct through [`DiagnosticSessionType::try_from`] so the raw byte is range-checked and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     SystemSupplierSpecificSession(u8),
 }
 
@@ -163,7 +172,10 @@ const DIAGNOSTIC_SESSION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct DiagnosticSessionControlRequest {
-    session_type: SuppressablePositiveResponse<DiagnosticSessionType>,
+    /// Whether a positive response should be suppressed.
+    pub suppress_positive_response: bool,
+    /// The requested diagnostic session type.
+    pub session_type: DiagnosticSessionType,
 }
 
 impl DiagnosticSessionControlRequest {
@@ -174,23 +186,9 @@ impl DiagnosticSessionControlRequest {
         session_type: DiagnosticSessionType,
     ) -> Self {
         Self {
-            session_type: SuppressablePositiveResponse::new(
-                suppress_positive_response,
-                session_type,
-            ),
+            suppress_positive_response,
+            session_type,
         }
-    }
-
-    /// Getter for whether a positive response should be suppressed
-    #[must_use]
-    pub fn suppress_positive_response(&self) -> bool {
-        self.session_type.suppress_positive_response()
-    }
-
-    /// Getter for the requested session type
-    #[must_use]
-    pub fn session_type(&self) -> DiagnosticSessionType {
-        self.session_type.value()
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
@@ -205,8 +203,10 @@ impl Encode for DiagnosticSessionControlRequest {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let sub_function =
+            SuppressablePositiveResponse::new(self.suppress_positive_response, self.session_type);
         writer
-            .write_all(&[u8::from(self.session_type)])
+            .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
         Ok(1)
     }
@@ -217,8 +217,14 @@ impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        let session_type = SuppressablePositiveResponse::try_from(buf[0])?;
-        Ok((Self { session_type }, &buf[1..]))
+        let sub_function = SuppressablePositiveResponse::<DiagnosticSessionType>::try_from(buf[0])?;
+        Ok((
+            Self {
+                suppress_positive_response: sub_function.suppress_positive_response(),
+                session_type: sub_function.value(),
+            },
+            &buf[1..],
+        ))
     }
 }
 
@@ -301,11 +307,8 @@ mod request {
     fn test_diagnostic_session_control_request() {
         let bytes: [u8; 1] = [0x02];
         let (req, _) = <DiagnosticSessionControlRequest as Decode>::decode(&bytes).unwrap();
-        assert!(!req.suppress_positive_response());
-        assert_eq!(
-            req.session_type(),
-            DiagnosticSessionType::ProgrammingSession
-        );
+        assert!(!req.suppress_positive_response);
+        assert_eq!(req.session_type, DiagnosticSessionType::ProgrammingSession);
 
         let mut buffer = Vec::new();
         Encode::encode(&req, &mut buffer).unwrap();

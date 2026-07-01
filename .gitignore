@@ -326,3 +326,7 @@ Testing/
 # Fuzz corpus
 fuzz/corpus/
 fuzz/artifacts/
+
+.omniscient/
+
+.DS_Store

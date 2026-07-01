@@ -34,14 +34,26 @@ pub enum CommunicationControlType {
     /// shall be enabled for the specified [`CommunicationType`]
     /// Additionally, enhanced address information shall be included in the request
     EnableRxAndTxWithEnhancedAddressInfo,
-    /// These values are reserved by the ISO 14229-1 Specification
+    /// These values are reserved by the ISO 14229-1 Specification.
+    ///
+    /// Construct through [`CommunicationControlType::try_from`] so the raw byte is
+    /// range-checked and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     ISOSAEReserved(u8),
-    /// Values reserved for use by vehicle manufacturers
+    /// Values reserved for use by vehicle manufacturers.
+    ///
+    /// Construct through [`CommunicationControlType::try_from`] so the raw byte is
+    /// range-checked and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     VehicleManufacturerSpecific(u8),
-    /// Values reserved for use by system suppliers
+    /// Values reserved for use by system suppliers.
+    ///
+    /// Construct through [`CommunicationControlType::try_from`] so the raw byte is
+    /// range-checked and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     SystemSupplierSpecific(u8),
 }
 

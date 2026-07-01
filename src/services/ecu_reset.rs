@@ -15,8 +15,12 @@ use crate::{Decode, Encode, Error, NegativeResponseCode};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ResetType {
-    /// This value is reserved
+    /// This value is reserved.
+    ///
+    /// Construct reserved values through [`ResetType::try_from`] so the raw byte is
+    /// range-checked (`0x00..=0x7F`) and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     ISOSAEReserved(u8),
     /// This `SubFunction` identifies a "hard reset" condition which simulates the power-on/start-up sequence
     /// typically performed after a server has been previously disconnected from its power supply (i.e. battery).
@@ -49,11 +53,19 @@ pub enum ResetType {
     EnableRapidPowerShutDown,
     /// This `SubFunction` requests the server to disable the previously enabled "rapid power shut down" function.
     DisableRapidPowerShutDown,
-    /// Reserved for use by vehicle manufacturers
+    /// Reserved for use by vehicle manufacturers.
+    ///
+    /// Construct through [`ResetType::try_from`] so the raw byte is range-checked
+    /// (`0x40..=0x5F`) and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     VehicleManufacturerSpecific(u8),
-    /// Reserved for use by system suppliers
+    /// Reserved for use by system suppliers.
+    ///
+    /// Construct through [`ResetType::try_from`] so the raw byte is range-checked
+    /// (`0x60..=0x7E`) and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
+    #[non_exhaustive]
     SystemSupplierSpecific(u8),
 }
 
@@ -175,7 +187,10 @@ const ECU_RESET_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct EcuResetRequest {
-    reset_type: SuppressablePositiveResponse<ResetType>,
+    /// Whether the server should suppress a positive response (SPRMIB).
+    pub suppress_positive_response: bool,
+    /// The type of reset being requested.
+    pub reset_type: ResetType,
 }
 
 impl EcuResetRequest {
@@ -183,20 +198,9 @@ impl EcuResetRequest {
     #[must_use]
     pub const fn new(suppress_positive_response: bool, reset_type: ResetType) -> Self {
         Self {
-            reset_type: SuppressablePositiveResponse::new(suppress_positive_response, reset_type),
+            suppress_positive_response,
+            reset_type,
         }
-    }
-
-    /// Getter for whether a positive response should be suppressed
-    #[must_use]
-    pub fn suppress_positive_response(&self) -> bool {
-        self.reset_type.suppress_positive_response()
-    }
-
-    /// Getter for the requested [`ResetType`]
-    #[must_use]
-    pub fn reset_type(&self) -> ResetType {
-        self.reset_type.value()
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
@@ -212,8 +216,11 @@ impl Encode for EcuResetRequest {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        // Fuse the SPRMIB bit into the sub-function byte only at the wire boundary.
+        let sub_function =
+            SuppressablePositiveResponse::new(self.suppress_positive_response, self.reset_type);
         writer
-            .write_all(&[u8::from(self.reset_type)])
+            .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
         Ok(1)
     }
@@ -224,8 +231,14 @@ impl<'a> Decode<'a> for EcuResetRequest {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        let reset_type = SuppressablePositiveResponse::try_from(buf[0])?;
-        Ok((Self { reset_type }, &buf[1..]))
+        let sub_function = SuppressablePositiveResponse::<ResetType>::try_from(buf[0])?;
+        Ok((
+            Self {
+                suppress_positive_response: sub_function.suppress_positive_response(),
+                reset_type: sub_function.value(),
+            },
+            &buf[1..],
+        ))
     }
 }
 

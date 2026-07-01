@@ -56,32 +56,20 @@ impl TryFrom<u8> for ZeroSubFunction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct TesterPresentRequest {
-    zero_sub_function: SuppressablePositiveResponse<ZeroSubFunction>,
+    /// Whether the server should suppress a positive response (SPRMIB).
+    ///
+    /// `TesterPresent` defines only the zero sub-function, so the suppression flag is
+    /// the request's sole degree of freedom.
+    pub suppress_positive_response: bool,
 }
 
 impl TesterPresentRequest {
     /// Create a new `TesterPresentRequest`
     #[must_use]
-    pub fn new(suppress_positive_response: bool) -> Self {
-        Self::with_subfunction(suppress_positive_response, ZeroSubFunction::default())
-    }
-
-    fn with_subfunction(
-        suppress_positive_response: bool,
-        zero_sub_function: ZeroSubFunction,
-    ) -> Self {
+    pub const fn new(suppress_positive_response: bool) -> Self {
         Self {
-            zero_sub_function: SuppressablePositiveResponse::new(
-                suppress_positive_response,
-                zero_sub_function,
-            ),
+            suppress_positive_response,
         }
-    }
-
-    /// Getter for whether a positive response should be suppressed
-    #[must_use]
-    pub fn suppress_positive_response(&self) -> bool {
-        self.zero_sub_function.suppress_positive_response()
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
@@ -97,8 +85,14 @@ impl Encode for TesterPresentRequest {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        // The only defined sub-function is the zero sub-function; fuse the SPRMIB bit
+        // onto it at the wire boundary.
+        let sub_function = SuppressablePositiveResponse::new(
+            self.suppress_positive_response,
+            ZeroSubFunction::NoSubFunctionSupported,
+        );
         writer
-            .write_all(&[u8::from(self.zero_sub_function)])
+            .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
         Ok(1)
     }
@@ -109,8 +103,16 @@ impl<'a> Decode<'a> for TesterPresentRequest {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        let zero_sub_function = SuppressablePositiveResponse::try_from(buf[0])?;
-        Ok((Self { zero_sub_function }, &buf[1..]))
+        // Split out the SPRMIB flag. Once SPRMIB is stripped the low 7 bits are always a
+        // valid zero sub-function, so this never rejects; the sub-function value itself is
+        // discarded and normalized to the zero sub-function on re-encode.
+        let sub_function = SuppressablePositiveResponse::<ZeroSubFunction>::try_from(buf[0])?;
+        Ok((
+            Self {
+                suppress_positive_response: sub_function.suppress_positive_response(),
+            },
+            &buf[1..],
+        ))
     }
 }
 
@@ -218,24 +220,17 @@ mod test {
                     assert_eq!(result.unwrap(), expected);
                 }
                 0x01..=0x7F => {
-                    let result = result.unwrap();
-                    assert!(!result.suppress_positive_response());
-                    assert!(matches!(
-                        result.zero_sub_function.value(),
-                        ZeroSubFunction::ISOSAEReserved(_)
-                    ));
+                    // Reserved sub-function bytes decode (SPRMIB clear); the reserved value
+                    // is not retained — re-encoding normalizes to the zero sub-function.
+                    assert!(!result.unwrap().suppress_positive_response);
                 }
                 0x80 => {
                     let expected = TesterPresentRequest::new(true);
                     assert_eq!(result.unwrap(), expected);
                 }
                 0x81..=0xFF => {
-                    let result = result.unwrap();
-                    assert!(result.suppress_positive_response());
-                    assert!(matches!(
-                        result.zero_sub_function.value(),
-                        ZeroSubFunction::ISOSAEReserved(_)
-                    ));
+                    // SPRMIB set over a reserved value: suppression is retained.
+                    assert!(result.unwrap().suppress_positive_response);
                 }
             }
         }

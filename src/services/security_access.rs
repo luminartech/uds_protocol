@@ -2,6 +2,37 @@
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, NegativeResponseCode};
 
+/// A `SecurityAccess` level byte, guaranteed to fit the 7-bit sub-function field
+/// (`0x00..=0x7F`).
+///
+/// A request fuses the suppress-positive-response flag into bit 7 of this byte at the wire
+/// boundary, so a level with bit 7 already set would be ambiguous. Constraining construction
+/// here makes that collision unrepresentable rather than something to catch at encode time.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SecurityAccessLevel(u8);
+
+impl SecurityAccessLevel {
+    /// Create a level, rejecting any value that would set the SPRMIB bit (`>= 0x80`).
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidSecurityAccessType`] if `value >= 0x80`.
+    pub const fn new(value: u8) -> Result<Self, Error> {
+        if value > 0x7F {
+            Err(Error::InvalidSecurityAccessType(value))
+        } else {
+            Ok(Self(value))
+        }
+    }
+
+    /// The raw level byte (always `0x00..=0x7F`).
+    #[must_use]
+    pub const fn get(self) -> u8 {
+        self.0
+    }
+}
+
 /// Security Access Type allows for multiple different security challenges within an ECU.
 ///
 /// The Security Access Type is used to determine both the sub function,
@@ -17,17 +48,25 @@ use crate::{Decode, Encode, Error, NegativeResponseCode};
 #[non_exhaustive]
 pub enum SecurityAccessType {
     /// This value is reserved for future definition
+    ///
+    /// Construct through [`SecurityAccessType::try_from`] so the raw byte is range-checked
+    /// and can never collide with the SPRMIB bit.
+    #[non_exhaustive]
     ISOSAEReserved(u8),
     /// `RequestSeed` with the level of security defined by the vehicle manufacturer
-    RequestSeed(u8),
+    RequestSeed(SecurityAccessLevel),
     /// `SendKey` with the level of security defined by the vehicle manufacturer
-    SendKey(u8),
+    SendKey(SecurityAccessLevel),
     /// `RequestSeed` with different levels of security defined for end of life
     /// activation of on-board pyrotechnic devices
     ISO26021_2Values,
     /// `SendKey` with different levels of security defined for end of life activation
     ISO26021_2SendKeyValues,
     /// This range of values is reserved for system supplier specific use
+    ///
+    /// Construct through [`SecurityAccessType::try_from`] so the raw byte is range-checked
+    /// and can never collide with the SPRMIB bit.
+    #[non_exhaustive]
     SystemSupplierSpecific(u8),
 }
 
@@ -36,8 +75,8 @@ impl From<SecurityAccessType> for u8 {
     fn from(value: SecurityAccessType) -> Self {
         match value {
             SecurityAccessType::ISOSAEReserved(val) => val,
-            SecurityAccessType::RequestSeed(val) => val,
-            SecurityAccessType::SendKey(val) => val,
+            SecurityAccessType::RequestSeed(level) => level.get(),
+            SecurityAccessType::SendKey(level) => level.get(),
             SecurityAccessType::ISO26021_2Values => 0x5F,
             SecurityAccessType::ISO26021_2SendKeyValues => 0x60,
             SecurityAccessType::SystemSupplierSpecific(val) => val,
@@ -53,10 +92,11 @@ impl TryFrom<u8> for SecurityAccessType {
             // Security requests alternate, with odd numbers being seed requests,
             // and even numbers being send key requests
             0x01..=0x42 => {
+                // `value` is 0x01..=0x42 here, so it always fits `SecurityAccessLevel`.
                 if value % 2 == 1 {
-                    Ok(Self::RequestSeed(value))
+                    Ok(Self::RequestSeed(SecurityAccessLevel(value)))
                 } else {
-                    Ok(Self::SendKey(value))
+                    Ok(Self::SendKey(SecurityAccessLevel(value)))
                 }
             }
             0x5F => Ok(Self::ISO26021_2Values),
@@ -91,13 +131,13 @@ mod security_access_type_tests {
         for value in &REQUEST_SEED_VALUES {
             assert_eq!(
                 SecurityAccessType::try_from(*value).unwrap(),
-                SecurityAccessType::RequestSeed(*value)
+                SecurityAccessType::RequestSeed(SecurityAccessLevel(*value))
             );
         }
         for value in &SEND_KEY_VALUES {
             assert_eq!(
                 SecurityAccessType::try_from(*value).unwrap(),
-                SecurityAccessType::SendKey(*value)
+                SecurityAccessType::SendKey(SecurityAccessLevel(*value))
             );
         }
         for i in 0x43..=0x5E {
@@ -129,6 +169,20 @@ mod security_access_type_tests {
                 Error::InvalidSecurityAccessType(value) => assert_eq!(value, i),
                 _ => panic!("Invalid error type"),
             }
+        }
+    }
+
+    #[test]
+    fn security_access_level_rejects_sprmib_colliding_values() {
+        // 0x00..=0x7F are constructible; 0x80..=0xFF (SPRMIB bit set) are rejected.
+        for value in 0x00..=0x7F {
+            assert_eq!(SecurityAccessLevel::new(value).unwrap().get(), value);
+        }
+        for value in 0x80..=0xFF {
+            assert!(matches!(
+                SecurityAccessLevel::new(value),
+                Err(Error::InvalidSecurityAccessType(v)) if v == value
+            ));
         }
     }
 
@@ -181,8 +235,12 @@ const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct SecurityAccessRequest<'d> {
-    access_type: SuppressablePositiveResponse<SecurityAccessType>,
-    request_data: &'d [u8],
+    /// Whether a positive response should be suppressed.
+    pub suppress_positive_response: bool,
+    /// The requested [`SecurityAccessType`].
+    pub access_type: SecurityAccessType,
+    /// The implementation-defined request data (seed data record or key bytes).
+    pub request_data: &'d [u8],
 }
 
 impl<'d> SecurityAccessRequest<'d> {
@@ -194,27 +252,10 @@ impl<'d> SecurityAccessRequest<'d> {
         request_data: &'d [u8],
     ) -> Self {
         Self {
-            access_type: SuppressablePositiveResponse::new(suppress_positive_response, access_type),
+            suppress_positive_response,
+            access_type,
             request_data,
         }
-    }
-
-    /// Getter for whether a positive response should be suppressed
-    #[must_use]
-    pub fn suppress_positive_response(&self) -> bool {
-        self.access_type.suppress_positive_response()
-    }
-
-    /// Getter for the requested [`SecurityAccessType`]
-    #[must_use]
-    pub fn access_type(&self) -> SecurityAccessType {
-        self.access_type.value()
-    }
-
-    /// Getter for the request data
-    #[must_use]
-    pub const fn request_data(&self) -> &[u8] {
-        self.request_data
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request
@@ -230,8 +271,10 @@ impl Encode for SecurityAccessRequest<'_> {
     }
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let sub_function =
+            SuppressablePositiveResponse::new(self.suppress_positive_response, self.access_type);
         writer
-            .write_all(&[u8::from(self.access_type)])
+            .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
         writer.write_all(self.request_data).map_err(Error::io)?;
         Ok(self.encoded_size())
@@ -243,10 +286,11 @@ impl<'a> Decode<'a> for SecurityAccessRequest<'a> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        let access_type = SuppressablePositiveResponse::try_from(buf[0])?;
+        let sub_function = SuppressablePositiveResponse::<SecurityAccessType>::try_from(buf[0])?;
         Ok((
             Self {
-                access_type,
+                suppress_positive_response: sub_function.suppress_positive_response(),
+                access_type: sub_function.value(),
                 request_data: &buf[1..],
             },
             &[],
@@ -321,8 +365,11 @@ mod request {
         ];
         let (req, _) = <SecurityAccessRequest as Decode>::decode(&bytes).unwrap();
 
-        assert_eq!(req.access_type(), SecurityAccessType::RequestSeed(0x01));
-        assert_eq!(req.request_data(), &[0x00, 0x01, 0x02, 0x03, 0x04]);
+        assert_eq!(
+            req.access_type,
+            SecurityAccessType::RequestSeed(SecurityAccessLevel(0x01))
+        );
+        assert_eq!(req.request_data, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();
         let written = Encode::encode(&req, &mut buf).unwrap();
@@ -348,7 +395,10 @@ mod response {
         ];
         let (resp, _) = <SecurityAccessResponse as Decode>::decode(&bytes).unwrap();
 
-        assert_eq!(resp.access_type, SecurityAccessType::SendKey(0x02));
+        assert_eq!(
+            resp.access_type,
+            SecurityAccessType::SendKey(SecurityAccessLevel(0x02))
+        );
         assert_eq!(resp.security_seed, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = Vec::new();
