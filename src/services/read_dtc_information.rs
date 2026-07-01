@@ -3,13 +3,19 @@
 use crate::{
     DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
     DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Decode, Encode, Error,
-    FunctionalGroupIdentifier,
+    FunctionalGroupIdentifier, NegativeResponseCode,
 };
 
 /// Used for non-emissions related servers
 type DTCFaultDetectionCounter = u8;
 /// Used to address the respective user-defined DTC memory when retrieving DTCs
 type MemorySelection = u8;
+
+const READ_DTC_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
+    NegativeResponseCode::SubFunctionNotSupported,
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::RequestOutOfRange,
+];
 
 /// Request for the server to report diagnostic trouble code information
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -26,6 +32,12 @@ impl ReadDTCInfoRequest {
     #[must_use]
     pub const fn new(dtc_subfunction: ReadDTCInfoSubFunction) -> Self {
         Self { dtc_subfunction }
+    }
+
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &READ_DTC_INFO_NEGATIVE_RESPONSE_CODES
     }
 }
 
@@ -150,7 +162,7 @@ impl<'a> Decode<'a> for ReadDTCInfoRequest {
 #[cfg(test)]
 mod read_dtc_info_request_encode_tests {
     use super::*;
-    use crate::test_util::assert_encode_size_agrees;
+    use crate::{NegativeResponseCode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn encode_no_param_subfunction() {
@@ -223,6 +235,13 @@ mod read_dtc_info_request_encode_tests {
             let decoded = <ReadDTCInfoRequest as Decode>::decode_exact(&buf[..written]).unwrap();
             assert_eq!(decoded, req);
         }
+    }
+
+    #[test]
+    fn exposes_allowed_nack_codes() {
+        assert!(!ReadDTCInfoRequest::allowed_nack_codes().is_empty());
+        assert!(ReadDTCInfoRequest::allowed_nack_codes()
+            .contains(&NegativeResponseCode::RequestOutOfRange));
     }
 }
 

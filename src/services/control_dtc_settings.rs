@@ -1,6 +1,6 @@
 //! `ControlDTCSetting` (0x85) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error};
+use crate::{Decode, Encode, Error, NegativeResponseCode};
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -49,6 +49,13 @@ pub struct ControlDTCSettingsRequest {
     pub setting: DtcSettings,
 }
 
+const CONTROL_DTC_SETTINGS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
+    NegativeResponseCode::SubFunctionNotSupported,
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::ConditionsNotCorrect,
+    NegativeResponseCode::RequestOutOfRange,
+];
+
 impl ControlDTCSettingsRequest {
     /// Create a new `ControlDTCSettingsRequest`.
     #[must_use]
@@ -57,6 +64,12 @@ impl ControlDTCSettingsRequest {
             suppress_positive_response,
             setting,
         }
+    }
+
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &CONTROL_DTC_SETTINGS_NEGATIVE_RESPONSE_CODES
     }
 }
 
@@ -137,7 +150,7 @@ impl<'a> Decode<'a> for ControlDTCSettingsResponse {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    use crate::{Decode, Encode, NegativeResponseCode, test_util::assert_encode_size_agrees};
     #[cfg(feature = "alloc")]
     use alloc::{vec, vec::Vec};
 
@@ -163,6 +176,13 @@ mod request {
         // service's Invalid<Service>Type error, not the generic length/format error.
         let err = <ControlDTCSettingsRequest as Decode>::decode(&[0x09]).unwrap_err();
         assert!(matches!(err, Error::InvalidDtcSetting(0x09)));
+    }
+
+    #[test]
+    fn exposes_allowed_nack_codes() {
+        assert!(!ControlDTCSettingsRequest::allowed_nack_codes().is_empty());
+        assert!(ControlDTCSettingsRequest::allowed_nack_codes()
+            .contains(&NegativeResponseCode::RequestOutOfRange));
     }
 }
 
