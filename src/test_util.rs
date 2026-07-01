@@ -28,3 +28,13 @@ pub(crate) fn assert_encode_size_agrees<T: Encode>(value: &T) {
         "encode consumed {consumed} bytes, encoded_size() is {size}"
     );
 }
+
+/// Compile-time assertion that `T: Eq`. Never called at runtime; instantiating it
+/// in a test forces a compile error until the type derives `Eq`.
+#[allow(dead_code)]
+pub(crate) const fn assert_impl_eq<T: Eq>() {}
+
+/// Compile-time assertion that `T` round-trips serde (borrowed deserialize allowed).
+#[cfg(feature = "serde")]
+#[allow(dead_code)]
+pub(crate) const fn assert_impl_serde<'de, T: serde::Serialize + serde::Deserialize<'de>>() {}
