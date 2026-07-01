@@ -53,6 +53,8 @@ impl TryFrom<u8> for RoutineControlSubFunction {
 ///
 /// The 2-byte big-endian routine identifier is decoded into a typed `u16`, followed by
 /// optional routine input parameters in `option_record`.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlRequest<'d> {
@@ -63,6 +65,7 @@ pub struct RoutineControlRequest<'d> {
     /// The 16-bit routine identifier.
     pub routine_id: u16,
     /// Optional routine input parameters (may be empty).
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub option_record: &'d [u8],
 }
 
@@ -127,6 +130,8 @@ impl<'a> Decode<'a> for RoutineControlRequest<'a> {
 ///
 /// The 2-byte big-endian routine identifier echo is decoded into a typed `u16`, followed
 /// by optional routine status bytes in `status_record`.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlResponse<'d> {
@@ -135,6 +140,7 @@ pub struct RoutineControlResponse<'d> {
     /// The 16-bit routine identifier echoed from the request.
     pub routine_id: u16,
     /// Optional routine status bytes (may be empty).
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub status_record: &'d [u8],
 }
 
@@ -194,7 +200,20 @@ impl<'a> Decode<'a> for RoutineControlResponse<'a> {
 mod test {
     use super::*;
     use crate::Decode;
-    use crate::test_util::assert_encode_size_agrees;
+    use crate::test_util::{assert_encode_size_agrees, assert_impl_eq};
+
+    #[test]
+    fn derive_contract() {
+        assert_impl_eq::<RoutineControlRequest<'_>>();
+        assert_impl_eq::<RoutineControlResponse<'_>>();
+
+        #[cfg(feature = "serde")]
+        {
+            use crate::test_util::assert_impl_serde;
+            assert_impl_serde::<RoutineControlRequest<'_>>();
+            assert_impl_serde::<RoutineControlResponse<'_>>();
+        }
+    }
 
     #[test]
     fn rc_request_round_trips_with_suppress() {
