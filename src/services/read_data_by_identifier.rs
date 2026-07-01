@@ -11,7 +11,18 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 
 /// Read-DID request: a list of 16-bit Data Identifiers. Built from native `&[u16]`
 /// or borrowed from the wire as big-endian bytes; `dids()` yields `u16` either way.
+///
+/// # serde / utoipa carve-out
+///
+/// serde derives are omitted: the zero-copy `Native(&[u16])` backing has no borrowed
+/// `Deserialize` impl in serde (zero-copy borrowing via `#[serde(borrow)]` only works
+/// for `&[u8]` and `&str`, not `&[u16]`). This matches the `ReadDTCInfoResponse`
+/// best-effort-serde precedent in the design.
+///
+/// utoipa derives are omitted: `utoipa::ToSchema` cannot be derived on
+/// `ReadDataByIdentifierRequest` without also deriving it on the private `Dids` enum.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct ReadDataByIdentifierRequest<'d> {
     dids: Dids<'d>,
 }
@@ -108,7 +119,13 @@ impl<'a> Decode<'a> for ReadDataByIdentifierRequest<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_util::assert_encode_size_agrees;
+    use crate::test_util::{assert_encode_size_agrees, assert_impl_eq};
+
+    #[test]
+    fn derive_contract() {
+        assert_impl_eq::<ReadDataByIdentifierRequest<'static>>();
+        // serde: omitted — see struct-level doc comment for rationale
+    }
 
     #[test]
     fn rdbi_native_encodes_be() {
