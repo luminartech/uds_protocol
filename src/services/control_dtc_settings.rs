@@ -96,7 +96,7 @@ impl<'a> Decode<'a> for ControlDTCSettingsRequest {
 /// The ECU will respond with a `ControlDTCSettingsResponse` if the request was successful.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct ControlDTCSettingsResponse {
     /// The DTC logging setting that was set in the request
@@ -186,5 +186,10 @@ mod response {
         let (parsed, _) = <ControlDTCSettingsResponse as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
         assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn response_is_eq() {
+        crate::test_util::assert_impl_eq::<ControlDTCSettingsResponse>();
     }
 }
