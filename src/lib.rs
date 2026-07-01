@@ -47,7 +47,8 @@ pub use services::{
     RequestDownloadRequest, RequestDownloadResponse, RequestFileTransferRequest,
     RequestFileTransferResponse, RequestTransferExitRequest, RequestTransferExitResponse,
     ResetType, RoutineControlRequest, RoutineControlResponse, RoutineControlSubFunction,
-    SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType, SentDataPayload,
+    SecurityAccessLevel, SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType,
+    SentDataPayload,
     SizePayload, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
     TransferDataResponse, WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
 };
@@ -206,7 +207,13 @@ mod no_std_api_tests {
     fn const_construction() {
         // Verify const construction works at compile time
         const _REQ: TransferDataRequest<'static> = TransferDataRequest::new(1, &[0x01, 0x02, 0x03]);
-        const _SEC: SecurityAccessRequest<'static> =
-            SecurityAccessRequest::new(false, SecurityAccessType::RequestSeed(0x01), &[0xAA, 0xBB]);
+        const _SEC: SecurityAccessRequest<'static> = SecurityAccessRequest::new(
+            false,
+            SecurityAccessType::RequestSeed(match SecurityAccessLevel::new(0x01) {
+                Ok(level) => level,
+                Err(_) => panic!("0x01 is a valid security access level"),
+            }),
+            &[0xAA, 0xBB],
+        );
     }
 }

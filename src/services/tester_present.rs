@@ -103,9 +103,9 @@ impl<'a> Decode<'a> for TesterPresentRequest {
         if buf.is_empty() {
             return Err(Error::InsufficientData(1));
         }
-        // Validate the sub-function byte (rejects values outside 0x00..=0x7F once SPRMIB is
-        // stripped); only the suppression flag is retained, since the sub-function is always
-        // the zero sub-function on re-encode.
+        // Split out the SPRMIB flag. Once SPRMIB is stripped the low 7 bits are always a
+        // valid zero sub-function, so this never rejects; the sub-function value itself is
+        // discarded and normalized to the zero sub-function on re-encode.
         let sub_function = SuppressablePositiveResponse::<ZeroSubFunction>::try_from(buf[0])?;
         Ok((
             Self {
