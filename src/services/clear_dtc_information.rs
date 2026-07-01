@@ -26,6 +26,8 @@ impl Encode for ClearDiagnosticInfoResponse {
 }
 
 impl<'a> Decode<'a> for ClearDiagnosticInfoResponse {
+    /// Consumes zero bytes and returns the full buffer as the remainder.
+    /// `decode_exact` at the call site (in `Response::decode`) enforces that no trailing bytes follow the SID.
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
         Ok((Self, buf))
     }

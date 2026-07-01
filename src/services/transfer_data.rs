@@ -145,7 +145,7 @@ impl<'a> Decode<'a> for TransferDataResponse<'a> {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode, test_util::assert_encode_size_agrees, NegativeResponseCode};
+    use crate::{Decode, Encode, NegativeResponseCode, test_util::assert_encode_size_agrees};
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
 

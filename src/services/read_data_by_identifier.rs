@@ -62,8 +62,8 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 ///
 /// serde derives are omitted: the zero-copy `Native(&[u16])` backing has no borrowed
 /// `Deserialize` impl in serde (zero-copy borrowing via `#[serde(borrow)]` only works
-/// for `&[u8]` and `&str`, not `&[u16]`). This matches the `ReadDTCInfoResponse`
-/// best-effort-serde precedent in the design.
+/// for `&[u8]` and `&str`, not `&[u16]`), so `Dids::Native(&[u16])` cannot be
+/// deserialized without an owned allocation.
 ///
 /// utoipa derives are omitted: `utoipa::ToSchema` cannot be derived on
 /// `ReadDataByIdentifierRequest` without also deriving it on the private `Dids` enum.

@@ -1,7 +1,7 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
 use crate::shared::{DataFormatIdentifier, read_be_uint, write_be_uint};
-use crate::{Decode, Encode, Error, param_length_u128, NegativeResponseCode};
+use crate::{Decode, Encode, Error, NegativeResponseCode, param_length_u128};
 
 /// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
 /// values. Used to derive the on-wire `parameterLength` prefix from the data itself,
@@ -835,8 +835,8 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
 #[cfg(test)]
 mod request_tests {
     use super::*;
-    use crate::test_util::assert_encode_size_agrees;
     use crate::NegativeResponseCode;
+    use crate::test_util::assert_encode_size_agrees;
 
     #[test]
     fn test_allowed_nack_codes() {
@@ -1073,7 +1073,7 @@ mod response_tests {
     }
 
     #[test]
-    const fn derive_contract() {
+    fn derive_contract() {
         use crate::test_util::assert_impl_eq;
 
         // Verify all nine types implement Eq

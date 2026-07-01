@@ -181,8 +181,10 @@ mod request {
     #[test]
     fn exposes_allowed_nack_codes() {
         assert!(!ControlDTCSettingsRequest::allowed_nack_codes().is_empty());
-        assert!(ControlDTCSettingsRequest::allowed_nack_codes()
-            .contains(&NegativeResponseCode::RequestOutOfRange));
+        assert!(
+            ControlDTCSettingsRequest::allowed_nack_codes()
+                .contains(&NegativeResponseCode::RequestOutOfRange)
+        );
     }
 }
 

@@ -240,8 +240,10 @@ mod read_dtc_info_request_encode_tests {
     #[test]
     fn exposes_allowed_nack_codes() {
         assert!(!ReadDTCInfoRequest::allowed_nack_codes().is_empty());
-        assert!(ReadDTCInfoRequest::allowed_nack_codes()
-            .contains(&NegativeResponseCode::RequestOutOfRange));
+        assert!(
+            ReadDTCInfoRequest::allowed_nack_codes()
+                .contains(&NegativeResponseCode::RequestOutOfRange)
+        );
     }
 }
 

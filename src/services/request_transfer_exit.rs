@@ -66,7 +66,7 @@ impl RequestTransferExitRequest<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Decode, Encode, test_util::assert_encode_size_agrees, NegativeResponseCode};
+    use crate::{Decode, Encode, NegativeResponseCode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn test_allowed_nack_codes() {

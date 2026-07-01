@@ -215,8 +215,8 @@ impl<'a> Decode<'a> for RoutineControlResponse<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{Decode, NegativeResponseCode};
     use crate::test_util::{assert_encode_size_agrees, assert_impl_eq};
+    use crate::{Decode, NegativeResponseCode};
 
     #[test]
     fn derive_contract() {
@@ -281,7 +281,9 @@ mod test {
     #[test]
     fn exposes_allowed_nack_codes() {
         assert!(!RoutineControlRequest::allowed_nack_codes().is_empty());
-        assert!(RoutineControlRequest::allowed_nack_codes()
-            .contains(&NegativeResponseCode::SecurityAccessDenied));
+        assert!(
+            RoutineControlRequest::allowed_nack_codes()
+                .contains(&NegativeResponseCode::SecurityAccessDenied)
+        );
     }
 }
