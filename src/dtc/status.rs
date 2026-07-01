@@ -299,7 +299,7 @@ pub enum FunctionalGroupIdentifier {
 impl FunctionalGroupIdentifier {
     /// Return the raw `u8` value of this functional group identifier.
     #[must_use]
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
             FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,

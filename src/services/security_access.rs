@@ -28,7 +28,7 @@ impl SecurityAccessLevel {
 
     /// The raw level byte (always `0x00..=0x7F`).
     #[must_use]
-    pub const fn get(self) -> u8 {
+    pub const fn value(self) -> u8 {
         self.0
     }
 }
@@ -75,8 +75,8 @@ impl From<SecurityAccessType> for u8 {
     fn from(value: SecurityAccessType) -> Self {
         match value {
             SecurityAccessType::ISOSAEReserved(val) => val,
-            SecurityAccessType::RequestSeed(level) => level.get(),
-            SecurityAccessType::SendKey(level) => level.get(),
+            SecurityAccessType::RequestSeed(level) => level.value(),
+            SecurityAccessType::SendKey(level) => level.value(),
             SecurityAccessType::ISO26021_2Values => 0x5F,
             SecurityAccessType::ISO26021_2SendKeyValues => 0x60,
             SecurityAccessType::SystemSupplierSpecific(val) => val,
@@ -173,10 +173,19 @@ mod security_access_type_tests {
     }
 
     #[test]
+    fn level_value_is_const_accessor() {
+        const V: u8 = match SecurityAccessLevel::new(0x03) {
+            Ok(l) => l.value(),
+            Err(_) => 0xFF,
+        };
+        assert_eq!(V, 0x03);
+    }
+
+    #[test]
     fn security_access_level_rejects_sprmib_colliding_values() {
         // 0x00..=0x7F are constructible; 0x80..=0xFF (SPRMIB bit set) are rejected.
         for value in 0x00..=0x7F {
-            assert_eq!(SecurityAccessLevel::new(value).unwrap().get(), value);
+            assert_eq!(SecurityAccessLevel::new(value).unwrap().value(), value);
         }
         for value in 0x80..=0xFF {
             assert!(matches!(
