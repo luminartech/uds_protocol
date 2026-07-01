@@ -152,8 +152,9 @@ mod response {
         let mut buf = [0u8; 4];
         let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(n, 0);
-        let (decoded, rest) = <ClearDiagnosticInfoResponse as Decode>::decode(&buf[..0]).unwrap();
+        let (decoded, remaining) =
+            <ClearDiagnosticInfoResponse as Decode>::decode(&buf[..0]).unwrap();
         assert_eq!(decoded, resp);
-        assert!(rest.is_empty());
+        assert!(remaining.is_empty());
     }
 }

@@ -217,8 +217,8 @@ mod test {
     fn rdbi_response_wraps_and_roundtrips() {
         use crate::{Decode, Encode};
         let raw = [0xF1, 0x90, 0x01, 0x02];
-        let (resp, rest) = <ReadDataByIdentifierResponse as Decode>::decode(&raw).unwrap();
-        assert!(rest.is_empty());
+        let (resp, remaining) = <ReadDataByIdentifierResponse as Decode>::decode(&raw).unwrap();
+        assert!(remaining.is_empty());
         assert_eq!(resp.records(), &raw);
         let mut buf = [0u8; 8];
         let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
