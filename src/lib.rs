@@ -45,6 +45,7 @@ pub use services::{
     DtcSeverityAndStatusIter, EcuResetRequest, EcuResetResponse, FileOperationMode,
     FileSizePayload, NamePayload, NegativeResponse, PositionPayload, ReadDTCInfoRequest,
     ReadDTCInfoResponse, ReadDTCInfoSubFunction, ReadDataByIdentifierRequest,
+    ReadDataByIdentifierResponse,
     RequestDownloadRequest, RequestDownloadResponse, RequestFileTransferRequest,
     RequestFileTransferResponse, RequestTransferExitRequest, RequestTransferExitResponse,
     ResetType, RoutineControlRequest, RoutineControlResponse, RoutineControlSubFunction,

@@ -1,6 +1,52 @@
 //! `ReadDataByIdentifier` (0x22) service implementation
 use crate::{Decode, Encode, Error, NegativeResponseCode};
 
+/// Positive response to `ReadDataByIdentifier`: raw `[DID][data record]…` bytes.
+///
+/// Left opaque **by design**: each data record's length is defined by the ECU's
+/// configuration for that DID and is not present on the wire, so the library cannot
+/// split it into `(DID, value)` pairs. Read the 2-byte big-endian DID, take the
+/// application-defined number of data bytes via [`records`](Self::records), then repeat.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct ReadDataByIdentifierResponse<'a> {
+    #[cfg_attr(feature = "serde", serde(borrow))]
+    records: &'a [u8],
+}
+
+impl<'a> ReadDataByIdentifierResponse<'a> {
+    /// Wrap the raw record bytes of a positive `ReadDataByIdentifier` response.
+    #[must_use]
+    pub const fn new(records: &'a [u8]) -> Self {
+        Self { records }
+    }
+
+    /// The raw `[DID][data record]…` bytes, to be parsed caller-side.
+    #[must_use]
+    pub const fn records(&self) -> &'a [u8] {
+        self.records
+    }
+}
+
+impl Encode for ReadDataByIdentifierResponse<'_> {
+    fn encoded_size(&self) -> usize {
+        self.records.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(self.records).map_err(Error::io)?;
+        Ok(self.records.len())
+    }
+}
+
+impl<'a> Decode<'a> for ReadDataByIdentifierResponse<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        Ok((Self { records: buf }, &[]))
+    }
+}
+
 const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
     NegativeResponseCode::ResponseTooLong,
@@ -165,6 +211,18 @@ mod test {
         assert!(<ReadDataByIdentifierRequest as Decode>::decode(&[]).is_err());
         assert!(<ReadDataByIdentifierRequest as Decode>::decode(&[0xF1]).is_err());
         assert!(<ReadDataByIdentifierRequest as Decode>::decode(&[0xF1, 0x90, 0xF1]).is_err());
+    }
+
+    #[test]
+    fn rdbi_response_wraps_and_roundtrips() {
+        use crate::{Decode, Encode};
+        let raw = [0xF1, 0x90, 0x01, 0x02];
+        let (resp, rest) = <ReadDataByIdentifierResponse as Decode>::decode(&raw).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(resp.records(), &raw);
+        let mut buf = [0u8; 8];
+        let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..n], &raw);
     }
 
     #[test]
