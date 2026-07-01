@@ -131,7 +131,7 @@ impl<'a> Decode<'a> for DTCStatusMask {
 #[allow(non_camel_case_types)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 #[repr(u8)]
 pub enum DTCFormatIdentifier {
