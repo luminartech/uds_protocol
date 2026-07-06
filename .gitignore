@@ -330,3 +330,5 @@ fuzz/artifacts/
 .omniscient/
 
 .DS_Store
+
+omniscient.toml
