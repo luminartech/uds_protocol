@@ -1,4 +1,4 @@
-use crate::{Decode, Encode, Error};
+use crate::{Decode, Encode, Error, Incomplete};
 
 /// Implement [`Encode`] and [`Decode`] for integer primitives (no_std-compatible).
 macro_rules! primitive_encode_decode {
@@ -17,7 +17,10 @@ macro_rules! primitive_encode_decode {
             fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
                 const SIZE: usize = core::mem::size_of::<$primitive>();
                 if buf.len() < SIZE {
-                    return Err(Error::InsufficientData(SIZE));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: SIZE,
+                        available: buf.len(),
+                    }));
                 }
                 let (head, tail) = buf.split_at(SIZE);
                 let value = <$primitive>::from_be_bytes(head.try_into().unwrap());
@@ -43,7 +46,10 @@ impl Encode for f32 {
 impl<'a> Decode<'a> for f32 {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 4 {
-            return Err(Error::InsufficientData(4));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 4,
+                available: buf.len(),
+            }));
         }
         let (head, tail) = buf.split_at(4);
         let value = f32::from_be_bytes(head.try_into().unwrap());
@@ -64,7 +70,10 @@ impl Encode for f64 {
 impl<'a> Decode<'a> for f64 {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 8 {
-            return Err(Error::InsufficientData(8));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 8,
+                available: buf.len(),
+            }));
         }
         let (head, tail) = buf.split_at(8);
         let value = f64::from_be_bytes(head.try_into().unwrap());

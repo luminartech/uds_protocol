@@ -1,7 +1,7 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
 use crate::shared::{DataFormatIdentifier, read_be_uint, write_be_uint};
-use crate::{Decode, Encode, Error, NegativeResponseCode, param_length_u128};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode, param_length_u128};
 
 /// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
 /// values. Used to derive the on-wire `parameterLength` prefix from the data itself,
@@ -463,13 +463,19 @@ impl Encode for NamePayload<'_> {
 impl<'a> Decode<'a> for NamePayload<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
-            return Err(Error::InsufficientData(3));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 3,
+                available: buf.len(),
+            }));
         }
         let mode_of_operation = FileOperationMode::try_from(buf[0])?;
         let name_len = u16::from_be_bytes([buf[1], buf[2]]) as usize;
         let total = 3 + name_len;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         let file_path_and_name = core::str::from_utf8(&buf[3..total])
             .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
@@ -508,12 +514,18 @@ impl Encode for SizePayload {
 impl<'a> Decode<'a> for SizePayload {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let n = buf[0] as usize;
         let total = 1 + 2 * n;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         let file_size_uncompressed = read_be_uint(&buf[1..], n)?;
         let file_size_compressed = read_be_uint(&buf[1 + n..], n)?;
@@ -546,12 +558,18 @@ impl Encode for SentDataPayload<'_> {
 impl<'a> Decode<'a> for SentDataPayload<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let n = buf[0] as usize;
         let total = 1 + n;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {
@@ -582,12 +600,18 @@ impl Encode for FileSizePayload {
 impl<'a> Decode<'a> for FileSizePayload {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let n = u16::from_be_bytes([buf[0], buf[1]]) as usize;
         let total = 2 + 2 * n;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         let file_size_uncompressed = read_be_uint(&buf[2..], n)?;
         let file_size_compressed = read_be_uint(&buf[2 + n..], n)?;
@@ -620,12 +644,18 @@ impl Encode for DirSizePayload {
 impl<'a> Decode<'a> for DirSizePayload {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let n = u16::from_be_bytes([buf[0], buf[1]]) as usize;
         let total = 2 + n;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         let dir_info_length = read_be_uint(&buf[2..], n)?;
         Ok((Self { dir_info_length }, &buf[total..]))
@@ -648,7 +678,10 @@ impl Encode for PositionPayload {
 impl<'a> Decode<'a> for PositionPayload {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 8 {
-            return Err(Error::InsufficientData(8));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 8,
+                available: buf.len(),
+            }));
         }
         let file_position = u64::from_be_bytes([
             buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
@@ -700,7 +733,10 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
             FileOperationMode::ReadDir => Ok((Self::ReadDir(name), rest)),
             FileOperationMode::ReadFile => {
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 Ok((Self::ReadFile(name, dfi), &rest[1..]))
@@ -709,7 +745,10 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
             | FileOperationMode::ReplaceFile
             | FileOperationMode::ResumeFile) => {
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let (size, rest) = SizePayload::decode(&rest[1..])?;
@@ -780,7 +819,10 @@ impl Encode for RequestFileTransferResponse<'_> {
 impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let mode = FileOperationMode::try_from(buf[0])?;
         let rest = &buf[1..];
@@ -789,7 +831,10 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
             FileOperationMode::AddFile | FileOperationMode::ReplaceFile => {
                 let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let rest = &rest[1..];
@@ -803,7 +848,10 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
             FileOperationMode::ReadFile => {
                 let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let (fs, rest) = FileSizePayload::decode(&rest[1..])?;
@@ -812,7 +860,10 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
             FileOperationMode::ReadDir => {
                 let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let (ds, rest) = DirSizePayload::decode(&rest[1..])?;
@@ -821,7 +872,10 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
             FileOperationMode::ResumeFile => {
                 let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let (pos, rest) = PositionPayload::decode(&rest[1..])?;

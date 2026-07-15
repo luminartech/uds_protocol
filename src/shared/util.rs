@@ -1,7 +1,7 @@
 //! Variable-width big-endian integer helpers ([`read_be_uint`]/[`write_be_uint`]) and the
 //! `param_length_*` functions that compute the minimum number of bytes needed to represent
 //! a value — all `core`-only (no `std`/`alloc`).
-use crate::Error;
+use crate::{Error, Incomplete};
 
 /// Maximum width of a big-endian unsigned integer this codec handles.
 const BE_UINT_MAX_BYTES: usize = 16;
@@ -16,7 +16,10 @@ pub(crate) fn read_be_uint(src: &[u8], n: usize) -> Result<u128, Error> {
         return Err(Error::IncorrectMessageLengthOrInvalidFormat);
     }
     if src.len() < n {
-        return Err(Error::InsufficientData(n));
+        return Err(Error::InsufficientData(Incomplete {
+            needed: n,
+            available: src.len(),
+        }));
     }
     let mut bytes = [0u8; BE_UINT_MAX_BYTES];
     bytes[BE_UINT_MAX_BYTES - n..].copy_from_slice(&src[..n]);

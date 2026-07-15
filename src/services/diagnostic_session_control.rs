@@ -10,7 +10,7 @@
 //! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
 
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// `DiagnosticSessionType` is used to specify or describe the session type of the server
 ///
@@ -215,7 +215,10 @@ impl Encode for DiagnosticSessionControlRequest {
 impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub_function = SuppressablePositiveResponse::<DiagnosticSessionType>::try_from(buf[0])?;
         Ok((
@@ -279,7 +282,10 @@ impl Encode for DiagnosticSessionControlResponse {
 impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 5 {
-            return Err(Error::InsufficientData(5));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 5,
+                available: buf.len(),
+            }));
         }
         let session_type = DiagnosticSessionType::try_from(buf[0])?;
         let p2_server_max = u16::from_be_bytes([buf[1], buf[2]]);

@@ -1,6 +1,6 @@
 //! Module for making and handling UDS Requests
 use crate::{
-    Decode, Encode, Error,
+    Decode, Encode, Error, Incomplete,
     services::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, ReadDTCInfoRequest,
@@ -64,7 +64,10 @@ pub enum Request<'a> {
 impl<'a> Decode<'a> for Request<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let service = UdsServiceType::service_from_request_byte(buf[0]);
         let payload = &buf[1..];

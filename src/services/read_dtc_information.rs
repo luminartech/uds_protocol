@@ -3,7 +3,7 @@
 use crate::{
     DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
     DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Decode, Encode, Error,
-    FunctionalGroupIdentifier, NegativeResponseCode,
+    FunctionalGroupIdentifier, Incomplete, NegativeResponseCode,
 };
 
 /// Used for non-emissions related servers
@@ -56,7 +56,10 @@ impl<'a> Decode<'a> for ReadDTCInfoRequest {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         use ReadDTCInfoSubFunction as S;
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub = buf[0];
         let rest = &buf[1..];
@@ -815,7 +818,10 @@ impl<'a> ReadDTCInfoResponse<'a> {
 impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let subfunction_id = buf[0];
         let buf = &buf[1..];
@@ -823,7 +829,10 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
         match subfunction_id {
             0x01 | 0x07 => {
                 if buf.len() < 3 {
-                    return Err(Error::InsufficientData(4));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 4,
+                        available: buf.len(),
+                    }));
                 }
                 let status_availability_mask = DTCStatusAvailabilityMask::from(buf[0]);
                 let count = u16::from_be_bytes([buf[1], buf[2]]);
@@ -838,7 +847,10 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
             }
             0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
                 if buf.is_empty() {
-                    return Err(Error::InsufficientData(2));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 2,
+                        available: buf.len(),
+                    }));
                 }
                 let status_availability_mask = DTCStatusAvailabilityMask::from(buf[0]);
                 Ok((
@@ -853,7 +865,10 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
             0x14 => Ok((Self::DTCFaultDetectionCounterList { raw_records: buf }, &[])),
             0x08 | 0x09 => {
                 if buf.is_empty() {
-                    return Err(Error::InsufficientData(2));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 2,
+                        available: buf.len(),
+                    }));
                 }
                 let status_availability_mask = DTCStatusAvailabilityMask::from(buf[0]);
                 Ok((
@@ -867,7 +882,10 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
             }
             0x42 => {
                 if buf.len() < 4 {
-                    return Err(Error::InsufficientData(5));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 5,
+                        available: buf.len(),
+                    }));
                 }
                 let functional_group_identifier = FunctionalGroupIdentifier::from(buf[0]);
                 let status_availability_mask = DTCStatusAvailabilityMask::from(buf[1]);

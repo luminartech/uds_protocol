@@ -3,7 +3,7 @@
 //! It can also be used to check the ECU's health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// What type of routine control to perform for a [`RoutineControlRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -125,7 +125,10 @@ impl Encode for RoutineControlRequest<'_> {
 impl<'a> Decode<'a> for RoutineControlRequest<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
-            return Err(Error::InsufficientData(3));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 3,
+                available: buf.len(),
+            }));
         }
         let sub_function =
             SuppressablePositiveResponse::<RoutineControlSubFunction>::try_from(buf[0])?;
@@ -196,7 +199,10 @@ impl Encode for RoutineControlResponse<'_> {
 impl<'a> Decode<'a> for RoutineControlResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
-            return Err(Error::InsufficientData(3));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 3,
+                available: buf.len(),
+            }));
         }
         // Plain try_from (no SPRMIB mask): a set 0x80 bit on a response is malformed.
         let sub_function = RoutineControlSubFunction::try_from(buf[0])?;

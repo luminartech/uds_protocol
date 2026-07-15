@@ -4,7 +4,7 @@ use crate::shared::{
     DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier, read_be_uint,
     write_be_uint,
 };
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -118,7 +118,10 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
     #[allow(clippy::cast_possible_truncation)]
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let data_format_identifier = DataFormatIdentifier::from(buf[0]);
         let memory_identifier = MemoryFormatIdentifier::try_from(buf[1])?;
@@ -126,7 +129,10 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
         let size_len = memory_identifier.memory_size_length as usize;
         let total = 2 + addr_len + size_len;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
 
         let memory_address = read_be_uint(&buf[2..], addr_len)? as u64;
@@ -199,13 +205,19 @@ impl Encode for RequestDownloadResponse<'_> {
 impl<'a> Decode<'a> for RequestDownloadResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let length_format_identifier = LengthFormatIdentifier::from(buf[0]);
         let len = length_format_identifier.max_number_of_block_length as usize;
         let total = 1 + len;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {

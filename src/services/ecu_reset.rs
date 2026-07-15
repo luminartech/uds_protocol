@@ -1,6 +1,6 @@
 //! `ECUReset` (0x11) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// UDS defines a number of different types of resets that can be requested
 /// The reset type is used to specify the type of reset that the ECU should perform
@@ -229,7 +229,10 @@ impl Encode for EcuResetRequest {
 impl<'a> Decode<'a> for EcuResetRequest {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub_function = SuppressablePositiveResponse::<ResetType>::try_from(buf[0])?;
         Ok((
@@ -281,7 +284,10 @@ impl Encode for EcuResetResponse {
 impl<'a> Decode<'a> for EcuResetResponse {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let reset_type = ResetType::try_from(buf[0])?;
         // powerDownTime is conditional per ISO 14229-1

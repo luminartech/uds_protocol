@@ -1,5 +1,5 @@
 //! `ClearDiagnosticInformation` (0x14) service implementation
-use crate::{CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, NegativeResponseCode};
+use crate::{CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, Incomplete, NegativeResponseCode};
 
 /// Positive response to `ClearDiagnosticInformation`. Carries no payload.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -97,7 +97,10 @@ impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
         let (group_of_dtc, buf) = <DTCRecord as Decode>::decode(buf)?;
         if buf.is_empty() {
-            return Err(crate::Error::InsufficientData(4));
+            return Err(crate::Error::InsufficientData(Incomplete {
+                needed: 4,
+                available: buf.len(),
+            }));
         }
         let memory_selection = buf[0];
         Ok((
