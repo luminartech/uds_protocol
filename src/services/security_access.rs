@@ -1,6 +1,6 @@
 //! `SecurityAccess` (0x27) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// A `SecurityAccess` level byte, guaranteed to fit the 7-bit sub-function field
 /// (`0x00..=0x7F`).
@@ -296,7 +296,10 @@ impl Encode for SecurityAccessRequest<'_> {
 impl<'a> Decode<'a> for SecurityAccessRequest<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub_function = SuppressablePositiveResponse::<SecurityAccessType>::try_from(buf[0])?;
         Ok((
@@ -351,7 +354,10 @@ impl Encode for SecurityAccessResponse<'_> {
 impl<'a> Decode<'a> for SecurityAccessResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let access_type = SecurityAccessType::try_from(buf[0])?;
         Ok((

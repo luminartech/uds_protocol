@@ -59,6 +59,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "automotive-wire-codec"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df7293087b5c9b670ae3db5abd0a762f2807e6aef983101abf1a68680970e4f2"
+dependencies = [
+ "embedded-io",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -513,6 +522,7 @@ dependencies = [
 name = "uds_protocol"
 version = "0.1.0"
 dependencies = [
+ "automotive-wire-codec",
  "bitmask-enum",
  "clap",
  "embedded-io",

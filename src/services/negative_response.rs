@@ -1,5 +1,5 @@
 //! `NegativeResponse` (0x7F) service implementation
-use crate::{Decode, Encode, Error, NegativeResponseCode, UdsServiceType};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode, UdsServiceType};
 
 /// A negative response from the server indicating a request could not be fulfilled.
 ///
@@ -68,7 +68,10 @@ impl Encode for NegativeResponse {
 impl<'a> Decode<'a> for NegativeResponse {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {

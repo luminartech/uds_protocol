@@ -1,6 +1,6 @@
 //! `TransferData` (0x36) service implementation
 
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 const TRANSFER_DATA_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -77,7 +77,10 @@ impl Encode for TransferDataRequest<'_> {
 impl<'a> Decode<'a> for TransferDataRequest<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {
@@ -130,7 +133,10 @@ impl Encode for TransferDataResponse<'_> {
 impl<'a> Decode<'a> for TransferDataResponse<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {

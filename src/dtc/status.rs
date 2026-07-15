@@ -1,6 +1,6 @@
 use bitmask_enum::bitmask;
 
-use crate::{Decode, DecodeIter, Encode, Error};
+use crate::{Decode, DecodeIter, Encode, Error, Incomplete};
 
 /// Bit-packed DTC status information used by the `ReadDTCInformation` service
 ///
@@ -119,7 +119,10 @@ impl Encode for DTCStatusMask {
 impl<'a> Decode<'a> for DTCStatusMask {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         Ok((Self::from(buf[0]), &buf[1..]))
     }
@@ -245,7 +248,10 @@ impl Encode for DTCRecord {
 impl<'a> Decode<'a> for DTCRecord {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
-            return Err(Error::InsufficientData(3));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 3,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {
@@ -342,7 +348,10 @@ impl Encode for FunctionalGroupIdentifier {
 impl<'a> Decode<'a> for FunctionalGroupIdentifier {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         Ok((Self::from(buf[0]), &buf[1..]))
     }
@@ -421,7 +430,10 @@ impl Encode for DTCSeverityMask {
 impl<'a> Decode<'a> for DTCSeverityMask {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         Ok((Self::from(buf[0]), &buf[1..]))
     }
@@ -477,7 +489,10 @@ impl Encode for DTCStoredDataRecordNumber {
 impl<'a> Decode<'a> for DTCStoredDataRecordNumber {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         Ok((Self::from(buf[0]), &buf[1..]))
     }

@@ -1,6 +1,6 @@
 //! `TesterPresent` (0x3E) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -101,7 +101,10 @@ impl Encode for TesterPresentRequest {
 impl<'a> Decode<'a> for TesterPresentRequest {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         // Split out the SPRMIB flag. Once SPRMIB is stripped the low 7 bits are always a
         // valid zero sub-function, so this never rejects; the sub-function value itself is
@@ -157,7 +160,10 @@ impl Encode for TesterPresentResponse {
 impl<'a> Decode<'a> for TesterPresentResponse {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let zero_sub_function = ZeroSubFunction::try_from(buf[0])?;
         Ok((Self { zero_sub_function }, &buf[1..]))

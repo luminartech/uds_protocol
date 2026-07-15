@@ -1,6 +1,6 @@
 //! `CommunicationControl` (0x28) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// `CommunicationControlType` is used to specify the type of communication behavior to be modified
 ///
@@ -389,7 +389,10 @@ impl Encode for CommunicationControlRequest {
 impl<'a> Decode<'a> for CommunicationControlRequest {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let communication_enable = SuppressablePositiveResponse::try_from(buf[0])?;
         let communication_type = CommunicationType::try_from(buf[1])?;
@@ -397,7 +400,10 @@ impl<'a> Decode<'a> for CommunicationControlRequest {
             CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
             | CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => {
                 if buf.len() < 4 {
-                    return Err(Error::InsufficientData(4));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 4,
+                        available: buf.len(),
+                    }));
                 }
                 let node_id = Some(u16::from_be_bytes([buf[2], buf[3]]));
                 Ok((
@@ -455,7 +461,10 @@ impl Encode for CommunicationControlResponse {
 impl<'a> Decode<'a> for CommunicationControlResponse {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let control_type = CommunicationControlType::try_from(buf[0])?;
         Ok((Self::new(control_type), &buf[1..]))

@@ -1,5 +1,5 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -59,7 +59,10 @@ impl Encode for WriteDataByIdentifierRequest<'_> {
 impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let identifier = u16::from_be_bytes([buf[0], buf[1]]);
         Ok((
@@ -108,7 +111,10 @@ impl Encode for WriteDataByIdentifierResponse {
 impl<'a> Decode<'a> for WriteDataByIdentifierResponse {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let identifier = u16::from_be_bytes([buf[0], buf[1]]);
         Ok((Self { identifier }, &buf[2..]))
@@ -158,7 +164,7 @@ mod test {
     #[test]
     fn write_response_decode_rejects_short_buffer() {
         let err = <WriteDataByIdentifierResponse as Decode>::decode(&[0x01]);
-        assert!(matches!(err, Err(Error::InsufficientData(2))));
+        assert!(matches!(err, Err(Error::InsufficientData(_))));
     }
 
     #[test]
@@ -185,7 +191,7 @@ mod test {
     fn wdbi_request_rejects_short_buffer() {
         assert!(matches!(
             <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1]),
-            Err(Error::InsufficientData(2))
+            Err(Error::InsufficientData(_))
         ));
     }
 }

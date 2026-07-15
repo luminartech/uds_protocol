@@ -1,3 +1,4 @@
+use automotive_wire_codec::{Incomplete, TrailingBytes};
 use thiserror::Error;
 
 /// Errors that can occur during UDS message encoding, decoding, or validation.
@@ -8,8 +9,10 @@ pub enum Error {
     #[error("I/O error: {0:?}")]
     IoError(embedded_io::ErrorKind),
     /// The byte stream contained fewer bytes than expected.
-    #[error("Insufficient data. Expected {0} bytes.")]
-    InsufficientData(usize),
+    ///
+    /// Corresponds to NRC 0x13 (`incorrectMessageLengthOrInvalidFormat`).
+    #[error("Insufficient data: {0}")]
+    InsufficientData(Incomplete),
     /// The session-type byte is not a valid [`DiagnosticSessionType`](crate::DiagnosticSessionType).
     #[error("Invalid diagnostic session type: {0}")]
     InvalidDiagnosticSessionType(u8),
@@ -31,6 +34,12 @@ pub enum Error {
     /// The message length did not match the expected format.
     #[error("Incorrect Message Length Or Invalid Format")]
     IncorrectMessageLengthOrInvalidFormat,
+    /// Bytes remained after a decode that should have consumed the whole buffer.
+    ///
+    /// Corresponds to NRC 0x13 (`incorrectMessageLengthOrInvalidFormat`), like
+    /// [`Error::IncorrectMessageLengthOrInvalidFormat`].
+    #[error("{0}")]
+    TrailingBytes(TrailingBytes),
     /// The memory address value is out of the valid range.
     #[error("Invalid Memory Address: {0}")]
     InvalidMemoryAddress(u64),
@@ -78,9 +87,43 @@ impl From<embedded_io::ErrorKind> for Error {
     }
 }
 
+impl From<Incomplete> for Error {
+    fn from(frag: Incomplete) -> Self {
+        Self::InsufficientData(frag)
+    }
+}
+
+impl From<TrailingBytes> for Error {
+    fn from(frag: TrailingBytes) -> Self {
+        Self::TrailingBytes(frag)
+    }
+}
+
 #[cfg(feature = "std")]
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
         Self::IoError(err.kind().into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use automotive_wire_codec::{Incomplete, TrailingBytes};
+
+    #[test]
+    fn incomplete_lifts_into_error_losslessly() {
+        let frag = Incomplete {
+            needed: 4,
+            available: 1,
+        };
+        let err = Error::from(frag);
+        assert!(matches!(err, Error::InsufficientData(i) if i == frag));
+    }
+
+    #[test]
+    fn trailing_bytes_lifts_into_error() {
+        let err = Error::from(TrailingBytes(3));
+        assert!(matches!(err, Error::TrailingBytes(TrailingBytes(3))));
     }
 }

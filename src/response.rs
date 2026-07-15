@@ -1,7 +1,7 @@
 use crate::{
     ClearDiagnosticInfoResponse, CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
-    DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, NegativeResponse,
-    ReadDTCInfoResponse, ReadDataByIdentifierResponse, RequestDownloadResponse,
+    DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, Incomplete,
+    NegativeResponse, ReadDTCInfoResponse, ReadDataByIdentifierResponse, RequestDownloadResponse,
     RequestFileTransferResponse, RequestTransferExitResponse, RoutineControlResponse,
     SecurityAccessResponse, TesterPresentResponse, TransferDataResponse, UdsServiceType,
     WriteDataByIdentifierResponse,
@@ -69,7 +69,10 @@ pub enum Response<'a> {
 impl<'a> Decode<'a> for Response<'a> {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let service = UdsServiceType::response_from_byte(buf[0]);
         let payload = &buf[1..];

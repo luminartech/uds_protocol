@@ -1,6 +1,6 @@
 //! `ControlDTCSetting` (0x85) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -91,7 +91,10 @@ impl Encode for ControlDTCSettingsRequest {
 impl<'a> Decode<'a> for ControlDTCSettingsRequest {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub_function = SuppressablePositiveResponse::<DtcSettings>::try_from(buf[0])?;
         Ok((
@@ -140,7 +143,10 @@ impl Encode for ControlDTCSettingsResponse {
 impl<'a> Decode<'a> for ControlDTCSettingsResponse {
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let setting = DtcSettings::try_from(buf[0])?;
         Ok((Self { setting }, &buf[1..]))
