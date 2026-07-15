@@ -90,22 +90,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
-name = "byteorder-embedded-io"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ed6bb9472871706c9b1f648ca527031e33d647a95706d6ab5659f22ca28d419"
-dependencies = [
- "byteorder",
- "embedded-io",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -530,7 +514,6 @@ name = "uds_protocol"
 version = "0.1.0"
 dependencies = [
  "bitmask-enum",
- "byteorder-embedded-io",
  "clap",
  "embedded-io",
  "proptest",
