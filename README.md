@@ -90,3 +90,12 @@ All other services enumerated in \[`UdsServiceType`\] (e.g. `Authentication`, `R
 `RequestUpload`, `ResponseOnEvent`) are not individually modeled. Frames for them decode into
 \[`Request::Other`\] / \[`Response::Other`\], carrying the service type and raw payload bytes for
 pass-through.
+
+## Wire codec dependency
+
+`uds_protocol` builds its byte-level decoding on top of the [`automotive-wire-codec`](https://crates.io/crates/automotive-wire-codec)
+crate, and re-exports its `Incomplete` and `TrailingBytes` types (and, eventually, its codec
+traits) at the crate root. These types are intentionally part of `uds_protocol`'s public API:
+they are shared across the Luminar automotive protocol crates so that callers handling multiple
+protocols see one consistent short-read/trailing-data error shape. Because of this, a semver-major
+release of `automotive-wire-codec` is a breaking change for `uds_protocol` as well.

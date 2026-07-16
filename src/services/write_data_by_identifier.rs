@@ -164,7 +164,7 @@ mod test {
     #[test]
     fn write_response_decode_rejects_short_buffer() {
         let err = <WriteDataByIdentifierResponse as Decode>::decode(&[0x01]);
-        assert!(matches!(err, Err(Error::InsufficientData(_))));
+        assert!(matches!(err, Err(Error::InsufficientData(i)) if i.needed == 2 && i.available == 1));
     }
 
     #[test]
@@ -191,7 +191,7 @@ mod test {
     fn wdbi_request_rejects_short_buffer() {
         assert!(matches!(
             <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1]),
-            Err(Error::InsufficientData(_))
+            Err(Error::InsufficientData(i)) if i.needed == 2 && i.available == 1
         ));
     }
 }
