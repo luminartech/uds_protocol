@@ -49,7 +49,8 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   `usize`), via the codec trait's correct-by-construction counting-sink default. Crate-local
   `encoded_size` overrides have been removed; callers must handle/unwrap the `Result`.
 - **Breaking:** Added `Error::InvalidWidth`, produced when a wire-declared variable-width field
-  requests a byte width the target type cannot hold.
+  requests a byte width the target type cannot hold. The underlying `automotive_wire_codec::InvalidWidth`
+  fragment is also re-exported at the crate root (alongside `Incomplete` and `TrailingBytes`).
 - **Breaking:** `decode_exact` trailing-bytes now surface as `Error::TrailingBytes` instead of
   `Error::IncorrectMessageLengthOrInvalidFormat` (both still map to NRC 0x13).
 - This release remains a semver-major bump.
