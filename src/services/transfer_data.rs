@@ -1,6 +1,15 @@
 //! `TransferData` (0x36) service implementation
 
-use crate::{Decode, Encode, Error};
+use crate::{Decode, Encode, Error, NegativeResponseCode};
+
+const TRANSFER_DATA_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::RequestSequenceError,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::TransferDataSuspended,
+    NegativeResponseCode::GeneralProgrammingFailure,
+    NegativeResponseCode::WrongBlockSequenceCounter,
+];
 
 /// A request to the server to transfer data (either upload or download)
 ///
@@ -22,11 +31,15 @@ use crate::{Decode, Encode, Error};
 /// Step 3 Response: The server sends a [`crate::UdsServiceType::RequestTransferExit`] response message to the client (RID 0x77)
 ///
 /// Zero-alloc request to transfer data. Borrows from the caller.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct TransferDataRequest<'d> {
     /// Block sequence counter (wraps 0xFF → 0x00).
     pub block_sequence_counter: u8,
     /// The data to be transferred.
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub data: &'d [u8],
 }
 
@@ -38,6 +51,12 @@ impl<'d> TransferDataRequest<'d> {
             block_sequence_counter,
             data,
         }
+    }
+
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &TRANSFER_DATA_NEGATIVE_RESPONSE_CODES
     }
 }
 
@@ -71,11 +90,15 @@ impl<'a> Decode<'a> for TransferDataRequest<'a> {
 }
 
 /// Zero-alloc response for transfer data. Borrows from the caller.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct TransferDataResponse<'d> {
     /// Echo of the block sequence counter.
     pub block_sequence_counter: u8,
     /// Response data (vendor-specific).
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub data: &'d [u8],
 }
 
@@ -122,9 +145,28 @@ impl<'a> Decode<'a> for TransferDataResponse<'a> {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    use crate::{Decode, Encode, NegativeResponseCode, test_util::assert_encode_size_agrees};
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
+
+    #[test]
+    fn test_allowed_nack_codes() {
+        let codes = TransferDataRequest::allowed_nack_codes();
+        assert!(codes.contains(&NegativeResponseCode::WrongBlockSequenceCounter));
+    }
+
+    #[test]
+    fn derive_contract() {
+        use crate::test_util::assert_impl_eq;
+        assert_impl_eq::<TransferDataRequest<'static>>();
+        assert_impl_eq::<TransferDataResponse<'static>>();
+        #[cfg(feature = "serde")]
+        {
+            use crate::test_util::assert_impl_serde;
+            assert_impl_serde::<TransferDataRequest<'_>>();
+            assert_impl_serde::<TransferDataResponse<'_>>();
+        }
+    }
 
     #[test]
     fn test_transfer_data_request() {

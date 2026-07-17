@@ -3,7 +3,7 @@
 //! It can also be used to check the ECU's health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error};
+use crate::{Decode, Encode, Error, NegativeResponseCode};
 
 /// What type of routine control to perform for a [`RoutineControlRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -49,10 +49,22 @@ impl TryFrom<u8> for RoutineControlSubFunction {
     }
 }
 
+const ROUTINE_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 7] = [
+    NegativeResponseCode::SubFunctionNotSupported,
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::ConditionsNotCorrect,
+    NegativeResponseCode::RequestSequenceError,
+    NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::SecurityAccessDenied,
+    NegativeResponseCode::GeneralProgrammingFailure,
+];
+
 /// Used by a client to execute a defined sequence of events and obtain any relevant results.
 ///
 /// The 2-byte big-endian routine identifier is decoded into a typed `u16`, followed by
 /// optional routine input parameters in `option_record`.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlRequest<'d> {
@@ -63,6 +75,7 @@ pub struct RoutineControlRequest<'d> {
     /// The 16-bit routine identifier.
     pub routine_id: u16,
     /// Optional routine input parameters (may be empty).
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub option_record: &'d [u8],
 }
 
@@ -81,6 +94,12 @@ impl<'d> RoutineControlRequest<'d> {
             routine_id,
             option_record,
         }
+    }
+
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &ROUTINE_CONTROL_NEGATIVE_RESPONSE_CODES
     }
 }
 
@@ -127,6 +146,8 @@ impl<'a> Decode<'a> for RoutineControlRequest<'a> {
 ///
 /// The 2-byte big-endian routine identifier echo is decoded into a typed `u16`, followed
 /// by optional routine status bytes in `status_record`.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RoutineControlResponse<'d> {
@@ -135,6 +156,7 @@ pub struct RoutineControlResponse<'d> {
     /// The 16-bit routine identifier echoed from the request.
     pub routine_id: u16,
     /// Optional routine status bytes (may be empty).
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub status_record: &'d [u8],
 }
 
@@ -193,8 +215,21 @@ impl<'a> Decode<'a> for RoutineControlResponse<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::Decode;
-    use crate::test_util::assert_encode_size_agrees;
+    use crate::test_util::{assert_encode_size_agrees, assert_impl_eq};
+    use crate::{Decode, NegativeResponseCode};
+
+    #[test]
+    fn derive_contract() {
+        assert_impl_eq::<RoutineControlRequest<'_>>();
+        assert_impl_eq::<RoutineControlResponse<'_>>();
+
+        #[cfg(feature = "serde")]
+        {
+            use crate::test_util::assert_impl_serde;
+            assert_impl_serde::<RoutineControlRequest<'_>>();
+            assert_impl_serde::<RoutineControlResponse<'_>>();
+        }
+    }
 
     #[test]
     fn rc_request_round_trips_with_suppress() {
@@ -241,5 +276,14 @@ mod test {
         // 0x7F (low 7 bits = 0x7F) is a reserved routineControlType
         let bytes = [0x7F, 0xFF, 0x00];
         assert!(<RoutineControlRequest as Decode>::decode(&bytes).is_err());
+    }
+
+    #[test]
+    fn exposes_allowed_nack_codes() {
+        assert!(!RoutineControlRequest::allowed_nack_codes().is_empty());
+        assert!(
+            RoutineControlRequest::allowed_nack_codes()
+                .contains(&NegativeResponseCode::SecurityAccessDenied)
+        );
     }
 }

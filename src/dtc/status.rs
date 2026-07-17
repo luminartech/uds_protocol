@@ -131,7 +131,7 @@ impl<'a> Decode<'a> for DTCStatusMask {
 #[allow(non_camel_case_types)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 #[repr(u8)]
 pub enum DTCFormatIdentifier {
@@ -299,7 +299,7 @@ pub enum FunctionalGroupIdentifier {
 impl FunctionalGroupIdentifier {
     /// Return the raw `u8` value of this functional group identifier.
     #[must_use]
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
             FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,

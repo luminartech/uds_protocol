@@ -24,7 +24,7 @@ const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 /// See ISO-14229-1:2020, Table H.1 for format information
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct RequestDownloadRequest {
     /// compression method (high nibble) and encrypting method (low nibble). 0x00 is no compression or encryption
@@ -147,12 +147,16 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
 /// Zero-alloc response for request download. Borrows from the caller.
 ///
 /// Positive response to a [`RequestDownloadRequest`] indicating the server is ready to receive data.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct RequestDownloadResponse<'d> {
     /// Maximum number of bytes per [`TransferDataRequest`](crate::TransferDataRequest).
     ///
     /// The on-wire `lengthFormatIdentifier` nibble is derived from this slice's length
     /// at encode time, so the declared length can never disagree with the bytes present.
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub max_number_of_block_length: &'d [u8],
 }
 
@@ -312,5 +316,18 @@ mod tests {
         let block = [0x10u8, 0x00, 0x00];
         let resp = RequestDownloadResponse::new(&block);
         assert_encode_size_agrees(&resp);
+    }
+
+    #[test]
+    fn derive_contract() {
+        use crate::test_util::assert_impl_eq;
+        assert_impl_eq::<RequestDownloadRequest>();
+        assert_impl_eq::<RequestDownloadResponse<'static>>();
+        #[cfg(feature = "serde")]
+        {
+            use crate::test_util::assert_impl_serde;
+            assert_impl_serde::<RequestDownloadRequest>();
+            assert_impl_serde::<RequestDownloadResponse<'static>>();
+        }
     }
 }

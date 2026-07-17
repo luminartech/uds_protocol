@@ -1,5 +1,5 @@
 mod clear_dtc_information;
-pub use clear_dtc_information::ClearDiagnosticInfoRequest;
+pub use clear_dtc_information::{ClearDiagnosticInfoRequest, ClearDiagnosticInfoResponse};
 
 mod communication_control;
 pub use communication_control::{
@@ -24,7 +24,7 @@ mod negative_response;
 pub use negative_response::NegativeResponse;
 
 mod read_data_by_identifier;
-pub use read_data_by_identifier::ReadDataByIdentifierRequest;
+pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentifierResponse};
 
 mod read_dtc_information;
 pub use read_dtc_information::{

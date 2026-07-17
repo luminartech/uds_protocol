@@ -328,7 +328,8 @@ fuzz/corpus/
 fuzz/artifacts/
 
 .omniscient/
-
+omniscient.toml
 .DS_Store
+.superpowers/
 
 omniscient.toml

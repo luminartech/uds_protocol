@@ -49,7 +49,7 @@ impl DTCExtDataRecordNumber {
     /// Return the raw `u8` value of this record number.
     #[must_use]
     #[allow(clippy::match_same_arms)]
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::ISOSAEReserved(value) => *value,
             Self::VehicleManufacturer(value) => *value,

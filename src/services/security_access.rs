@@ -28,7 +28,7 @@ impl SecurityAccessLevel {
 
     /// The raw level byte (always `0x00..=0x7F`).
     #[must_use]
-    pub const fn get(self) -> u8 {
+    pub const fn value(self) -> u8 {
         self.0
     }
 }
@@ -75,8 +75,8 @@ impl From<SecurityAccessType> for u8 {
     fn from(value: SecurityAccessType) -> Self {
         match value {
             SecurityAccessType::ISOSAEReserved(val) => val,
-            SecurityAccessType::RequestSeed(level) => level.get(),
-            SecurityAccessType::SendKey(level) => level.get(),
+            SecurityAccessType::RequestSeed(level) => level.value(),
+            SecurityAccessType::SendKey(level) => level.value(),
             SecurityAccessType::ISO26021_2Values => 0x5F,
             SecurityAccessType::ISO26021_2SendKeyValues => 0x60,
             SecurityAccessType::SystemSupplierSpecific(val) => val,
@@ -173,10 +173,19 @@ mod security_access_type_tests {
     }
 
     #[test]
+    fn level_value_is_const_accessor() {
+        const V: u8 = match SecurityAccessLevel::new(0x03) {
+            Ok(l) => l.value(),
+            Err(_) => 0xFF,
+        };
+        assert_eq!(V, 0x03);
+    }
+
+    #[test]
     fn security_access_level_rejects_sprmib_colliding_values() {
         // 0x00..=0x7F are constructible; 0x80..=0xFF (SPRMIB bit set) are rejected.
         for value in 0x00..=0x7F {
-            assert_eq!(SecurityAccessLevel::new(value).unwrap().get(), value);
+            assert_eq!(SecurityAccessLevel::new(value).unwrap().value(), value);
         }
         for value in 0x80..=0xFF {
             assert!(matches!(
@@ -232,6 +241,8 @@ const SECURITY_ACCESS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 8] = [
 /// Suppressing a positive response to this request is allowed.
 ///
 /// Zero-alloc request for security access. Borrows from the caller.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct SecurityAccessRequest<'d> {
@@ -240,6 +251,7 @@ pub struct SecurityAccessRequest<'d> {
     /// The requested [`SecurityAccessType`].
     pub access_type: SecurityAccessType,
     /// The implementation-defined request data (seed data record or key bytes).
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub request_data: &'d [u8],
 }
 
@@ -299,12 +311,15 @@ impl<'a> Decode<'a> for SecurityAccessRequest<'a> {
 }
 
 /// Zero-alloc response for security access. Borrows from the caller.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct SecurityAccessResponse<'d> {
     /// The security access type echoed from the request.
     pub access_type: SecurityAccessType,
     /// The security seed bytes (empty for a `SendKey` positive response).
+    #[cfg_attr(feature = "serde", serde(borrow))]
     pub security_seed: &'d [u8],
 }
 
@@ -352,9 +367,21 @@ impl<'a> Decode<'a> for SecurityAccessResponse<'a> {
 #[cfg(test)]
 mod request {
     use super::*;
-    use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
+    use crate::{Decode, Encode, test_util::assert_encode_size_agrees, test_util::assert_impl_eq};
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
+
+    #[test]
+    fn derive_contract() {
+        assert_impl_eq::<SecurityAccessRequest<'_>>();
+        assert_impl_eq::<SecurityAccessResponse<'_>>();
+        #[cfg(feature = "serde")]
+        {
+            use crate::test_util::assert_impl_serde;
+            assert_impl_serde::<SecurityAccessRequest<'_>>();
+            assert_impl_serde::<SecurityAccessResponse<'_>>();
+        }
+    }
 
     #[cfg(feature = "alloc")]
     #[test]

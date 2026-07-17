@@ -1,9 +1,10 @@
 use crate::{
-    CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
+    ClearDiagnosticInfoResponse, CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
     DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, NegativeResponse,
-    ReadDTCInfoResponse, RequestDownloadResponse, RequestFileTransferResponse,
-    RequestTransferExitResponse, RoutineControlResponse, SecurityAccessResponse,
-    TesterPresentResponse, TransferDataResponse, UdsServiceType, WriteDataByIdentifierResponse,
+    ReadDTCInfoResponse, ReadDataByIdentifierResponse, RequestDownloadResponse,
+    RequestFileTransferResponse, RequestTransferExitResponse, RoutineControlResponse,
+    SecurityAccessResponse, TesterPresentResponse, TransferDataResponse, UdsServiceType,
+    WriteDataByIdentifierResponse,
 };
 
 /// Parsed zero-copy UDS response. Borrows from the wire buffer.
@@ -14,7 +15,7 @@ use crate::{
 #[non_exhaustive]
 pub enum Response<'a> {
     /// Positive response to `ClearDiagnosticInfo`.
-    ClearDiagnosticInfo,
+    ClearDiagnosticInfo(ClearDiagnosticInfoResponse),
     /// Positive response to `CommunicationControl`.
     CommunicationControl(CommunicationControlResponse),
     /// Positive response to `ControlDTCSettings`.
@@ -34,7 +35,7 @@ pub enum Response<'a> {
     /// cannot split it into `(DID, value)` pairs. Parse it caller-side once you know each
     /// DID's record length — read the 2-byte big-endian DID, take the application-defined
     /// number of data bytes, then repeat on the remainder.
-    ReadDataByIdentifier(&'a [u8]),
+    ReadDataByIdentifier(ReadDataByIdentifierResponse<'a>),
     /// Positive response to `ReadDTCInformation` with lazy iterators.
     ReadDTCInfo(ReadDTCInfoResponse<'a>),
     /// Positive response to `RequestDownload`.
@@ -74,7 +75,9 @@ impl<'a> Decode<'a> for Response<'a> {
         let payload = &buf[1..];
 
         let response = match service {
-            UdsServiceType::ClearDiagnosticInfo => Self::ClearDiagnosticInfo,
+            UdsServiceType::ClearDiagnosticInfo => Self::ClearDiagnosticInfo(
+                <ClearDiagnosticInfoResponse as Decode>::decode_exact(payload)?,
+            ),
             UdsServiceType::CommunicationControl => Self::CommunicationControl(
                 <CommunicationControlResponse as Decode>::decode_exact(payload)?,
             ),
@@ -90,7 +93,9 @@ impl<'a> Decode<'a> for Response<'a> {
             UdsServiceType::NegativeResponse => {
                 Self::NegativeResponse(<NegativeResponse as Decode>::decode_exact(payload)?)
             }
-            UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(payload),
+            UdsServiceType::ReadDataByIdentifier => {
+                Self::ReadDataByIdentifier(ReadDataByIdentifierResponse::new(payload))
+            }
             UdsServiceType::ReadDTCInfo => {
                 Self::ReadDTCInfo(<ReadDTCInfoResponse as Decode>::decode_exact(payload)?)
             }
@@ -143,7 +148,7 @@ impl Response<'_> {
     /// Returns the response service-ID byte that frames this response on the wire.
     fn response_sid(&self) -> u8 {
         match self {
-            Self::ClearDiagnosticInfo => UdsServiceType::ClearDiagnosticInfo.response_to_byte(),
+            Self::ClearDiagnosticInfo(_) => UdsServiceType::ClearDiagnosticInfo.response_to_byte(),
             Self::CommunicationControl(_) => {
                 UdsServiceType::CommunicationControl.response_to_byte()
             }
@@ -175,7 +180,7 @@ impl Response<'_> {
 impl Encode for Response<'_> {
     fn encoded_size(&self) -> usize {
         let payload = match self {
-            Self::ClearDiagnosticInfo => 0,
+            Self::ClearDiagnosticInfo(resp) => resp.encoded_size(),
             Self::RequestTransferExit(resp) => resp.encoded_size(),
             Self::Other { data, .. } => data.len(),
             Self::CommunicationControl(resp) => resp.encoded_size(),
@@ -183,7 +188,7 @@ impl Encode for Response<'_> {
             Self::DiagnosticSessionControl(resp) => resp.encoded_size(),
             Self::EcuReset(resp) => resp.encoded_size(),
             Self::NegativeResponse(resp) => resp.encoded_size(),
-            Self::ReadDataByIdentifier(bytes) => bytes.len(),
+            Self::ReadDataByIdentifier(resp) => resp.encoded_size(),
             Self::WriteDataByIdentifier(resp) => resp.encoded_size(),
             Self::ReadDTCInfo(resp) => resp.encoded_size(),
             Self::RequestDownload(resp) => resp.encoded_size(),
@@ -201,17 +206,14 @@ impl Encode for Response<'_> {
             .write_all(&[self.response_sid()])
             .map_err(Error::io)?;
         let payload = match self {
-            Self::ClearDiagnosticInfo => 0,
+            Self::ClearDiagnosticInfo(resp) => resp.encode(writer)?,
             Self::RequestTransferExit(resp) => resp.encode(writer)?,
             Self::CommunicationControl(resp) => resp.encode(writer)?,
             Self::ControlDTCSettings(resp) => resp.encode(writer)?,
             Self::DiagnosticSessionControl(resp) => resp.encode(writer)?,
             Self::EcuReset(resp) => resp.encode(writer)?,
             Self::NegativeResponse(resp) => resp.encode(writer)?,
-            Self::ReadDataByIdentifier(bytes) => {
-                writer.write_all(bytes).map_err(Error::io)?;
-                bytes.len()
-            }
+            Self::ReadDataByIdentifier(resp) => resp.encode(writer)?,
             Self::WriteDataByIdentifier(resp) => resp.encode(writer)?,
             Self::ReadDTCInfo(resp) => resp.encode(writer)?,
             Self::RequestDownload(resp) => resp.encode(writer)?,
@@ -283,5 +285,18 @@ mod tests {
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &frame); // previously became 0x7F (NegativeResponse)
+    }
+
+    #[test]
+    fn clear_diagnostic_info_response_rejects_trailing_bytes() {
+        // Bare SID round-trips; a conformant ClearDiagnosticInfo positive response is [0x54].
+        let (resp, remaining) = Response::decode(&[0x54]).unwrap();
+        assert!(remaining.is_empty());
+        assert!(matches!(resp, Response::ClearDiagnosticInfo(_)));
+        // Trailing bytes after the SID are now rejected (matches every other response arm).
+        assert!(matches!(
+            Response::decode(&[0x54, 0xAA]),
+            Err(crate::Error::IncorrectMessageLengthOrInvalidFormat)
+        ));
     }
 }

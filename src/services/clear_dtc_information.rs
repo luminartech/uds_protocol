@@ -1,6 +1,38 @@
 //! `ClearDiagnosticInformation` (0x14) service implementation
 use crate::{CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, NegativeResponseCode};
 
+/// Positive response to `ClearDiagnosticInformation`. Carries no payload.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct ClearDiagnosticInfoResponse;
+
+impl ClearDiagnosticInfoResponse {
+    /// Create a `ClearDiagnosticInfoResponse`.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl Encode for ClearDiagnosticInfoResponse {
+    fn encoded_size(&self) -> usize {
+        0
+    }
+    fn encode(&self, _writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
+        Ok(0)
+    }
+}
+
+impl<'a> Decode<'a> for ClearDiagnosticInfoResponse {
+    /// Consumes zero bytes and returns the full buffer as the remainder.
+    /// `decode_exact` at the call site (in `Response::decode`) enforces that no trailing bytes follow the SID.
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
+        Ok((Self, buf))
+    }
+}
+
 /// Negative response codes
 const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -106,5 +138,23 @@ mod request {
         let all = ClearDiagnosticInfoRequest::clear_all(0);
         let compare = ClearDiagnosticInfoRequest::new(CLEAR_ALL_DTCS, 0);
         assert_eq!(all, compare);
+    }
+}
+
+#[cfg(test)]
+mod response {
+    use super::*;
+    use crate::{Decode, Encode};
+
+    #[test]
+    fn clear_dtc_response_roundtrips_empty() {
+        let resp = ClearDiagnosticInfoResponse::new();
+        let mut buf = [0u8; 4];
+        let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(n, 0);
+        let (decoded, remaining) =
+            <ClearDiagnosticInfoResponse as Decode>::decode(&buf[..0]).unwrap();
+        assert_eq!(decoded, resp);
+        assert!(remaining.is_empty());
     }
 }

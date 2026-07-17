@@ -3,7 +3,7 @@
 use crate::{
     DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
     DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Decode, Encode, Error,
-    FunctionalGroupIdentifier,
+    FunctionalGroupIdentifier, NegativeResponseCode,
 };
 
 /// Used for non-emissions related servers
@@ -11,10 +11,16 @@ type DTCFaultDetectionCounter = u8;
 /// Used to address the respective user-defined DTC memory when retrieving DTCs
 type MemorySelection = u8;
 
+const READ_DTC_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
+    NegativeResponseCode::SubFunctionNotSupported,
+    NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+    NegativeResponseCode::RequestOutOfRange,
+];
+
 /// Request for the server to report diagnostic trouble code information
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct ReadDTCInfoRequest {
     /// The sub-function specifying what DTC information to report.
@@ -24,8 +30,14 @@ pub struct ReadDTCInfoRequest {
 impl ReadDTCInfoRequest {
     /// Create a new `ReadDTCInfoRequest`.
     #[must_use]
-    pub fn new(dtc_subfunction: ReadDTCInfoSubFunction) -> Self {
+    pub const fn new(dtc_subfunction: ReadDTCInfoSubFunction) -> Self {
         Self { dtc_subfunction }
+    }
+
+    /// Get the allowed [`NegativeResponseCode`] variants for this request.
+    #[must_use]
+    pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
+        &READ_DTC_INFO_NEGATIVE_RESPONSE_CODES
     }
 }
 
@@ -150,7 +162,7 @@ impl<'a> Decode<'a> for ReadDTCInfoRequest {
 #[cfg(test)]
 mod read_dtc_info_request_encode_tests {
     use super::*;
-    use crate::test_util::assert_encode_size_agrees;
+    use crate::{NegativeResponseCode, test_util::assert_encode_size_agrees};
 
     #[test]
     fn encode_no_param_subfunction() {
@@ -224,12 +236,21 @@ mod read_dtc_info_request_encode_tests {
             assert_eq!(decoded, req);
         }
     }
+
+    #[test]
+    fn exposes_allowed_nack_codes() {
+        assert!(!ReadDTCInfoRequest::allowed_nack_codes().is_empty());
+        assert!(
+            ReadDTCInfoRequest::allowed_nack_codes()
+                .contains(&NegativeResponseCode::RequestOutOfRange)
+        );
+    }
 }
 
 /// A DTC paired with its fault detection counter value
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DTCFaultDetectionCounterRecord {
     pub dtc_record: DTCRecord,
     pub dtc_fault_detection_counter: DTCFaultDetectionCounter,
@@ -364,7 +385,7 @@ pub enum ReadDTCInfoSubFunction {
 impl ReadDTCInfoSubFunction {
     /// Return the raw `u8` sub-function byte.
     #[must_use]
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             Self::ReportNumberOfDTC_ByStatusMask(_) => 0x01,
             Self::ReportDTC_ByStatusMask(_) => 0x02,
@@ -693,7 +714,9 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
 /// `ReadDTCInformation` defines further sub-functions that are **not yet modeled**;
 /// [`decode`](Self::decode) returns [`Error::InvalidDtcSubfunctionType`] for those. See the
 /// support table in the crate README. This is the "Partial" coverage noted there, not a bug.
-#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ReadDTCInfoResponse<'a> {
     /// Sub-functions 0x01, 0x07: count of DTCs matching a mask.
@@ -712,11 +735,13 @@ pub enum ReadDTCInfoResponse<'a> {
         /// DTC status availability mask.
         status_availability_mask: DTCStatusAvailabilityMask,
         /// Raw record bytes — use [`DtcAndStatusIter`] to iterate.
+        #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
     /// Sub-function 0x14: list of DTC fault detection counter records.
     DTCFaultDetectionCounterList {
         /// Raw record bytes — use [`DtcFaultDetectionIter`] to iterate.
+        #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
     /// Sub-functions 0x08, 0x09: list of DTC severity records.
@@ -729,6 +754,7 @@ pub enum ReadDTCInfoResponse<'a> {
         /// 3-byte DTC + status). These differ from the 5-byte WWH-OBD records, so
         /// [`DtcSeverityAndStatusIter`] does **not** apply here; no severity-list iterator is
         /// wired yet, so parse these bytes caller-side until one is added.
+        #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
     /// Sub-function 0x42: WWH-OBD DTC by mask with severity info.
@@ -742,6 +768,7 @@ pub enum ReadDTCInfoResponse<'a> {
         /// DTC format identifier.
         format_identifier: DTCFormatIdentifier,
         /// Raw record bytes (5 bytes per record) — use [`DtcSeverityAndStatusIter`].
+        #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
 }
@@ -925,6 +952,31 @@ impl Encode for ReadDTCInfoResponse<'_> {
             }
         }
         Ok(self.encoded_size())
+    }
+}
+
+#[cfg(test)]
+mod derive_contract {
+    use super::*;
+    use crate::test_util::assert_impl_eq;
+    #[cfg(feature = "serde")]
+    use crate::test_util::assert_impl_serde;
+
+    const _: ReadDTCInfoRequest = ReadDTCInfoRequest::new(
+        ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(DTCStatusMask::TestFailed),
+    );
+
+    #[test]
+    fn eq_impls() {
+        assert_impl_eq::<ReadDTCInfoRequest>();
+        assert_impl_eq::<DTCFaultDetectionCounterRecord>();
+        assert_impl_eq::<ReadDTCInfoResponse<'static>>();
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_impls() {
+        assert_impl_serde::<ReadDTCInfoResponse<'static>>();
     }
 }
 

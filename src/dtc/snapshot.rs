@@ -32,7 +32,7 @@ impl DTCSnapshotRecordNumber {
     /// Return the raw `u8` value of this snapshot record number.
     #[must_use]
     #[allow(clippy::match_same_arms)]
-    pub fn value(&self) -> u8 {
+    pub const fn value(&self) -> u8 {
         match self {
             DTCSnapshotRecordNumber::Reserved(value) => *value,
             DTCSnapshotRecordNumber::Number(value) => *value,

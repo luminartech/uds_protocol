@@ -1,6 +1,52 @@
 //! `ReadDataByIdentifier` (0x22) service implementation
 use crate::{Decode, Encode, Error, NegativeResponseCode};
 
+/// Positive response to `ReadDataByIdentifier`: raw `[DID][data record]…` bytes.
+///
+/// Left opaque **by design**: each data record's length is defined by the ECU's
+/// configuration for that DID and is not present on the wire, so the library cannot
+/// split it into `(DID, value)` pairs. Read the 2-byte big-endian DID, take the
+/// application-defined number of data bytes via [`records`](Self::records), then repeat.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct ReadDataByIdentifierResponse<'a> {
+    #[cfg_attr(feature = "serde", serde(borrow))]
+    records: &'a [u8],
+}
+
+impl<'a> ReadDataByIdentifierResponse<'a> {
+    /// Wrap the raw record bytes of a positive `ReadDataByIdentifier` response.
+    #[must_use]
+    pub const fn new(records: &'a [u8]) -> Self {
+        Self { records }
+    }
+
+    /// The raw `[DID][data record]…` bytes, to be parsed caller-side.
+    #[must_use]
+    pub const fn records(&self) -> &'a [u8] {
+        self.records
+    }
+}
+
+impl Encode for ReadDataByIdentifierResponse<'_> {
+    fn encoded_size(&self) -> usize {
+        self.records.len()
+    }
+
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        writer.write_all(self.records).map_err(Error::io)?;
+        Ok(self.records.len())
+    }
+}
+
+impl<'a> Decode<'a> for ReadDataByIdentifierResponse<'a> {
+    fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
+        Ok((Self { records: buf }, &[]))
+    }
+}
+
 const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
     NegativeResponseCode::ResponseTooLong,
@@ -11,7 +57,18 @@ const READ_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
 
 /// Read-DID request: a list of 16-bit Data Identifiers. Built from native `&[u16]`
 /// or borrowed from the wire as big-endian bytes; `dids()` yields `u16` either way.
+///
+/// # serde / utoipa carve-out
+///
+/// serde derives are omitted: the zero-copy `Native(&[u16])` backing has no borrowed
+/// `Deserialize` impl in serde (zero-copy borrowing via `#[serde(borrow)]` only works
+/// for `&[u8]` and `&str`, not `&[u16]`), so `Dids::Native(&[u16])` cannot be
+/// deserialized without an owned allocation.
+///
+/// utoipa derives are omitted: `utoipa::ToSchema` cannot be derived on
+/// `ReadDataByIdentifierRequest` without also deriving it on the private `Dids` enum.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct ReadDataByIdentifierRequest<'d> {
     dids: Dids<'d>,
 }
@@ -108,7 +165,13 @@ impl<'a> Decode<'a> for ReadDataByIdentifierRequest<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test_util::assert_encode_size_agrees;
+    use crate::test_util::{assert_encode_size_agrees, assert_impl_eq};
+
+    #[test]
+    fn derive_contract() {
+        assert_impl_eq::<ReadDataByIdentifierRequest<'static>>();
+        // serde: omitted — see struct-level doc comment for rationale
+    }
 
     #[test]
     fn rdbi_native_encodes_be() {
@@ -148,6 +211,18 @@ mod test {
         assert!(<ReadDataByIdentifierRequest as Decode>::decode(&[]).is_err());
         assert!(<ReadDataByIdentifierRequest as Decode>::decode(&[0xF1]).is_err());
         assert!(<ReadDataByIdentifierRequest as Decode>::decode(&[0xF1, 0x90, 0xF1]).is_err());
+    }
+
+    #[test]
+    fn rdbi_response_wraps_and_roundtrips() {
+        use crate::{Decode, Encode};
+        let raw = [0xF1, 0x90, 0x01, 0x02];
+        let (resp, remaining) = <ReadDataByIdentifierResponse as Decode>::decode(&raw).unwrap();
+        assert!(remaining.is_empty());
+        assert_eq!(resp.records(), &raw);
+        let mut buf = [0u8; 8];
+        let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..n], &raw);
     }
 
     #[test]
