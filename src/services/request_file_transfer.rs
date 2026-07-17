@@ -442,9 +442,7 @@ pub enum RequestFileTransferResponse<'a> {
 // ---------------------------------------------------------------------------
 
 impl Encode for NamePayload<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + 2 + self.file_path_and_name.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let name = self.file_path_and_name.as_bytes();
@@ -462,6 +460,8 @@ impl Encode for NamePayload<'_> {
 }
 
 impl<'a> Decode<'a> for NamePayload<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
             return Err(Error::InsufficientData(Incomplete {
@@ -498,9 +498,7 @@ impl SizePayload {
 }
 
 impl Encode for SizePayload {
-    fn encoded_size(&self) -> usize {
-        1 + 2 * self.width()
-    }
+    type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u8
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -513,6 +511,8 @@ impl Encode for SizePayload {
 }
 
 impl<'a> Decode<'a> for SizePayload {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -541,9 +541,7 @@ impl<'a> Decode<'a> for SizePayload {
 }
 
 impl Encode for SentDataPayload<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.max_number_of_block_length.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let len = u8::try_from(self.max_number_of_block_length.len())
@@ -557,6 +555,8 @@ impl Encode for SentDataPayload<'_> {
 }
 
 impl<'a> Decode<'a> for SentDataPayload<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -582,9 +582,7 @@ impl<'a> Decode<'a> for SentDataPayload<'a> {
 }
 
 impl Encode for FileSizePayload {
-    fn encoded_size(&self) -> usize {
-        2 + 2 * self.width()
-    }
+    type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -599,6 +597,8 @@ impl Encode for FileSizePayload {
 }
 
 impl<'a> Decode<'a> for FileSizePayload {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
@@ -627,9 +627,7 @@ impl<'a> Decode<'a> for FileSizePayload {
 }
 
 impl Encode for DirSizePayload {
-    fn encoded_size(&self) -> usize {
-        2 + self.width()
-    }
+    type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -643,6 +641,8 @@ impl Encode for DirSizePayload {
 }
 
 impl<'a> Decode<'a> for DirSizePayload {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
@@ -664,9 +664,7 @@ impl<'a> Decode<'a> for DirSizePayload {
 }
 
 impl Encode for PositionPayload {
-    fn encoded_size(&self) -> usize {
-        8
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -677,6 +675,8 @@ impl Encode for PositionPayload {
 }
 
 impl<'a> Decode<'a> for PositionPayload {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 8 {
             return Err(Error::InsufficientData(Incomplete {
@@ -692,15 +692,7 @@ impl<'a> Decode<'a> for PositionPayload {
 }
 
 impl Encode for RequestFileTransferRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        match self {
-            Self::AddFile(name, _, size)
-            | Self::ReplaceFile(name, _, size)
-            | Self::ResumeFile(name, _, size) => name.encoded_size() + 1 + size.encoded_size(),
-            Self::ReadFile(name, _) => name.encoded_size() + 1,
-            Self::DeleteFile(name) | Self::ReadDir(name) => name.encoded_size(),
-        }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let mut len;
@@ -727,6 +719,8 @@ impl Encode for RequestFileTransferRequest<'_> {
 }
 
 impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         let (name, rest) = NamePayload::decode(buf)?;
         match name.mode_of_operation {
@@ -767,17 +761,7 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
 }
 
 impl Encode for RequestFileTransferResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        match self {
-            Self::DeleteFile(_) => 1,
-            Self::AddFile(_, sent, _) | Self::ReplaceFile(_, sent, _) => {
-                1 + sent.encoded_size() + 1
-            }
-            Self::ReadFile(_, sent, _, fs) => 1 + sent.encoded_size() + 1 + fs.encoded_size(),
-            Self::ReadDir(_, sent, _, ds) => 1 + sent.encoded_size() + 1 + ds.encoded_size(),
-            Self::ResumeFile(_, sent, _, pos) => 1 + sent.encoded_size() + 1 + pos.encoded_size(),
-        }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let mut len = 1;
@@ -818,6 +802,8 @@ impl Encode for RequestFileTransferResponse<'_> {
 }
 
 impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -924,7 +910,7 @@ mod request_tests {
         let n = name_payload(FileOperationMode::AddFile, path);
         let mut buf = [0u8; 64];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, n.encoded_size());
+        assert_eq!(written, n.encoded_size().unwrap());
         let (decoded, rest) = NamePayload::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, n);
@@ -936,7 +922,7 @@ mod request_tests {
         let s = SizePayload::new(u128::from(u64::MAX) + 1000, 0x12_3456);
         let mut buf = [0u8; 32];
         let written = Encode::encode(&s, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, s.encoded_size());
+        assert_eq!(written, s.encoded_size().unwrap());
         let (decoded, rest) = SizePayload::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, s);
@@ -973,7 +959,7 @@ mod request_tests {
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
@@ -989,7 +975,7 @@ mod request_tests {
         ));
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
@@ -1005,7 +991,7 @@ mod request_tests {
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
@@ -1059,7 +1045,7 @@ mod response_tests {
         );
         let mut buf = [0u8; 32];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
         let (decoded, remaining) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert!(remaining.is_empty());
         assert_eq!(decoded, resp);

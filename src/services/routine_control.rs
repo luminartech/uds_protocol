@@ -104,9 +104,7 @@ impl<'d> RoutineControlRequest<'d> {
 }
 
 impl Encode for RoutineControlRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + 2 + self.option_record.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
@@ -123,6 +121,8 @@ impl Encode for RoutineControlRequest<'_> {
 }
 
 impl<'a> Decode<'a> for RoutineControlRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
             return Err(Error::InsufficientData(Incomplete {
@@ -180,9 +180,7 @@ impl<'d> RoutineControlResponse<'d> {
 }
 
 impl Encode for RoutineControlResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + 2 + self.status_record.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -197,6 +195,8 @@ impl Encode for RoutineControlResponse<'_> {
 }
 
 impl<'a> Decode<'a> for RoutineControlResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
             return Err(Error::InsufficientData(Incomplete {

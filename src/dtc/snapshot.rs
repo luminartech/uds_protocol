@@ -48,9 +48,7 @@ impl PartialEq<u8> for DTCSnapshotRecordNumber {
 }
 
 impl Encode for DTCSnapshotRecordNumber {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(&[self.value()]).map_err(Error::io)?;
@@ -59,6 +57,8 @@ impl Encode for DTCSnapshotRecordNumber {
 }
 
 impl<'a> Decode<'a> for DTCSnapshotRecordNumber {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {

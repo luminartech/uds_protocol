@@ -211,9 +211,7 @@ impl EcuResetRequest {
 }
 
 impl Encode for EcuResetRequest {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         // Fuse the SPRMIB bit into the sub-function byte only at the wire boundary.
@@ -227,6 +225,8 @@ impl Encode for EcuResetRequest {
 }
 
 impl<'a> Decode<'a> for EcuResetRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -269,9 +269,7 @@ impl EcuResetResponse {
 }
 
 impl Encode for EcuResetResponse {
-    fn encoded_size(&self) -> usize {
-        2
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -282,6 +280,8 @@ impl Encode for EcuResetResponse {
 }
 
 impl<'a> Decode<'a> for EcuResetResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -321,7 +321,7 @@ mod request {
         assert_eq!(result, req);
 
         assert_eq!(written, 1);
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 }
@@ -344,7 +344,7 @@ mod response {
         assert_eq!(result, resp);
 
         assert_eq!(written, 2);
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
     }
 }

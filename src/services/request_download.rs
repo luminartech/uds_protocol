@@ -89,9 +89,7 @@ impl RequestDownloadRequest {
     }
 }
 impl Encode for RequestDownloadRequest {
-    fn encoded_size(&self) -> usize {
-        2 + self.address_and_length_format_identifier.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -113,6 +111,8 @@ impl Encode for RequestDownloadRequest {
 }
 
 impl<'a> Decode<'a> for RequestDownloadRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
@@ -175,9 +175,7 @@ impl<'d> RequestDownloadResponse<'d> {
 }
 
 impl Encode for RequestDownloadResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.max_number_of_block_length.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         // The block-length field width is carried in a single nibble, so the slice
@@ -200,6 +198,8 @@ impl Encode for RequestDownloadResponse<'_> {
 }
 
 impl<'a> Decode<'a> for RequestDownloadResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -316,7 +316,7 @@ mod tests {
         let mut vec = vec![];
         Encode::encode(&req, &mut vec).unwrap();
 
-        assert_eq!(vec.len(), req.encoded_size());
+        assert_eq!(vec.len(), req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 

@@ -53,9 +53,7 @@ impl NegativeResponse {
 }
 
 impl Encode for NegativeResponse {
-    fn encoded_size(&self) -> usize {
-        2
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -66,6 +64,8 @@ impl Encode for NegativeResponse {
 }
 
 impl<'a> Decode<'a> for NegativeResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
