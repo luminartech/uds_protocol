@@ -1,10 +1,8 @@
 //! `RequestDownload` (0x34) service implementation
 
-use crate::shared::{
-    DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier, read_be_uint,
-    write_be_uint,
-};
+use crate::shared::{DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier};
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{read_be_uint_into, write_be_uint};
 
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -107,15 +105,14 @@ impl Encode for RequestDownloadRequest {
             .address_and_length_format_identifier
             .memory_address_length as usize;
         let size_len = self.address_and_length_format_identifier.memory_size_length as usize;
-        write_be_uint(u128::from(self.memory_address), addr_len, writer)?;
-        write_be_uint(u128::from(self.memory_size), size_len, writer)?;
+        write_be_uint(writer, u128::from(self.memory_address), addr_len)?;
+        write_be_uint(writer, u128::from(self.memory_size), size_len)?;
 
         Ok(2 + self.address_and_length_format_identifier.len())
     }
 }
 
 impl<'a> Decode<'a> for RequestDownloadRequest {
-    #[allow(clippy::cast_possible_truncation)]
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
@@ -135,8 +132,8 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
             }));
         }
 
-        let memory_address = read_be_uint(&buf[2..], addr_len)? as u64;
-        let memory_size = read_be_uint(&buf[2 + addr_len..], size_len)? as u32;
+        let (memory_address, rest) = read_be_uint_into::<u64>(&buf[2..], addr_len)?;
+        let (memory_size, _rest) = read_be_uint_into::<u32>(rest, size_len)?;
 
         Ok((
             Self {

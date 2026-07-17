@@ -22,10 +22,7 @@ pub use dtc::{
 };
 
 mod shared;
-pub use shared::{
-    DataFormatIdentifier, NegativeResponseCode, UDSIdentifier, UDSRoutineIdentifier,
-    param_length_u16, param_length_u32, param_length_u64, param_length_u128,
-};
+pub use shared::{DataFormatIdentifier, NegativeResponseCode, UDSIdentifier, UDSRoutineIdentifier};
 
 mod request;
 pub use request::Request;
