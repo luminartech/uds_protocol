@@ -1,4 +1,6 @@
-use automotive_wire_codec::{Incomplete, InvalidWidth, ReadUintError, TrailingBytes, WriteUintError};
+use automotive_wire_codec::{
+    Incomplete, InvalidWidth, ReadUintError, TrailingBytes, WriteUintError,
+};
 use thiserror::Error;
 
 /// Errors that can occur during UDS message encoding, decoding, or validation.
@@ -164,7 +166,9 @@ mod tests {
             needed: 4,
             available: 1,
         });
-        assert!(matches!(Error::from(inc), Error::InsufficientData(i) if i.needed == 4 && i.available == 1));
+        assert!(
+            matches!(Error::from(inc), Error::InsufficientData(i) if i.needed == 4 && i.available == 1)
+        );
         let iw = ReadUintError::InvalidWidth(InvalidWidth { max: 4, got: 5 });
         assert!(matches!(Error::from(iw), Error::InvalidWidth(w) if w.max == 4 && w.got == 5));
     }
