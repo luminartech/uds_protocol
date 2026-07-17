@@ -15,7 +15,12 @@ fuzz_target!(|data: &[u8]| {
     };
 
     // Encode the decoded request into its canonical wire form.
-    let mut first = vec![0u8; request.encoded_size().expect("size a freshly decoded request")];
+    let mut first = vec![
+        0u8;
+        request
+            .encoded_size()
+            .expect("size a freshly decoded request")
+    ];
     if Encode::encode(&request, &mut first.as_mut_slice()).is_err() {
         return;
     }
