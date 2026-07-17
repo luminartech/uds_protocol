@@ -10,9 +10,9 @@ checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
 
 [[package]]
 name = "automotive-wire-codec"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df7293087b5c9b670ae3db5abd0a762f2807e6aef983101abf1a68680970e4f2"
+checksum = "d3619f2db27c70d93c5390ce2e90482c26c99675a85392271d2bfe07451234f6"
 dependencies = [
  "embedded-io",
 ]
