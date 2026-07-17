@@ -52,7 +52,7 @@ impl Encode for WriteDataByIdentifierRequest<'_> {
             .write_all(&self.identifier.to_be_bytes())
             .map_err(Error::io)?;
         writer.write_all(self.data).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(2 + self.data.len())
     }
 }
 

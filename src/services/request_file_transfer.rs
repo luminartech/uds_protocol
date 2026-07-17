@@ -456,7 +456,7 @@ impl Encode for NamePayload<'_> {
             .write_all(&name_len.to_be_bytes())
             .map_err(Error::io)?;
         writer.write_all(name).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + 2 + self.file_path_and_name.len())
     }
 }
 
@@ -507,7 +507,7 @@ impl Encode for SizePayload {
         writer.write_all(&[n as u8]).map_err(Error::io)?;
         write_be_uint(self.file_size_uncompressed, n, writer)?;
         write_be_uint(self.file_size_compressed, n, writer)?;
-        Ok(self.encoded_size())
+        Ok(1 + 2 * self.width())
     }
 }
 
@@ -551,7 +551,7 @@ impl Encode for SentDataPayload<'_> {
         writer
             .write_all(self.max_number_of_block_length)
             .map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.max_number_of_block_length.len())
     }
 }
 
@@ -593,7 +593,7 @@ impl Encode for FileSizePayload {
             .map_err(Error::io)?;
         write_be_uint(self.file_size_uncompressed, n, writer)?;
         write_be_uint(self.file_size_compressed, n, writer)?;
-        Ok(self.encoded_size())
+        Ok(2 + 2 * self.width())
     }
 }
 
@@ -637,7 +637,7 @@ impl Encode for DirSizePayload {
             .write_all(&(n as u16).to_be_bytes())
             .map_err(Error::io)?;
         write_be_uint(self.dir_info_length, n, writer)?;
-        Ok(self.encoded_size())
+        Ok(2 + self.width())
     }
 }
 

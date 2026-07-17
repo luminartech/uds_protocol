@@ -523,7 +523,42 @@ impl Encode for ReadDTCInfoSubFunction {
             | S::ReportDTCWithPermanentStatus
             | S::ISOSAEReserved(_) => {}
         }
-        Ok(self.encoded_size())
+        Ok(1 + match self {
+            S::ReportNumberOfDTC_ByStatusMask(m)
+            | S::ReportDTC_ByStatusMask(m)
+            | S::ReportUserDefMemoryDTC_ByStatusMask(m) => m.encoded_size(),
+            S::ReportDTCSnapshotRecord_ByDTCNumber(r, n) => r.encoded_size() + n.encoded_size(),
+            S::ReportDTCStoredData_ByRecordNumber(n) => n.encoded_size(),
+            S::ReportDTCExtDataRecord_ByDTCNumber(r, n) => r.encoded_size() + n.encoded_size(),
+            S::ReportNumberOfDTC_BySeverityMaskRecord(s, m)
+            | S::ReportDTC_BySeverityMaskRecord(s, m) => s.encoded_size() + m.encoded_size(),
+            S::ReportSeverityInfoOfDTC(r) => r.encoded_size(),
+            S::ReportDTCExtDataRecord_ByRecordNumber(n) | S::ReportSupportedDTCExtDataRecord(n) => {
+                n.encoded_size()
+            }
+            S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(r, n, mem) => {
+                r.encoded_size() + n.encoded_size() + mem.encoded_size()
+            }
+            S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(r, n, mem) => {
+                r.encoded_size() + n.encoded_size() + mem.encoded_size()
+            }
+            S::ReportWWHOBDDTC_ByMaskRecord(g, m, s) => {
+                g.encoded_size() + m.encoded_size() + s.encoded_size()
+            }
+            S::ReportWWHOBDDTC_WithPermanentStatus(g) => g.encoded_size(),
+            S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg) => {
+                g.encoded_size() + rg.encoded_size()
+            }
+            S::ReportDTCSnapshotIdentification
+            | S::ReportSupportedDTC
+            | S::ReportFirstTestFailedDTC
+            | S::ReportFirstConfirmedDTC
+            | S::ReportMostRecentTestFailedDTC
+            | S::ReportMostRecentConfirmedDTC
+            | S::ReportDTCFaultDetectionCounter
+            | S::ReportDTCWithPermanentStatus
+            | S::ISOSAEReserved(_) => 0,
+        })
     }
 }
 
@@ -969,7 +1004,14 @@ impl Encode for ReadDTCInfoResponse<'_> {
                 writer.write_all(raw_records).map_err(Error::io)?;
             }
         }
-        Ok(self.encoded_size())
+        Ok(match self {
+            Self::NumberOfDTCs { .. } => 4,
+            Self::DTCList { raw_records, .. } | Self::DTCSeverityList { raw_records, .. } => {
+                2 + raw_records.len()
+            }
+            Self::DTCFaultDetectionCounterList { raw_records } => 1 + raw_records.len(),
+            Self::WWHOBDDTCByMaskRecord { raw_records, .. } => 5 + raw_records.len(),
+        })
     }
 }
 
