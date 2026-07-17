@@ -110,7 +110,7 @@ impl Encode for RequestDownloadRequest {
         write_be_uint(u128::from(self.memory_address), addr_len, writer)?;
         write_be_uint(u128::from(self.memory_size), size_len, writer)?;
 
-        Ok(self.encoded_size())
+        Ok(2 + self.address_and_length_format_identifier.len())
     }
 }
 
@@ -198,7 +198,7 @@ impl Encode for RequestDownloadResponse<'_> {
         writer
             .write_all(self.max_number_of_block_length)
             .map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.max_number_of_block_length.len())
     }
 }
 

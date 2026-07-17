@@ -144,7 +144,10 @@ impl Encode for ReadDataByIdentifierRequest<'_> {
             }
             Dids::Wire(b) => writer.write_all(b).map_err(Error::io)?,
         }
-        Ok(self.encoded_size())
+        Ok(match self.dids {
+            Dids::Native(s) => s.len() * 2,
+            Dids::Wire(b) => b.len(),
+        })
     }
 }
 

@@ -10,7 +10,7 @@ macro_rules! primitive_encode_decode {
             }
             fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
                 writer.write_all(&self.to_be_bytes()).map_err(Error::io)?;
-                Ok(self.encoded_size())
+                Ok(core::mem::size_of::<$primitive>())
             }
         }
         impl<'a> Decode<'a> for $primitive {

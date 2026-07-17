@@ -289,7 +289,7 @@ impl Encode for SecurityAccessRequest<'_> {
             .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
         writer.write_all(self.request_data).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.request_data.len())
     }
 }
 
@@ -347,7 +347,7 @@ impl Encode for SecurityAccessResponse<'_> {
             .write_all(&[u8::from(self.access_type)])
             .map_err(Error::io)?;
         writer.write_all(self.security_seed).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.security_seed.len())
     }
 }
 

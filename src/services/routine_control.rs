@@ -118,7 +118,7 @@ impl Encode for RoutineControlRequest<'_> {
             .write_all(&self.routine_id.to_be_bytes())
             .map_err(Error::io)?;
         writer.write_all(self.option_record).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + 2 + self.option_record.len())
     }
 }
 
@@ -192,7 +192,7 @@ impl Encode for RoutineControlResponse<'_> {
             .write_all(&self.routine_id.to_be_bytes())
             .map_err(Error::io)?;
         writer.write_all(self.status_record).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + 2 + self.status_record.len())
     }
 }
 

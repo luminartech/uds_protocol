@@ -70,7 +70,7 @@ impl Encode for TransferDataRequest<'_> {
             .write_all(&[self.block_sequence_counter])
             .map_err(Error::io)?;
         writer.write_all(self.data).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.data.len())
     }
 }
 
@@ -126,7 +126,7 @@ impl Encode for TransferDataResponse<'_> {
             .write_all(&[self.block_sequence_counter])
             .map_err(Error::io)?;
         writer.write_all(self.data).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.data.len())
     }
 }
 
