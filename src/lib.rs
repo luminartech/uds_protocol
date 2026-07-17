@@ -7,7 +7,7 @@ extern crate alloc;
 
 mod error;
 pub use error::Error;
-pub use automotive_wire_codec::{Incomplete, TrailingBytes};
+pub use automotive_wire_codec::{Incomplete, InvalidWidth, TrailingBytes};
 
 #[cfg(test)]
 mod test_util;

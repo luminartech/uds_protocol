@@ -27,7 +27,7 @@ utoipa = ["dep:utoipa"]
 clap = ["dep:clap"]
 
 [dependencies]
-automotive-wire-codec = { version = "0.2", default-features = false }
+automotive-wire-codec = { version = "0.3", default-features = false }
 bitmask-enum = "2"
 embedded-io = { version = "0.7", default-features = false }
 thiserror = { version = "2", default-features = false }
