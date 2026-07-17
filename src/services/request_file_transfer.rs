@@ -930,6 +930,17 @@ mod request_tests {
     }
 
     #[test]
+    fn size_payload_decode_rejects_overwide_width() {
+        // A wire-declared parameter length n > 16 is a data error, surfaced as
+        // Error::InvalidWidth (NRC 0x13) in every build profile — never a panic
+        // (regression guard for automotive-wire-codec SE-1). The buffer is long
+        // enough (1 + 2*17) that width, not truncation, is the only fault.
+        let wire = [17u8; 1 + 2 * 17];
+        let err = SizePayload::decode(&wire).unwrap_err();
+        assert!(matches!(err, Error::InvalidWidth(w) if w.got == 17 && w.max == 16));
+    }
+
+    #[test]
     fn size_payload_derives_minimal_width_from_data() {
         // Small values must serialize with a 1-byte width derived from the data,
         // not a caller-supplied length that could disagree with the value.
