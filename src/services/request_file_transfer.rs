@@ -1,14 +1,15 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
-use crate::shared::{DataFormatIdentifier, read_be_uint, write_be_uint};
-use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode, param_length_u128};
+use crate::shared::DataFormatIdentifier;
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{minimal_be_len, read_be_uint, write_be_uint};
 
 /// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
 /// values. Used to derive the on-wire `parameterLength` prefix from the data itself,
 /// so the declared length can never disagree with the value it describes.
 fn size_param_width(a: u128, b: u128) -> usize {
-    let a = param_length_u128(a) as usize;
-    let b = param_length_u128(b) as usize;
+    let a = minimal_be_len(a);
+    let b = minimal_be_len(b);
     let w = a.max(b);
     w.max(1)
 }
@@ -505,8 +506,8 @@ impl Encode for SizePayload {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let n = self.width();
         writer.write_all(&[n as u8]).map_err(Error::io)?;
-        write_be_uint(self.file_size_uncompressed, n, writer)?;
-        write_be_uint(self.file_size_compressed, n, writer)?;
+        write_be_uint(writer, self.file_size_uncompressed, n)?;
+        write_be_uint(writer, self.file_size_compressed, n)?;
         Ok(1 + 2 * self.width())
     }
 }
@@ -527,8 +528,8 @@ impl<'a> Decode<'a> for SizePayload {
                 available: buf.len(),
             }));
         }
-        let file_size_uncompressed = read_be_uint(&buf[1..], n)?;
-        let file_size_compressed = read_be_uint(&buf[1 + n..], n)?;
+        let (file_size_uncompressed, _) = read_be_uint(&buf[1..], n)?;
+        let (file_size_compressed, _) = read_be_uint(&buf[1 + n..], n)?;
         Ok((
             Self {
                 file_size_uncompressed,
@@ -591,8 +592,8 @@ impl Encode for FileSizePayload {
         writer
             .write_all(&(n as u16).to_be_bytes())
             .map_err(Error::io)?;
-        write_be_uint(self.file_size_uncompressed, n, writer)?;
-        write_be_uint(self.file_size_compressed, n, writer)?;
+        write_be_uint(writer, self.file_size_uncompressed, n)?;
+        write_be_uint(writer, self.file_size_compressed, n)?;
         Ok(2 + 2 * self.width())
     }
 }
@@ -613,8 +614,8 @@ impl<'a> Decode<'a> for FileSizePayload {
                 available: buf.len(),
             }));
         }
-        let file_size_uncompressed = read_be_uint(&buf[2..], n)?;
-        let file_size_compressed = read_be_uint(&buf[2 + n..], n)?;
+        let (file_size_uncompressed, _) = read_be_uint(&buf[2..], n)?;
+        let (file_size_compressed, _) = read_be_uint(&buf[2 + n..], n)?;
         Ok((
             Self {
                 file_size_uncompressed,
@@ -636,7 +637,7 @@ impl Encode for DirSizePayload {
         writer
             .write_all(&(n as u16).to_be_bytes())
             .map_err(Error::io)?;
-        write_be_uint(self.dir_info_length, n, writer)?;
+        write_be_uint(writer, self.dir_info_length, n)?;
         Ok(2 + self.width())
     }
 }
@@ -657,7 +658,7 @@ impl<'a> Decode<'a> for DirSizePayload {
                 available: buf.len(),
             }));
         }
-        let dir_info_length = read_be_uint(&buf[2..], n)?;
+        let (dir_info_length, _) = read_be_uint(&buf[2..], n)?;
         Ok((Self { dir_info_length }, &buf[total..]))
     }
 }
