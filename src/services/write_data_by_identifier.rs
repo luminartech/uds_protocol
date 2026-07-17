@@ -43,9 +43,7 @@ impl<'d> WriteDataByIdentifierRequest<'d> {
 }
 
 impl Encode for WriteDataByIdentifierRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        2 + self.data.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -57,6 +55,8 @@ impl Encode for WriteDataByIdentifierRequest<'_> {
 }
 
 impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
@@ -96,9 +96,7 @@ impl WriteDataByIdentifierResponse {
 }
 
 impl Encode for WriteDataByIdentifierResponse {
-    fn encoded_size(&self) -> usize {
-        2
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -109,6 +107,8 @@ impl Encode for WriteDataByIdentifierResponse {
 }
 
 impl<'a> Decode<'a> for WriteDataByIdentifierResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {

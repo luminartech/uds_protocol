@@ -198,9 +198,7 @@ impl DiagnosticSessionControlRequest {
     }
 }
 impl Encode for DiagnosticSessionControlRequest {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
@@ -213,6 +211,8 @@ impl Encode for DiagnosticSessionControlRequest {
 }
 
 impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -261,9 +261,7 @@ impl DiagnosticSessionControlResponse {
     }
 }
 impl Encode for DiagnosticSessionControlResponse {
-    fn encoded_size(&self) -> usize {
-        5
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -280,6 +278,8 @@ impl Encode for DiagnosticSessionControlResponse {
 }
 
 impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 5 {
             return Err(Error::InsufficientData(Incomplete {
@@ -319,7 +319,7 @@ mod request {
         let mut buffer = Vec::new();
         Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
-        assert_eq!(req.encoded_size(), 1);
+        assert_eq!(req.encoded_size().unwrap(), 1);
         assert_encode_size_agrees(&req);
     }
 }
@@ -343,7 +343,7 @@ mod response {
         let mut buffer = Vec::new();
         Encode::encode(&resp, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
-        assert_eq!(resp.encoded_size(), 5);
+        assert_eq!(resp.encoded_size().unwrap(), 5);
         assert_encode_size_agrees(&resp);
     }
 }

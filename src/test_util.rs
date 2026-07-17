@@ -8,10 +8,13 @@ use crate::Encode;
 /// Guards against `encode` and `encoded_size` drifting, and against `encode` returning
 /// a count that disagrees with how many bytes it actually wrote — either corrupts callers
 /// that pre-size a buffer from `encoded_size()`.
-pub(crate) fn assert_encode_size_agrees<T: Encode>(value: &T) {
+pub(crate) fn assert_encode_size_agrees<T: Encode>(value: &T)
+where
+    T::Error: core::fmt::Debug,
+{
     let mut buf = [0u8; 512];
     let cap = buf.len();
-    let size = value.encoded_size();
+    let size = value.encoded_size().unwrap();
     assert!(
         size <= cap,
         "test helper buffer too small: encoded_size() is {size}, buffer is {cap}"

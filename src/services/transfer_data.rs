@@ -61,9 +61,7 @@ impl<'d> TransferDataRequest<'d> {
 }
 
 impl Encode for TransferDataRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.data.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -75,6 +73,8 @@ impl Encode for TransferDataRequest<'_> {
 }
 
 impl<'a> Decode<'a> for TransferDataRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -117,9 +117,7 @@ impl<'d> TransferDataResponse<'d> {
 }
 
 impl Encode for TransferDataResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.data.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -131,6 +129,8 @@ impl Encode for TransferDataResponse<'_> {
 }
 
 impl<'a> Decode<'a> for TransferDataResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -191,7 +191,7 @@ mod request {
         let mut written_bytes = Vec::new();
         let written = Encode::encode(&req, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 }
@@ -212,7 +212,7 @@ mod response {
         let mut written_bytes = Vec::new();
         let written = Encode::encode(&resp, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
     }
 }

@@ -366,9 +366,7 @@ impl CommunicationControlRequest {
     }
 }
 impl Encode for CommunicationControlRequest {
-    fn encoded_size(&self) -> usize {
-        if self.node_id.is_some() { 4 } else { 2 }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -387,6 +385,8 @@ impl Encode for CommunicationControlRequest {
 }
 
 impl<'a> Decode<'a> for CommunicationControlRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
@@ -446,9 +446,7 @@ impl CommunicationControlResponse {
 }
 
 impl Encode for CommunicationControlResponse {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -459,6 +457,8 @@ impl Encode for CommunicationControlResponse {
 }
 
 impl<'a> Decode<'a> for CommunicationControlResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -495,8 +495,8 @@ mod request {
 
         let mut buffer = Vec::new();
         let written = Encode::encode(&req, &mut buffer).unwrap();
-        assert_eq!(written, req.encoded_size());
-        assert_eq!(buffer.len(), req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
+        assert_eq!(buffer.len(), req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 
@@ -517,8 +517,8 @@ mod request {
 
         let mut buffer = Vec::new();
         let written = Encode::encode(&req, &mut buffer).unwrap();
-        assert_eq!(written, req.encoded_size());
-        assert_eq!(buffer.len(), req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
+        assert_eq!(buffer.len(), req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 

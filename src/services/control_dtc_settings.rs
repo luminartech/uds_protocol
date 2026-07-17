@@ -74,9 +74,7 @@ impl ControlDTCSettingsRequest {
 }
 
 impl Encode for ControlDTCSettingsRequest {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
@@ -89,6 +87,8 @@ impl Encode for ControlDTCSettingsRequest {
 }
 
 impl<'a> Decode<'a> for ControlDTCSettingsRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -128,9 +128,7 @@ impl ControlDTCSettingsResponse {
 }
 
 impl Encode for ControlDTCSettingsResponse {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -141,6 +139,8 @@ impl Encode for ControlDTCSettingsResponse {
 }
 
 impl<'a> Decode<'a> for ControlDTCSettingsResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -168,7 +168,7 @@ mod request {
         let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
         assert_eq!(written, buffer.len());
-        assert_eq!(req.encoded_size(), buffer.len());
+        assert_eq!(req.encoded_size().unwrap(), buffer.len());
 
         let (parsed, _) = <ControlDTCSettingsRequest as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
@@ -209,7 +209,7 @@ mod response {
         let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x01]);
         assert_eq!(written, buffer.len());
-        assert_eq!(req.encoded_size(), buffer.len());
+        assert_eq!(req.encoded_size().unwrap(), buffer.len());
 
         let (parsed, _) = <ControlDTCSettingsResponse as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);

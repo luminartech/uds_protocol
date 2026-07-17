@@ -12,8 +12,7 @@ pub use automotive_wire_codec::{Incomplete, InvalidWidth, TrailingBytes};
 #[cfg(test)]
 mod test_util;
 
-mod traits;
-pub use traits::{Decode, DecodeIter, Encode};
+pub use automotive_wire_codec::{Decode, DecodeIter, Encode};
 
 mod dtc;
 pub use dtc::{
@@ -129,7 +128,7 @@ mod no_std_api_tests {
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &wire);
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
     }
 
     #[test]
@@ -140,7 +139,7 @@ mod no_std_api_tests {
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &wire);
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
     }
 
     #[test]
@@ -174,7 +173,7 @@ mod no_std_api_tests {
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         // sub=0x02 ReportDTC_ByStatusMask, mask=0xFF
         assert_eq!(&buf[..written], &[0x02, 0xFF]);
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
     }
 
     #[test]
@@ -198,7 +197,7 @@ mod no_std_api_tests {
         let req = RequestDownloadRequest::new(dfi, 0x1234, 0x10).unwrap();
         let mut buf = [0u8; 16];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
     }
 
     #[test]

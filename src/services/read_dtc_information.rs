@@ -1,5 +1,7 @@
 //! `ReadDTCInformation` (0x19) request and response service implementation
 
+use automotive_wire_codec::{read_u8, write_u8};
+
 use crate::{
     DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
     DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Decode, Encode, Error,
@@ -42,9 +44,7 @@ impl ReadDTCInfoRequest {
 }
 
 impl Encode for ReadDTCInfoRequest {
-    fn encoded_size(&self) -> usize {
-        self.dtc_subfunction.encoded_size()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         self.dtc_subfunction.encode(writer)
@@ -52,6 +52,8 @@ impl Encode for ReadDTCInfoRequest {
 }
 
 impl<'a> Decode<'a> for ReadDTCInfoRequest {
+    type Error = crate::Error;
+
     #[allow(clippy::too_many_lines)]
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         use ReadDTCInfoSubFunction as S;
@@ -119,7 +121,7 @@ impl<'a> Decode<'a> for ReadDTCInfoRequest {
             0x18 => {
                 let (rec, r) = DTCRecord::decode(rest)?;
                 let (n, r) = DTCSnapshotRecordNumber::decode(r)?;
-                let (mem, r) = u8::decode(r)?;
+                let (mem, r) = read_u8(r)?;
                 (
                     S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(rec, n, mem),
                     r,
@@ -128,7 +130,7 @@ impl<'a> Decode<'a> for ReadDTCInfoRequest {
             0x19 => {
                 let (rec, r) = DTCRecord::decode(rest)?;
                 let (n, r) = DTCExtDataRecordNumber::decode(r)?;
-                let (mem, r) = u8::decode(r)?;
+                let (mem, r) = read_u8(r)?;
                 (
                     S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(rec, n, mem),
                     r,
@@ -150,7 +152,7 @@ impl<'a> Decode<'a> for ReadDTCInfoRequest {
             }
             0x56 => {
                 let (g, r) = FunctionalGroupIdentifier::decode(rest)?;
-                let (rg, r) = u8::decode(r)?;
+                let (rg, r) = read_u8(r)?;
                 (
                     S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg),
                     r,
@@ -420,98 +422,61 @@ impl ReadDTCInfoSubFunction {
 }
 
 impl Encode for ReadDTCInfoSubFunction {
-    fn encoded_size(&self) -> usize {
-        use ReadDTCInfoSubFunction as S;
-        1 + match self {
-            S::ReportNumberOfDTC_ByStatusMask(m)
-            | S::ReportDTC_ByStatusMask(m)
-            | S::ReportUserDefMemoryDTC_ByStatusMask(m) => m.encoded_size(),
-            S::ReportDTCSnapshotRecord_ByDTCNumber(r, n) => r.encoded_size() + n.encoded_size(),
-            S::ReportDTCStoredData_ByRecordNumber(n) => n.encoded_size(),
-            S::ReportDTCExtDataRecord_ByDTCNumber(r, n) => r.encoded_size() + n.encoded_size(),
-            S::ReportNumberOfDTC_BySeverityMaskRecord(s, m)
-            | S::ReportDTC_BySeverityMaskRecord(s, m) => s.encoded_size() + m.encoded_size(),
-            S::ReportSeverityInfoOfDTC(r) => r.encoded_size(),
-            S::ReportDTCExtDataRecord_ByRecordNumber(n) | S::ReportSupportedDTCExtDataRecord(n) => {
-                n.encoded_size()
-            }
-            S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(r, n, mem) => {
-                r.encoded_size() + n.encoded_size() + mem.encoded_size()
-            }
-            S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(r, n, mem) => {
-                r.encoded_size() + n.encoded_size() + mem.encoded_size()
-            }
-            S::ReportWWHOBDDTC_ByMaskRecord(g, m, s) => {
-                g.encoded_size() + m.encoded_size() + s.encoded_size()
-            }
-            S::ReportWWHOBDDTC_WithPermanentStatus(g) => g.encoded_size(),
-            S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg) => {
-                g.encoded_size() + rg.encoded_size()
-            }
-            S::ReportDTCSnapshotIdentification
-            | S::ReportSupportedDTC
-            | S::ReportFirstTestFailedDTC
-            | S::ReportFirstConfirmedDTC
-            | S::ReportMostRecentTestFailedDTC
-            | S::ReportMostRecentConfirmedDTC
-            | S::ReportDTCFaultDetectionCounter
-            | S::ReportDTCWithPermanentStatus
-            | S::ISOSAEReserved(_) => 0,
-        }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         use ReadDTCInfoSubFunction as S;
         writer.write_all(&[self.value()]).map_err(Error::io)?;
+        let mut written = 1;
         match self {
             S::ReportNumberOfDTC_ByStatusMask(m)
             | S::ReportDTC_ByStatusMask(m)
             | S::ReportUserDefMemoryDTC_ByStatusMask(m) => {
-                m.encode(writer)?;
+                written += m.encode(writer)?;
             }
             S::ReportDTCSnapshotRecord_ByDTCNumber(r, n) => {
-                r.encode(writer)?;
-                n.encode(writer)?;
+                written += r.encode(writer)?;
+                written += n.encode(writer)?;
             }
             S::ReportDTCStoredData_ByRecordNumber(n) => {
-                n.encode(writer)?;
+                written += n.encode(writer)?;
             }
             S::ReportDTCExtDataRecord_ByDTCNumber(r, n) => {
-                r.encode(writer)?;
-                n.encode(writer)?;
+                written += r.encode(writer)?;
+                written += n.encode(writer)?;
             }
             S::ReportNumberOfDTC_BySeverityMaskRecord(s, m)
             | S::ReportDTC_BySeverityMaskRecord(s, m) => {
-                s.encode(writer)?;
-                m.encode(writer)?;
+                written += s.encode(writer)?;
+                written += m.encode(writer)?;
             }
             S::ReportSeverityInfoOfDTC(r) => {
-                r.encode(writer)?;
+                written += r.encode(writer)?;
             }
             S::ReportDTCExtDataRecord_ByRecordNumber(n) | S::ReportSupportedDTCExtDataRecord(n) => {
-                n.encode(writer)?;
+                written += n.encode(writer)?;
             }
             S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(r, n, mem) => {
-                r.encode(writer)?;
-                n.encode(writer)?;
-                mem.encode(writer)?;
+                written += r.encode(writer)?;
+                written += n.encode(writer)?;
+                written += write_u8(writer, *mem).map_err(Error::io)?;
             }
             S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(r, n, mem) => {
-                r.encode(writer)?;
-                n.encode(writer)?;
-                mem.encode(writer)?;
+                written += r.encode(writer)?;
+                written += n.encode(writer)?;
+                written += write_u8(writer, *mem).map_err(Error::io)?;
             }
             S::ReportWWHOBDDTC_ByMaskRecord(g, m, s) => {
-                g.encode(writer)?;
-                m.encode(writer)?;
-                s.encode(writer)?;
+                written += g.encode(writer)?;
+                written += m.encode(writer)?;
+                written += s.encode(writer)?;
             }
             S::ReportWWHOBDDTC_WithPermanentStatus(g) => {
-                g.encode(writer)?;
+                written += g.encode(writer)?;
             }
             S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg) => {
-                g.encode(writer)?;
-                rg.encode(writer)?;
+                written += g.encode(writer)?;
+                written += write_u8(writer, *rg).map_err(Error::io)?;
             }
             S::ReportDTCSnapshotIdentification
             | S::ReportSupportedDTC
@@ -523,42 +488,7 @@ impl Encode for ReadDTCInfoSubFunction {
             | S::ReportDTCWithPermanentStatus
             | S::ISOSAEReserved(_) => {}
         }
-        Ok(1 + match self {
-            S::ReportNumberOfDTC_ByStatusMask(m)
-            | S::ReportDTC_ByStatusMask(m)
-            | S::ReportUserDefMemoryDTC_ByStatusMask(m) => m.encoded_size(),
-            S::ReportDTCSnapshotRecord_ByDTCNumber(r, n) => r.encoded_size() + n.encoded_size(),
-            S::ReportDTCStoredData_ByRecordNumber(n) => n.encoded_size(),
-            S::ReportDTCExtDataRecord_ByDTCNumber(r, n) => r.encoded_size() + n.encoded_size(),
-            S::ReportNumberOfDTC_BySeverityMaskRecord(s, m)
-            | S::ReportDTC_BySeverityMaskRecord(s, m) => s.encoded_size() + m.encoded_size(),
-            S::ReportSeverityInfoOfDTC(r) => r.encoded_size(),
-            S::ReportDTCExtDataRecord_ByRecordNumber(n) | S::ReportSupportedDTCExtDataRecord(n) => {
-                n.encoded_size()
-            }
-            S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(r, n, mem) => {
-                r.encoded_size() + n.encoded_size() + mem.encoded_size()
-            }
-            S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(r, n, mem) => {
-                r.encoded_size() + n.encoded_size() + mem.encoded_size()
-            }
-            S::ReportWWHOBDDTC_ByMaskRecord(g, m, s) => {
-                g.encoded_size() + m.encoded_size() + s.encoded_size()
-            }
-            S::ReportWWHOBDDTC_WithPermanentStatus(g) => g.encoded_size(),
-            S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg) => {
-                g.encoded_size() + rg.encoded_size()
-            }
-            S::ReportDTCSnapshotIdentification
-            | S::ReportSupportedDTC
-            | S::ReportFirstTestFailedDTC
-            | S::ReportFirstConfirmedDTC
-            | S::ReportMostRecentTestFailedDTC
-            | S::ReportMostRecentConfirmedDTC
-            | S::ReportDTCFaultDetectionCounter
-            | S::ReportDTCWithPermanentStatus
-            | S::ISOSAEReserved(_) => 0,
-        })
+        Ok(written)
     }
 }
 
@@ -851,6 +781,8 @@ impl<'a> ReadDTCInfoResponse<'a> {
 }
 
 impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -943,16 +875,7 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
 }
 
 impl Encode for ReadDTCInfoResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        match self {
-            Self::NumberOfDTCs { .. } => 4,
-            Self::DTCList { raw_records, .. } | Self::DTCSeverityList { raw_records, .. } => {
-                2 + raw_records.len()
-            }
-            Self::DTCFaultDetectionCounterList { raw_records } => 1 + raw_records.len(),
-            Self::WWHOBDDTCByMaskRecord { raw_records, .. } => 5 + raw_records.len(),
-        }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         match self {

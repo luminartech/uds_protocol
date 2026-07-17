@@ -107,9 +107,7 @@ pub enum DTCStatusMask {
 }
 
 impl Encode for DTCStatusMask {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(&[self.bits()]).map_err(Error::io)?;
         Ok(1)
@@ -117,6 +115,8 @@ impl Encode for DTCStatusMask {
 }
 
 impl<'a> Decode<'a> for DTCStatusMask {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -233,9 +233,7 @@ impl From<DTCRecord> for u32 {
 }
 
 impl Encode for DTCRecord {
-    fn encoded_size(&self) -> usize {
-        3
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -246,6 +244,8 @@ impl Encode for DTCRecord {
 }
 
 impl<'a> Decode<'a> for DTCRecord {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
             return Err(Error::InsufficientData(Incomplete {
@@ -265,6 +265,9 @@ impl<'a> Decode<'a> for DTCRecord {
 }
 
 impl<'a> DecodeIter<'a> for DTCRecord {
+    type Error = crate::Error;
+    const WIRE_SIZE: Option<usize> = Some(3);
+
     fn decode_next(buf: &'a [u8]) -> Result<Option<(Self, &'a [u8])>, Error> {
         if buf.is_empty() {
             return Ok(None);
@@ -335,9 +338,7 @@ impl From<FunctionalGroupIdentifier> for u8 {
 }
 
 impl Encode for FunctionalGroupIdentifier {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(&[self.value()]).map_err(Error::io)?;
@@ -346,6 +347,8 @@ impl Encode for FunctionalGroupIdentifier {
 }
 
 impl<'a> Decode<'a> for FunctionalGroupIdentifier {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -417,9 +420,7 @@ impl DTCSeverityMask {
 }
 
 impl Encode for DTCSeverityMask {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(&[self.bits()]).map_err(Error::io)?;
@@ -428,6 +429,8 @@ impl Encode for DTCSeverityMask {
 }
 
 impl<'a> Decode<'a> for DTCSeverityMask {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -476,9 +479,7 @@ impl From<u8> for DTCStoredDataRecordNumber {
 }
 
 impl Encode for DTCStoredDataRecordNumber {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(&[self.0]).map_err(Error::io)?;
@@ -487,6 +488,8 @@ impl Encode for DTCStoredDataRecordNumber {
 }
 
 impl<'a> Decode<'a> for DTCStoredDataRecordNumber {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {

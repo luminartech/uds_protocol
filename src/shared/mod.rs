@@ -11,4 +11,3 @@ mod format_identifiers;
 pub use format_identifiers::DataFormatIdentifier;
 pub(crate) use format_identifiers::{LengthFormatIdentifier, MemoryFormatIdentifier};
 
-mod primitive_generics;

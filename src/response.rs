@@ -67,6 +67,8 @@ pub enum Response<'a> {
 }
 
 impl<'a> Decode<'a> for Response<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
@@ -181,28 +183,7 @@ impl Response<'_> {
 }
 
 impl Encode for Response<'_> {
-    fn encoded_size(&self) -> usize {
-        let payload = match self {
-            Self::ClearDiagnosticInfo(resp) => resp.encoded_size(),
-            Self::RequestTransferExit(resp) => resp.encoded_size(),
-            Self::Other { data, .. } => data.len(),
-            Self::CommunicationControl(resp) => resp.encoded_size(),
-            Self::ControlDTCSettings(resp) => resp.encoded_size(),
-            Self::DiagnosticSessionControl(resp) => resp.encoded_size(),
-            Self::EcuReset(resp) => resp.encoded_size(),
-            Self::NegativeResponse(resp) => resp.encoded_size(),
-            Self::ReadDataByIdentifier(resp) => resp.encoded_size(),
-            Self::WriteDataByIdentifier(resp) => resp.encoded_size(),
-            Self::ReadDTCInfo(resp) => resp.encoded_size(),
-            Self::RequestDownload(resp) => resp.encoded_size(),
-            Self::RequestFileTransfer(resp) => resp.encoded_size(),
-            Self::RoutineControl(resp) => resp.encoded_size(),
-            Self::SecurityAccess(resp) => resp.encoded_size(),
-            Self::TesterPresent(resp) => resp.encoded_size(),
-            Self::TransferData(resp) => resp.encoded_size(),
-        };
-        1 + payload
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -299,7 +280,7 @@ mod tests {
         // Trailing bytes after the SID are now rejected (matches every other response arm).
         assert!(matches!(
             Response::decode(&[0x54, 0xAA]),
-            Err(crate::Error::IncorrectMessageLengthOrInvalidFormat)
+            Err(crate::Error::TrailingBytes(_))
         ));
     }
 }
