@@ -1,5 +1,5 @@
 //! `ClearDiagnosticInformation` (0x14) service implementation
-use crate::{CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, NegativeResponseCode};
+use crate::{CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, Incomplete, NegativeResponseCode};
 
 /// Positive response to `ClearDiagnosticInformation`. Carries no payload.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -17,15 +17,15 @@ impl ClearDiagnosticInfoResponse {
 }
 
 impl Encode for ClearDiagnosticInfoResponse {
-    fn encoded_size(&self) -> usize {
-        0
-    }
+    type Error = crate::Error;
     fn encode(&self, _writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
         Ok(0)
     }
 }
 
 impl<'a> Decode<'a> for ClearDiagnosticInfoResponse {
+    type Error = crate::Error;
+
     /// Consumes zero bytes and returns the full buffer as the remainder.
     /// `decode_exact` at the call site (in `Response::decode`) enforces that no trailing bytes follow the SID.
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
@@ -80,9 +80,7 @@ impl ClearDiagnosticInfoRequest {
 }
 
 impl Encode for ClearDiagnosticInfoRequest {
-    fn encoded_size(&self) -> usize {
-        4 // DTCRecord (3) + memory_selection (1)
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
         let size = Encode::encode(&self.group_of_dtc, writer)?;
@@ -94,10 +92,15 @@ impl Encode for ClearDiagnosticInfoRequest {
 }
 
 impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
         let (group_of_dtc, buf) = <DTCRecord as Decode>::decode(buf)?;
         if buf.is_empty() {
-            return Err(crate::Error::InsufficientData(4));
+            return Err(crate::Error::InsufficientData(Incomplete {
+                needed: 4,
+                available: buf.len(),
+            }));
         }
         let memory_selection = buf[0];
         Ok((
@@ -129,7 +132,7 @@ mod request {
         let mut buf = vec![];
         let written = Encode::encode(&req, &mut buf).unwrap();
         assert_eq!(buf, [0xFF, 0xFF, 0xFF, 0x00]);
-        assert_eq!(req.encoded_size(), written);
+        assert_eq!(req.encoded_size().unwrap(), written);
         assert_encode_size_agrees(&req);
     }
 

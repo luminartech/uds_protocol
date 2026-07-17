@@ -31,9 +31,7 @@ impl<'a> ReadDataByIdentifierResponse<'a> {
 }
 
 impl Encode for ReadDataByIdentifierResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        self.records.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer.write_all(self.records).map_err(Error::io)?;
@@ -42,6 +40,8 @@ impl Encode for ReadDataByIdentifierResponse<'_> {
 }
 
 impl<'a> Decode<'a> for ReadDataByIdentifierResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         Ok((Self { records: buf }, &[]))
     }
@@ -128,12 +128,7 @@ impl Iterator for DidIter<'_> {
 }
 
 impl Encode for ReadDataByIdentifierRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        match self.dids {
-            Dids::Native(s) => s.len() * 2,
-            Dids::Wire(b) => b.len(),
-        }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         match self.dids {
@@ -144,11 +139,16 @@ impl Encode for ReadDataByIdentifierRequest<'_> {
             }
             Dids::Wire(b) => writer.write_all(b).map_err(Error::io)?,
         }
-        Ok(self.encoded_size())
+        Ok(match self.dids {
+            Dids::Native(s) => s.len() * 2,
+            Dids::Wire(b) => b.len(),
+        })
     }
 }
 
 impl<'a> Decode<'a> for ReadDataByIdentifierRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() || buf.len() % 2 != 0 {
             return Err(Error::IncorrectMessageLengthOrInvalidFormat);

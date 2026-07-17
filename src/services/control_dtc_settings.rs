@@ -1,6 +1,6 @@
 //! `ControlDTCSetting` (0x85) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -74,9 +74,7 @@ impl ControlDTCSettingsRequest {
 }
 
 impl Encode for ControlDTCSettingsRequest {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
@@ -89,9 +87,14 @@ impl Encode for ControlDTCSettingsRequest {
 }
 
 impl<'a> Decode<'a> for ControlDTCSettingsRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub_function = SuppressablePositiveResponse::<DtcSettings>::try_from(buf[0])?;
         Ok((
@@ -125,9 +128,7 @@ impl ControlDTCSettingsResponse {
 }
 
 impl Encode for ControlDTCSettingsResponse {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -138,9 +139,14 @@ impl Encode for ControlDTCSettingsResponse {
 }
 
 impl<'a> Decode<'a> for ControlDTCSettingsResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let setting = DtcSettings::try_from(buf[0])?;
         Ok((Self { setting }, &buf[1..]))
@@ -162,7 +168,7 @@ mod request {
         let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
         assert_eq!(written, buffer.len());
-        assert_eq!(req.encoded_size(), buffer.len());
+        assert_eq!(req.encoded_size().unwrap(), buffer.len());
 
         let (parsed, _) = <ControlDTCSettingsRequest as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);
@@ -203,7 +209,7 @@ mod response {
         let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x01]);
         assert_eq!(written, buffer.len());
-        assert_eq!(req.encoded_size(), buffer.len());
+        assert_eq!(req.encoded_size().unwrap(), buffer.len());
 
         let (parsed, _) = <ControlDTCSettingsResponse as Decode>::decode(&buffer).unwrap();
         assert_eq!(parsed.setting, DtcSettings::On);

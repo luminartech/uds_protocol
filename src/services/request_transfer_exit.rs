@@ -18,15 +18,16 @@ macro_rules! transfer_exit_descriptor {
             }
         }
         impl Encode for $name<'_> {
-            fn encoded_size(&self) -> usize {
-                self.parameter_record.len()
-            }
+            type Error = crate::Error;
+
             fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
                 writer.write_all(self.parameter_record).map_err(Error::io)?;
                 Ok(self.parameter_record.len())
             }
         }
         impl<'a> Decode<'a> for $name<'a> {
+            type Error = crate::Error;
+
             fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
                 Ok((
                     Self {

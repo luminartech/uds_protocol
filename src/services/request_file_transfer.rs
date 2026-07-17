@@ -1,14 +1,15 @@
 //! `RequestFileTransfer` (0x38) service implementation
 
-use crate::shared::{DataFormatIdentifier, read_be_uint, write_be_uint};
-use crate::{Decode, Encode, Error, NegativeResponseCode, param_length_u128};
+use crate::shared::DataFormatIdentifier;
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{minimal_be_len, read_be_uint, write_be_uint};
 
 /// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
 /// values. Used to derive the on-wire `parameterLength` prefix from the data itself,
 /// so the declared length can never disagree with the value it describes.
 fn size_param_width(a: u128, b: u128) -> usize {
-    let a = param_length_u128(a) as usize;
-    let b = param_length_u128(b) as usize;
+    let a = minimal_be_len(a);
+    let b = minimal_be_len(b);
     let w = a.max(b);
     w.max(1)
 }
@@ -441,9 +442,7 @@ pub enum RequestFileTransferResponse<'a> {
 // ---------------------------------------------------------------------------
 
 impl Encode for NamePayload<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + 2 + self.file_path_and_name.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let name = self.file_path_and_name.as_bytes();
@@ -456,20 +455,28 @@ impl Encode for NamePayload<'_> {
             .write_all(&name_len.to_be_bytes())
             .map_err(Error::io)?;
         writer.write_all(name).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + 2 + self.file_path_and_name.len())
     }
 }
 
 impl<'a> Decode<'a> for NamePayload<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
-            return Err(Error::InsufficientData(3));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 3,
+                available: buf.len(),
+            }));
         }
         let mode_of_operation = FileOperationMode::try_from(buf[0])?;
         let name_len = u16::from_be_bytes([buf[1], buf[2]]) as usize;
         let total = 3 + name_len;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         let file_path_and_name = core::str::from_utf8(&buf[3..total])
             .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
@@ -491,32 +498,38 @@ impl SizePayload {
 }
 
 impl Encode for SizePayload {
-    fn encoded_size(&self) -> usize {
-        1 + 2 * self.width()
-    }
+    type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u8
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let n = self.width();
         writer.write_all(&[n as u8]).map_err(Error::io)?;
-        write_be_uint(self.file_size_uncompressed, n, writer)?;
-        write_be_uint(self.file_size_compressed, n, writer)?;
-        Ok(self.encoded_size())
+        write_be_uint(writer, self.file_size_uncompressed, n)?;
+        write_be_uint(writer, self.file_size_compressed, n)?;
+        Ok(1 + 2 * self.width())
     }
 }
 
 impl<'a> Decode<'a> for SizePayload {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let n = buf[0] as usize;
         let total = 1 + 2 * n;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
-        let file_size_uncompressed = read_be_uint(&buf[1..], n)?;
-        let file_size_compressed = read_be_uint(&buf[1 + n..], n)?;
+        let (file_size_uncompressed, _) = read_be_uint(&buf[1..], n)?;
+        let (file_size_compressed, _) = read_be_uint(&buf[1 + n..], n)?;
         Ok((
             Self {
                 file_size_uncompressed,
@@ -528,9 +541,7 @@ impl<'a> Decode<'a> for SizePayload {
 }
 
 impl Encode for SentDataPayload<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.max_number_of_block_length.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let len = u8::try_from(self.max_number_of_block_length.len())
@@ -539,19 +550,27 @@ impl Encode for SentDataPayload<'_> {
         writer
             .write_all(self.max_number_of_block_length)
             .map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.max_number_of_block_length.len())
     }
 }
 
 impl<'a> Decode<'a> for SentDataPayload<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let n = buf[0] as usize;
         let total = 1 + n;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {
@@ -563,9 +582,7 @@ impl<'a> Decode<'a> for SentDataPayload<'a> {
 }
 
 impl Encode for FileSizePayload {
-    fn encoded_size(&self) -> usize {
-        2 + 2 * self.width()
-    }
+    type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -573,24 +590,32 @@ impl Encode for FileSizePayload {
         writer
             .write_all(&(n as u16).to_be_bytes())
             .map_err(Error::io)?;
-        write_be_uint(self.file_size_uncompressed, n, writer)?;
-        write_be_uint(self.file_size_compressed, n, writer)?;
-        Ok(self.encoded_size())
+        write_be_uint(writer, self.file_size_uncompressed, n)?;
+        write_be_uint(writer, self.file_size_compressed, n)?;
+        Ok(2 + 2 * self.width())
     }
 }
 
 impl<'a> Decode<'a> for FileSizePayload {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let n = u16::from_be_bytes([buf[0], buf[1]]) as usize;
         let total = 2 + 2 * n;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
-        let file_size_uncompressed = read_be_uint(&buf[2..], n)?;
-        let file_size_compressed = read_be_uint(&buf[2 + n..], n)?;
+        let (file_size_uncompressed, _) = read_be_uint(&buf[2..], n)?;
+        let (file_size_compressed, _) = read_be_uint(&buf[2 + n..], n)?;
         Ok((
             Self {
                 file_size_uncompressed,
@@ -602,9 +627,7 @@ impl<'a> Decode<'a> for FileSizePayload {
 }
 
 impl Encode for DirSizePayload {
-    fn encoded_size(&self) -> usize {
-        2 + self.width()
-    }
+    type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -612,30 +635,36 @@ impl Encode for DirSizePayload {
         writer
             .write_all(&(n as u16).to_be_bytes())
             .map_err(Error::io)?;
-        write_be_uint(self.dir_info_length, n, writer)?;
-        Ok(self.encoded_size())
+        write_be_uint(writer, self.dir_info_length, n)?;
+        Ok(2 + self.width())
     }
 }
 
 impl<'a> Decode<'a> for DirSizePayload {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let n = u16::from_be_bytes([buf[0], buf[1]]) as usize;
         let total = 2 + n;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
-        let dir_info_length = read_be_uint(&buf[2..], n)?;
+        let (dir_info_length, _) = read_be_uint(&buf[2..], n)?;
         Ok((Self { dir_info_length }, &buf[total..]))
     }
 }
 
 impl Encode for PositionPayload {
-    fn encoded_size(&self) -> usize {
-        8
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -646,9 +675,14 @@ impl Encode for PositionPayload {
 }
 
 impl<'a> Decode<'a> for PositionPayload {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 8 {
-            return Err(Error::InsufficientData(8));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 8,
+                available: buf.len(),
+            }));
         }
         let file_position = u64::from_be_bytes([
             buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7],
@@ -658,15 +692,7 @@ impl<'a> Decode<'a> for PositionPayload {
 }
 
 impl Encode for RequestFileTransferRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        match self {
-            Self::AddFile(name, _, size)
-            | Self::ReplaceFile(name, _, size)
-            | Self::ResumeFile(name, _, size) => name.encoded_size() + 1 + size.encoded_size(),
-            Self::ReadFile(name, _) => name.encoded_size() + 1,
-            Self::DeleteFile(name) | Self::ReadDir(name) => name.encoded_size(),
-        }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let mut len;
@@ -693,6 +719,8 @@ impl Encode for RequestFileTransferRequest<'_> {
 }
 
 impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         let (name, rest) = NamePayload::decode(buf)?;
         match name.mode_of_operation {
@@ -700,7 +728,10 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
             FileOperationMode::ReadDir => Ok((Self::ReadDir(name), rest)),
             FileOperationMode::ReadFile => {
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 Ok((Self::ReadFile(name, dfi), &rest[1..]))
@@ -709,7 +740,10 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
             | FileOperationMode::ReplaceFile
             | FileOperationMode::ResumeFile) => {
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let (size, rest) = SizePayload::decode(&rest[1..])?;
@@ -727,17 +761,7 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
 }
 
 impl Encode for RequestFileTransferResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        match self {
-            Self::DeleteFile(_) => 1,
-            Self::AddFile(_, sent, _) | Self::ReplaceFile(_, sent, _) => {
-                1 + sent.encoded_size() + 1
-            }
-            Self::ReadFile(_, sent, _, fs) => 1 + sent.encoded_size() + 1 + fs.encoded_size(),
-            Self::ReadDir(_, sent, _, ds) => 1 + sent.encoded_size() + 1 + ds.encoded_size(),
-            Self::ResumeFile(_, sent, _, pos) => 1 + sent.encoded_size() + 1 + pos.encoded_size(),
-        }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let mut len = 1;
@@ -778,9 +802,14 @@ impl Encode for RequestFileTransferResponse<'_> {
 }
 
 impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let mode = FileOperationMode::try_from(buf[0])?;
         let rest = &buf[1..];
@@ -789,7 +818,10 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
             FileOperationMode::AddFile | FileOperationMode::ReplaceFile => {
                 let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let rest = &rest[1..];
@@ -803,7 +835,10 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
             FileOperationMode::ReadFile => {
                 let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let (fs, rest) = FileSizePayload::decode(&rest[1..])?;
@@ -812,7 +847,10 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
             FileOperationMode::ReadDir => {
                 let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let (ds, rest) = DirSizePayload::decode(&rest[1..])?;
@@ -821,7 +859,10 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
             FileOperationMode::ResumeFile => {
                 let (sent, rest) = SentDataPayload::decode(rest)?;
                 if rest.is_empty() {
-                    return Err(Error::InsufficientData(1));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 1,
+                        available: rest.len(),
+                    }));
                 }
                 let dfi = DataFormatIdentifier::from(rest[0]);
                 let (pos, rest) = PositionPayload::decode(&rest[1..])?;
@@ -869,7 +910,7 @@ mod request_tests {
         let n = name_payload(FileOperationMode::AddFile, path);
         let mut buf = [0u8; 64];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, n.encoded_size());
+        assert_eq!(written, n.encoded_size().unwrap());
         let (decoded, rest) = NamePayload::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, n);
@@ -881,11 +922,22 @@ mod request_tests {
         let s = SizePayload::new(u128::from(u64::MAX) + 1000, 0x12_3456);
         let mut buf = [0u8; 32];
         let written = Encode::encode(&s, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, s.encoded_size());
+        assert_eq!(written, s.encoded_size().unwrap());
         let (decoded, rest) = SizePayload::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, s);
         assert_encode_size_agrees(&s);
+    }
+
+    #[test]
+    fn size_payload_decode_rejects_overwide_width() {
+        // A wire-declared parameter length n > 16 is a data error, surfaced as
+        // Error::InvalidWidth (NRC 0x13) in every build profile — never a panic
+        // (regression guard for automotive-wire-codec SE-1). The buffer is long
+        // enough (1 + 2*17) that width, not truncation, is the only fault.
+        let wire = [17u8; 1 + 2 * 17];
+        let err = SizePayload::decode(&wire).unwrap_err();
+        assert!(matches!(err, Error::InvalidWidth(w) if w.got == 17 && w.max == 16));
     }
 
     #[test]
@@ -918,7 +970,7 @@ mod request_tests {
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
@@ -934,7 +986,7 @@ mod request_tests {
         ));
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
@@ -950,7 +1002,7 @@ mod request_tests {
         );
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
         assert_eq!(decoded, req);
@@ -1004,7 +1056,7 @@ mod response_tests {
         );
         let mut buf = [0u8; 32];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
         let (decoded, remaining) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert!(remaining.is_empty());
         assert_eq!(decoded, resp);

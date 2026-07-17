@@ -1,6 +1,6 @@
 //! `SecurityAccess` (0x27) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// A `SecurityAccess` level byte, guaranteed to fit the 7-bit sub-function field
 /// (`0x00..=0x7F`).
@@ -278,9 +278,7 @@ impl<'d> SecurityAccessRequest<'d> {
 }
 
 impl Encode for SecurityAccessRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.request_data.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
@@ -289,14 +287,19 @@ impl Encode for SecurityAccessRequest<'_> {
             .write_all(&[u8::from(sub_function)])
             .map_err(Error::io)?;
         writer.write_all(self.request_data).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.request_data.len())
     }
 }
 
 impl<'a> Decode<'a> for SecurityAccessRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub_function = SuppressablePositiveResponse::<SecurityAccessType>::try_from(buf[0])?;
         Ok((
@@ -335,23 +338,26 @@ impl<'d> SecurityAccessResponse<'d> {
 }
 
 impl Encode for SecurityAccessResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.security_seed.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
             .write_all(&[u8::from(self.access_type)])
             .map_err(Error::io)?;
         writer.write_all(self.security_seed).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.security_seed.len())
     }
 }
 
 impl<'a> Decode<'a> for SecurityAccessResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let access_type = SecurityAccessType::try_from(buf[0])?;
         Ok((
@@ -401,7 +407,7 @@ mod request {
         let mut buf = Vec::new();
         let written = Encode::encode(&req, &mut buf).unwrap();
         assert_eq!(written, bytes.len());
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 }
@@ -431,7 +437,7 @@ mod response {
         let mut buf = Vec::new();
         let written = Encode::encode(&resp, &mut buf).unwrap();
         assert_eq!(written, bytes.len());
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
     }
 }

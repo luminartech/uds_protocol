@@ -1,6 +1,6 @@
 //! `ECUReset` (0x11) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// UDS defines a number of different types of resets that can be requested
 /// The reset type is used to specify the type of reset that the ECU should perform
@@ -211,9 +211,7 @@ impl EcuResetRequest {
 }
 
 impl Encode for EcuResetRequest {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         // Fuse the SPRMIB bit into the sub-function byte only at the wire boundary.
@@ -227,9 +225,14 @@ impl Encode for EcuResetRequest {
 }
 
 impl<'a> Decode<'a> for EcuResetRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub_function = SuppressablePositiveResponse::<ResetType>::try_from(buf[0])?;
         Ok((
@@ -266,9 +269,7 @@ impl EcuResetResponse {
 }
 
 impl Encode for EcuResetResponse {
-    fn encoded_size(&self) -> usize {
-        2
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -279,9 +280,14 @@ impl Encode for EcuResetResponse {
 }
 
 impl<'a> Decode<'a> for EcuResetResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let reset_type = ResetType::try_from(buf[0])?;
         // powerDownTime is conditional per ISO 14229-1
@@ -315,7 +321,7 @@ mod request {
         assert_eq!(result, req);
 
         assert_eq!(written, 1);
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 }
@@ -338,7 +344,7 @@ mod response {
         assert_eq!(result, resp);
 
         assert_eq!(written, 2);
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
     }
 }

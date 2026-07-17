@@ -1,6 +1,6 @@
 //! `TransferData` (0x36) service implementation
 
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 const TRANSFER_DATA_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -61,23 +61,26 @@ impl<'d> TransferDataRequest<'d> {
 }
 
 impl Encode for TransferDataRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.data.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
             .write_all(&[self.block_sequence_counter])
             .map_err(Error::io)?;
         writer.write_all(self.data).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.data.len())
     }
 }
 
 impl<'a> Decode<'a> for TransferDataRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {
@@ -114,23 +117,26 @@ impl<'d> TransferDataResponse<'d> {
 }
 
 impl Encode for TransferDataResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.data.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
             .write_all(&[self.block_sequence_counter])
             .map_err(Error::io)?;
         writer.write_all(self.data).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + self.data.len())
     }
 }
 
 impl<'a> Decode<'a> for TransferDataResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {
@@ -185,7 +191,7 @@ mod request {
         let mut written_bytes = Vec::new();
         let written = Encode::encode(&req, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 }
@@ -206,7 +212,7 @@ mod response {
         let mut written_bytes = Vec::new();
         let written = Encode::encode(&resp, &mut written_bytes).unwrap();
         assert_eq!(written, written_bytes.len());
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
     }
 }

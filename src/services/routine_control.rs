@@ -3,7 +3,7 @@
 //! It can also be used to check the ECU's health, erase memory, or other custom manufacturer/supplier routines.
 //! However, some routines may have side effects or require certain preconditions to be met.
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// What type of routine control to perform for a [`RoutineControlRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -104,9 +104,7 @@ impl<'d> RoutineControlRequest<'d> {
 }
 
 impl Encode for RoutineControlRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + 2 + self.option_record.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
@@ -118,14 +116,19 @@ impl Encode for RoutineControlRequest<'_> {
             .write_all(&self.routine_id.to_be_bytes())
             .map_err(Error::io)?;
         writer.write_all(self.option_record).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + 2 + self.option_record.len())
     }
 }
 
 impl<'a> Decode<'a> for RoutineControlRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
-            return Err(Error::InsufficientData(3));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 3,
+                available: buf.len(),
+            }));
         }
         let sub_function =
             SuppressablePositiveResponse::<RoutineControlSubFunction>::try_from(buf[0])?;
@@ -177,9 +180,7 @@ impl<'d> RoutineControlResponse<'d> {
 }
 
 impl Encode for RoutineControlResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + 2 + self.status_record.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -189,14 +190,19 @@ impl Encode for RoutineControlResponse<'_> {
             .write_all(&self.routine_id.to_be_bytes())
             .map_err(Error::io)?;
         writer.write_all(self.status_record).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(1 + 2 + self.status_record.len())
     }
 }
 
 impl<'a> Decode<'a> for RoutineControlResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 3 {
-            return Err(Error::InsufficientData(3));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 3,
+                available: buf.len(),
+            }));
         }
         // Plain try_from (no SPRMIB mask): a set 0x80 bit on a response is malformed.
         let sub_function = RoutineControlSubFunction::try_from(buf[0])?;

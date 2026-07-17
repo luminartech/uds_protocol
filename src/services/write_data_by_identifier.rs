@@ -1,5 +1,5 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -43,23 +43,26 @@ impl<'d> WriteDataByIdentifierRequest<'d> {
 }
 
 impl Encode for WriteDataByIdentifierRequest<'_> {
-    fn encoded_size(&self) -> usize {
-        2 + self.data.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
             .write_all(&self.identifier.to_be_bytes())
             .map_err(Error::io)?;
         writer.write_all(self.data).map_err(Error::io)?;
-        Ok(self.encoded_size())
+        Ok(2 + self.data.len())
     }
 }
 
 impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let identifier = u16::from_be_bytes([buf[0], buf[1]]);
         Ok((
@@ -93,9 +96,7 @@ impl WriteDataByIdentifierResponse {
 }
 
 impl Encode for WriteDataByIdentifierResponse {
-    fn encoded_size(&self) -> usize {
-        2
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -106,9 +107,14 @@ impl Encode for WriteDataByIdentifierResponse {
 }
 
 impl<'a> Decode<'a> for WriteDataByIdentifierResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let identifier = u16::from_be_bytes([buf[0], buf[1]]);
         Ok((Self { identifier }, &buf[2..]))
@@ -158,7 +164,9 @@ mod test {
     #[test]
     fn write_response_decode_rejects_short_buffer() {
         let err = <WriteDataByIdentifierResponse as Decode>::decode(&[0x01]);
-        assert!(matches!(err, Err(Error::InsufficientData(2))));
+        assert!(
+            matches!(err, Err(Error::InsufficientData(i)) if i.needed == 2 && i.available == 1)
+        );
     }
 
     #[test]
@@ -185,7 +193,7 @@ mod test {
     fn wdbi_request_rejects_short_buffer() {
         assert!(matches!(
             <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1]),
-            Err(Error::InsufficientData(2))
+            Err(Error::InsufficientData(i)) if i.needed == 2 && i.available == 1
         ));
     }
 }

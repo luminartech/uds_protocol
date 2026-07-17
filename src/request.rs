@@ -1,6 +1,6 @@
 //! Module for making and handling UDS Requests
 use crate::{
-    Decode, Encode, Error,
+    Decode, Encode, Error, Incomplete,
     services::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, ReadDTCInfoRequest,
@@ -62,9 +62,14 @@ pub enum Request<'a> {
 }
 
 impl<'a> Decode<'a> for Request<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let service = UdsServiceType::service_from_request_byte(buf[0]);
         let payload = &buf[1..];
@@ -125,27 +130,7 @@ impl<'a> Decode<'a> for Request<'a> {
 }
 
 impl Encode for Request<'_> {
-    fn encoded_size(&self) -> usize {
-        let payload = match self {
-            Self::ClearDiagnosticInfo(req) => req.encoded_size(),
-            Self::CommunicationControl(req) => req.encoded_size(),
-            Self::ControlDTCSettings(req) => req.encoded_size(),
-            Self::DiagnosticSessionControl(req) => req.encoded_size(),
-            Self::EcuReset(req) => req.encoded_size(),
-            Self::ReadDataByIdentifier(req) => req.encoded_size(),
-            Self::ReadDTCInfo(req) => req.encoded_size(),
-            Self::WriteDataByIdentifier(req) => req.encoded_size(),
-            Self::RequestDownload(req) => req.encoded_size(),
-            Self::RequestFileTransfer(req) => req.encoded_size(),
-            Self::RequestTransferExit(req) => req.encoded_size(),
-            Self::Other { data, .. } => data.len(),
-            Self::RoutineControl(req) => req.encoded_size(),
-            Self::SecurityAccess(req) => req.encoded_size(),
-            Self::TesterPresent(req) => req.encoded_size(),
-            Self::TransferData(req) => req.encoded_size(),
-        };
-        1 + payload
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sid = match self {
@@ -232,10 +217,7 @@ mod tests {
         frame[1] = u8::from(ResetType::HardReset);
         frame[2] = 0xAA; // trailing junk
         let result = Request::decode(&frame);
-        assert!(matches!(
-            result,
-            Err(Error::IncorrectMessageLengthOrInvalidFormat)
-        ));
+        assert!(matches!(result, Err(Error::TrailingBytes(_))));
     }
 
     #[test]

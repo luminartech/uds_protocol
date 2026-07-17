@@ -6,13 +6,13 @@
 extern crate alloc;
 
 mod error;
+pub use automotive_wire_codec::{Incomplete, InvalidWidth, TrailingBytes};
 pub use error::Error;
 
 #[cfg(test)]
 mod test_util;
 
-mod traits;
-pub use traits::{Decode, DecodeIter, Encode};
+pub use automotive_wire_codec::{Decode, DecodeIter, Encode};
 
 mod dtc;
 pub use dtc::{
@@ -21,10 +21,7 @@ pub use dtc::{
 };
 
 mod shared;
-pub use shared::{
-    DataFormatIdentifier, NegativeResponseCode, UDSIdentifier, UDSRoutineIdentifier,
-    param_length_u16, param_length_u32, param_length_u64, param_length_u128,
-};
+pub use shared::{DataFormatIdentifier, NegativeResponseCode, UDSIdentifier, UDSRoutineIdentifier};
 
 mod request;
 pub use request::Request;
@@ -76,7 +73,7 @@ mod no_std_api_tests {
         let data = [0x01, 0x02, 0x03, 0x04];
         let req = TransferDataRequest::new(0x05, &data);
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written = req.encode_to_slice(&mut buf).unwrap();
         assert_eq!(written, 5);
 
         let (decoded, _) = <TransferDataRequest as Decode>::decode(&buf[..written]).unwrap();
@@ -129,9 +126,9 @@ mod no_std_api_tests {
         let wire = [0x11, 0x01];
         let (req, _) = Request::decode(&wire).unwrap();
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written = req.encode_to_slice(&mut buf).unwrap();
         assert_eq!(&buf[..written], &wire);
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
     }
 
     #[test]
@@ -140,9 +137,9 @@ mod no_std_api_tests {
         let wire = [0x7F, 0x10, 0x12];
         let (resp, _) = Response::decode(&wire).unwrap();
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written = resp.encode_to_slice(&mut buf).unwrap();
         assert_eq!(&buf[..written], &wire);
-        assert_eq!(written, resp.encoded_size());
+        assert_eq!(written, resp.encoded_size().unwrap());
     }
 
     #[test]
@@ -152,7 +149,7 @@ mod no_std_api_tests {
         let (req, _) = Request::decode(&wire).unwrap();
         assert_eq!(req.service(), UdsServiceType::RequestFileTransfer);
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written = req.encode_to_slice(&mut buf).unwrap();
         assert_eq!(&buf[..written], &wire);
     }
 
@@ -162,7 +159,7 @@ mod no_std_api_tests {
         let wire = [0x59, 0x02, 0xFF, 0x01, 0x02, 0x03, 0x0A];
         let (resp, _) = Response::decode(&wire).unwrap();
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written = resp.encode_to_slice(&mut buf).unwrap();
         assert_eq!(&buf[..written], &wire);
     }
 
@@ -173,10 +170,10 @@ mod no_std_api_tests {
             DTCStatusMask::from(0xFF),
         ));
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written = req.encode_to_slice(&mut buf).unwrap();
         // sub=0x02 ReportDTC_ByStatusMask, mask=0xFF
         assert_eq!(&buf[..written], &[0x02, 0xFF]);
-        assert_eq!(written, req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
     }
 
     #[test]
@@ -184,7 +181,7 @@ mod no_std_api_tests {
         // Reachability check: the WDBI response codec works through the crate-root public API.
         let resp = WriteDataByIdentifierResponse::new(0xBEEF);
         let mut buf = [0u8; 4];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written = resp.encode_to_slice(&mut buf).unwrap();
         let (decoded, remainder) =
             <WriteDataByIdentifierResponse as Decode>::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
@@ -199,8 +196,8 @@ mod no_std_api_tests {
         let dfi = DataFormatIdentifier::new(0x00, 0x00).unwrap();
         let req = RequestDownloadRequest::new(dfi, 0x1234, 0x10).unwrap();
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-        assert_eq!(written, req.encoded_size());
+        let written = req.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(written, req.encoded_size().unwrap());
     }
 
     #[test]

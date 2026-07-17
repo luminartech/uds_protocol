@@ -1,5 +1,5 @@
 //! `NegativeResponse` (0x7F) service implementation
-use crate::{Decode, Encode, Error, NegativeResponseCode, UdsServiceType};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode, UdsServiceType};
 
 /// A negative response from the server indicating a request could not be fulfilled.
 ///
@@ -53,9 +53,7 @@ impl NegativeResponse {
 }
 
 impl Encode for NegativeResponse {
-    fn encoded_size(&self) -> usize {
-        2
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -66,9 +64,14 @@ impl Encode for NegativeResponse {
 }
 
 impl<'a> Decode<'a> for NegativeResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {

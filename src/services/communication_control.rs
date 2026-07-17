@@ -1,6 +1,6 @@
 //! `CommunicationControl` (0x28) service implementation
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 
 /// `CommunicationControlType` is used to specify the type of communication behavior to be modified
 ///
@@ -366,9 +366,7 @@ impl CommunicationControlRequest {
     }
 }
 impl Encode for CommunicationControlRequest {
-    fn encoded_size(&self) -> usize {
-        if self.node_id.is_some() { 4 } else { 2 }
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -387,9 +385,14 @@ impl Encode for CommunicationControlRequest {
 }
 
 impl<'a> Decode<'a> for CommunicationControlRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let communication_enable = SuppressablePositiveResponse::try_from(buf[0])?;
         let communication_type = CommunicationType::try_from(buf[1])?;
@@ -397,7 +400,10 @@ impl<'a> Decode<'a> for CommunicationControlRequest {
             CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo
             | CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => {
                 if buf.len() < 4 {
-                    return Err(Error::InsufficientData(4));
+                    return Err(Error::InsufficientData(Incomplete {
+                        needed: 4,
+                        available: buf.len(),
+                    }));
                 }
                 let node_id = Some(u16::from_be_bytes([buf[2], buf[3]]));
                 Ok((
@@ -440,9 +446,7 @@ impl CommunicationControlResponse {
 }
 
 impl Encode for CommunicationControlResponse {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         writer
@@ -453,9 +457,14 @@ impl Encode for CommunicationControlResponse {
 }
 
 impl<'a> Decode<'a> for CommunicationControlResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let control_type = CommunicationControlType::try_from(buf[0])?;
         Ok((Self::new(control_type), &buf[1..]))
@@ -486,8 +495,8 @@ mod request {
 
         let mut buffer = Vec::new();
         let written = Encode::encode(&req, &mut buffer).unwrap();
-        assert_eq!(written, req.encoded_size());
-        assert_eq!(buffer.len(), req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
+        assert_eq!(buffer.len(), req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 
@@ -508,8 +517,8 @@ mod request {
 
         let mut buffer = Vec::new();
         let written = Encode::encode(&req, &mut buffer).unwrap();
-        assert_eq!(written, req.encoded_size());
-        assert_eq!(buffer.len(), req.encoded_size());
+        assert_eq!(written, req.encoded_size().unwrap());
+        assert_eq!(buffer.len(), req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 
