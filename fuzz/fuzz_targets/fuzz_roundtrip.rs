@@ -15,7 +15,7 @@ fuzz_target!(|data: &[u8]| {
     };
 
     // Encode the decoded request into its canonical wire form.
-    let mut first = vec![0u8; request.encoded_size()];
+    let mut first = vec![0u8; request.encoded_size().expect("size a freshly decoded request")];
     if Encode::encode(&request, &mut first.as_mut_slice()).is_err() {
         return;
     }
@@ -27,7 +27,7 @@ fuzz_target!(|data: &[u8]| {
 
     // Encoding must be idempotent: re-encoding the reparsed message produces
     // the same bytes.
-    let mut second = vec![0u8; reparsed.encoded_size()];
+    let mut second = vec![0u8; reparsed.encoded_size().expect("size a re-decoded request")];
     Encode::encode(&reparsed, &mut second.as_mut_slice())
         .expect("failed to re-encode a decoded message");
 
