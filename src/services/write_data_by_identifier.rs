@@ -164,7 +164,9 @@ mod test {
     #[test]
     fn write_response_decode_rejects_short_buffer() {
         let err = <WriteDataByIdentifierResponse as Decode>::decode(&[0x01]);
-        assert!(matches!(err, Err(Error::InsufficientData(i)) if i.needed == 2 && i.available == 1));
+        assert!(
+            matches!(err, Err(Error::InsufficientData(i)) if i.needed == 2 && i.available == 1)
+        );
     }
 
     #[test]

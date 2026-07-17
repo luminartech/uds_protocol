@@ -16,22 +16,22 @@ that produced the cited code (`git log --oneline`). Installed codec source is
 
 **Summary of findings**
 
-| ID | Severity | One-line |
-|---|---|---|
-| SE-1 | blocker | `read_be_uint`/`write_be_uint` panic on wire-controlled widths (release-build DoS on the write half) |
-| SE-2 | gap | `DecodeIterator` exposes no `len()`/`ExactSizeIterator` — cannot subsume the hand-rolled DTC iterators |
-| SE-3 | gap | No `param_length`/`minimal_be_len` helper — the encode-side twin of `read_be_uint` is missing |
-| SE-4 | gap | `read_be_uint` returns `u128`, forcing truncating `as` casts at every narrower call site |
-| SE-5 | wart | No `encode_to_slice` convenience — every fixed-buffer call site writes the `&mut &mut [u8]` coercion by hand |
-| SE-6 | wart | No migration guidance for associated-`Error` adoption (dual-trait coexistence, `From`-fragment pattern) |
-| SE-7 | gap | No bounds-check-then-`Incomplete` helper — the "check length, else return `Incomplete`" idiom is hand-written ~63× in uds today |
+| ID   | Severity | One-line                                                                                                                        |
+| ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| SE-1 | blocker  | `read_be_uint`/`write_be_uint` panic on wire-controlled widths (release-build DoS on the write half)                            |
+| SE-2 | gap      | `DecodeIterator` exposes no `len()`/`ExactSizeIterator` — cannot subsume the hand-rolled DTC iterators                          |
+| SE-3 | gap      | No `param_length`/`minimal_be_len` helper — the encode-side twin of `read_be_uint` is missing                                   |
+| SE-4 | gap      | `read_be_uint` returns `u128`, forcing truncating `as` casts at every narrower call site                                        |
+| SE-5 | wart     | No `encode_to_slice` convenience — every fixed-buffer call site writes the `&mut &mut [u8]` coercion by hand                    |
+| SE-6 | wart     | No migration guidance for associated-`Error` adoption (dual-trait coexistence, `From`-fragment pattern)                         |
+| SE-7 | gap      | No bounds-check-then-`Incomplete` helper — the "check length, else return `Incomplete`" idiom is hand-written ~63× in uds today |
 
 Plus a **Migration notes** section (a constraint the migration must design
 around, not a codec defect) and a **Refuted / not an issue** section (things the
 spikes checked and found sound, recorded so the codec discussion need not
 re-litigate them).
 
----
+______________________________________________________________________
 
 ## SE-1: `read_be_uint`/`write_be_uint` panic on wire-controlled widths (blocker)
 
@@ -49,13 +49,16 @@ a consumer that forgets an upstream guard has no way to fail safe.
 **Observed behavior** (spike panic probes, exact):
 
 *Debug builds* — both halves panic at the `debug_assert`:
+
 - `read_be_uint(&buf, 255)` panics at `read.rs:79:5`: `read_be_uint: n must be <= 16`
 - `write_be_uint(&mut w, v, 255)` panics at `write.rs:56:5`: `write_be_uint: n must be <= 16`
 
 *Release builds* — the `debug_assert` compiles away, and the two halves diverge:
+
 - `read_be_uint(&buf, 255)` **silently succeeds**: it consumes 255 bytes and
   returns a plausible-but-wrong value (for all-zero input: value `0`, `rest.len()`
   shrunk by 255). No error, no flag. Silent data corruption.
+
 - `write_be_uint(&mut w, v, 255)` **panics anyway**, via slice-range underflow.
   The impl computes `value.to_be_bytes()[16 - n..]`; with `n = 255usize`,
   `16usize - 255usize` wraps, and slice indexing panics with the verbatim
@@ -113,7 +116,7 @@ the codec picks, document it — because whether the UDS-side `n == 0` rejection
 a correctness *improvement* or an unintended behavior change depends entirely on
 that codec-level definition.
 
----
+______________________________________________________________________
 
 ## SE-2: `DecodeIterator` exposes no length / `ExactSizeIterator` (gap)
 
@@ -128,8 +131,7 @@ correctly but exposes no length at all — no `len()`, no `ExactSizeIterator`,
 even though the element wire size is a compile-time constant for a
 fixed-width record.
 
-**Evidence.** `spike/wire-codec`, `src/spike_codec.rs` `impl awc::DecodeIter for
-DTCRecord` + `dtc_record_tests` (commit `493a36e`). `DTCRecord` is a 3-byte
+**Evidence.** `spike/wire-codec`, `src/spike_codec.rs` `impl awc::DecodeIter for DTCRecord` + `dtc_record_tests` (commit `493a36e`). `DTCRecord` is a 3-byte
 fixed record. Test `adapter_has_no_len_unlike_hand_rolled_iterators` documents
 the gap: for a 12-byte buffer a hand-rolled 3-byte-record iterator reports
 `12 / 3 = 4` up front, while the adapter can only be driven to exhaustion to
@@ -186,7 +188,7 @@ the `None` default and lose nothing. If a true `ExactSizeIterator` impl is
 wanted, gate it behind a `SizedDecodeIter` marker subtrait rather than the base
 trait so variable-width impls stay expressible.
 
----
+______________________________________________________________________
 
 ## SE-3: no `param_length` / `minimal_be_len` helper — the encode-side twin is missing (gap)
 
@@ -199,8 +201,7 @@ but not this. uds carries four typed copies (`param_length_u16/u32/u64/u128`,
 `src/shared/util.rs`) that are pure bit-math with no UDS semantics, and any
 protocol emitting minimal-width length/size/address fields must re-derive it.
 
-**Evidence.** `spike/wire-codec`, `src/spike_codec.rs` `impl awc::Encode for
-SizePayload::encoded_size` (commit `0cd26fe`) calls
+**Evidence.** `spike/wire-codec`, `src/spike_codec.rs` `impl awc::Encode for SizePayload::encoded_size` (commit `0cd26fe`) calls
 `crate::param_length_u128(core::cmp::max(a, b)).max(1)` to compute the wire
 width — the codec offered nothing, so the spike reached back into uds's own
 helper. Definitions: `src/shared/util.rs:53-78`.
@@ -221,7 +222,7 @@ widening, which is lossless). Consumers re-export it or delete their local
 copies. Name is open (`param_length` / `minimal_be_len` / `be_byte_width`); the
 signature is the point.
 
----
+______________________________________________________________________
 
 ## SE-4: `read_be_uint` returns `u128`, forcing truncating casts at narrower call sites (gap)
 
@@ -235,8 +236,7 @@ the caller must add an `as` cast and silence
 that invariant is ever loosened the redundant cast becomes a silent truncation
 bug with no compiler help.
 
-**Evidence.** `spike/wire-codec`, `src/spike_codec.rs` `impl awc::Decode for
-RequestDownloadRequest` (commit `493be58`). Its fields are `u64`
+**Evidence.** `spike/wire-codec`, `src/spike_codec.rs` `impl awc::Decode for RequestDownloadRequest` (commit `493be58`). Its fields are `u64`
 (`memory_address`) and `u32` (`memory_size`), so the impl needs
 `memory_address as u64` and `memory_size as u32`, both under a function-level
 `#[allow(clippy::cast_possible_truncation)]`. Contrast: the SizePayload spike
@@ -273,7 +273,7 @@ pre-existing uds doc/code discrepancy; out of scope to fix here, but it is
 exactly the kind of loosened-bound that would turn the SE-4 cast into a live
 truncation bug.
 
----
+______________________________________________________________________
 
 ## SE-5: no `encode_to_slice` convenience for fixed buffers (wart)
 
@@ -282,13 +282,11 @@ boilerplate appears in every encode test).
 
 **Context.** `Encode::encode` takes an `embedded_io::Write`. A `&mut [u8]`
 implements `Write`, but to hand a stack buffer to a `&mut impl Write` parameter
-the caller must first bind a re-borrowable slice cursor — `let mut w: &mut [u8]
-= &mut buf;` — and pass `&mut w` (a `&mut &mut [u8]`). This coercion dance recurs
+the caller must first bind a re-borrowable slice cursor — `let mut w: &mut [u8] = &mut buf;` — and pass `&mut w` (a `&mut &mut [u8]`). This coercion dance recurs
 at every fixed-buffer encode call site, which for embedded/no-alloc UDS is *every*
 encode call site.
 
-**Evidence.** `spike/wire-codec`, `src/spike_codec.rs`. The `let mut w: &mut [u8]
-= &mut buf;` + `encode(&x, &mut w)` pattern appears verbatim in every encode
+**Evidence.** `spike/wire-codec`, `src/spike_codec.rs`. The `let mut w: &mut [u8] = &mut buf;` + `encode(&x, &mut w)` pattern appears verbatim in every encode
 test: EcuReset request/response (`6520fd8`), SizePayload (`0cd26fe`), and the
 RequestDownload/DTC tests. No spike found a cleaner spelling; the boilerplate is
 uniform and unavoidable with the current surface.
@@ -312,7 +310,7 @@ pub trait Encode {
 
 Call sites collapse to `let n = x.encode_to_slice(&mut buf)?;`.
 
----
+______________________________________________________________________
 
 ## SE-6: no migration guidance for associated-`Error` adoption (wart)
 
@@ -332,8 +330,7 @@ macro) are the only options.
 
 **Evidence.** `spike/wire-codec`. The Task-2 error restructure (prep commit
 `bdc61e5`) established the `From<Incomplete>`/`From<TrailingBytes>` fragments;
-every spike impl (`6520fd8`, `0cd26fe`, `493a36e`, `493be58`) sets `type Error =
-Error` and relies on those fragments lifting through `?`. The pattern worked
+every spike impl (`6520fd8`, `0cd26fe`, `493a36e`, `493be58`) sets `type Error = Error` and relies on those fragments lifting through `?`. The pattern worked
 cleanly but was re-derived by inspection, not from any codec doc.
 
 **Proposed change.** Ship a short "Adopting associated `Error`" section in the
@@ -348,7 +345,7 @@ the base of the stack and cuts against the "concrete and simple" grain; revisit
 only after doip/someip confirm the boilerplate is genuinely painful across
 consumers. The guidance is the near-term deliverable regardless.
 
----
+______________________________________________________________________
 
 ## SE-7: no bounds-check-then-`Incomplete` helper (gap)
 
@@ -362,8 +359,7 @@ times** across the crate. The codec provides `Incomplete` and the readers that
 produce it, but no helper for the extremely common "check a length up front, else
 error" shape, so each call site rebuilds it.
 
-**Evidence.** `spike/wire-codec` / prep pass. `Incomplete { needed, available:
-buf.len() }` construction counted at ~63 sites in the Task-2 error restructure
+**Evidence.** `spike/wire-codec` / prep pass. `Incomplete { needed, available: buf.len() }` construction counted at ~63 sites in the Task-2 error restructure
 (prep commit `bdc61e5`). The uniformity is the signal: a one-line helper would
 replace all of them.
 
@@ -385,7 +381,7 @@ Call sites become `ensure_len(buf, total)?;` before an aggregate read, replacing
 the hand-built struct literal at ~63 uds sites (and the equivalents in every
 other consumer).
 
----
+______________________________________________________________________
 
 ## Migration notes (not codec defects — constraints the migration designs around)
 
@@ -422,15 +418,15 @@ explicitly:
 1. Define the codec impls *inside* (or with `pub(crate)` privileged access to)
    the type's defining module, so `Self { .. }` construction preserves
    wire-declared state; or
-2. Expose a `pub(crate)` raw/unchecked constructor that preserves
+1. Expose a `pub(crate)` raw/unchecked constructor that preserves
    wire-declared-but-non-minimal state; or
-3. Accept semantic drift from recomputation (only safe for types with no
+1. Accept semantic drift from recomputation (only safe for types with no
    redundant-encoding freedom on the wire).
 
 This question must be answered per invariant-bearing type in scope for
 migration, not just `RequestDownloadRequest`.
 
----
+______________________________________________________________________
 
 ## Refuted / not an issue
 
@@ -464,8 +460,7 @@ spike and found sound.
   different questions (bytes missing from the whole record vs. from the current
   field). Callers doing partial-buffer reassembly that pattern-match on
   `Incomplete.needed` should be audited during migration. (`493be58`)
-- **Codec + stack builds cleanly on no-std / bare-metal.** `cargo check
-  --no-default-features --features spike-codec` passes on host and on both
+- **Codec + stack builds cleanly on no-std / bare-metal.** `cargo check --no-default-features --features spike-codec` passes on host and on both
   `thumbv8m.main-none-eabihf` and `thumbv6m-none-eabi`; no `std` is pulled in via
   `embedded-io` or `automotive-wire-codec`, and no feature-unification surprises.
   The std-elimination path is sound. (`7831141`)
