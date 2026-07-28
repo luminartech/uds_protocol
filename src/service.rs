@@ -141,9 +141,11 @@ pub enum UdsServiceType {
 }
 
 impl UdsServiceType {
-    /// Map a request-message service byte to the corresponding [`UdsServiceType`].
+    /// Map a request-message service identifier (SID) byte to its [`UdsServiceType`].
+    ///
+    /// Unrecognised bytes map to [`UdsServiceType::UnsupportedDiagnosticService`].
     #[must_use]
-    pub fn service_from_request_byte(value: u8) -> Self {
+    pub fn from_request_sid(value: u8) -> Self {
         match value {
             0x10 => Self::DiagnosticSessionControl,
             0x11 => Self::EcuReset,
@@ -176,9 +178,16 @@ impl UdsServiceType {
         }
     }
 
-    /// Return the request-message service byte for this service type.
+    /// Return the request-message service identifier (SID) byte for this service type.
+    ///
+    /// # Caveat
+    ///
+    /// [`UdsServiceType::NegativeResponse`] and
+    /// [`UdsServiceType::UnsupportedDiagnosticService`] have no request SID and both return
+    /// `0x7F`, which is not a valid request SID. To re-encode an unmodeled request without
+    /// loss, use [`Request::Other`](crate::Request::Other), which echoes the raw byte.
     #[must_use]
-    pub fn request_service_to_byte(self) -> u8 {
+    pub fn to_request_sid(self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x10,
             Self::EcuReset => 0x11,
@@ -210,9 +219,11 @@ impl UdsServiceType {
             _ => 0x7F,
         }
     }
-    /// Map a positive-response service byte to the corresponding [`UdsServiceType`].
+    /// Map a positive-response service identifier (SID) byte to its [`UdsServiceType`].
+    ///
+    /// Unrecognised bytes map to [`UdsServiceType::UnsupportedDiagnosticService`].
     #[must_use]
-    pub fn response_from_byte(value: u8) -> Self {
+    pub fn from_response_sid(value: u8) -> Self {
         match value {
             0x50 => Self::DiagnosticSessionControl,
             0x51 => Self::EcuReset,
@@ -246,9 +257,12 @@ impl UdsServiceType {
         }
     }
 
-    /// Return the positive-response service byte for this service type.
+    /// Return the positive-response service identifier (SID) byte for this service type.
+    ///
+    /// [`UdsServiceType::UnsupportedDiagnosticService`] has no response SID and returns
+    /// `0x7F`; see [`Response::Other`](crate::Response::Other) for lossless pass-through.
     #[must_use]
-    pub fn response_to_byte(self) -> u8 {
+    pub fn to_response_sid(self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x50,
             Self::EcuReset => 0x51,

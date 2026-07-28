@@ -72,7 +72,7 @@ impl<'a> Decode<'a> for Request<'a> {
                 available: buf.len(),
             }));
         }
-        let service = UdsServiceType::service_from_request_byte(buf[0]);
+        let service = UdsServiceType::from_request_sid(buf[0]);
         let payload = &buf[1..];
 
         let request = match service {
@@ -136,7 +136,7 @@ impl Encode for Request<'_> {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sid = match self {
             Self::Other { sid, .. } => *sid,
-            other => other.service().request_service_to_byte(),
+            other => other.service().to_request_sid(),
         };
         let sid_len = write_u8(writer, sid).map_err(Error::io)?;
         let payload = match self {
@@ -196,7 +196,7 @@ impl Request<'_> {
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
-            Self::Other { sid, .. } => UdsServiceType::service_from_request_byte(*sid),
+            Self::Other { sid, .. } => UdsServiceType::from_request_sid(*sid),
         }
     }
 }
@@ -211,7 +211,7 @@ mod tests {
         // ECU reset is a fixed 1-byte payload; an extra trailing byte is a
         // malformed frame and must be rejected rather than silently dropped.
         let mut frame = [0u8; 3];
-        frame[0] = UdsServiceType::EcuReset.request_service_to_byte();
+        frame[0] = UdsServiceType::EcuReset.to_request_sid();
         frame[1] = u8::from(ResetType::HardReset);
         frame[2] = 0xAA; // trailing junk
         let result = Request::decode(&frame);
