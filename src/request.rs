@@ -173,7 +173,7 @@ impl Request<'_> {
     #[must_use]
     pub fn is_positive_response_suppressed(&self) -> bool {
         match self {
-            Self::CommunicationControl(req) => req.suppress_positive_response(),
+            Self::CommunicationControl(req) => req.suppress_positive_response,
             Self::ControlDtcSetting(req) => req.suppress_positive_response,
             Self::DiagnosticSessionControl(req) => req.suppress_positive_response,
             Self::EcuReset(req) => req.suppress_positive_response,
