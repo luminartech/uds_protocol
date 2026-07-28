@@ -11,6 +11,48 @@ pre-1.0 crates).
 
 These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
+### Added
+
+- `RequestUpload` (0x35 / 0x75) is now modeled, via `RequestUploadRequest` and
+  `RequestUploadResponse` plus `Request::RequestUpload` / `Response::RequestUpload`. It was the
+  conspicuous gap in the transfer story: `RequestDownload`, `TransferData` and
+  `RequestTransferExit` were all modeled, so the download flow was complete while the
+  structurally identical upload flow decoded only to `Request::Other`. ISO 14229-1 gives the
+  two services the same message layout, so both pairs are now generated from one macro in
+  `services/upload_download.rs` — a fix to the address/size width derivation cannot land on one
+  service and miss the other. The two NRC tables are kept separate so they can diverge later.
+- `Error::negative_response_code()` maps any decode error to the `NegativeResponseCode` a server
+  should answer with, following ISO 14229-1: `0x13` for a malformed frame, `0x12` for an
+  unsupported sub-function byte, `0x31` for an out-of-range parameter, and `0x10` only for
+  `IoError`. Three `Error` variants documented their NRC in prose and eighteen said nothing, so
+  every server had to re-derive the mapping against a `#[non_exhaustive]` enum.
+- `Request::allowed_nack_codes()` dispatches to the per-service tables from a decoded
+  `Request`, alongside the existing `service()` and `is_positive_response_suppressed()`. All 15
+  request types already exposed the associated function, but reaching it from a `Request`
+  required matching every variant. Returns an empty slice for `Request::Other`, meaning "NRC set
+  unknown" rather than "no codes apply".
+- `RequestDownloadRequest::data_format_identifier()`, plus
+  `DataFormatIdentifier::compression_method()` and `DataFormatIdentifier::encryption_method()`.
+  The DFI was previously write-only: a server could decode a download request but had no way to
+  read the compression or encryption method it had been asked to use.
+- `TesterPresentRequest::sub_function()` and `TesterPresentResponse::sub_function()`.
+
+### Fixed (behaviour)
+
+- **Breaking:** `TesterPresentRequest` no longer rewrites reserved sub-function bytes.
+  `[0x3E, 0x01]` decoded and re-encoded as `[0x3E, 0x00]`: the reserved value was parsed and
+  then discarded. The normalization was deliberate, but it left the service inconsistent with
+  its own response type, which retains the same values, and with every other service
+  (`ResetType::IsoSaeReserved`, `DiagnosticSessionType::IsoSaeReserved`, ...). The value is now
+  retained in a private field — callers still cannot mint a reserved value, `new(suppress)`
+  keeps its signature and its `0x00` encoding — so a server can report
+  `subFunctionNotSupported` naming the byte it actually received.
+- `TesterPresentResponse::new()` is now `const`, the last `new()` in the crate that was not.
+- The README service table was missing rows for `DynamicallyDefinedDataIdentifier` (0x2C) and
+  `AccessTimingParameter` (0x83), both enumerated in `UdsServiceType`, and named two services
+  differently from the code (`ECUReset`, `ControlDTCSetting`). The table's 27 rows now match the
+  27 request SIDs in `UdsServiceType` exactly.
+
 ### Changed (API consistency pass)
 
 - **Breaking:** Acronyms in type and variant names now follow the Rust API guideline

@@ -32,8 +32,10 @@ pub use read_dtc_information::{
     DtcSeverityAndStatusIter, ReadDtcInfoRequest, ReadDtcInfoResponse, ReadDtcInfoSubFunction,
 };
 
-mod request_download;
-pub use request_download::{RequestDownloadRequest, RequestDownloadResponse};
+mod upload_download;
+pub use upload_download::{
+    RequestDownloadRequest, RequestDownloadResponse, RequestUploadRequest, RequestUploadResponse,
+};
 
 mod request_file_transfer;
 pub use request_file_transfer::{

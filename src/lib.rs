@@ -43,10 +43,11 @@ pub use services::{
     NegativeResponse, PositionPayload, ReadDataByIdentifierRequest, ReadDataByIdentifierResponse,
     ReadDtcInfoRequest, ReadDtcInfoResponse, ReadDtcInfoSubFunction, RequestDownloadRequest,
     RequestDownloadResponse, RequestFileTransferRequest, RequestFileTransferResponse,
-    RequestTransferExitRequest, RequestTransferExitResponse, ResetType, RoutineControlRequest,
-    RoutineControlResponse, RoutineControlSubFunction, SecurityAccessLevel, SecurityAccessRequest,
-    SecurityAccessResponse, SecurityAccessType, SentDataPayload, SizePayload, TesterPresentRequest,
-    TesterPresentResponse, TransferDataRequest, TransferDataResponse, WriteDataByIdentifierRequest,
+    RequestTransferExitRequest, RequestTransferExitResponse, RequestUploadRequest,
+    RequestUploadResponse, ResetType, RoutineControlRequest, RoutineControlResponse,
+    RoutineControlSubFunction, SecurityAccessLevel, SecurityAccessRequest, SecurityAccessResponse,
+    SecurityAccessType, SentDataPayload, SizePayload, TesterPresentRequest, TesterPresentResponse,
+    TransferDataRequest, TransferDataResponse, WriteDataByIdentifierRequest,
     WriteDataByIdentifierResponse,
 };
 
@@ -163,6 +164,56 @@ mod no_std_api_tests {
         let mut buf = [0u8; 16];
         let written = req.encode_to_slice(&mut buf).unwrap();
         assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
+    fn request_upload_frames_roundtrip() {
+        // RequestUpload request: SID=0x35, DFI=0x00, ALFID=0x12 (size 1 byte, addr 2 bytes),
+        // addr=0xBEEF, size=0x10
+        let wire = [0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10];
+        let (req, _) = Request::decode(&wire).unwrap();
+        assert_eq!(req.service(), UdsServiceType::RequestUpload);
+        assert!(matches!(req, Request::RequestUpload(_)));
+        let mut buf = [0u8; 16];
+        let written = req.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..written], &wire);
+        assert_eq!(written, req.encoded_size().unwrap());
+
+        // Positive response: SID=0x75, LFID=0x20 (2-byte block length), 0x0800
+        let wire = [0x75, 0x20, 0x08, 0x00];
+        let (resp, _) = Response::decode(&wire).unwrap();
+        assert_eq!(resp.service(), UdsServiceType::RequestUpload);
+        match resp {
+            Response::RequestUpload(ref up) => {
+                assert_eq!(up.max_number_of_block_length, &[0x08, 0x00]);
+            }
+            other => panic!("expected RequestUpload, got {other:?}"),
+        }
+        let written = resp.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
+    fn request_upload_is_distinct_from_request_download() {
+        // Same payload, different SID: the two must not collapse into one variant.
+        let payload = [0x00, 0x12, 0xBE, 0xEF, 0x10];
+        let mut down = [0x34u8; 6];
+        down[1..].copy_from_slice(&payload);
+        let mut up = [0x35u8; 6];
+        up[1..].copy_from_slice(&payload);
+
+        let (d, _) = Request::decode(&down).unwrap();
+        let (u, _) = Request::decode(&up).unwrap();
+        assert!(matches!(d, Request::RequestDownload(_)));
+        assert!(matches!(u, Request::RequestUpload(_)));
+        assert_eq!(d.service(), UdsServiceType::RequestDownload);
+        assert_eq!(u.service(), UdsServiceType::RequestUpload);
+
+        let mut buf = [0u8; 8];
+        let n = d.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..n], &down);
+        let n = u.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..n], &up);
     }
 
     #[test]

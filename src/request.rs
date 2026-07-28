@@ -5,8 +5,9 @@ use crate::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDtcSettingRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, ReadDataByIdentifierRequest,
         ReadDtcInfoRequest, RequestDownloadRequest, RequestFileTransferRequest,
-        RequestTransferExitRequest, RoutineControlRequest, SecurityAccessRequest,
-        TesterPresentRequest, TransferDataRequest, WriteDataByIdentifierRequest,
+        RequestTransferExitRequest, RequestUploadRequest, RoutineControlRequest,
+        SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
+        WriteDataByIdentifierRequest,
     },
 };
 use automotive_wire_codec::{write_all, write_u8};
@@ -40,6 +41,8 @@ pub enum Request<'a> {
     RequestFileTransfer(RequestFileTransferRequest<'a>),
     /// Request transfer exit.
     RequestTransferExit(RequestTransferExitRequest<'a>),
+    /// Request upload.
+    RequestUpload(RequestUploadRequest),
     /// Routine control request.
     RoutineControl(RoutineControlRequest<'a>),
     /// Security access request.
@@ -106,6 +109,9 @@ impl<'a> Decode<'a> for Request<'a> {
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit(
                 <RequestTransferExitRequest as Decode>::decode_exact(payload)?,
             ),
+            UdsServiceType::RequestUpload => {
+                Self::RequestUpload(<RequestUploadRequest as Decode>::decode_exact(payload)?)
+            }
             UdsServiceType::RoutineControl => {
                 Self::RoutineControl(<RoutineControlRequest as Decode>::decode_exact(payload)?)
             }
@@ -151,6 +157,7 @@ impl Encode for Request<'_> {
             Self::RequestDownload(req) => req.encode(writer)?,
             Self::RequestFileTransfer(req) => req.encode(writer)?,
             Self::RequestTransferExit(req) => req.encode(writer)?,
+            Self::RequestUpload(req) => req.encode(writer)?,
             Self::Other { data, .. } => write_all(writer, data).map_err(Error::io)?,
             Self::RoutineControl(req) => req.encode(writer)?,
             Self::SecurityAccess(req) => req.encode(writer)?,
@@ -201,6 +208,7 @@ impl Request<'_> {
             Self::RequestDownload(_) => RequestDownloadRequest::allowed_nack_codes(),
             Self::RequestFileTransfer(_) => RequestFileTransferRequest::allowed_nack_codes(),
             Self::RequestTransferExit(_) => RequestTransferExitRequest::allowed_nack_codes(),
+            Self::RequestUpload(_) => RequestUploadRequest::allowed_nack_codes(),
             Self::RoutineControl(_) => RoutineControlRequest::allowed_nack_codes(),
             Self::SecurityAccess(_) => SecurityAccessRequest::allowed_nack_codes(),
             Self::TesterPresent(_) => TesterPresentRequest::allowed_nack_codes(),
@@ -224,6 +232,7 @@ impl Request<'_> {
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
             Self::RequestTransferExit(_) => UdsServiceType::RequestTransferExit,
+            Self::RequestUpload(_) => UdsServiceType::RequestUpload,
             Self::RoutineControl(_) => UdsServiceType::RoutineControl,
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess,
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
@@ -290,7 +299,7 @@ mod tests {
         // without this dispatcher a caller holding a *decoded* `Request` had to re-match all
         // 15 variants to reach it — on a `#[non_exhaustive]` enum they cannot match
         // exhaustively. Frames are minimal-but-valid for each service.
-        let frames: [&[u8]; 15] = [
+        let frames: [&[u8]; 16] = [
             &[0x14, 0xFF, 0xFF, 0xFF, 0x00], // ClearDiagnosticInfo (groupOfDTC + memorySelection)
             &[0x28, 0x00, 0x01],             // CommunicationControl
             &[0x85, 0x01],                   // ControlDtcSetting
@@ -300,6 +309,7 @@ mod tests {
             &[0x19, 0x02, 0xFF],             // ReadDtcInfo
             &[0x34, 0x00, 0x12, 0xBE, 0xEF, 0x10], // RequestDownload
             &[0x38, 0x02, 0x00, 0x01, b'a'], // RequestFileTransfer
+            &[0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10], // RequestUpload
             &[0x37],                         // RequestTransferExit
             &[0x31, 0x01, 0xFF, 0x00],       // RoutineControl
             &[0x27, 0x01, 0xAA],             // SecurityAccess
