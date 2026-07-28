@@ -28,8 +28,8 @@ pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentif
 
 mod read_dtc_information;
 pub use read_dtc_information::{
-    DtcAndStatusIter, DtcFaultDetectionCounterRecord, DtcFaultDetectionIter,
-    DtcSeverityAndStatusIter, ReadDtcInfoRequest, ReadDtcInfoResponse, ReadDtcInfoSubFunction,
+    DtcAndStatusIter, DtcFaultDetectionCounterRecord, DtcFaultDetectionIter, ReadDtcInfoRequest,
+    ReadDtcInfoResponse, ReadDtcInfoSubFunction, WwhObdDtcSeverityIter,
 };
 
 mod upload_download;
