@@ -108,12 +108,32 @@ jobs:
         run: cargo build --release --all-features
 
   # =================================================================================================
+  # Feature combinations
+  # =================================================================================================
+  # Every job above builds only --all-features, --no-default-features, or
+  # --no-default-features --features alloc. That left the optional integrations untested in
+  # isolation, which is how `utoipa` and `clap` came to not compile without `std` at all.
+  # cargo-hack walks the full powerset so no single feature (or pair) can rot unnoticed.
+  features:
+    name: Feature powerset
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-hack
+        run: cargo install cargo-hack --locked
+      - name: Check every feature combination
+        run: cargo hack check --feature-powerset --no-dev-deps
+
+  # =================================================================================================
   # Bare-metal no_std Build
   # =================================================================================================
   no-std:
     name: Build no_std (bare-metal)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -124,6 +144,13 @@ jobs:
         run: cargo build --no-default-features --target thumbv6m-none-eabi
       - name: Build no_std + alloc
         run: cargo build --no-default-features --features alloc --target thumbv6m-none-eabi
+      # `serde` is the one optional integration that must survive on bare metal. It only does
+      # so because the dep is wired `default-features = false`; a plain `features = ["derive"]`
+      # pulls serde/std and breaks this target while still passing every host-side build.
+      - name: Build no_std + serde
+        run: cargo build --no-default-features --features serde --target thumbv6m-none-eabi
+      - name: Build no_std + alloc + serde
+        run: cargo build --no-default-features --features alloc,serde --target thumbv6m-none-eabi
 
   # =================================================================================================
   # Unit Tests
