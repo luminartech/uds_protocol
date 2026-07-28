@@ -632,24 +632,29 @@ impl Iterator for DtcFaultDetectionIter<'_> {
 
 impl core::iter::FusedIterator for DtcFaultDetectionIter<'_> {}
 
-/// Lazy iterator over `(DtcSeverityMask, DtcRecord, DtcStatusMask)` triples from raw bytes.
+/// Lazy iterator over the WWH-OBD `(DtcSeverityMask, DtcRecord, DtcStatusMask)` triples of a
+/// [`ReadDtcInfoResponse::WwhObdDtcByMaskRecord`] (sub-function `0x42`).
 ///
 /// Each triple is 5 bytes: 1 severity + 3 DTC record + 1 status mask.
 ///
+/// This applies **only** to the WWH-OBD variant. The `0x08`/`0x09`
+/// [`DtcSeverityList`](ReadDtcInfoResponse::DtcSeverityList) records are 6 bytes and carry an
+/// extra DTC functional-unit byte, so they need a different iterator (not yet wired).
+///
 /// # Length
 ///
-/// [`len`](DtcSeverityAndStatusIter::len) counts **complete records**; [`size_hint`](Iterator::size_hint) counts
+/// [`len`](WwhObdDtcSeverityIter::len) counts **complete records**; [`size_hint`](Iterator::size_hint) counts
 /// **items yielded**, which is one greater when a partial record trails the buffer (that tail
 /// surfaces as a single `Err`, after which the iterator is exhausted). The two therefore differ
 /// on malformed input, which is why this deliberately does not implement `ExactSizeIterator` —
 /// its `len()` would contradict the inherent one. It does implement
 /// [`FusedIterator`](core::iter::FusedIterator).
 #[derive(Clone, Debug)]
-pub struct DtcSeverityAndStatusIter<'a> {
+pub struct WwhObdDtcSeverityIter<'a> {
     remaining: &'a [u8],
 }
 
-impl<'a> DtcSeverityAndStatusIter<'a> {
+impl<'a> WwhObdDtcSeverityIter<'a> {
     /// Create an iterator over severity/DTC/status triples.
     #[must_use]
     pub const fn new(data: &'a [u8]) -> Self {
@@ -680,7 +685,7 @@ impl<'a> DtcSeverityAndStatusIter<'a> {
     }
 }
 
-impl Iterator for DtcSeverityAndStatusIter<'_> {
+impl Iterator for WwhObdDtcSeverityIter<'_> {
     type Item = Result<(DtcSeverityMask, DtcRecord, DtcStatusMask), Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -705,7 +710,7 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
     }
 }
 
-impl core::iter::FusedIterator for DtcSeverityAndStatusIter<'_> {}
+impl core::iter::FusedIterator for WwhObdDtcSeverityIter<'_> {}
 
 /// Zero-copy parsed response for `ReadDTCInformation` (0x19).
 ///
@@ -765,10 +770,10 @@ pub enum ReadDtcInfoResponse<'a> {
         /// that does not support [`DtcStatusMask::WarningIndicatorRequested`] leaves that bit
         /// 'off' and sets the rest.
         status_availability_mask: DtcStatusMask,
-        /// Raw `DTCAndSeverityRecord` bytes (6 bytes each: severity + DTC functional unit +
-        /// 3-byte DTC + status). These differ from the 5-byte WWH-OBD records, so
-        /// [`DtcSeverityAndStatusIter`] does **not** apply here; no severity-list iterator is
-        /// wired yet, so parse these bytes caller-side until one is added.
+        /// Raw `DTCAndSeverityRecord` bytes: 6 each — severity + DTC functional unit +
+        /// 3-byte DTC + status. No iterator is wired for this variant yet, so parse them
+        /// caller-side. Note these are *not* the 5-byte WWH-OBD records read by
+        /// [`WwhObdDtcSeverityIter`].
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
@@ -785,7 +790,7 @@ pub enum ReadDtcInfoResponse<'a> {
         severity_availability_mask: DtcSeverityMask,
         /// DTC format identifier.
         format_identifier: DtcFormatIdentifier,
-        /// Raw record bytes (5 bytes per record) — use [`DtcSeverityAndStatusIter`].
+        /// Raw record bytes (5 bytes per record) — use [`WwhObdDtcSeverityIter`].
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
@@ -823,10 +828,10 @@ impl<'a> ReadDtcInfoResponse<'a> {
     /// records are 6 bytes because they carry a `DTCFunctionalUnit` byte this one
     /// does not.
     #[must_use]
-    pub fn severity_and_status_iter(&self) -> Option<DtcSeverityAndStatusIter<'a>> {
+    pub fn wwh_obd_dtc_severity_iter(&self) -> Option<WwhObdDtcSeverityIter<'a>> {
         match self {
             Self::WwhObdDtcByMaskRecord { raw_records, .. } => {
-                Some(DtcSeverityAndStatusIter::new(raw_records))
+                Some(WwhObdDtcSeverityIter::new(raw_records))
             }
             _ => None,
         }
@@ -1037,8 +1042,8 @@ mod iter_tests {
         assert_eq!(DtcFaultDetectionIter::new(&[0u8; 8]).len(), 2);
         assert!(DtcFaultDetectionIter::new(&[0u8; 3]).is_empty());
         // 5-byte severity/DTC/status records.
-        assert_eq!(DtcSeverityAndStatusIter::new(&[0u8; 10]).len(), 2);
-        assert!(DtcSeverityAndStatusIter::new(&[0u8; 4]).is_empty());
+        assert_eq!(WwhObdDtcSeverityIter::new(&[0u8; 10]).len(), 2);
+        assert!(WwhObdDtcSeverityIter::new(&[0u8; 4]).is_empty());
     }
 
     #[test]
@@ -1060,9 +1065,7 @@ mod iter_tests {
             .take(8)
             .collect_bounded();
         assert_eq!((five.oks, five.errs), (1, 1));
-        let six: heapless_vec::Bounded<8> = DtcSeverityAndStatusIter::new(&[0u8; 6])
-            .take(8)
-            .collect_bounded();
+        let six: heapless_vec::Bounded<8> = WwhObdDtcSeverityIter::new(&[0u8; 6]).take(8).collect_bounded();
         assert_eq!((six.oks, six.errs), (1, 1));
     }
 
