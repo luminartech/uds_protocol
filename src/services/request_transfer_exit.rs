@@ -5,10 +5,13 @@ use automotive_wire_codec::write_all;
 macro_rules! transfer_exit_descriptor {
     ($name:ident, $doc:literal) => {
         #[doc = $doc]
+        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+        #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         #[non_exhaustive]
         pub struct $name<'d> {
             /// The optional, opaque parameter record (empty slice if absent).
+            #[cfg_attr(feature = "serde", serde(borrow))]
             pub parameter_record: &'d [u8],
         }
         impl<'d> $name<'d> {
@@ -73,6 +76,19 @@ mod tests {
     fn test_allowed_nack_codes() {
         let codes = RequestTransferExitRequest::allowed_nack_codes();
         assert!(codes.contains(&NegativeResponseCode::RequestSequenceError));
+    }
+
+    #[test]
+    fn derive_contract() {
+        use crate::test_util::assert_impl_eq;
+        assert_impl_eq::<RequestTransferExitRequest<'static>>();
+        assert_impl_eq::<RequestTransferExitResponse<'static>>();
+        #[cfg(feature = "serde")]
+        {
+            use crate::test_util::assert_impl_serde;
+            assert_impl_serde::<RequestTransferExitRequest<'_>>();
+            assert_impl_serde::<RequestTransferExitResponse<'_>>();
+        }
     }
 
     #[test]

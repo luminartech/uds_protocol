@@ -22,7 +22,7 @@ authors = [
 default = ["std"]
 std = ["alloc", "embedded-io/std", "thiserror/std"]
 alloc = ["embedded-io/alloc"]
-serde = ["dep:serde", "dep:serde_bytes"]
+serde = ["dep:serde"]
 utoipa = ["dep:utoipa"]
 clap = ["dep:clap"]
 
@@ -33,7 +33,6 @@ embedded-io = { version = "0.7", default-features = false }
 thiserror = { version = "2", default-features = false }
 # Optional dependencies
 serde = { version = "1", optional = true, features = ["derive"] }
-serde_bytes = { version = "0.11", optional = true }
 utoipa = { version = "5", optional = true }
 clap = { version = "4", optional = true, features = ["derive"] }
 
