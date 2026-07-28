@@ -1,6 +1,6 @@
 //! Module for making and handling UDS Requests
 use crate::{
-    Decode, Encode, Error, Incomplete,
+    Decode, Encode, Error, Incomplete, NegativeResponseCode,
     services::{
         ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDtcSettingRequest,
         DiagnosticSessionControlRequest, EcuResetRequest, ReadDataByIdentifierRequest,
@@ -177,6 +177,39 @@ impl Request<'_> {
         }
     }
 
+    /// The [`NegativeResponseCode`]s this request's service is allowed to be answered with.
+    ///
+    /// Each request type also exposes this as an associated function (e.g.
+    /// [`EcuResetRequest::allowed_nack_codes`]); this dispatches to it for a decoded
+    /// [`Request`], so a server does not have to re-match every variant to reach it.
+    ///
+    /// Returns an empty slice for [`Request::Other`], which covers services the crate does not
+    /// model. That means "the NRC set is unknown", not "no codes apply" — consult ISO 14229-1
+    /// for those services.
+    #[must_use]
+    pub fn allowed_nack_codes(&self) -> &'static [NegativeResponseCode] {
+        match self {
+            Self::ClearDiagnosticInfo(_) => ClearDiagnosticInfoRequest::allowed_nack_codes(),
+            Self::CommunicationControl(_) => CommunicationControlRequest::allowed_nack_codes(),
+            Self::ControlDtcSetting(_) => ControlDtcSettingRequest::allowed_nack_codes(),
+            Self::DiagnosticSessionControl(_) => {
+                DiagnosticSessionControlRequest::allowed_nack_codes()
+            }
+            Self::EcuReset(_) => EcuResetRequest::allowed_nack_codes(),
+            Self::ReadDataByIdentifier(_) => ReadDataByIdentifierRequest::allowed_nack_codes(),
+            Self::ReadDtcInfo(_) => ReadDtcInfoRequest::allowed_nack_codes(),
+            Self::RequestDownload(_) => RequestDownloadRequest::allowed_nack_codes(),
+            Self::RequestFileTransfer(_) => RequestFileTransferRequest::allowed_nack_codes(),
+            Self::RequestTransferExit(_) => RequestTransferExitRequest::allowed_nack_codes(),
+            Self::RoutineControl(_) => RoutineControlRequest::allowed_nack_codes(),
+            Self::SecurityAccess(_) => SecurityAccessRequest::allowed_nack_codes(),
+            Self::TesterPresent(_) => TesterPresentRequest::allowed_nack_codes(),
+            Self::TransferData(_) => TransferDataRequest::allowed_nack_codes(),
+            Self::WriteDataByIdentifier(_) => WriteDataByIdentifierRequest::allowed_nack_codes(),
+            Self::Other { .. } => &[],
+        }
+    }
+
     /// Returns the [`UdsServiceType`] corresponding to this request variant.
     #[must_use]
     pub fn service(&self) -> UdsServiceType {
@@ -249,6 +282,63 @@ mod tests {
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
+    fn allowed_nack_codes_dispatches_for_every_modeled_variant() {
+        // Every one of the 15 request types has an inherent `allowed_nack_codes()`, but
+        // without this dispatcher a caller holding a *decoded* `Request` had to re-match all
+        // 15 variants to reach it — on a `#[non_exhaustive]` enum they cannot match
+        // exhaustively. Frames are minimal-but-valid for each service.
+        let frames: [&[u8]; 15] = [
+            &[0x14, 0xFF, 0xFF, 0xFF, 0x00], // ClearDiagnosticInfo (groupOfDTC + memorySelection)
+            &[0x28, 0x00, 0x01],             // CommunicationControl
+            &[0x85, 0x01],                   // ControlDtcSetting
+            &[0x10, 0x01],                   // DiagnosticSessionControl
+            &[0x11, 0x01],                   // EcuReset
+            &[0x22, 0xF1, 0x90],             // ReadDataByIdentifier
+            &[0x19, 0x02, 0xFF],             // ReadDtcInfo
+            &[0x34, 0x00, 0x12, 0xBE, 0xEF, 0x10], // RequestDownload
+            &[0x38, 0x02, 0x00, 0x01, b'a'], // RequestFileTransfer
+            &[0x37],                         // RequestTransferExit
+            &[0x31, 0x01, 0xFF, 0x00],       // RoutineControl
+            &[0x27, 0x01, 0xAA],             // SecurityAccess
+            &[0x3E, 0x00],                   // TesterPresent
+            &[0x36, 0x01, 0xAA],             // TransferData
+            &[0x2E, 0xF1, 0x90, 0x01],       // WriteDataByIdentifier
+        ];
+        for frame in frames {
+            let (req, _) = Request::decode(frame).unwrap_or_else(|e| {
+                panic!("frame {frame:02X?} should decode, got {e:?}");
+            });
+            assert!(
+                !matches!(req, Request::Other { .. }),
+                "frame {frame:02X?} decoded to Other; the table needs updating"
+            );
+            assert!(
+                !req.allowed_nack_codes().is_empty(),
+                "{:?} returned no NRCs",
+                req.service()
+            );
+        }
+    }
+
+    #[test]
+    fn allowed_nack_codes_agrees_with_the_inherent_method() {
+        let (req, _) = Request::decode(&[0x11, 0x01]).unwrap();
+        assert_eq!(
+            req.allowed_nack_codes(),
+            EcuResetRequest::allowed_nack_codes()
+        );
+    }
+
+    #[test]
+    fn allowed_nack_codes_is_empty_for_pass_through() {
+        // 0x23 ReadMemoryByAddress is enumerated but unmodeled, so the crate has no NRC table
+        // for it. An empty slice says "unknown", not "none apply".
+        let (req, _) = Request::decode(&[0x23, 0xAA]).unwrap();
+        assert!(matches!(req, Request::Other { .. }));
+        assert!(req.allowed_nack_codes().is_empty());
     }
 
     #[test]
