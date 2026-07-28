@@ -485,6 +485,15 @@ impl Encode for ReadDtcInfoSubFunction {
 /// Lazy iterator over `(DtcRecord, DtcStatusMask)` pairs from raw bytes.
 ///
 /// Each pair is 4 bytes: 3 for the DTC record + 1 for the status mask.
+///
+/// # Length
+///
+/// [`len`](DtcAndStatusIter::len) counts **complete records**; [`size_hint`](Iterator::size_hint) counts
+/// **items yielded**, which is one greater when a partial record trails the buffer (that tail
+/// surfaces as a single `Err`, after which the iterator is exhausted). The two therefore differ
+/// on malformed input, which is why this deliberately does not implement `ExactSizeIterator` —
+/// its `len()` would contradict the inherent one. It does implement
+/// [`FusedIterator`](core::iter::FusedIterator).
 #[derive(Clone, Debug)]
 pub struct DtcAndStatusIter<'a> {
     remaining: &'a [u8],
@@ -527,6 +536,10 @@ impl Iterator for DtcAndStatusIter<'_> {
             return None;
         }
         if self.remaining.len() < 4 {
+            // Consume the partial tail so the error is reported exactly once and the
+            // iterator terminates. Returning without advancing would yield this error
+            // forever.
+            self.remaining = &[];
             return Some(Err(Error::IncorrectMessageLengthOrInvalidFormat));
         }
         let record = DtcRecord::new(self.remaining[0], self.remaining[1], self.remaining[2]);
@@ -534,11 +547,28 @@ impl Iterator for DtcAndStatusIter<'_> {
         self.remaining = &self.remaining[4..];
         Some(Ok((record, status)))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // One item per complete record, plus one final `Err` if a partial tail remains.
+        let n = self.remaining.len().div_ceil(4);
+        (n, Some(n))
+    }
 }
+
+impl core::iter::FusedIterator for DtcAndStatusIter<'_> {}
 
 /// Lazy iterator over `DtcFaultDetectionCounterRecord` from raw bytes.
 ///
 /// Each record is 4 bytes: 3 for the DTC record + 1 for the fault detection counter.
+///
+/// # Length
+///
+/// [`len`](DtcFaultDetectionIter::len) counts **complete records**; [`size_hint`](Iterator::size_hint) counts
+/// **items yielded**, which is one greater when a partial record trails the buffer (that tail
+/// surfaces as a single `Err`, after which the iterator is exhausted). The two therefore differ
+/// on malformed input, which is why this deliberately does not implement `ExactSizeIterator` —
+/// its `len()` would contradict the inherent one. It does implement
+/// [`FusedIterator`](core::iter::FusedIterator).
 #[derive(Clone, Debug)]
 pub struct DtcFaultDetectionIter<'a> {
     remaining: &'a [u8],
@@ -581,6 +611,8 @@ impl Iterator for DtcFaultDetectionIter<'_> {
             return None;
         }
         if self.remaining.len() < 4 {
+            // See `DtcAndStatusIter::next`: consume the tail so this terminates.
+            self.remaining = &[];
             return Some(Err(Error::IncorrectMessageLengthOrInvalidFormat));
         }
         let dtc_record = DtcRecord::new(self.remaining[0], self.remaining[1], self.remaining[2]);
@@ -591,11 +623,27 @@ impl Iterator for DtcFaultDetectionIter<'_> {
             dtc_fault_detection_counter,
         }))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.remaining.len().div_ceil(4);
+        (n, Some(n))
+    }
 }
+
+impl core::iter::FusedIterator for DtcFaultDetectionIter<'_> {}
 
 /// Lazy iterator over `(DtcSeverityMask, DtcRecord, DtcStatusMask)` triples from raw bytes.
 ///
 /// Each triple is 5 bytes: 1 severity + 3 DTC record + 1 status mask.
+///
+/// # Length
+///
+/// [`len`](DtcSeverityAndStatusIter::len) counts **complete records**; [`size_hint`](Iterator::size_hint) counts
+/// **items yielded**, which is one greater when a partial record trails the buffer (that tail
+/// surfaces as a single `Err`, after which the iterator is exhausted). The two therefore differ
+/// on malformed input, which is why this deliberately does not implement `ExactSizeIterator` —
+/// its `len()` would contradict the inherent one. It does implement
+/// [`FusedIterator`](core::iter::FusedIterator).
 #[derive(Clone, Debug)]
 pub struct DtcSeverityAndStatusIter<'a> {
     remaining: &'a [u8],
@@ -640,6 +688,8 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
             return None;
         }
         if self.remaining.len() < 5 {
+            // See `DtcAndStatusIter::next`: consume the tail so this terminates.
+            self.remaining = &[];
             return Some(Err(Error::IncorrectMessageLengthOrInvalidFormat));
         }
         let severity = DtcSeverityMask::from(self.remaining[0]);
@@ -648,7 +698,14 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
         self.remaining = &self.remaining[5..];
         Some(Ok((severity, record, status)))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.remaining.len().div_ceil(5);
+        (n, Some(n))
+    }
 }
+
+impl core::iter::FusedIterator for DtcSeverityAndStatusIter<'_> {}
 
 /// Zero-copy parsed response for `ReadDTCInformation` (0x19).
 ///
@@ -983,4 +1040,93 @@ mod iter_tests {
         assert_eq!(DtcSeverityAndStatusIter::new(&[0u8; 10]).len(), 2);
         assert!(DtcSeverityAndStatusIter::new(&[0u8; 4]).is_empty());
     }
+
+    #[test]
+    fn partial_tail_yields_one_error_then_terminates() {
+        // Previously `next()` returned `Some(Err(..))` on a partial record *without*
+        // advancing `remaining`, so the iterator yielded that error forever: `for _ in iter`
+        // looped, `count()` hung, and `collect::<Vec<Result<..>>>()` allocated without bound.
+        // `collect_all()` happened to terminate only because `collect::<Result<Vec, _>>()`
+        // short-circuits on the first error. Bounded with `take` so a regression fails
+        // instead of hanging the suite.
+        let data = [0x01, 0x02, 0x03, 0x0A, 0xFF]; // one complete record + 1 stray byte
+        let items: heapless_vec::Bounded<8> =
+            DtcAndStatusIter::new(&data).take(8).collect_bounded();
+        assert_eq!(items.len(), 2, "expected 1 record + 1 error, got {items:?}");
+        assert!(items.oks == 1 && items.errs == 1);
+
+        // Same shape for the other two.
+        let five: heapless_vec::Bounded<8> = DtcFaultDetectionIter::new(&[0u8; 5])
+            .take(8)
+            .collect_bounded();
+        assert_eq!((five.oks, five.errs), (1, 1));
+        let six: heapless_vec::Bounded<8> = DtcSeverityAndStatusIter::new(&[0u8; 6])
+            .take(8)
+            .collect_bounded();
+        assert_eq!((six.oks, six.errs), (1, 1));
+    }
+
+    #[test]
+    fn iterators_terminate_when_shorter_than_one_record() {
+        let mut iter = DtcAndStatusIter::new(&[0x01, 0x02]);
+        assert!(matches!(iter.next(), Some(Err(_))));
+        assert!(iter.next().is_none(), "iterator must be exhausted");
+        assert!(iter.next().is_none(), "and stay exhausted (fused)");
+    }
+
+    #[test]
+    fn size_hint_matches_the_number_of_items_yielded() {
+        for len in 0usize..=12 {
+            let data = [0u8; 12];
+            let iter = DtcAndStatusIter::new(&data[..len]);
+            let (lower, upper) = iter.size_hint();
+            let actual = iter.clone().take(16).count();
+            assert_eq!(lower, actual, "lower bound wrong for {len} bytes");
+            assert_eq!(upper, Some(actual), "upper bound wrong for {len} bytes");
+        }
+    }
+
+    /// Minimal counting collector so the termination tests need no allocator.
+    mod heapless_vec {
+        use super::*;
+        use core::fmt;
+
+        pub struct Bounded<const N: usize> {
+            pub oks: usize,
+            pub errs: usize,
+        }
+
+        impl<const N: usize> Bounded<N> {
+            pub fn len(&self) -> usize {
+                self.oks + self.errs
+            }
+        }
+
+        impl<const N: usize> fmt::Debug for Bounded<N> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{} ok, {} err", self.oks, self.errs)
+            }
+        }
+
+        pub trait CollectBounded {
+            fn collect_bounded<const N: usize>(self) -> Bounded<N>;
+        }
+
+        impl<I, T> CollectBounded for I
+        where
+            I: Iterator<Item = Result<T, Error>>,
+        {
+            fn collect_bounded<const N: usize>(self) -> Bounded<N> {
+                let mut b = Bounded::<N> { oks: 0, errs: 0 };
+                for item in self {
+                    match item {
+                        Ok(_) => b.oks += 1,
+                        Err(_) => b.errs += 1,
+                    }
+                }
+                b
+            }
+        }
+    }
+    use heapless_vec::CollectBounded;
 }
