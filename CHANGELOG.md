@@ -184,6 +184,17 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
 ### Fixed
 
+- **Breaking:** `ReadDtcInfoResponse::decode` now rejects a record list whose length is not a
+  whole number of records, with `Error::IncorrectMessageLengthOrInvalidFormat` (NRC `0x13`).
+  It previously passed the tail through verbatim, so a malformed frame decoded successfully and
+  only failed later, during iteration. This is the same strictness the crate already applies to
+  trailing bytes everywhere else. All four record-carrying variants are checked at their own
+  width: `DtcList` and `DtcFaultDetectionCounterList` at 4 bytes, `DtcSeverityList` at 6,
+  `WwhObdDtcByMaskRecord` at 5. Empty record lists remain valid — a server with no matching DTCs
+  answers with the header and no records. Iterators reached from a decoded response therefore
+  never see a partial tail; a hand-constructed variant still can, so they keep their `Result`
+  item type.
+
 - **All three DTC iterators looped forever on a partial trailing record.** `next()` returned
   `Some(Err(..))` without advancing, so the error was yielded indefinitely: `for` loops and
   `count()` hung, and `collect::<Vec<Result<_, _>>>()` allocated without bound. Reachable from

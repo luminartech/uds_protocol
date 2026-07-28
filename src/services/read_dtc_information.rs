@@ -751,13 +751,16 @@ pub enum ReadDtcInfoResponse<'a> {
         /// that does not support [`DtcStatusMask::WarningIndicatorRequested`] leaves that bit
         /// 'off' and sets the rest.
         status_availability_mask: DtcStatusMask,
-        /// Raw record bytes — use [`DtcAndStatusIter`] to iterate.
+        /// Raw record bytes, 4 per record (3-byte DTC + status) — use [`DtcAndStatusIter`].
+        /// Decoding rejects a length that is not a whole number of records.
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
     /// Sub-function 0x14: list of DTC fault detection counter records.
     DtcFaultDetectionCounterList {
-        /// Raw record bytes — use [`DtcFaultDetectionIter`] to iterate.
+        /// Raw record bytes, 4 per record (3-byte DTC + counter) — use
+        /// [`DtcFaultDetectionIter`]. Decoding rejects a length that is not a whole number of
+        /// records.
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
@@ -773,7 +776,7 @@ pub enum ReadDtcInfoResponse<'a> {
         /// Raw `DTCAndSeverityRecord` bytes: 6 each — severity + DTC functional unit +
         /// 3-byte DTC + status. No iterator is wired for this variant yet, so parse them
         /// caller-side. Note these are *not* the 5-byte WWH-OBD records read by
-        /// [`WwhObdDtcSeverityIter`].
+        /// [`WwhObdDtcSeverityIter`]. Decoding rejects a length that is not a multiple of 6.
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
@@ -790,7 +793,8 @@ pub enum ReadDtcInfoResponse<'a> {
         severity_availability_mask: DtcSeverityMask,
         /// DTC format identifier.
         format_identifier: DtcFormatIdentifier,
-        /// Raw record bytes (5 bytes per record) — use [`WwhObdDtcSeverityIter`].
+        /// Raw record bytes, 5 per record — use [`WwhObdDtcSeverityIter`]. Decoding rejects a length
+        /// that is not a whole number of records.
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
@@ -838,6 +842,24 @@ impl<'a> ReadDtcInfoResponse<'a> {
     }
 }
 
+/// Validate that a record list divides evenly into whole records.
+///
+/// A UDS frame is complete when it arrives — its length comes from the transport — so a
+/// trailing partial record means the frame is malformed, not that more bytes are coming.
+/// Rejecting it here matches how the crate treats every other length mismatch.
+///
+/// Consequently the iterators reached from a **decoded** [`ReadDtcInfoResponse`] never see a
+/// partial tail. A hand-constructed variant still can — the enum's `#[non_exhaustive]` stops
+/// exhaustive matching, not variant construction, and `Encode` writes `raw_records` verbatim —
+/// so the iterators keep their `Result` item type and their one-error-then-terminate behaviour.
+fn whole_records(raw: &[u8], record_len: usize) -> Result<&[u8], Error> {
+    if raw.len() % record_len == 0 {
+        Ok(raw)
+    } else {
+        Err(Error::IncorrectMessageLengthOrInvalidFormat)
+    }
+}
+
 impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
     type Error = crate::Error;
 
@@ -882,12 +904,17 @@ impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
                     Self::DtcList {
                         sub_function_id: subfunction_id,
                         status_availability_mask,
-                        raw_records: &buf[1..],
+                        raw_records: whole_records(&buf[1..], 4)?,
                     },
                     &[],
                 ))
             }
-            0x14 => Ok((Self::DtcFaultDetectionCounterList { raw_records: buf }, &[])),
+            0x14 => Ok((
+                Self::DtcFaultDetectionCounterList {
+                    raw_records: whole_records(buf, 4)?,
+                },
+                &[],
+            )),
             0x08 | 0x09 => {
                 if buf.is_empty() {
                     return Err(Error::InsufficientData(Incomplete {
@@ -900,7 +927,7 @@ impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
                     Self::DtcSeverityList {
                         sub_function_id: subfunction_id,
                         status_availability_mask,
-                        raw_records: &buf[1..],
+                        raw_records: whole_records(&buf[1..], 6)?,
                     },
                     &[],
                 ))
@@ -922,7 +949,7 @@ impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
                         status_availability_mask,
                         severity_availability_mask,
                         format_identifier,
-                        raw_records: &buf[4..],
+                        raw_records: whole_records(&buf[4..], 5)?,
                     },
                     &[],
                 ))
@@ -1012,6 +1039,132 @@ mod derive_contract {
     #[test]
     fn serde_impls() {
         assert_impl_serde::<ReadDtcInfoResponse<'static>>();
+    }
+}
+
+#[cfg(test)]
+mod response_decode_tests {
+    use super::*;
+    use crate::{Decode, Response};
+
+    /// `(label, sub-function payload prefix, record width)` for every variant that carries a
+    /// record list. The payload here is what follows the sub-function byte.
+    const LISTS: [(&str, &[u8], usize); 4] = [
+        // 0x02: status availability mask, then 4-byte (DTC, status) records.
+        ("DtcList 0x02", &[0x02, 0xFF], 4),
+        // 0x14: no mask byte — records start immediately.
+        ("DtcFaultDetectionCounterList 0x14", &[0x14], 4),
+        // 0x08: status availability mask, then 6-byte DTCAndSeverityRecord entries.
+        ("DtcSeverityList 0x08", &[0x08, 0xFF], 6),
+        // 0x42: fgid + status mask + severity mask + format id, then 5-byte WWH-OBD records.
+        (
+            "WwhObdDtcByMaskRecord 0x42",
+            &[0x42, 0x33, 0xFF, 0xF0, 0x01],
+            5,
+        ),
+    ];
+
+    /// Enough for the widest prefix (5 bytes) plus the longest record list these tests build
+    /// (3 x 6-byte records).
+    const FRAME_CAP: usize = 32;
+
+    /// Build a frame into a fixed-size buffer, returning it with its used length. A stack buffer
+    /// rather than a `Vec` so the tests compile without the `alloc` feature.
+    fn frame(prefix: &[u8], record_bytes: usize) -> ([u8; FRAME_CAP], usize) {
+        let len = prefix.len() + record_bytes;
+        assert!(len <= FRAME_CAP, "frame does not fit the test buffer");
+        let mut buf = [0u8; FRAME_CAP];
+        buf[..prefix.len()].copy_from_slice(prefix);
+        for (i, byte) in buf[prefix.len()..len].iter_mut().enumerate() {
+            *byte = u8::try_from(i % 251).unwrap_or(0);
+        }
+        (buf, len)
+    }
+
+    #[test]
+    fn record_lists_must_divide_evenly_into_records() {
+        // A trailing partial record means the frame is malformed. Rejecting it here matches how
+        // the crate treats every other length mismatch, and means the iterators returned by the
+        // accessors can never see a partial tail.
+        for (label, prefix, width) in LISTS {
+            for extra in 1..width {
+                let (buf, len) = frame(prefix, width + extra);
+                let got = <ReadDtcInfoResponse as Decode>::decode(&buf[..len]);
+                assert!(
+                    matches!(got, Err(Error::IncorrectMessageLengthOrInvalidFormat)),
+                    "{label}: {} record bytes ({width}+{extra}) should be rejected, got {got:?}",
+                    width + extra
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn aligned_record_lists_decode_with_the_expected_record_count() {
+        for (label, prefix, width) in LISTS {
+            for records in 0..=3usize {
+                let (buf, len) = frame(prefix, width * records);
+                let (resp, _) = <ReadDtcInfoResponse as Decode>::decode(&buf[..len])
+                    .unwrap_or_else(|e| panic!("{label}: {records} records should decode: {e:?}"));
+                let counted = resp
+                    .dtc_and_status_iter()
+                    .map(Iterator::count)
+                    .or_else(|| resp.fault_detection_iter().map(Iterator::count))
+                    .or_else(|| resp.wwh_obd_dtc_severity_iter().map(Iterator::count));
+                // DtcSeverityList has no iterator wired yet, so it has no count to check.
+                if let Some(counted) = counted {
+                    assert_eq!(counted, records, "{label}: wrong record count");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn empty_record_lists_are_valid() {
+        // A server with no matching DTCs answers with the header and no records.
+        for (label, prefix, _) in LISTS {
+            let got = <ReadDtcInfoResponse as Decode>::decode(prefix);
+            assert!(
+                got.is_ok(),
+                "{label}: empty record list must decode, got {got:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_misaligned_list_is_rejected_at_the_frame_layer_too() {
+        // SID 0x59, sub 0x02, mask 0xFF, then 5 record bytes — one byte past a whole record.
+        let wire = [0x59, 0x02, 0xFF, 0x01, 0x02, 0x03, 0x0A, 0xEE];
+        assert!(matches!(
+            Response::decode(&wire),
+            Err(Error::IncorrectMessageLengthOrInvalidFormat)
+        ));
+        // The aligned frame still round-trips.
+        let wire = [0x59, 0x02, 0xFF, 0x01, 0x02, 0x03, 0x0A];
+        let (resp, _) = Response::decode(&wire).unwrap();
+        let mut buf = [0u8; 16];
+        let n = resp.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..n], &wire);
+    }
+
+    #[test]
+    fn iterators_from_a_decoded_response_never_yield_an_error() {
+        // The payoff: with decode validating alignment, every iterator obtained through an
+        // accessor is error-free. The `Err` arm remains reachable only via `Iter::new` on
+        // arbitrary bytes, which `iter_tests` covers.
+        for (label, prefix, width) in LISTS {
+            let (buf, len) = frame(prefix, width * 2);
+            let (resp, _) = <ReadDtcInfoResponse as Decode>::decode(&buf[..len]).unwrap();
+            if let Some(mut it) = resp.dtc_and_status_iter() {
+                assert!(it.all(|r| r.is_ok()), "{label}");
+            }
+            if let Some(mut it) = resp.fault_detection_iter() {
+                assert!(it.all(|r| r.is_ok()), "{label}");
+            }
+            if let Some(mut it) = resp.wwh_obd_dtc_severity_iter() {
+                assert!(it.all(|r| r.is_ok()), "{label}");
+            }
+        }
     }
 }
 
