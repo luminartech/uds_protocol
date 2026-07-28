@@ -392,11 +392,12 @@ macro_rules! upload_download_service {
 
             #[test]
             fn data_format_identifier_survives_construction() {
+                // new(compression, encryption) — wire order.
                 let dfi = DataFormatIdentifier::new(0x0A, 0x0B).unwrap();
                 let req = $req::new(dfi, 0x1234, 0x10).unwrap();
                 assert_eq!(req.data_format_identifier(), dfi);
-                assert_eq!(req.data_format_identifier().encryption_method(), 0x0A);
-                assert_eq!(req.data_format_identifier().compression_method(), 0x0B);
+                assert_eq!(req.data_format_identifier().compression_method(), 0x0A);
+                assert_eq!(req.data_format_identifier().encryption_method(), 0x0B);
             }
 
             #[test]
