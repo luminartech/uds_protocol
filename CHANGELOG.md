@@ -51,8 +51,8 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
     `Iso26021_2Values`. (`non_camel_case_types` permits `_` between digits, so no `allow`
     is needed.) Trailing sequence numbers do lose theirs:
     `SAE_J2012_DA_DTCFormat_00` -> `SaeJ2012DaDtcFormat00`.
-  - `FunctionalGroupIdentifier::VODBSystem` -> `VobdSystem`. The old name was a
-    transposition typo; ISO 14229-1 Table D.1 names 0xFE `VOBDSystem`.
+  - `FunctionalGroupIdentifier::VODBSystem` -> `VobdSystem`, which also corrects a typo —
+    see *Fixed* below.
 
   All three `#[allow(non_camel_case_types)]` attributes in the crate are now gone.
 
@@ -82,6 +82,23 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
 ### Fixed
 
+- **Breaking:** The `utoipa` and `clap` features now imply `std`. Neither compiled without it:
+  their derive macros expand to `std::`, `String` and `Vec` paths inside this crate, so
+  `cargo build --no-default-features --features utoipa` failed with 318 resolution errors, as
+  did the `clap` equivalent. Only the `--all-features` / `--no-default-features` /
+  `--no-default-features --features alloc` combinations were ever built, so the optional
+  integrations were never exercised in isolation.
+- The `serde` feature now works on a bare-metal target. The dependency was declared with
+  serde's default features on, which pulls `serde/std`, so
+  `cargo build --no-default-features --features serde --target thumbv6m-none-eabi` failed even
+  though every host-side build passed — a host build proves nothing here, because the host has
+  `std` available for serde to compile against regardless of this crate being `#![no_std]`.
+  serde is now wired `default-features = false`, picking up its `alloc` and `std` layers
+  through weak `serde?/alloc` and `serde?/std` features only when this crate's own `alloc`/`std`
+  features are enabled.
+- `FunctionalGroupIdentifier::VODBSystem` is now `VobdSystem`. Beyond the casing change, the
+  old name transposed the letters: ISO 14229-1 Table D.1 names functional group `0xFE`
+  `VOBDSystem` (vehicle OBD system).
 - `DtcFaultDetectionCounterRecord` is now exported from the crate root. It is the `Item` of
   the public `DtcFaultDetectionIter`, but had no public path, so callers could iterate it and
   read its fields yet could not name the type — no `Vec<T>`, no struct field, no function
