@@ -10,24 +10,24 @@ use automotive_wire_codec::write_u8;
 #[non_exhaustive]
 /// Controls whether the server should enable or disable DTC status-bit updates.
 ///
-/// Used by [`ControlDTCSettingsRequest`] to instruct the server.
-pub enum DtcSettings {
+/// Used by [`ControlDtcSettingRequest`] to instruct the server.
+pub enum DtcSettingType {
     /// Re-enable DTC status-bit updates.
     On,
     /// Disable DTC status-bit updates.
     Off,
 }
 
-impl From<DtcSettings> for u8 {
-    fn from(value: DtcSettings) -> Self {
+impl From<DtcSettingType> for u8 {
+    fn from(value: DtcSettingType) -> Self {
         match value {
-            DtcSettings::On => 0x01,
-            DtcSettings::Off => 0x02,
+            DtcSettingType::On => 0x01,
+            DtcSettingType::Off => 0x02,
         }
     }
 }
 
-impl TryFrom<u8> for DtcSettings {
+impl TryFrom<u8> for DtcSettingType {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
@@ -38,29 +38,29 @@ impl TryFrom<u8> for DtcSettings {
     }
 }
 
-/// The `ControlDTCSettings` service is used to control the DTC settings of the ECU.
+/// The `ControlDtcSetting` service is used to control the DTC settings of the ECU.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct ControlDTCSettingsRequest {
+pub struct ControlDtcSettingRequest {
     /// Whether the server should suppress the positive response (SPRMIB).
     pub suppress_positive_response: bool,
     /// The requested DTC logging setting.
-    pub setting: DtcSettings,
+    pub setting: DtcSettingType,
 }
 
-const CONTROL_DTC_SETTINGS_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
+const CONTROL_DTC_SETTING_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
     NegativeResponseCode::SubFunctionNotSupported,
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
     NegativeResponseCode::ConditionsNotCorrect,
     NegativeResponseCode::RequestOutOfRange,
 ];
 
-impl ControlDTCSettingsRequest {
-    /// Create a new `ControlDTCSettingsRequest`.
+impl ControlDtcSettingRequest {
+    /// Create a new `ControlDtcSettingRequest`.
     #[must_use]
-    pub const fn new(suppress_positive_response: bool, setting: DtcSettings) -> Self {
+    pub const fn new(suppress_positive_response: bool, setting: DtcSettingType) -> Self {
         Self {
             suppress_positive_response,
             setting,
@@ -70,11 +70,11 @@ impl ControlDTCSettingsRequest {
     /// Get the allowed [`NegativeResponseCode`] variants for this request.
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
-        &CONTROL_DTC_SETTINGS_NEGATIVE_RESPONSE_CODES
+        &CONTROL_DTC_SETTING_NEGATIVE_RESPONSE_CODES
     }
 }
 
-impl Encode for ControlDTCSettingsRequest {
+impl Encode for ControlDtcSettingRequest {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -84,7 +84,7 @@ impl Encode for ControlDTCSettingsRequest {
     }
 }
 
-impl<'a> Decode<'a> for ControlDTCSettingsRequest {
+impl<'a> Decode<'a> for ControlDtcSettingRequest {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -94,7 +94,7 @@ impl<'a> Decode<'a> for ControlDTCSettingsRequest {
                 available: buf.len(),
             }));
         }
-        let sub_function = SuppressablePositiveResponse::<DtcSettings>::try_from(buf[0])?;
+        let sub_function = SuppressablePositiveResponse::<DtcSettingType>::try_from(buf[0])?;
         Ok((
             Self {
                 suppress_positive_response: sub_function.suppress_positive_response(),
@@ -105,27 +105,27 @@ impl<'a> Decode<'a> for ControlDTCSettingsRequest {
     }
 }
 
-/// Positive response to a `ControlDTCSettingsRequest`
+/// Positive response to a `ControlDtcSettingRequest`
 ///
-/// The ECU will respond with a `ControlDTCSettingsResponse` if the request was successful.
+/// The ECU will respond with a `ControlDtcSettingResponse` if the request was successful.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct ControlDTCSettingsResponse {
+pub struct ControlDtcSettingResponse {
     /// The DTC logging setting that was set in the request
-    pub setting: DtcSettings,
+    pub setting: DtcSettingType,
 }
 
-impl ControlDTCSettingsResponse {
-    /// Create a new `ControlDTCSettingsResponse`.
+impl ControlDtcSettingResponse {
+    /// Create a new `ControlDtcSettingResponse`.
     #[must_use]
-    pub const fn new(setting: DtcSettings) -> Self {
+    pub const fn new(setting: DtcSettingType) -> Self {
         Self { setting }
     }
 }
 
-impl Encode for ControlDTCSettingsResponse {
+impl Encode for ControlDtcSettingResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -133,7 +133,7 @@ impl Encode for ControlDTCSettingsResponse {
     }
 }
 
-impl<'a> Decode<'a> for ControlDTCSettingsResponse {
+impl<'a> Decode<'a> for ControlDtcSettingResponse {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -143,7 +143,7 @@ impl<'a> Decode<'a> for ControlDTCSettingsResponse {
                 available: buf.len(),
             }));
         }
-        let setting = DtcSettings::try_from(buf[0])?;
+        let setting = DtcSettingType::try_from(buf[0])?;
         Ok((Self { setting }, &buf[1..]))
     }
 }
@@ -158,15 +158,15 @@ mod request {
     #[cfg(feature = "alloc")]
     #[test]
     fn simple_request() {
-        let req = ControlDTCSettingsRequest::new(true, DtcSettings::On);
+        let req = ControlDtcSettingRequest::new(true, DtcSettingType::On);
         let mut buffer = Vec::new();
         let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x81]);
         assert_eq!(written, buffer.len());
         assert_eq!(req.encoded_size().unwrap(), buffer.len());
 
-        let (parsed, _) = <ControlDTCSettingsRequest as Decode>::decode(&buffer).unwrap();
-        assert_eq!(parsed.setting, DtcSettings::On);
+        let (parsed, _) = <ControlDtcSettingRequest as Decode>::decode(&buffer).unwrap();
+        assert_eq!(parsed.setting, DtcSettingType::On);
         assert!(parsed.suppress_positive_response);
         assert_encode_size_agrees(&req);
     }
@@ -175,15 +175,15 @@ mod request {
     fn invalid_setting_byte_carries_the_value() {
         // An unrecognized setting must surface the offending byte, like every other
         // service's Invalid<Service>Type error, not the generic length/format error.
-        let err = <ControlDTCSettingsRequest as Decode>::decode(&[0x09]).unwrap_err();
+        let err = <ControlDtcSettingRequest as Decode>::decode(&[0x09]).unwrap_err();
         assert!(matches!(err, Error::InvalidDtcSetting(0x09)));
     }
 
     #[test]
     fn exposes_allowed_nack_codes() {
-        assert!(!ControlDTCSettingsRequest::allowed_nack_codes().is_empty());
+        assert!(!ControlDtcSettingRequest::allowed_nack_codes().is_empty());
         assert!(
-            ControlDTCSettingsRequest::allowed_nack_codes()
+            ControlDtcSettingRequest::allowed_nack_codes()
                 .contains(&NegativeResponseCode::RequestOutOfRange)
         );
     }
@@ -199,20 +199,20 @@ mod response {
     #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
-        let req = ControlDTCSettingsResponse::new(DtcSettings::On);
+        let req = ControlDtcSettingResponse::new(DtcSettingType::On);
         let mut buffer = Vec::new();
         let written = Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, vec![0x01]);
         assert_eq!(written, buffer.len());
         assert_eq!(req.encoded_size().unwrap(), buffer.len());
 
-        let (parsed, _) = <ControlDTCSettingsResponse as Decode>::decode(&buffer).unwrap();
-        assert_eq!(parsed.setting, DtcSettings::On);
+        let (parsed, _) = <ControlDtcSettingResponse as Decode>::decode(&buffer).unwrap();
+        assert_eq!(parsed.setting, DtcSettingType::On);
         assert_encode_size_agrees(&req);
     }
 
     #[test]
     fn response_is_eq() {
-        crate::test_util::assert_impl_eq::<ControlDTCSettingsResponse>();
+        crate::test_util::assert_impl_eq::<ControlDtcSettingResponse>();
     }
 }

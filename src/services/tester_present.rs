@@ -21,7 +21,7 @@ enum ZeroSubFunction {
     /// Request and response. Indicates that no value beside the SPR Message Indication Bit is supported by this service.
     NoSubFunctionSupported,
     /// Request only.
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
 }
 
 impl Default for ZeroSubFunction {
@@ -35,7 +35,7 @@ impl From<ZeroSubFunction> for u8 {
     fn from(sub_function: ZeroSubFunction) -> Self {
         match sub_function {
             ZeroSubFunction::NoSubFunctionSupported => NO_SUBFUNCTION_VALUE,
-            ZeroSubFunction::ISOSAEReserved(value) => value,
+            ZeroSubFunction::IsoSaeReserved(value) => value,
         }
     }
 }
@@ -45,7 +45,7 @@ impl TryFrom<u8> for ZeroSubFunction {
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
             NO_SUBFUNCTION_VALUE => Ok(ZeroSubFunction::NoSubFunctionSupported),
-            0x01..=0x7F => Ok(ZeroSubFunction::ISOSAEReserved(value)),
+            0x01..=0x7F => Ok(ZeroSubFunction::IsoSaeReserved(value)),
             _ => Err(Error::InvalidTesterPresentType(value)),
         }
     }
@@ -181,7 +181,7 @@ mod test {
                     assert_eq!(try_result.unwrap(), ZeroSubFunction::NoSubFunctionSupported);
                 }
                 0x01..=0x7F => {
-                    assert!(matches!(try_result, Ok(ZeroSubFunction::ISOSAEReserved(_))));
+                    assert!(matches!(try_result, Ok(ZeroSubFunction::IsoSaeReserved(_))));
                 }
                 _ => {
                     assert!(matches!(
@@ -198,7 +198,7 @@ mod test {
         assert_eq!(u8::from(ZeroSubFunction::default()), NO_SUBFUNCTION_VALUE);
 
         for i in 0x01..=0x7F {
-            let result = ZeroSubFunction::ISOSAEReserved(i);
+            let result = ZeroSubFunction::IsoSaeReserved(i);
             assert_eq!(u8::from(result), i);
         }
     }

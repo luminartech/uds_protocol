@@ -3,8 +3,8 @@
 use automotive_wire_codec::{read_u8, write_all, write_u8, write_u16_be};
 
 use crate::{
-    DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
-    DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, Decode, Encode, Error,
+    Decode, DtcExtDataRecordNumber, DtcFormatIdentifier, DtcRecord, DtcSeverityMask,
+    DtcSnapshotRecordNumber, DtcStatusMask, DtcStoredDataRecordNumber, Encode, Error,
     FunctionalGroupIdentifier, Incomplete, NegativeResponseCode,
 };
 
@@ -19,15 +19,15 @@ const READ_DTC_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub struct ReadDTCInfoRequest {
+pub struct ReadDtcInfoRequest {
     /// The sub-function specifying what DTC information to report.
-    pub dtc_subfunction: ReadDTCInfoSubFunction,
+    pub dtc_subfunction: ReadDtcInfoSubFunction,
 }
 
-impl ReadDTCInfoRequest {
-    /// Create a new `ReadDTCInfoRequest`.
+impl ReadDtcInfoRequest {
+    /// Create a new `ReadDtcInfoRequest`.
     #[must_use]
-    pub const fn new(dtc_subfunction: ReadDTCInfoSubFunction) -> Self {
+    pub const fn new(dtc_subfunction: ReadDtcInfoSubFunction) -> Self {
         Self { dtc_subfunction }
     }
 
@@ -38,7 +38,7 @@ impl ReadDTCInfoRequest {
     }
 }
 
-impl Encode for ReadDTCInfoRequest {
+impl Encode for ReadDtcInfoRequest {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -46,12 +46,12 @@ impl Encode for ReadDTCInfoRequest {
     }
 }
 
-impl<'a> Decode<'a> for ReadDTCInfoRequest {
+impl<'a> Decode<'a> for ReadDtcInfoRequest {
     type Error = crate::Error;
 
     #[allow(clippy::too_many_lines)]
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        use ReadDTCInfoSubFunction as S;
+        use ReadDtcInfoSubFunction as S;
         if buf.is_empty() {
             return Err(Error::InsufficientData(Incomplete {
                 needed: 1,
@@ -62,100 +62,100 @@ impl<'a> Decode<'a> for ReadDTCInfoRequest {
         let rest = &buf[1..];
         let (dtc_subfunction, rest) = match sub {
             0x01 => {
-                let (m, r) = DTCStatusMask::decode(rest)?;
-                (S::ReportNumberOfDTC_ByStatusMask(m), r)
+                let (m, r) = DtcStatusMask::decode(rest)?;
+                (S::ReportNumberOfDtcByStatusMask(m), r)
             }
             0x02 => {
-                let (m, r) = DTCStatusMask::decode(rest)?;
-                (S::ReportDTC_ByStatusMask(m), r)
+                let (m, r) = DtcStatusMask::decode(rest)?;
+                (S::ReportDtcByStatusMask(m), r)
             }
-            0x03 => (S::ReportDTCSnapshotIdentification, rest),
+            0x03 => (S::ReportDtcSnapshotIdentification, rest),
             0x04 => {
-                let (rec, r) = DTCRecord::decode(rest)?;
-                let (n, r) = DTCSnapshotRecordNumber::decode(r)?;
-                (S::ReportDTCSnapshotRecord_ByDTCNumber(rec, n), r)
+                let (rec, r) = DtcRecord::decode(rest)?;
+                let (n, r) = DtcSnapshotRecordNumber::decode(r)?;
+                (S::ReportDtcSnapshotRecordByDtcNumber(rec, n), r)
             }
             0x05 => {
-                let (n, r) = DTCStoredDataRecordNumber::decode(rest)?;
-                (S::ReportDTCStoredData_ByRecordNumber(n), r)
+                let (n, r) = DtcStoredDataRecordNumber::decode(rest)?;
+                (S::ReportDtcStoredDataByRecordNumber(n), r)
             }
             0x06 => {
-                let (rec, r) = DTCRecord::decode(rest)?;
-                let (n, r) = DTCExtDataRecordNumber::decode(r)?;
-                (S::ReportDTCExtDataRecord_ByDTCNumber(rec, n), r)
+                let (rec, r) = DtcRecord::decode(rest)?;
+                let (n, r) = DtcExtDataRecordNumber::decode(r)?;
+                (S::ReportDtcExtDataRecordByDtcNumber(rec, n), r)
             }
             0x07 => {
-                let (s, r) = DTCSeverityMask::decode(rest)?;
-                let (m, r) = DTCStatusMask::decode(r)?;
-                (S::ReportNumberOfDTC_BySeverityMaskRecord(s, m), r)
+                let (s, r) = DtcSeverityMask::decode(rest)?;
+                let (m, r) = DtcStatusMask::decode(r)?;
+                (S::ReportNumberOfDtcBySeverityMaskRecord(s, m), r)
             }
             0x08 => {
-                let (s, r) = DTCSeverityMask::decode(rest)?;
-                let (m, r) = DTCStatusMask::decode(r)?;
-                (S::ReportDTC_BySeverityMaskRecord(s, m), r)
+                let (s, r) = DtcSeverityMask::decode(rest)?;
+                let (m, r) = DtcStatusMask::decode(r)?;
+                (S::ReportDtcBySeverityMaskRecord(s, m), r)
             }
             0x09 => {
-                let (rec, r) = DTCRecord::decode(rest)?;
-                (S::ReportSeverityInfoOfDTC(rec), r)
+                let (rec, r) = DtcRecord::decode(rest)?;
+                (S::ReportSeverityInfoOfDtc(rec), r)
             }
-            0x0A => (S::ReportSupportedDTC, rest),
-            0x0B => (S::ReportFirstTestFailedDTC, rest),
-            0x0C => (S::ReportFirstConfirmedDTC, rest),
-            0x0D => (S::ReportMostRecentTestFailedDTC, rest),
-            0x0E => (S::ReportMostRecentConfirmedDTC, rest),
-            0x14 => (S::ReportDTCFaultDetectionCounter, rest),
-            0x15 => (S::ReportDTCWithPermanentStatus, rest),
+            0x0A => (S::ReportSupportedDtc, rest),
+            0x0B => (S::ReportFirstTestFailedDtc, rest),
+            0x0C => (S::ReportFirstConfirmedDtc, rest),
+            0x0D => (S::ReportMostRecentTestFailedDtc, rest),
+            0x0E => (S::ReportMostRecentConfirmedDtc, rest),
+            0x14 => (S::ReportDtcFaultDetectionCounter, rest),
+            0x15 => (S::ReportDtcWithPermanentStatus, rest),
             0x16 => {
-                let (n, r) = DTCExtDataRecordNumber::decode(rest)?;
-                (S::ReportDTCExtDataRecord_ByRecordNumber(n), r)
+                let (n, r) = DtcExtDataRecordNumber::decode(rest)?;
+                (S::ReportDtcExtDataRecordByRecordNumber(n), r)
             }
             0x17 => {
-                let (m, r) = DTCStatusMask::decode(rest)?;
-                (S::ReportUserDefMemoryDTC_ByStatusMask(m), r)
+                let (m, r) = DtcStatusMask::decode(rest)?;
+                (S::ReportUserDefMemoryDtcByStatusMask(m), r)
             }
             0x18 => {
-                let (rec, r) = DTCRecord::decode(rest)?;
-                let (n, r) = DTCSnapshotRecordNumber::decode(r)?;
+                let (rec, r) = DtcRecord::decode(rest)?;
+                let (n, r) = DtcSnapshotRecordNumber::decode(r)?;
                 let (mem, r) = read_u8(r)?;
                 (
-                    S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(rec, n, mem),
+                    S::ReportUserDefMemoryDtcSnapshotRecordByDtcNumber(rec, n, mem),
                     r,
                 )
             }
             0x19 => {
-                let (rec, r) = DTCRecord::decode(rest)?;
-                let (n, r) = DTCExtDataRecordNumber::decode(r)?;
+                let (rec, r) = DtcRecord::decode(rest)?;
+                let (n, r) = DtcExtDataRecordNumber::decode(r)?;
                 let (mem, r) = read_u8(r)?;
                 (
-                    S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(rec, n, mem),
+                    S::ReportUserDefMemoryDtcExtDataRecordByDtcNumber(rec, n, mem),
                     r,
                 )
             }
             0x1A => {
-                let (n, r) = DTCExtDataRecordNumber::decode(rest)?;
-                (S::ReportSupportedDTCExtDataRecord(n), r)
+                let (n, r) = DtcExtDataRecordNumber::decode(rest)?;
+                (S::ReportSupportedDtcExtDataRecord(n), r)
             }
             0x42 => {
                 let (g, r) = FunctionalGroupIdentifier::decode(rest)?;
-                let (m, r) = DTCStatusMask::decode(r)?;
-                let (s, r) = DTCSeverityMask::decode(r)?;
-                (S::ReportWWHOBDDTC_ByMaskRecord(g, m, s), r)
+                let (m, r) = DtcStatusMask::decode(r)?;
+                let (s, r) = DtcSeverityMask::decode(r)?;
+                (S::ReportWwhObdDtcByMaskRecord(g, m, s), r)
             }
             0x55 => {
                 let (g, r) = FunctionalGroupIdentifier::decode(rest)?;
-                (S::ReportWWHOBDDTC_WithPermanentStatus(g), r)
+                (S::ReportWwhObdDtcWithPermanentStatus(g), r)
             }
             0x56 => {
                 let (g, r) = FunctionalGroupIdentifier::decode(rest)?;
                 let (rg, r) = read_u8(r)?;
                 (
-                    S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg),
+                    S::ReportDtcInformationByDtcReadinessGroupIdentifier(g, rg),
                     r,
                 )
             }
-            other => (S::ISOSAEReserved(other), rest),
+            other => (S::IsoSaeReserved(other), rest),
         };
-        Ok((ReadDTCInfoRequest::new(dtc_subfunction), rest))
+        Ok((ReadDtcInfoRequest::new(dtc_subfunction), rest))
     }
 }
 
@@ -166,8 +166,8 @@ mod read_dtc_info_request_encode_tests {
 
     #[test]
     fn encode_no_param_subfunction() {
-        // 0x0A ReportSupportedDTC, no parameters.
-        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportSupportedDTC);
+        // 0x0A ReportSupportedDtc, no parameters.
+        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportSupportedDtc);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x0A]);
@@ -176,9 +176,9 @@ mod read_dtc_info_request_encode_tests {
 
     #[test]
     fn encode_single_param_subfunction() {
-        // 0x02 ReportDTC_ByStatusMask(mask). DTCStatusMask is 1 byte.
-        let mask = DTCStatusMask::from(0xFF);
-        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(mask));
+        // 0x02 ReportDtcByStatusMask(mask). DtcStatusMask is 1 byte.
+        let mask = DtcStatusMask::from(0xFF);
+        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcByStatusMask(mask));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x02, 0xFF]);
@@ -187,11 +187,11 @@ mod read_dtc_info_request_encode_tests {
 
     #[test]
     fn encode_multi_param_subfunction() {
-        // 0x42 ReportWWHOBDDTC_ByMaskRecord(group, status, severity).
-        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord(
+        // 0x42 ReportWwhObdDtcByMaskRecord(group, status, severity).
+        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportWwhObdDtcByMaskRecord(
             FunctionalGroupIdentifier::EmissionsSystemGroup,
-            DTCStatusMask::from(0x08),
-            DTCSeverityMask::CheckImmediately,
+            DtcStatusMask::from(0x08),
+            DtcSeverityMask::CheckImmediately,
         ));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
@@ -201,8 +201,8 @@ mod read_dtc_info_request_encode_tests {
 
     #[test]
     fn encode_reserved_subfunction() {
-        // ISOSAEReserved carries the sub-function byte itself, no params.
-        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ISOSAEReserved(0x57));
+        // IsoSaeReserved carries the sub-function byte itself, no params.
+        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::IsoSaeReserved(0x57));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x57]);
@@ -214,34 +214,34 @@ mod read_dtc_info_request_encode_tests {
         use crate::Decode;
         // Encode into a scratch buffer (oracle), then decode_exact and assert round-trip fidelity.
         let cases = [
-            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportSupportedDTC),
-            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(
-                DTCStatusMask::from(0xFF),
+            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportSupportedDtc),
+            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcByStatusMask(
+                DtcStatusMask::from(0xFF),
             )),
-            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportWWHOBDDTC_ByMaskRecord(
+            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportWwhObdDtcByMaskRecord(
                 FunctionalGroupIdentifier::EmissionsSystemGroup,
-                DTCStatusMask::from(0x08),
-                DTCSeverityMask::CheckImmediately,
+                DtcStatusMask::from(0x08),
+                DtcSeverityMask::CheckImmediately,
             )),
-            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ISOSAEReserved(0x57)),
-            ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTCSnapshotRecord_ByDTCNumber(
-                DTCRecord::new(0x12, 0x34, 0x56),
-                DTCSnapshotRecordNumber::new(0x01),
+            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::IsoSaeReserved(0x57)),
+            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcSnapshotRecordByDtcNumber(
+                DtcRecord::new(0x12, 0x34, 0x56),
+                DtcSnapshotRecordNumber::new(0x01),
             )),
         ];
         for req in cases {
             let mut buf = [0u8; 16];
             let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
-            let decoded = <ReadDTCInfoRequest as Decode>::decode_exact(&buf[..written]).unwrap();
+            let decoded = <ReadDtcInfoRequest as Decode>::decode_exact(&buf[..written]).unwrap();
             assert_eq!(decoded, req);
         }
     }
 
     #[test]
     fn exposes_allowed_nack_codes() {
-        assert!(!ReadDTCInfoRequest::allowed_nack_codes().is_empty());
+        assert!(!ReadDtcInfoRequest::allowed_nack_codes().is_empty());
         assert!(
-            ReadDTCInfoRequest::allowed_nack_codes()
+            ReadDtcInfoRequest::allowed_nack_codes()
                 .contains(&NegativeResponseCode::RequestOutOfRange)
         );
     }
@@ -251,117 +251,116 @@ mod read_dtc_info_request_encode_tests {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DTCFaultDetectionCounterRecord {
+pub struct DtcFaultDetectionCounterRecord {
     /// The DTC this counter belongs to.
-    pub dtc_record: DTCRecord,
+    pub dtc_record: DtcRecord,
     /// Fault detection counter, used for non-emissions related servers.
     pub dtc_fault_detection_counter: u8,
 }
 
 /// Subfunctions for the `ReadDTCInformation` service
-#[allow(non_camel_case_types)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ReadDTCInfoSubFunction {
-    /// * Parameter: `DTCStatusMask`
+pub enum ReadDtcInfoSubFunction {
+    /// * Parameter: `DtcStatusMask`
     ///
     /// 0x01
-    ReportNumberOfDTC_ByStatusMask(DTCStatusMask),
-    /// * Parameter: `DTCStatusMask`
+    ReportNumberOfDtcByStatusMask(DtcStatusMask),
+    /// * Parameter: `DtcStatusMask`
     ///
     /// 0x02
-    ReportDTC_ByStatusMask(DTCStatusMask),
+    ReportDtcByStatusMask(DtcStatusMask),
 
     /// 0x03
-    ReportDTCSnapshotIdentification,
+    ReportDtcSnapshotIdentification,
 
-    /// Parameter: `DTCRecord` (3 bytes)
-    /// Parameter DTCSnapshotRecordNumber(1)
+    /// Parameter: `DtcRecord` (3 bytes)
+    /// Parameter DtcSnapshotRecordNumber(1)
     ///
     /// 0x04
-    ReportDTCSnapshotRecord_ByDTCNumber(DTCRecord, DTCSnapshotRecordNumber),
+    ReportDtcSnapshotRecordByDtcNumber(DtcRecord, DtcSnapshotRecordNumber),
 
-    /// * Parameter: DTCStoredDataRecordNumber(1)
+    /// * Parameter: DtcStoredDataRecordNumber(1)
     ///
     /// 0x05
-    ReportDTCStoredData_ByRecordNumber(DTCStoredDataRecordNumber),
+    ReportDtcStoredDataByRecordNumber(DtcStoredDataRecordNumber),
 
-    /// Parameter: `DTCRecord` (3 bytes)
-    /// Parameter: DTCExtDataRecordNumber(1)
+    /// Parameter: `DtcRecord` (3 bytes)
+    /// Parameter: DtcExtDataRecordNumber(1)
     ///
     /// 0x06
-    ReportDTCExtDataRecord_ByDTCNumber(DTCRecord, DTCExtDataRecordNumber),
+    ReportDtcExtDataRecordByDtcNumber(DtcRecord, DtcExtDataRecordNumber),
 
     /// * Parameter: DTCSeverityMaskRecord(2)
-    ///     * `DTCSeverityMask`
-    ///     * `DTCStatusMask`
+    ///     * `DtcSeverityMask`
+    ///     * `DtcStatusMask`
     ///
     /// 0x07
-    ReportNumberOfDTC_BySeverityMaskRecord(DTCSeverityMask, DTCStatusMask),
+    ReportNumberOfDtcBySeverityMaskRecord(DtcSeverityMask, DtcStatusMask),
     /// 0x08
-    ReportDTC_BySeverityMaskRecord(DTCSeverityMask, DTCStatusMask),
+    ReportDtcBySeverityMaskRecord(DtcSeverityMask, DtcStatusMask),
 
-    /// Parameter: `DTCRecord` (3 bytes)
+    /// Parameter: `DtcRecord` (3 bytes)
     ///
     /// 0x09
-    ReportSeverityInfoOfDTC(DTCRecord),
+    ReportSeverityInfoOfDtc(DtcRecord),
 
     /// 0x0A
-    ReportSupportedDTC,
+    ReportSupportedDtc,
     /// 0x0B
-    ReportFirstTestFailedDTC,
+    ReportFirstTestFailedDtc,
     /// 0x0C
-    ReportFirstConfirmedDTC,
+    ReportFirstConfirmedDtc,
     /// 0x0D
-    ReportMostRecentTestFailedDTC,
+    ReportMostRecentTestFailedDtc,
     /// 0x0E
-    ReportMostRecentConfirmedDTC,
+    ReportMostRecentConfirmedDtc,
     /// 0x14
-    ReportDTCFaultDetectionCounter,
+    ReportDtcFaultDetectionCounter,
     /// 0x15
-    ReportDTCWithPermanentStatus,
+    ReportDtcWithPermanentStatus,
 
-    /// * Parameter: DTCExtDataRecordNumber(1)
+    /// * Parameter: DtcExtDataRecordNumber(1)
     ///
     /// 0x16
-    ReportDTCExtDataRecord_ByRecordNumber(DTCExtDataRecordNumber),
+    ReportDtcExtDataRecordByRecordNumber(DtcExtDataRecordNumber),
 
-    /// * Parameter: `DTCStatusMask`
+    /// * Parameter: `DtcStatusMask`
     ///
     /// 0x17
-    ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask),
+    ReportUserDefMemoryDtcByStatusMask(DtcStatusMask),
 
-    /// Parameter: `DTCRecord` (3 bytes)
-    /// Parameter: `DTCSnapshotRecordNumber`(1)
+    /// Parameter: `DtcRecord` (3 bytes)
+    /// Parameter: `DtcSnapshotRecordNumber`(1)
     /// Parameter: `memorySelection`(1) — addresses the user-defined DTC memory to read from
     ///
     /// 0x18
-    ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(DTCRecord, DTCSnapshotRecordNumber, u8),
+    ReportUserDefMemoryDtcSnapshotRecordByDtcNumber(DtcRecord, DtcSnapshotRecordNumber, u8),
 
-    /// Parameter: `DTCRecord` (3 bytes)
-    /// Parameter: `DTCExtDataRecordNumber`(1) (0xFF for all records)
+    /// Parameter: `DtcRecord` (3 bytes)
+    /// Parameter: `DtcExtDataRecordNumber`(1) (0xFF for all records)
     /// Parameter: `memorySelection`(1) — addresses the user-defined DTC memory to read from
     ///
     /// 0x19
-    ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(DTCRecord, DTCExtDataRecordNumber, u8),
+    ReportUserDefMemoryDtcExtDataRecordByDtcNumber(DtcRecord, DtcExtDataRecordNumber, u8),
 
-    /// * Parameter: DTCExtDataRecordNumber(1)
+    /// * Parameter: DtcExtDataRecordNumber(1)
     ///
     /// 0x1A
-    ReportSupportedDTCExtDataRecord(DTCExtDataRecordNumber),
+    ReportSupportedDtcExtDataRecord(DtcExtDataRecordNumber),
 
     /// * Parameter: FunctionalGroupIdentifier(1)
-    /// * Parameter: `DTCStatusMask`
-    /// * Parameter: `DTCSeverityMask`
+    /// * Parameter: `DtcStatusMask`
+    /// * Parameter: `DtcSeverityMask`
     ///
     /// 0x42
-    ReportWWHOBDDTC_ByMaskRecord(FunctionalGroupIdentifier, DTCStatusMask, DTCSeverityMask),
+    ReportWwhObdDtcByMaskRecord(FunctionalGroupIdentifier, DtcStatusMask, DtcSeverityMask),
 
     /// * Parameter: FunctionalGroupIdentifier(1)
     ///
     /// 0x55
-    ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier),
+    ReportWwhObdDtcWithPermanentStatus(FunctionalGroupIdentifier),
 
     /// * Parameter: `FunctionalGroupIdentifier`(1)
     /// * Parameter: `DTCReadinessGroupIdentifier` (RGID, 1 byte). The RGID depends on the
@@ -369,111 +368,111 @@ pub enum ReadDTCInfoSubFunction {
     ///   [`FunctionalGroupIdentifier`].
     ///
     /// 0x56
-    ReportDTCInformation_ByDTCReadinessGroupIdentifier(FunctionalGroupIdentifier, u8),
+    ReportDtcInformationByDtcReadinessGroupIdentifier(FunctionalGroupIdentifier, u8),
     /// 0x42-0x54, 0x57-0x7F
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
 }
 
-impl ReadDTCInfoSubFunction {
+impl ReadDtcInfoSubFunction {
     /// Return the raw `u8` sub-function byte.
     #[must_use]
     pub const fn value(&self) -> u8 {
         match self {
-            Self::ReportNumberOfDTC_ByStatusMask(_) => 0x01,
-            Self::ReportDTC_ByStatusMask(_) => 0x02,
-            Self::ReportDTCSnapshotIdentification => 0x03,
-            Self::ReportDTCSnapshotRecord_ByDTCNumber(_, _) => 0x04,
-            Self::ReportDTCStoredData_ByRecordNumber(_) => 0x05,
-            Self::ReportDTCExtDataRecord_ByDTCNumber(_, _) => 0x06,
-            Self::ReportNumberOfDTC_BySeverityMaskRecord(_, _) => 0x07,
-            Self::ReportDTC_BySeverityMaskRecord(_, _) => 0x08,
-            Self::ReportSeverityInfoOfDTC(_) => 0x09,
-            Self::ReportSupportedDTC => 0x0A,
-            Self::ReportFirstTestFailedDTC => 0x0B,
-            Self::ReportFirstConfirmedDTC => 0x0C,
-            Self::ReportMostRecentTestFailedDTC => 0x0D,
-            Self::ReportMostRecentConfirmedDTC => 0x0E,
-            Self::ReportDTCFaultDetectionCounter => 0x14,
-            Self::ReportDTCWithPermanentStatus => 0x15,
-            Self::ReportDTCExtDataRecord_ByRecordNumber(_) => 0x16,
-            Self::ReportUserDefMemoryDTC_ByStatusMask(_) => 0x17,
-            Self::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(_, _, _) => 0x18,
-            Self::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(_, _, _) => 0x19,
-            Self::ReportSupportedDTCExtDataRecord(_) => 0x1A,
-            Self::ReportWWHOBDDTC_ByMaskRecord(_, _, _) => 0x42,
-            Self::ReportWWHOBDDTC_WithPermanentStatus(_) => 0x55,
-            Self::ReportDTCInformation_ByDTCReadinessGroupIdentifier(_, _) => 0x56,
-            Self::ISOSAEReserved(value) => *value,
+            Self::ReportNumberOfDtcByStatusMask(_) => 0x01,
+            Self::ReportDtcByStatusMask(_) => 0x02,
+            Self::ReportDtcSnapshotIdentification => 0x03,
+            Self::ReportDtcSnapshotRecordByDtcNumber(_, _) => 0x04,
+            Self::ReportDtcStoredDataByRecordNumber(_) => 0x05,
+            Self::ReportDtcExtDataRecordByDtcNumber(_, _) => 0x06,
+            Self::ReportNumberOfDtcBySeverityMaskRecord(_, _) => 0x07,
+            Self::ReportDtcBySeverityMaskRecord(_, _) => 0x08,
+            Self::ReportSeverityInfoOfDtc(_) => 0x09,
+            Self::ReportSupportedDtc => 0x0A,
+            Self::ReportFirstTestFailedDtc => 0x0B,
+            Self::ReportFirstConfirmedDtc => 0x0C,
+            Self::ReportMostRecentTestFailedDtc => 0x0D,
+            Self::ReportMostRecentConfirmedDtc => 0x0E,
+            Self::ReportDtcFaultDetectionCounter => 0x14,
+            Self::ReportDtcWithPermanentStatus => 0x15,
+            Self::ReportDtcExtDataRecordByRecordNumber(_) => 0x16,
+            Self::ReportUserDefMemoryDtcByStatusMask(_) => 0x17,
+            Self::ReportUserDefMemoryDtcSnapshotRecordByDtcNumber(_, _, _) => 0x18,
+            Self::ReportUserDefMemoryDtcExtDataRecordByDtcNumber(_, _, _) => 0x19,
+            Self::ReportSupportedDtcExtDataRecord(_) => 0x1A,
+            Self::ReportWwhObdDtcByMaskRecord(_, _, _) => 0x42,
+            Self::ReportWwhObdDtcWithPermanentStatus(_) => 0x55,
+            Self::ReportDtcInformationByDtcReadinessGroupIdentifier(_, _) => 0x56,
+            Self::IsoSaeReserved(value) => *value,
         }
     }
 }
 
-impl Encode for ReadDTCInfoSubFunction {
+impl Encode for ReadDtcInfoSubFunction {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        use ReadDTCInfoSubFunction as S;
+        use ReadDtcInfoSubFunction as S;
         writer.write_all(&[self.value()]).map_err(Error::io)?;
         let mut written = 1;
         match self {
-            S::ReportNumberOfDTC_ByStatusMask(m)
-            | S::ReportDTC_ByStatusMask(m)
-            | S::ReportUserDefMemoryDTC_ByStatusMask(m) => {
+            S::ReportNumberOfDtcByStatusMask(m)
+            | S::ReportDtcByStatusMask(m)
+            | S::ReportUserDefMemoryDtcByStatusMask(m) => {
                 written += m.encode(writer)?;
             }
-            S::ReportDTCSnapshotRecord_ByDTCNumber(r, n) => {
+            S::ReportDtcSnapshotRecordByDtcNumber(r, n) => {
                 written += r.encode(writer)?;
                 written += n.encode(writer)?;
             }
-            S::ReportDTCStoredData_ByRecordNumber(n) => {
+            S::ReportDtcStoredDataByRecordNumber(n) => {
                 written += n.encode(writer)?;
             }
-            S::ReportDTCExtDataRecord_ByDTCNumber(r, n) => {
+            S::ReportDtcExtDataRecordByDtcNumber(r, n) => {
                 written += r.encode(writer)?;
                 written += n.encode(writer)?;
             }
-            S::ReportNumberOfDTC_BySeverityMaskRecord(s, m)
-            | S::ReportDTC_BySeverityMaskRecord(s, m) => {
+            S::ReportNumberOfDtcBySeverityMaskRecord(s, m)
+            | S::ReportDtcBySeverityMaskRecord(s, m) => {
                 written += s.encode(writer)?;
                 written += m.encode(writer)?;
             }
-            S::ReportSeverityInfoOfDTC(r) => {
+            S::ReportSeverityInfoOfDtc(r) => {
                 written += r.encode(writer)?;
             }
-            S::ReportDTCExtDataRecord_ByRecordNumber(n) | S::ReportSupportedDTCExtDataRecord(n) => {
+            S::ReportDtcExtDataRecordByRecordNumber(n) | S::ReportSupportedDtcExtDataRecord(n) => {
                 written += n.encode(writer)?;
             }
-            S::ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(r, n, mem) => {
+            S::ReportUserDefMemoryDtcSnapshotRecordByDtcNumber(r, n, mem) => {
                 written += r.encode(writer)?;
                 written += n.encode(writer)?;
                 written += write_u8(writer, *mem).map_err(Error::io)?;
             }
-            S::ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(r, n, mem) => {
+            S::ReportUserDefMemoryDtcExtDataRecordByDtcNumber(r, n, mem) => {
                 written += r.encode(writer)?;
                 written += n.encode(writer)?;
                 written += write_u8(writer, *mem).map_err(Error::io)?;
             }
-            S::ReportWWHOBDDTC_ByMaskRecord(g, m, s) => {
+            S::ReportWwhObdDtcByMaskRecord(g, m, s) => {
                 written += g.encode(writer)?;
                 written += m.encode(writer)?;
                 written += s.encode(writer)?;
             }
-            S::ReportWWHOBDDTC_WithPermanentStatus(g) => {
+            S::ReportWwhObdDtcWithPermanentStatus(g) => {
                 written += g.encode(writer)?;
             }
-            S::ReportDTCInformation_ByDTCReadinessGroupIdentifier(g, rg) => {
+            S::ReportDtcInformationByDtcReadinessGroupIdentifier(g, rg) => {
                 written += g.encode(writer)?;
                 written += write_u8(writer, *rg).map_err(Error::io)?;
             }
-            S::ReportDTCSnapshotIdentification
-            | S::ReportSupportedDTC
-            | S::ReportFirstTestFailedDTC
-            | S::ReportFirstConfirmedDTC
-            | S::ReportMostRecentTestFailedDTC
-            | S::ReportMostRecentConfirmedDTC
-            | S::ReportDTCFaultDetectionCounter
-            | S::ReportDTCWithPermanentStatus
-            | S::ISOSAEReserved(_) => {}
+            S::ReportDtcSnapshotIdentification
+            | S::ReportSupportedDtc
+            | S::ReportFirstTestFailedDtc
+            | S::ReportFirstConfirmedDtc
+            | S::ReportMostRecentTestFailedDtc
+            | S::ReportMostRecentConfirmedDtc
+            | S::ReportDtcFaultDetectionCounter
+            | S::ReportDtcWithPermanentStatus
+            | S::IsoSaeReserved(_) => {}
         }
         Ok(written)
     }
@@ -483,7 +482,7 @@ impl Encode for ReadDTCInfoSubFunction {
 // no_std RX types with lazy iterators
 // ---------------------------------------------------------------------------
 
-/// Lazy iterator over `(DTCRecord, DTCStatusMask)` pairs from raw bytes.
+/// Lazy iterator over `(DtcRecord, DtcStatusMask)` pairs from raw bytes.
 ///
 /// Each pair is 4 bytes: 3 for the DTC record + 1 for the status mask.
 #[derive(Clone, Debug)]
@@ -492,7 +491,7 @@ pub struct DtcAndStatusIter<'a> {
 }
 
 impl<'a> DtcAndStatusIter<'a> {
-    /// Create an iterator over `(DTCRecord, DTCStatusMask)` pairs.
+    /// Create an iterator over `(DtcRecord, DtcStatusMask)` pairs.
     #[must_use]
     pub const fn new(data: &'a [u8]) -> Self {
         Self { remaining: data }
@@ -515,13 +514,13 @@ impl<'a> DtcAndStatusIter<'a> {
     /// # Errors
     /// Returns an error if the byte data contains a partial record.
     #[cfg(feature = "alloc")]
-    pub fn collect_all(self) -> Result<alloc::vec::Vec<(DTCRecord, DTCStatusMask)>, Error> {
+    pub fn collect_all(self) -> Result<alloc::vec::Vec<(DtcRecord, DtcStatusMask)>, Error> {
         self.collect()
     }
 }
 
 impl Iterator for DtcAndStatusIter<'_> {
-    type Item = Result<(DTCRecord, DTCStatusMask), Error>;
+    type Item = Result<(DtcRecord, DtcStatusMask), Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.remaining.is_empty() {
@@ -530,14 +529,14 @@ impl Iterator for DtcAndStatusIter<'_> {
         if self.remaining.len() < 4 {
             return Some(Err(Error::IncorrectMessageLengthOrInvalidFormat));
         }
-        let record = DTCRecord::new(self.remaining[0], self.remaining[1], self.remaining[2]);
-        let status = DTCStatusMask::from(self.remaining[3]);
+        let record = DtcRecord::new(self.remaining[0], self.remaining[1], self.remaining[2]);
+        let status = DtcStatusMask::from(self.remaining[3]);
         self.remaining = &self.remaining[4..];
         Some(Ok((record, status)))
     }
 }
 
-/// Lazy iterator over `DTCFaultDetectionCounterRecord` from raw bytes.
+/// Lazy iterator over `DtcFaultDetectionCounterRecord` from raw bytes.
 ///
 /// Each record is 4 bytes: 3 for the DTC record + 1 for the fault detection counter.
 #[derive(Clone, Debug)]
@@ -546,7 +545,7 @@ pub struct DtcFaultDetectionIter<'a> {
 }
 
 impl<'a> DtcFaultDetectionIter<'a> {
-    /// Create an iterator over `DTCFaultDetectionCounterRecord` values.
+    /// Create an iterator over `DtcFaultDetectionCounterRecord` values.
     #[must_use]
     pub const fn new(data: &'a [u8]) -> Self {
         Self { remaining: data }
@@ -569,13 +568,13 @@ impl<'a> DtcFaultDetectionIter<'a> {
     /// # Errors
     /// Returns an error if the byte data contains a partial record.
     #[cfg(feature = "alloc")]
-    pub fn collect_all(self) -> Result<alloc::vec::Vec<DTCFaultDetectionCounterRecord>, Error> {
+    pub fn collect_all(self) -> Result<alloc::vec::Vec<DtcFaultDetectionCounterRecord>, Error> {
         self.collect()
     }
 }
 
 impl Iterator for DtcFaultDetectionIter<'_> {
-    type Item = Result<DTCFaultDetectionCounterRecord, Error>;
+    type Item = Result<DtcFaultDetectionCounterRecord, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.remaining.is_empty() {
@@ -584,17 +583,17 @@ impl Iterator for DtcFaultDetectionIter<'_> {
         if self.remaining.len() < 4 {
             return Some(Err(Error::IncorrectMessageLengthOrInvalidFormat));
         }
-        let dtc_record = DTCRecord::new(self.remaining[0], self.remaining[1], self.remaining[2]);
+        let dtc_record = DtcRecord::new(self.remaining[0], self.remaining[1], self.remaining[2]);
         let dtc_fault_detection_counter = self.remaining[3];
         self.remaining = &self.remaining[4..];
-        Some(Ok(DTCFaultDetectionCounterRecord {
+        Some(Ok(DtcFaultDetectionCounterRecord {
             dtc_record,
             dtc_fault_detection_counter,
         }))
     }
 }
 
-/// Lazy iterator over `(DTCSeverityMask, DTCRecord, DTCStatusMask)` triples from raw bytes.
+/// Lazy iterator over `(DtcSeverityMask, DtcRecord, DtcStatusMask)` triples from raw bytes.
 ///
 /// Each triple is 5 bytes: 1 severity + 3 DTC record + 1 status mask.
 #[derive(Clone, Debug)]
@@ -628,13 +627,13 @@ impl<'a> DtcSeverityAndStatusIter<'a> {
     #[cfg(feature = "alloc")]
     pub fn collect_all(
         self,
-    ) -> Result<alloc::vec::Vec<(DTCSeverityMask, DTCRecord, DTCStatusMask)>, Error> {
+    ) -> Result<alloc::vec::Vec<(DtcSeverityMask, DtcRecord, DtcStatusMask)>, Error> {
         self.collect()
     }
 }
 
 impl Iterator for DtcSeverityAndStatusIter<'_> {
-    type Item = Result<(DTCSeverityMask, DTCRecord, DTCStatusMask), Error>;
+    type Item = Result<(DtcSeverityMask, DtcRecord, DtcStatusMask), Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.remaining.is_empty() {
@@ -643,9 +642,9 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
         if self.remaining.len() < 5 {
             return Some(Err(Error::IncorrectMessageLengthOrInvalidFormat));
         }
-        let severity = DTCSeverityMask::from(self.remaining[0]);
-        let record = DTCRecord::new(self.remaining[1], self.remaining[2], self.remaining[3]);
-        let status = DTCStatusMask::from(self.remaining[4]);
+        let severity = DtcSeverityMask::from(self.remaining[0]);
+        let record = DtcRecord::new(self.remaining[1], self.remaining[2], self.remaining[3]);
+        let status = DtcStatusMask::from(self.remaining[4]);
         self.remaining = &self.remaining[5..];
         Some(Ok((severity, record, status)))
     }
@@ -668,47 +667,47 @@ impl Iterator for DtcSeverityAndStatusIter<'_> {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum ReadDTCInfoResponse<'a> {
+pub enum ReadDtcInfoResponse<'a> {
     /// Sub-functions 0x01, 0x07: count of DTCs matching a mask.
-    NumberOfDTCs {
+    NumberOfDtcs {
         /// Sub-function byte echo.
         sub_function_id: u8,
         /// Which status bits this server supports reporting. Same representation as
-        /// [`DTCStatusMask`], but a bit is 'on' when the server supports that status — a server
-        /// that does not support [`DTCStatusMask::WarningIndicatorRequested`] leaves that bit
+        /// [`DtcStatusMask`], but a bit is 'on' when the server supports that status — a server
+        /// that does not support [`DtcStatusMask::WarningIndicatorRequested`] leaves that bit
         /// 'off' and sets the rest.
-        status_availability_mask: DTCStatusMask,
+        status_availability_mask: DtcStatusMask,
         /// Number of matching DTCs.
         count: u16,
     },
-    /// Sub-functions 0x02, 0x0A-0x0E, 0x15: list of `(DTCRecord, DTCStatusMask)` pairs.
-    DTCList {
+    /// Sub-functions 0x02, 0x0A-0x0E, 0x15: list of `(DtcRecord, DtcStatusMask)` pairs.
+    DtcList {
         /// Sub-function byte echo.
         sub_function_id: u8,
         /// Which status bits this server supports reporting. Same representation as
-        /// [`DTCStatusMask`], but a bit is 'on' when the server supports that status — a server
-        /// that does not support [`DTCStatusMask::WarningIndicatorRequested`] leaves that bit
+        /// [`DtcStatusMask`], but a bit is 'on' when the server supports that status — a server
+        /// that does not support [`DtcStatusMask::WarningIndicatorRequested`] leaves that bit
         /// 'off' and sets the rest.
-        status_availability_mask: DTCStatusMask,
+        status_availability_mask: DtcStatusMask,
         /// Raw record bytes — use [`DtcAndStatusIter`] to iterate.
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
     /// Sub-function 0x14: list of DTC fault detection counter records.
-    DTCFaultDetectionCounterList {
+    DtcFaultDetectionCounterList {
         /// Raw record bytes — use [`DtcFaultDetectionIter`] to iterate.
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
     /// Sub-functions 0x08, 0x09: list of DTC severity records.
-    DTCSeverityList {
+    DtcSeverityList {
         /// Sub-function byte echo.
         sub_function_id: u8,
         /// Which status bits this server supports reporting. Same representation as
-        /// [`DTCStatusMask`], but a bit is 'on' when the server supports that status — a server
-        /// that does not support [`DTCStatusMask::WarningIndicatorRequested`] leaves that bit
+        /// [`DtcStatusMask`], but a bit is 'on' when the server supports that status — a server
+        /// that does not support [`DtcStatusMask::WarningIndicatorRequested`] leaves that bit
         /// 'off' and sets the rest.
-        status_availability_mask: DTCStatusMask,
+        status_availability_mask: DtcStatusMask,
         /// Raw `DTCAndSeverityRecord` bytes (6 bytes each: severity + DTC functional unit +
         /// 3-byte DTC + status). These differ from the 5-byte WWH-OBD records, so
         /// [`DtcSeverityAndStatusIter`] does **not** apply here; no severity-list iterator is
@@ -717,56 +716,59 @@ pub enum ReadDTCInfoResponse<'a> {
         raw_records: &'a [u8],
     },
     /// Sub-function 0x42: WWH-OBD DTC by mask with severity info.
-    WWHOBDDTCByMaskRecord {
+    WwhObdDtcByMaskRecord {
         /// Functional group identifier echo.
         functional_group_identifier: FunctionalGroupIdentifier,
         /// Which status bits this server supports reporting. Same representation as
-        /// [`DTCStatusMask`], but a bit is 'on' when the server supports that status — a server
-        /// that does not support [`DTCStatusMask::WarningIndicatorRequested`] leaves that bit
+        /// [`DtcStatusMask`], but a bit is 'on' when the server supports that status — a server
+        /// that does not support [`DtcStatusMask::WarningIndicatorRequested`] leaves that bit
         /// 'off' and sets the rest.
-        status_availability_mask: DTCStatusMask,
+        status_availability_mask: DtcStatusMask,
         /// Severity availability mask.
-        severity_availability_mask: DTCSeverityMask,
+        severity_availability_mask: DtcSeverityMask,
         /// DTC format identifier.
-        format_identifier: DTCFormatIdentifier,
+        format_identifier: DtcFormatIdentifier,
         /// Raw record bytes (5 bytes per record) — use [`DtcSeverityAndStatusIter`].
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
     },
 }
 
-impl<'a> ReadDTCInfoResponse<'a> {
-    /// Iterate `(DTCRecord, DTCStatusMask)` pairs for `DTCList` variants.
+impl<'a> ReadDtcInfoResponse<'a> {
+    /// Iterate `(DtcRecord, DtcStatusMask)` pairs for `DtcList` variants.
     ///
-    /// Returns `None` if this is not a `DTCList` variant.
+    /// Returns `None` if this is not a `DtcList` variant.
     #[must_use]
     pub fn dtc_and_status_iter(&self) -> Option<DtcAndStatusIter<'a>> {
         match self {
-            Self::DTCList { raw_records, .. } => Some(DtcAndStatusIter::new(raw_records)),
+            Self::DtcList { raw_records, .. } => Some(DtcAndStatusIter::new(raw_records)),
             _ => None,
         }
     }
 
-    /// Iterate fault detection counter records for the `DTCFaultDetectionCounterList` variant.
+    /// Iterate fault detection counter records for the `DtcFaultDetectionCounterList` variant.
     ///
     /// Returns `None` if this is not that variant.
     #[must_use]
     pub fn fault_detection_iter(&self) -> Option<DtcFaultDetectionIter<'a>> {
         match self {
-            Self::DTCFaultDetectionCounterList { raw_records } => {
+            Self::DtcFaultDetectionCounterList { raw_records } => {
                 Some(DtcFaultDetectionIter::new(raw_records))
             }
             _ => None,
         }
     }
 
-    /// Iterate severity/DTC/status triples for WWH-OBD variants.
+    /// Iterate the severity/DTC/status triples of `reportWWHOBDDTCByMaskRecord` (0x42).
     ///
-    /// Returns `None` if this is not a severity variant.
+    /// Returns `None` for every other variant, including
+    /// [`DtcSeverityList`](ReadDtcInfoResponse::DtcSeverityList) (0x08/0x09), whose
+    /// records are 6 bytes because they carry a `DTCFunctionalUnit` byte this one
+    /// does not.
     #[must_use]
     pub fn severity_and_status_iter(&self) -> Option<DtcSeverityAndStatusIter<'a>> {
         match self {
-            Self::WWHOBDDTCByMaskRecord { raw_records, .. } => {
+            Self::WwhObdDtcByMaskRecord { raw_records, .. } => {
                 Some(DtcSeverityAndStatusIter::new(raw_records))
             }
             _ => None,
@@ -774,7 +776,7 @@ impl<'a> ReadDTCInfoResponse<'a> {
     }
 }
 
-impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
+impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -795,10 +797,10 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                         available: buf.len(),
                     }));
                 }
-                let status_availability_mask = DTCStatusMask::from(buf[0]);
+                let status_availability_mask = DtcStatusMask::from(buf[0]);
                 let count = u16::from_be_bytes([buf[1], buf[2]]);
                 Ok((
-                    Self::NumberOfDTCs {
+                    Self::NumberOfDtcs {
                         sub_function_id: subfunction_id,
                         status_availability_mask,
                         count,
@@ -813,9 +815,9 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                         available: buf.len(),
                     }));
                 }
-                let status_availability_mask = DTCStatusMask::from(buf[0]);
+                let status_availability_mask = DtcStatusMask::from(buf[0]);
                 Ok((
-                    Self::DTCList {
+                    Self::DtcList {
                         sub_function_id: subfunction_id,
                         status_availability_mask,
                         raw_records: &buf[1..],
@@ -823,7 +825,7 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                     &[],
                 ))
             }
-            0x14 => Ok((Self::DTCFaultDetectionCounterList { raw_records: buf }, &[])),
+            0x14 => Ok((Self::DtcFaultDetectionCounterList { raw_records: buf }, &[])),
             0x08 | 0x09 => {
                 if buf.is_empty() {
                     return Err(Error::InsufficientData(Incomplete {
@@ -831,9 +833,9 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                         available: buf.len(),
                     }));
                 }
-                let status_availability_mask = DTCStatusMask::from(buf[0]);
+                let status_availability_mask = DtcStatusMask::from(buf[0]);
                 Ok((
-                    Self::DTCSeverityList {
+                    Self::DtcSeverityList {
                         sub_function_id: subfunction_id,
                         status_availability_mask,
                         raw_records: &buf[1..],
@@ -849,11 +851,11 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                     }));
                 }
                 let functional_group_identifier = FunctionalGroupIdentifier::from(buf[0]);
-                let status_availability_mask = DTCStatusMask::from(buf[1]);
-                let severity_availability_mask = DTCSeverityMask::from(buf[2]);
-                let format_identifier = DTCFormatIdentifier::from(buf[3]);
+                let status_availability_mask = DtcStatusMask::from(buf[1]);
+                let severity_availability_mask = DtcSeverityMask::from(buf[2]);
+                let format_identifier = DtcFormatIdentifier::from(buf[3]);
                 Ok((
-                    Self::WWHOBDDTCByMaskRecord {
+                    Self::WwhObdDtcByMaskRecord {
                         functional_group_identifier,
                         status_availability_mask,
                         severity_availability_mask,
@@ -868,13 +870,13 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
     }
 }
 
-impl Encode for ReadDTCInfoResponse<'_> {
+impl Encode for ReadDtcInfoResponse<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let mut written = 0;
         match self {
-            Self::NumberOfDTCs {
+            Self::NumberOfDtcs {
                 sub_function_id,
                 status_availability_mask,
                 count,
@@ -883,12 +885,12 @@ impl Encode for ReadDTCInfoResponse<'_> {
                     .map_err(Error::io)?;
                 written += write_u16_be(writer, *count).map_err(Error::io)?;
             }
-            Self::DTCList {
+            Self::DtcList {
                 sub_function_id,
                 status_availability_mask,
                 raw_records,
             }
-            | Self::DTCSeverityList {
+            | Self::DtcSeverityList {
                 sub_function_id,
                 status_availability_mask,
                 raw_records,
@@ -897,11 +899,11 @@ impl Encode for ReadDTCInfoResponse<'_> {
                     .map_err(Error::io)?;
                 written += write_all(writer, raw_records).map_err(Error::io)?;
             }
-            Self::DTCFaultDetectionCounterList { raw_records } => {
+            Self::DtcFaultDetectionCounterList { raw_records } => {
                 written += write_u8(writer, 0x14).map_err(Error::io)?;
                 written += write_all(writer, raw_records).map_err(Error::io)?;
             }
-            Self::WWHOBDDTCByMaskRecord {
+            Self::WwhObdDtcByMaskRecord {
                 functional_group_identifier,
                 status_availability_mask,
                 severity_availability_mask,
@@ -933,21 +935,21 @@ mod derive_contract {
     #[cfg(feature = "serde")]
     use crate::test_util::assert_impl_serde;
 
-    const _: ReadDTCInfoRequest = ReadDTCInfoRequest::new(
-        ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(DTCStatusMask::TestFailed),
+    const _: ReadDtcInfoRequest = ReadDtcInfoRequest::new(
+        ReadDtcInfoSubFunction::ReportDtcByStatusMask(DtcStatusMask::TestFailed),
     );
 
     #[test]
     fn eq_impls() {
-        assert_impl_eq::<ReadDTCInfoRequest>();
-        assert_impl_eq::<DTCFaultDetectionCounterRecord>();
-        assert_impl_eq::<ReadDTCInfoResponse<'static>>();
+        assert_impl_eq::<ReadDtcInfoRequest>();
+        assert_impl_eq::<DtcFaultDetectionCounterRecord>();
+        assert_impl_eq::<ReadDtcInfoResponse<'static>>();
     }
 
     #[cfg(feature = "serde")]
     #[test]
     fn serde_impls() {
-        assert_impl_serde::<ReadDTCInfoResponse<'static>>();
+        assert_impl_serde::<ReadDtcInfoResponse<'static>>();
     }
 }
 

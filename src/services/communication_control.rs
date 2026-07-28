@@ -41,7 +41,7 @@ pub enum CommunicationControlType {
     /// range-checked and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
     #[non_exhaustive]
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
     /// Values reserved for use by vehicle manufacturers.
     ///
     /// Construct through [`CommunicationControlType::try_from`] so the raw byte is
@@ -80,7 +80,7 @@ impl From<CommunicationControlType> for u8 {
             CommunicationControlType::DisableRxAndTx => 0x03,
             CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo => 0x04,
             CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => 0x05,
-            CommunicationControlType::ISOSAEReserved(val) => val,
+            CommunicationControlType::IsoSaeReserved(val) => val,
             CommunicationControlType::VehicleManufacturerSpecific(val) => val,
             CommunicationControlType::SystemSupplierSpecific(val) => val,
         }
@@ -97,7 +97,7 @@ impl TryFrom<u8> for CommunicationControlType {
             0x03 => Ok(Self::DisableRxAndTx),
             0x04 => Ok(Self::EnableRxAndDisableTxWithEnhancedAddressInfo),
             0x05 => Ok(Self::EnableRxAndTxWithEnhancedAddressInfo),
-            0x06..=0x3F | 0x7F => Ok(Self::ISOSAEReserved(value)),
+            0x06..=0x3F | 0x7F => Ok(Self::IsoSaeReserved(value)),
             0x40..=0x5F => Ok(Self::VehicleManufacturerSpecific(value)),
             0x60..=0x7E => Ok(Self::SystemSupplierSpecific(value)),
             _ => Err(Error::InvalidCommunicationControlType(value)),
@@ -141,7 +141,7 @@ mod communication_control_type_tests {
                 0x06..=0x3F | 0x7F => {
                     assert!(matches!(
                         msg_type,
-                        Ok(CommunicationControlType::ISOSAEReserved(_))
+                        Ok(CommunicationControlType::IsoSaeReserved(_))
                     ));
                 }
                 0x40..=0x5F => {
@@ -192,7 +192,7 @@ mod communication_control_type_tests {
 #[non_exhaustive]
 pub enum CommunicationType {
     /// This value is reserved by the ISO 14229-1 Specification
-    ISOSAEReserved,
+    IsoSaeReserved,
     /// This value represents all application related communication.
     Normal,
     /// This value represents all network management related communication.
@@ -204,7 +204,7 @@ pub enum CommunicationType {
 impl From<CommunicationType> for u8 {
     fn from(value: CommunicationType) -> Self {
         match value {
-            CommunicationType::ISOSAEReserved => 0x00,
+            CommunicationType::IsoSaeReserved => 0x00,
             CommunicationType::Normal => 0x01,
             CommunicationType::NetworkManagement => 0x02,
             CommunicationType::NormalAndNetworkManagement => 0x03,
@@ -216,7 +216,7 @@ impl TryFrom<u8> for CommunicationType {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(Self::ISOSAEReserved),
+            0x00 => Ok(Self::IsoSaeReserved),
             0x01 => Ok(Self::Normal),
             0x02 => Ok(CommunicationType::NetworkManagement),
             0x03 => Ok(CommunicationType::NormalAndNetworkManagement),
@@ -234,7 +234,7 @@ mod communication_type_tests {
         for i in 0..=u8::MAX {
             let msg_type = CommunicationType::try_from(i);
             match i {
-                0x00 => assert!(matches!(msg_type, Ok(CommunicationType::ISOSAEReserved))),
+                0x00 => assert!(matches!(msg_type, Ok(CommunicationType::IsoSaeReserved))),
                 0x01 => assert!(matches!(msg_type, Ok(CommunicationType::Normal))),
                 0x02 => assert!(matches!(msg_type, Ok(CommunicationType::NetworkManagement))),
                 0x03 => assert!(matches!(

@@ -8,10 +8,10 @@
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum, clap::Parser))]
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum UDSIdentifier {
+pub enum UdsIdentifier {
     /// DID reserved by ISO/SAE (ranges `0x0000–0x00FF`, `0xFF02–0xFFFF`).
     #[cfg_attr(feature = "clap", clap(skip))]
-    ISOSAEReserved(u16),
+    IsoSaeReserved(u16),
     /// Vehicle-manufacturer–specific DID (multiple ranges, see ISO 14229-1 Table C.1).
     #[cfg_attr(feature = "clap", clap(skip))]
     VehicleManufacturerSpecific(u16),
@@ -38,13 +38,13 @@ pub enum UDSIdentifier {
     DynamicallyDefinedDataIdentifier(u16),
     /// OBD data identifier (`0xF400–0xF5FF`, `0xF700–0xF7FF`).
     #[cfg_attr(feature = "clap", clap(skip))]
-    OBDDataIdentifier(u16),
+    ObdDataIdentifier(u16),
     /// OBD monitor data identifier (`0xF600–0xF6FF`).
     #[cfg_attr(feature = "clap", clap(skip))]
-    OBDMonitorDataIdentifier(u16),
+    ObdMonitorDataIdentifier(u16),
     /// OBD info-type data identifier (`0xF800–0xF8FF`).
     #[cfg_attr(feature = "clap", clap(skip))]
-    OBDInfoTypeDataIdentifier(u16),
+    ObdInfoTypeDataIdentifier(u16),
     /// Tachograph data identifier (`0xF900–0xF9FF`).
     #[cfg_attr(feature = "clap", clap(skip))]
     TachographDataIdentifier(u16),
@@ -52,14 +52,14 @@ pub enum UDSIdentifier {
     #[cfg_attr(feature = "clap", clap(skip))]
     AirbagDeploymentDataIdentifier(u16),
     /// Number of EDR devices (`0xFA10`).
-    NumberOfEDRDevices,
+    NumberOfEdrDevices,
     /// EDR identification (`0xFA11`).
-    EDRIdentification,
+    EdrIdentification,
     /// EDR device address information (`0xFA12`).
-    EDRDeviceAddressInformation,
+    EdrDeviceAddressInformation,
     /// EDR entries (`0xFA13–0xFA18`).
     #[cfg_attr(feature = "clap", clap(skip))]
-    EDREntries(u16),
+    EdrEntries(u16),
     /// Safety system data identifier (`0xFA19–0xFAFF`).
     #[cfg_attr(feature = "clap", clap(skip))]
     SafetySystemDataIdentifier(u16),
@@ -80,16 +80,16 @@ pub enum UDSIdentifier {
     /// Vehicle manufacturer spare-part number (`0xF187`).
     VehicleManufacturerSparePartNumber,
     /// Vehicle manufacturer ECU software number (`0xF188`).
-    VehicleManufacturerECUSoftwareNumber,
+    VehicleManufacturerEcuSoftwareNumber,
     /// Vehicle manufacturer ECU software version number (`0xF189`).
-    VehicleManufacturerECUSoftwareVersionNumber,
+    VehicleManufacturerEcuSoftwareVersionNumber,
     /// System supplier identifier (`0xF18A`).
     SystemSupplierIdentifier,
     /// This value shall be used to reference the ECU (server) manufacturing date. Record data content and format shall be
     /// unsigned numeric, ASCII or BCD, and shall be ordered as Year, Month, Day.
-    ECUManufacturingData,
+    EcuManufacturingData,
     /// Get the serial number of the ECU, format shall be server specific.
-    ECUSerialNumber,
+    EcuSerialNumber,
     /// Request the supported functional units of the ECU.
     SupportedFunctionalUnits,
     /// This value shall be used to reference the vehicle manufacturer order number for a kit (assembled parts bought as a whole for
@@ -100,17 +100,17 @@ pub enum UDSIdentifier {
     /// Recursive ASCII string
     RegulationXSoftwareIdentificationNumbers,
     /// Vehicle Identification Number (`0xF190`).
-    VIN,
+    Vin,
     /// Vehicle manufacturer ECU hardware number (`0xF191`).
-    VehicleManufacturerECUHardwareNumber,
+    VehicleManufacturerEcuHardwareNumber,
     /// System supplier ECU hardware number (`0xF192`).
-    SystemSupplierECUHardwareNumber,
+    SystemSupplierEcuHardwareNumber,
     /// System supplier ECU hardware version number (`0xF193`).
-    SystemSupplierECUHardwareVersionNumber,
+    SystemSupplierEcuHardwareVersionNumber,
     /// System supplier ECU software number (`0xF194`).
-    SystemSupplierECUSoftwareNumber,
+    SystemSupplierEcuSoftwareNumber,
     /// System supplier ECU software version number (`0xF195`).
-    SystemSupplierECUSoftwareVersionNumber,
+    SystemSupplierEcuSoftwareVersionNumber,
     /// Exhaust regulation or type approval number (`0xF196`).
     ExhaustRegulationOrTypeApprovalNumber,
     /// System name or engine type (`0xF197`).
@@ -127,22 +127,22 @@ pub enum UDSIdentifier {
     /// Calibration equipment software number (`0xF19C`).
     CalibrationEquipmentSoftwareNumber,
     /// ECU installation date (`0xF19D`).
-    ECUInstallationDate,
+    EcuInstallationDate,
     /// ODX file identifier (`0xF19E`).
-    ODXFile,
+    OdxFile,
     /// Used to reference the entity data identifier for a secured data transfer
     Entity,
     /// UDS version data (`0xFF00`).
-    UDSVersionData,
+    UdsVersionData,
     /// Reserved for ISO 15765-5 (`0xFF01`).
-    ReservedForISO15765_5,
+    ReservedForIso15765_5,
 }
 
-impl From<u16> for UDSIdentifier {
+impl From<u16> for UdsIdentifier {
     #[allow(clippy::match_same_arms)]
     fn from(value: u16) -> Self {
         match value {
-            0x0000..=0x00FF => Self::ISOSAEReserved(value),
+            0x0000..=0x00FF => Self::IsoSaeReserved(value),
             0x0100..=0xA5FF => Self::VehicleManufacturerSpecific(value),
             0xA600..=0xA7FF => Self::ReservedForLegislativeUse(value),
             0xA800..=0xACFF => Self::VehicleManufacturerSpecific(value),
@@ -163,20 +163,20 @@ impl From<u16> for UDSIdentifier {
             0xF185 => Self::ApplicationDataFingerprint,
             0xF186 => Self::ActiveDiagnosticSession,
             0xF187 => Self::VehicleManufacturerSparePartNumber,
-            0xF188 => Self::VehicleManufacturerECUSoftwareNumber,
-            0xF189 => Self::VehicleManufacturerECUSoftwareVersionNumber,
+            0xF188 => Self::VehicleManufacturerEcuSoftwareNumber,
+            0xF189 => Self::VehicleManufacturerEcuSoftwareVersionNumber,
             0xF18A => Self::SystemSupplierIdentifier,
-            0xF18B => Self::ECUManufacturingData,
-            0xF18C => Self::ECUSerialNumber,
+            0xF18B => Self::EcuManufacturingData,
+            0xF18C => Self::EcuSerialNumber,
             0xF18D => Self::SupportedFunctionalUnits,
             0xF18E => Self::VehicleManufacturerKitAssemblyPartNumber,
             0xF18F => Self::RegulationXSoftwareIdentificationNumbers,
-            0xF190 => Self::VIN,
-            0xF191 => Self::VehicleManufacturerECUHardwareNumber,
-            0xF192 => Self::SystemSupplierECUHardwareNumber,
-            0xF193 => Self::SystemSupplierECUHardwareVersionNumber,
-            0xF194 => Self::SystemSupplierECUSoftwareNumber,
-            0xF195 => Self::SystemSupplierECUSoftwareVersionNumber,
+            0xF190 => Self::Vin,
+            0xF191 => Self::VehicleManufacturerEcuHardwareNumber,
+            0xF192 => Self::SystemSupplierEcuHardwareNumber,
+            0xF193 => Self::SystemSupplierEcuHardwareVersionNumber,
+            0xF194 => Self::SystemSupplierEcuSoftwareNumber,
+            0xF195 => Self::SystemSupplierEcuSoftwareVersionNumber,
             0xF196 => Self::ExhaustRegulationOrTypeApprovalNumber,
             0xF197 => Self::SystemNameOrEngineType,
             0xF198 => Self::RepairShopOrTesterSerialNumber,
@@ -184,102 +184,102 @@ impl From<u16> for UDSIdentifier {
             0xF19A => Self::CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber,
             0xF19B => Self::CalibrationDate,
             0xF19C => Self::CalibrationEquipmentSoftwareNumber,
-            0xF19D => Self::ECUInstallationDate,
-            0xF19E => Self::ODXFile,
+            0xF19D => Self::EcuInstallationDate,
+            0xF19E => Self::OdxFile,
             0xF19F => Self::Entity,
             0xF1A0..=0xF1EF => Self::IdentificationOptionVehicleManufacturerSpecific(value),
             0xF1F0..=0xF1FF => Self::IdentificationOptionSystemSupplierSpecific(value),
             0xF200..=0xF2FF => Self::PeriodicDataIdentifier(value),
             0xF300..=0xF3FF => Self::DynamicallyDefinedDataIdentifier(value),
-            0xF400..=0xF5FF => Self::OBDDataIdentifier(value),
-            0xF600..=0xF6FF => Self::OBDMonitorDataIdentifier(value),
-            0xF700..=0xF7FF => Self::OBDDataIdentifier(value),
-            0xF800..=0xF8FF => Self::OBDInfoTypeDataIdentifier(value),
+            0xF400..=0xF5FF => Self::ObdDataIdentifier(value),
+            0xF600..=0xF6FF => Self::ObdMonitorDataIdentifier(value),
+            0xF700..=0xF7FF => Self::ObdDataIdentifier(value),
+            0xF800..=0xF8FF => Self::ObdInfoTypeDataIdentifier(value),
             0xF900..=0xF9FF => Self::TachographDataIdentifier(value),
             0xFA00..=0xFA0F => Self::AirbagDeploymentDataIdentifier(value),
-            0xFA10 => Self::NumberOfEDRDevices,
-            0xFA11 => Self::EDRIdentification,
-            0xFA12 => Self::EDRDeviceAddressInformation,
-            0xFA13..=0xFA18 => Self::EDREntries(value),
+            0xFA10 => Self::NumberOfEdrDevices,
+            0xFA11 => Self::EdrIdentification,
+            0xFA12 => Self::EdrDeviceAddressInformation,
+            0xFA13..=0xFA18 => Self::EdrEntries(value),
             0xFA19..=0xFAFF => Self::SafetySystemDataIdentifier(value),
             0xFB00..=0xFCFF => Self::ReservedForLegislativeUse(value),
             0xFD00..=0xFEFF => Self::SystemSupplierSpecific(value),
-            0xFF00 => Self::UDSVersionData,
-            0xFF01 => Self::ReservedForISO15765_5,
-            0xFF02..=0xFFFF => Self::ISOSAEReserved(value),
+            0xFF00 => Self::UdsVersionData,
+            0xFF01 => Self::ReservedForIso15765_5,
+            0xFF02..=0xFFFF => Self::IsoSaeReserved(value),
         }
     }
 }
 
-impl From<UDSIdentifier> for u16 {
+impl From<UdsIdentifier> for u16 {
     #[allow(clippy::match_same_arms)]
-    fn from(value: UDSIdentifier) -> Self {
+    fn from(value: UdsIdentifier) -> Self {
         match value {
-            UDSIdentifier::ISOSAEReserved(v) => v,
-            UDSIdentifier::VehicleManufacturerSpecific(v) => v,
-            UDSIdentifier::SystemSupplierSpecific(v) => v,
-            UDSIdentifier::ReservedForLegislativeUse(v) => v,
-            UDSIdentifier::NetworkConfigDataForTractorTrailer(v) => v,
-            UDSIdentifier::IdentificationOptionVehicleManufacturerSpecific(v) => v,
-            UDSIdentifier::IdentificationOptionSystemSupplierSpecific(v) => v,
-            UDSIdentifier::PeriodicDataIdentifier(v) => v,
-            UDSIdentifier::DynamicallyDefinedDataIdentifier(v) => v,
-            UDSIdentifier::OBDDataIdentifier(v) => v,
-            UDSIdentifier::OBDMonitorDataIdentifier(v) => v,
-            UDSIdentifier::OBDInfoTypeDataIdentifier(v) => v,
-            UDSIdentifier::TachographDataIdentifier(v) => v,
-            UDSIdentifier::AirbagDeploymentDataIdentifier(v) => v,
-            UDSIdentifier::NumberOfEDRDevices => 0xFA10,
-            UDSIdentifier::EDRIdentification => 0xFA11,
-            UDSIdentifier::EDRDeviceAddressInformation => 0xFA12,
-            UDSIdentifier::EDREntries(v) => v,
-            UDSIdentifier::SafetySystemDataIdentifier(v) => v,
-            UDSIdentifier::BootSoftwareIdentification => 0xF180,
-            UDSIdentifier::ApplicationSoftwareIdentification => 0xF181,
-            UDSIdentifier::ApplicationDataIdentification => 0xF182,
-            UDSIdentifier::BootSoftwareFingerprint => 0xF183,
-            UDSIdentifier::ApplicationSoftwareFingerprint => 0xF184,
-            UDSIdentifier::ApplicationDataFingerprint => 0xF185,
-            UDSIdentifier::ActiveDiagnosticSession => 0xF186,
-            UDSIdentifier::VehicleManufacturerSparePartNumber => 0xF187,
-            UDSIdentifier::VehicleManufacturerECUSoftwareNumber => 0xF188,
-            UDSIdentifier::VehicleManufacturerECUSoftwareVersionNumber => 0xF189,
-            UDSIdentifier::SystemSupplierIdentifier => 0xF18A,
-            UDSIdentifier::ECUManufacturingData => 0xF18B,
-            UDSIdentifier::ECUSerialNumber => 0xF18C,
-            UDSIdentifier::SupportedFunctionalUnits => 0xF18D,
-            UDSIdentifier::VehicleManufacturerKitAssemblyPartNumber => 0xF18E,
-            UDSIdentifier::RegulationXSoftwareIdentificationNumbers => 0xF18F,
-            UDSIdentifier::VIN => 0xF190,
-            UDSIdentifier::VehicleManufacturerECUHardwareNumber => 0xF191,
-            UDSIdentifier::SystemSupplierECUHardwareNumber => 0xF192,
-            UDSIdentifier::SystemSupplierECUHardwareVersionNumber => 0xF193,
-            UDSIdentifier::SystemSupplierECUSoftwareNumber => 0xF194,
-            UDSIdentifier::SystemSupplierECUSoftwareVersionNumber => 0xF195,
-            UDSIdentifier::ExhaustRegulationOrTypeApprovalNumber => 0xF196,
-            UDSIdentifier::SystemNameOrEngineType => 0xF197,
-            UDSIdentifier::RepairShopOrTesterSerialNumber => 0xF198,
-            UDSIdentifier::ProgrammingDate => 0xF199,
-            UDSIdentifier::CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber => 0xF19A,
-            UDSIdentifier::CalibrationDate => 0xF19B,
-            UDSIdentifier::CalibrationEquipmentSoftwareNumber => 0xF19C,
-            UDSIdentifier::ECUInstallationDate => 0xF19D,
-            UDSIdentifier::ODXFile => 0xF19E,
-            UDSIdentifier::Entity => 0xF19F,
-            UDSIdentifier::UDSVersionData => 0xFF00,
-            UDSIdentifier::ReservedForISO15765_5 => 0xFF01,
+            UdsIdentifier::IsoSaeReserved(v) => v,
+            UdsIdentifier::VehicleManufacturerSpecific(v) => v,
+            UdsIdentifier::SystemSupplierSpecific(v) => v,
+            UdsIdentifier::ReservedForLegislativeUse(v) => v,
+            UdsIdentifier::NetworkConfigDataForTractorTrailer(v) => v,
+            UdsIdentifier::IdentificationOptionVehicleManufacturerSpecific(v) => v,
+            UdsIdentifier::IdentificationOptionSystemSupplierSpecific(v) => v,
+            UdsIdentifier::PeriodicDataIdentifier(v) => v,
+            UdsIdentifier::DynamicallyDefinedDataIdentifier(v) => v,
+            UdsIdentifier::ObdDataIdentifier(v) => v,
+            UdsIdentifier::ObdMonitorDataIdentifier(v) => v,
+            UdsIdentifier::ObdInfoTypeDataIdentifier(v) => v,
+            UdsIdentifier::TachographDataIdentifier(v) => v,
+            UdsIdentifier::AirbagDeploymentDataIdentifier(v) => v,
+            UdsIdentifier::NumberOfEdrDevices => 0xFA10,
+            UdsIdentifier::EdrIdentification => 0xFA11,
+            UdsIdentifier::EdrDeviceAddressInformation => 0xFA12,
+            UdsIdentifier::EdrEntries(v) => v,
+            UdsIdentifier::SafetySystemDataIdentifier(v) => v,
+            UdsIdentifier::BootSoftwareIdentification => 0xF180,
+            UdsIdentifier::ApplicationSoftwareIdentification => 0xF181,
+            UdsIdentifier::ApplicationDataIdentification => 0xF182,
+            UdsIdentifier::BootSoftwareFingerprint => 0xF183,
+            UdsIdentifier::ApplicationSoftwareFingerprint => 0xF184,
+            UdsIdentifier::ApplicationDataFingerprint => 0xF185,
+            UdsIdentifier::ActiveDiagnosticSession => 0xF186,
+            UdsIdentifier::VehicleManufacturerSparePartNumber => 0xF187,
+            UdsIdentifier::VehicleManufacturerEcuSoftwareNumber => 0xF188,
+            UdsIdentifier::VehicleManufacturerEcuSoftwareVersionNumber => 0xF189,
+            UdsIdentifier::SystemSupplierIdentifier => 0xF18A,
+            UdsIdentifier::EcuManufacturingData => 0xF18B,
+            UdsIdentifier::EcuSerialNumber => 0xF18C,
+            UdsIdentifier::SupportedFunctionalUnits => 0xF18D,
+            UdsIdentifier::VehicleManufacturerKitAssemblyPartNumber => 0xF18E,
+            UdsIdentifier::RegulationXSoftwareIdentificationNumbers => 0xF18F,
+            UdsIdentifier::Vin => 0xF190,
+            UdsIdentifier::VehicleManufacturerEcuHardwareNumber => 0xF191,
+            UdsIdentifier::SystemSupplierEcuHardwareNumber => 0xF192,
+            UdsIdentifier::SystemSupplierEcuHardwareVersionNumber => 0xF193,
+            UdsIdentifier::SystemSupplierEcuSoftwareNumber => 0xF194,
+            UdsIdentifier::SystemSupplierEcuSoftwareVersionNumber => 0xF195,
+            UdsIdentifier::ExhaustRegulationOrTypeApprovalNumber => 0xF196,
+            UdsIdentifier::SystemNameOrEngineType => 0xF197,
+            UdsIdentifier::RepairShopOrTesterSerialNumber => 0xF198,
+            UdsIdentifier::ProgrammingDate => 0xF199,
+            UdsIdentifier::CalibrationRepairShopCodeOrCalibrationEquipmentSerialNumber => 0xF19A,
+            UdsIdentifier::CalibrationDate => 0xF19B,
+            UdsIdentifier::CalibrationEquipmentSoftwareNumber => 0xF19C,
+            UdsIdentifier::EcuInstallationDate => 0xF19D,
+            UdsIdentifier::OdxFile => 0xF19E,
+            UdsIdentifier::Entity => 0xF19F,
+            UdsIdentifier::UdsVersionData => 0xFF00,
+            UdsIdentifier::ReservedForIso15765_5 => 0xFF01,
         }
     }
 }
 
-impl core::fmt::Display for UDSIdentifier {
+impl core::fmt::Display for UdsIdentifier {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let value: u16 = (*self).into();
         write!(f, "{value:#06X?}")
     }
 }
 
-impl core::fmt::Debug for UDSIdentifier {
+impl core::fmt::Debug for UdsIdentifier {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let value: u16 = (*self).into();
         write!(f, "{value:#06X}")
@@ -294,9 +294,9 @@ impl core::fmt::Debug for UDSIdentifier {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum UDSRoutineIdentifier {
+pub enum UdsRoutineIdentifier {
     /// ISO/SAE reserved routine identifier (`0x0000–0x00FF`, `0xE300–0xEFFF`, `0xFF02–0xFFFF`).
-    ISOSAEReserved(u16),
+    IsoSaeReserved(u16),
     /// Represent Tachograph test result values
     ///
     /// 0x0100-0x01FF
@@ -308,20 +308,20 @@ pub enum UDSRoutineIdentifier {
     VehicleManufacturerSpecific(u16),
 
     /// 0xE000-0xE1FF
-    OBDTestIds(u16),
+    ObdTestIds(u16),
 
     /// Execute Service Programming Loop (SPL)
     ///
     /// 0xE200
-    ExecuteSPL,
+    ExecuteSpl,
 
     /// Deploy Loop Routine ID
     ///
     /// 0xE201
-    DeployLoopRoutineID,
+    DeployLoopRoutineId,
 
     /// 0xE202-0xE2FF
-    SafetySystemRoutineID(u16),
+    SafetySystemRoutineId(u16),
 
     /// System Supplier Specific Routine Identifiers
     ///
@@ -339,17 +339,17 @@ pub enum UDSRoutineIdentifier {
     CheckProgrammingDependencies,
 }
 
-/// We know all values for the Routine Identifier, so we can implement `From<u16>` for `UDSRoutineIdentifier`
-impl From<u16> for UDSRoutineIdentifier {
+/// We know all values for the Routine Identifier, so we can implement `From<u16>` for `UdsRoutineIdentifier`
+impl From<u16> for UdsRoutineIdentifier {
     fn from(value: u16) -> Self {
         match value {
-            0x0000..=0x00FF | 0xE300..=0xEFFF | 0xFF02..=0xFFFF => Self::ISOSAEReserved(value),
+            0x0000..=0x00FF | 0xE300..=0xEFFF | 0xFF02..=0xFFFF => Self::IsoSaeReserved(value),
             0x0100..=0x01FF => Self::TachographTestIds(value),
             0x0200..=0xDFFF => Self::VehicleManufacturerSpecific(value),
-            0xE000..=0xE1FF => Self::OBDTestIds(value),
-            0xE200 => Self::ExecuteSPL,
-            0xE201 => Self::DeployLoopRoutineID,
-            0xE202..=0xE2FF => Self::SafetySystemRoutineID(value),
+            0xE000..=0xE1FF => Self::ObdTestIds(value),
+            0xE200 => Self::ExecuteSpl,
+            0xE201 => Self::DeployLoopRoutineId,
+            0xE202..=0xE2FF => Self::SafetySystemRoutineId(value),
             0xF000..=0xFEFF => Self::SystemSupplierSpecific(value),
             0xFF00 => Self::EraseMemory,
             0xFF01 => Self::CheckProgrammingDependencies,
@@ -357,20 +357,20 @@ impl From<u16> for UDSRoutineIdentifier {
     }
 }
 
-impl From<UDSRoutineIdentifier> for u16 {
+impl From<UdsRoutineIdentifier> for u16 {
     #[allow(clippy::match_same_arms)]
-    fn from(value: UDSRoutineIdentifier) -> Self {
+    fn from(value: UdsRoutineIdentifier) -> Self {
         match value {
-            UDSRoutineIdentifier::ISOSAEReserved(identifier) => identifier,
-            UDSRoutineIdentifier::TachographTestIds(identifier) => identifier,
-            UDSRoutineIdentifier::VehicleManufacturerSpecific(identifier) => identifier,
-            UDSRoutineIdentifier::OBDTestIds(identifier) => identifier,
-            UDSRoutineIdentifier::ExecuteSPL => 0xE200,
-            UDSRoutineIdentifier::DeployLoopRoutineID => 0xE201,
-            UDSRoutineIdentifier::SafetySystemRoutineID(identifier) => identifier,
-            UDSRoutineIdentifier::SystemSupplierSpecific(identifier) => identifier,
-            UDSRoutineIdentifier::EraseMemory => 0xFF00,
-            UDSRoutineIdentifier::CheckProgrammingDependencies => 0xFF01,
+            UdsRoutineIdentifier::IsoSaeReserved(identifier) => identifier,
+            UdsRoutineIdentifier::TachographTestIds(identifier) => identifier,
+            UdsRoutineIdentifier::VehicleManufacturerSpecific(identifier) => identifier,
+            UdsRoutineIdentifier::ObdTestIds(identifier) => identifier,
+            UdsRoutineIdentifier::ExecuteSpl => 0xE200,
+            UdsRoutineIdentifier::DeployLoopRoutineId => 0xE201,
+            UdsRoutineIdentifier::SafetySystemRoutineId(identifier) => identifier,
+            UdsRoutineIdentifier::SystemSupplierSpecific(identifier) => identifier,
+            UdsRoutineIdentifier::EraseMemory => 0xFF00,
+            UdsRoutineIdentifier::CheckProgrammingDependencies => 0xFF01,
         }
     }
 }
@@ -383,7 +383,7 @@ mod tests {
     fn uds_identifier_from_is_total_and_round_trips() {
         // Every u16 maps to a variant and round-trips back to itself.
         for raw in 0u16..=u16::MAX {
-            let id = UDSIdentifier::from(raw);
+            let id = UdsIdentifier::from(raw);
             assert_eq!(u16::from(id), raw, "round-trip failed for {raw:#06X}");
         }
     }
@@ -392,45 +392,45 @@ mod tests {
     fn uds_routine_identifier_from_is_total_and_round_trips() {
         // Every u16 maps to a variant and round-trips back to itself.
         for raw in 0u16..=u16::MAX {
-            let id = UDSRoutineIdentifier::from(raw);
+            let id = UdsRoutineIdentifier::from(raw);
             assert_eq!(u16::from(id), raw, "round-trip failed for {raw:#06X}");
         }
     }
 
     #[test]
     fn uds_identifier_classifies_representative_ranges() {
-        use UDSIdentifier::*;
+        use UdsIdentifier::*;
         assert!(matches!(
-            UDSIdentifier::from(0x0042),
-            ISOSAEReserved(0x0042)
+            UdsIdentifier::from(0x0042),
+            IsoSaeReserved(0x0042)
         ));
         assert!(matches!(
-            UDSIdentifier::from(0x2000),
+            UdsIdentifier::from(0x2000),
             VehicleManufacturerSpecific(0x2000)
         ));
         assert!(matches!(
-            UDSIdentifier::from(0xA600),
+            UdsIdentifier::from(0xA600),
             ReservedForLegislativeUse(0xA600)
         ));
         assert!(matches!(
-            UDSIdentifier::from(0xF100),
+            UdsIdentifier::from(0xF100),
             IdentificationOptionVehicleManufacturerSpecific(0xF100)
         ));
-        assert!(matches!(UDSIdentifier::from(0xF190), VIN));
+        assert!(matches!(UdsIdentifier::from(0xF190), Vin));
         assert!(matches!(
-            UDSIdentifier::from(0xF200),
+            UdsIdentifier::from(0xF200),
             PeriodicDataIdentifier(0xF200)
         ));
         assert!(matches!(
-            UDSIdentifier::from(0xF400),
-            OBDDataIdentifier(0xF400)
+            UdsIdentifier::from(0xF400),
+            ObdDataIdentifier(0xF400)
         ));
-        assert!(matches!(UDSIdentifier::from(0xFA10), NumberOfEDRDevices));
-        assert!(matches!(UDSIdentifier::from(0xFF00), UDSVersionData));
-        assert!(matches!(UDSIdentifier::from(0xFF01), ReservedForISO15765_5));
+        assert!(matches!(UdsIdentifier::from(0xFA10), NumberOfEdrDevices));
+        assert!(matches!(UdsIdentifier::from(0xFF00), UdsVersionData));
+        assert!(matches!(UdsIdentifier::from(0xFF01), ReservedForIso15765_5));
         assert!(matches!(
-            UDSIdentifier::from(0xFFFE),
-            ISOSAEReserved(0xFFFE)
+            UdsIdentifier::from(0xFFFE),
+            IsoSaeReserved(0xFFFE)
         ));
     }
 }

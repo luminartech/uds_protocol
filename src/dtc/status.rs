@@ -5,39 +5,39 @@ use automotive_wire_codec::{write_all, write_u8};
 
 /// Bit-packed DTC status information used by the `ReadDTCInformation` service
 ///
-/// `DTCStatusMask` (1 byte)
+/// `DtcStatusMask` (1 byte)
 /// 8 DTC status bits. Refer to D.2
 /// A DTC status matches the mask if any one of the DTCs actual status bits is set to `1`
 /// and the corresponding on in the mask is set to 1
-/// if( `DTCStatusMask` & `DTCStatus` = !0) is a match
+/// if( `DtcStatusMask` & `DTCStatus` = !0) is a match
 ///
 /// Server note:
 ///     If the mask uses bits that the server does not support,
 ///     the server shall process the bits it does support and ignore the rest
 ///
 /// ```
-/// use uds_protocol::{DTCStatusMask, ReadDTCInfoSubFunction};
-/// // Get DTCs with TestFailed and PendingDTC statuses
-/// let dtc_status = DTCStatusMask::TestFailed | DTCStatusMask::PendingDTC;
-/// let dtc_subfunction = ReadDTCInfoSubFunction::ReportNumberOfDTC_ByStatusMask(dtc_status);
+/// use uds_protocol::{DtcStatusMask, ReadDtcInfoSubFunction};
+/// // Get DTCs with TestFailed and PendingDtc statuses
+/// let dtc_status = DtcStatusMask::TestFailed | DtcStatusMask::PendingDtc;
+/// let dtc_subfunction = ReadDtcInfoSubFunction::ReportNumberOfDtcByStatusMask(dtc_status);
 /// ```
 ///
 /// Per DTC statuses
 ///
 /// | DTC Status Bit | DTC Status Name | Bit state after ClearDiagnosticInformation|
 /// | - | ------------------------------ | --- |
-/// | 0 | [`TestFailed`](DTCStatusMask::TestFailed)                         | **0** |
-/// | 1 | [`TestFailedThisOperationCycle`](DTCStatusMask::TestFailedThisOperationCycle)       | **0** |
-/// | 2 | [`PendingDTC`](DTCStatusMask::PendingDTC)                         | **0** |
-/// | 3 | [`ConfirmedDTC`](DTCStatusMask::ConfirmedDTC)                       | **0** |
-/// | 4 | [`TestNotCompletedSinceLastClear`](DTCStatusMask::TestNotCompletedSinceLastClear)     | **1** |
-/// | 5 | [`TestFailedSinceLastClear`](DTCStatusMask::TestFailedSinceLastClear)           | **0** |
-/// | 6 | [`TestNotCompletedThisOperationCycle`](DTCStatusMask::TestNotCompletedThisOperationCycle) | **1** |
-/// | 7 | [`WarningIndicatorRequested`](DTCStatusMask::WarningIndicatorRequested)          | **0** |
+/// | 0 | [`TestFailed`](DtcStatusMask::TestFailed)                         | **0** |
+/// | 1 | [`TestFailedThisOperationCycle`](DtcStatusMask::TestFailedThisOperationCycle)       | **0** |
+/// | 2 | [`PendingDtc`](DtcStatusMask::PendingDtc)                         | **0** |
+/// | 3 | [`ConfirmedDtc`](DtcStatusMask::ConfirmedDtc)                       | **0** |
+/// | 4 | [`TestNotCompletedSinceLastClear`](DtcStatusMask::TestNotCompletedSinceLastClear)     | **1** |
+/// | 5 | [`TestFailedSinceLastClear`](DtcStatusMask::TestFailedSinceLastClear)           | **0** |
+/// | 6 | [`TestNotCompletedThisOperationCycle`](DtcStatusMask::TestNotCompletedThisOperationCycle) | **1** |
+/// | 7 | [`WarningIndicatorRequested`](DtcStatusMask::WarningIndicatorRequested)          | **0** |
 #[bitmask(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub enum DTCStatusMask {
+pub enum DtcStatusMask {
     /// Status of the most recently performed test.
     ///
     /// Bit state definition:
@@ -62,7 +62,7 @@ pub enum DTCStatusMask {
     /// Bit state definition:
     /// * 0 -  Test passed **with no failure** after completing a cycle
     /// * 1 -  Test failed during the current operation cycle
-    PendingDTC,
+    PendingDtc,
 
     /// Indicates whether a malfunction was detected enough times to warrant the DTC being stored
     /// in long term memory. This doesn't mean that the DTC failure is present at the time of the request.
@@ -71,7 +71,7 @@ pub enum DTCStatusMask {
     /// Bit state definition:
     /// * 0 - DTC has **never been confirmed** since last `ClearDiagnosticInformation`, or after aging criteria have been met
     /// * 1 - DTC has been confirmed at least once
-    ConfirmedDTC,
+    ConfirmedDtc,
 
     /// Indicates whether a test has run and completed since last `ClearDiagnosticInformation`
     /// Will not reset to 1 by any method other than calling `ClearDiagnosticInformation`
@@ -107,14 +107,14 @@ pub enum DTCStatusMask {
     WarningIndicatorRequested,
 }
 
-impl Encode for DTCStatusMask {
+impl Encode for DtcStatusMask {
     type Error = crate::Error;
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         write_u8(writer, self.bits()).map_err(Error::io)
     }
 }
 
-impl<'a> Decode<'a> for DTCStatusMask {
+impl<'a> Decode<'a> for DtcStatusMask {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -130,62 +130,61 @@ impl<'a> Decode<'a> for DTCStatusMask {
 
 /// Specifies the format of the DTC reported by the server.
 ///
-/// A given server shall only support one `DTCFormatIdentifier`.
-#[allow(non_camel_case_types)]
+/// A given server shall only support one `DtcFormatIdentifier`.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 #[repr(u8)]
-pub enum DTCFormatIdentifier {
+pub enum DtcFormatIdentifier {
     /// Defined in [SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>) DTC Format
-    SAE_J2012_DA_DTCFormat_00 = 0x00,
+    SaeJ2012DaDtcFormat00 = 0x00,
 
     /// reported for `DTCAndStatusRecord`
-    ISO_14229_1_DTCFormat = 0x01,
+    Iso14229_1DtcFormat = 0x01,
 
     /// Defined in [SAE J1939-73](<https://www.sae.org/standards/content/j1939/73_202208/>)
-    SAE_J1939_73_DTCFormat = 0x02,
+    SaeJ1939_73DtcFormat = 0x02,
 
     /// Defined in [ISO-11992](<https://www.iso.org/standard/33992.html>)
-    ISO_11992_4_DTCFormat = 0x03,
+    Iso11992_4DtcFormat = 0x03,
 
     /// Defined in SAE J2012-DA](<https://www.sae.org/standards/content/j2012da_202403/>)
-    SAE_J2012_DA_DTCFormat_04 = 0x04,
+    SaeJ2012DaDtcFormat04 = 0x04,
 
     /// Reserved for future usage
     /// 0x05 - 0xFF
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
 }
 
-impl From<u8> for DTCFormatIdentifier {
+impl From<u8> for DtcFormatIdentifier {
     fn from(value: u8) -> Self {
         match value {
-            0x00 => DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_00,
-            0x01 => DTCFormatIdentifier::ISO_14229_1_DTCFormat,
-            0x02 => DTCFormatIdentifier::SAE_J1939_73_DTCFormat,
-            0x03 => DTCFormatIdentifier::ISO_11992_4_DTCFormat,
-            0x04 => DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04,
-            val => DTCFormatIdentifier::ISOSAEReserved(val),
+            0x00 => DtcFormatIdentifier::SaeJ2012DaDtcFormat00,
+            0x01 => DtcFormatIdentifier::Iso14229_1DtcFormat,
+            0x02 => DtcFormatIdentifier::SaeJ1939_73DtcFormat,
+            0x03 => DtcFormatIdentifier::Iso11992_4DtcFormat,
+            0x04 => DtcFormatIdentifier::SaeJ2012DaDtcFormat04,
+            val => DtcFormatIdentifier::IsoSaeReserved(val),
         }
     }
 }
 
-impl From<DTCFormatIdentifier> for u8 {
-    fn from(val: DTCFormatIdentifier) -> Self {
+impl From<DtcFormatIdentifier> for u8 {
+    fn from(val: DtcFormatIdentifier) -> Self {
         match val {
-            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_00 => 0x00,
-            DTCFormatIdentifier::ISO_14229_1_DTCFormat => 0x01,
-            DTCFormatIdentifier::SAE_J1939_73_DTCFormat => 0x02,
-            DTCFormatIdentifier::ISO_11992_4_DTCFormat => 0x03,
-            DTCFormatIdentifier::SAE_J2012_DA_DTCFormat_04 => 0x04,
-            DTCFormatIdentifier::ISOSAEReserved(value) => value, // Default value for reserved
+            DtcFormatIdentifier::SaeJ2012DaDtcFormat00 => 0x00,
+            DtcFormatIdentifier::Iso14229_1DtcFormat => 0x01,
+            DtcFormatIdentifier::SaeJ1939_73DtcFormat => 0x02,
+            DtcFormatIdentifier::Iso11992_4DtcFormat => 0x03,
+            DtcFormatIdentifier::SaeJ2012DaDtcFormat04 => 0x04,
+            DtcFormatIdentifier::IsoSaeReserved(value) => value, // Default value for reserved
         }
     }
 }
 
 /// Use to clear all DTCs in a [`crate::ClearDiagnosticInfoRequest`]
-pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
+pub const CLEAR_ALL_DTCS: DtcRecord = DtcRecord {
     high_byte: 0xFF,
     middle_byte: 0xFF,
     low_byte: 0xFF,
@@ -196,14 +195,14 @@ pub const CLEAR_ALL_DTCS: DTCRecord = DTCRecord {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DTCRecord {
+pub struct DtcRecord {
     high_byte: u8,
     middle_byte: u8,
     low_byte: u8,
 }
 
-impl DTCRecord {
-    /// Create a `DTCRecord` from its three component bytes.
+impl DtcRecord {
+    /// Create a `DtcRecord` from its three component bytes.
     #[must_use]
     pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
         Self {
@@ -214,7 +213,7 @@ impl DTCRecord {
     }
 }
 
-impl From<u32> for DTCRecord {
+impl From<u32> for DtcRecord {
     fn from(value: u32) -> Self {
         Self {
             high_byte: ((value >> 16) & 0xFF) as u8,
@@ -224,15 +223,15 @@ impl From<u32> for DTCRecord {
     }
 }
 
-impl From<DTCRecord> for u32 {
-    fn from(value: DTCRecord) -> Self {
+impl From<DtcRecord> for u32 {
+    fn from(value: DtcRecord) -> Self {
         (u32::from(value.high_byte) << 16)
             | (u32::from(value.middle_byte) << 8)
             | u32::from(value.low_byte)
     }
 }
 
-impl Encode for DTCRecord {
+impl Encode for DtcRecord {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -240,7 +239,7 @@ impl Encode for DTCRecord {
     }
 }
 
-impl<'a> Decode<'a> for DTCRecord {
+impl<'a> Decode<'a> for DtcRecord {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -261,7 +260,7 @@ impl<'a> Decode<'a> for DTCRecord {
     }
 }
 
-impl<'a> DecodeIter<'a> for DTCRecord {
+impl<'a> DecodeIter<'a> for DtcRecord {
     type Error = crate::Error;
     const WIRE_SIZE: Option<usize> = Some(3);
 
@@ -288,7 +287,7 @@ pub enum FunctionalGroupIdentifier {
     /// 0x34 to 0xCF
     /// 0xE0 to 0xFD
     /// 0xFF
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
     /// 0x33
     EmissionsSystemGroup,
     /// 0xD0
@@ -299,7 +298,7 @@ pub enum FunctionalGroupIdentifier {
     LegislativeSystemGroup(u8),
 
     /// 0xFE
-    VODBSystem,
+    VobdSystem,
 }
 
 impl FunctionalGroupIdentifier {
@@ -309,9 +308,9 @@ impl FunctionalGroupIdentifier {
         match self {
             FunctionalGroupIdentifier::EmissionsSystemGroup => 0x33,
             FunctionalGroupIdentifier::SafetySystemGroup => 0xD0,
-            FunctionalGroupIdentifier::VODBSystem => 0xFE,
+            FunctionalGroupIdentifier::VobdSystem => 0xFE,
             FunctionalGroupIdentifier::LegislativeSystemGroup(value)
-            | FunctionalGroupIdentifier::ISOSAEReserved(value) => *value,
+            | FunctionalGroupIdentifier::IsoSaeReserved(value) => *value,
         }
     }
 }
@@ -321,9 +320,9 @@ impl From<u8> for FunctionalGroupIdentifier {
         match value {
             0x33 => FunctionalGroupIdentifier::EmissionsSystemGroup,
             0xD0 => FunctionalGroupIdentifier::SafetySystemGroup,
-            0xFE => FunctionalGroupIdentifier::VODBSystem,
+            0xFE => FunctionalGroupIdentifier::VobdSystem,
             0xD1..=0xDF => FunctionalGroupIdentifier::LegislativeSystemGroup(value),
-            _ => FunctionalGroupIdentifier::ISOSAEReserved(value),
+            _ => FunctionalGroupIdentifier::IsoSaeReserved(value),
         }
     }
 }
@@ -358,30 +357,29 @@ impl<'a> Decode<'a> for FunctionalGroupIdentifier {
 
 /// GTR DTC Class Information
 ///
-/// Bits 7-5 of the DTCSeverityMask/DTCSeverity parameters contain severity information (optional)
-/// Bits 4-0 of the DTCSeverityMask/DTCSeverity parameters contain class information (mandatory)
+/// Bits 7-5 of the DtcSeverityMask/DTCSeverity parameters contain severity information (optional)
+/// Bits 4-0 of the DtcSeverityMask/DTCSeverity parameters contain class information (mandatory)
 ///
 /// DTCCLASS_
-#[allow(non_camel_case_types)]
 #[bitmask(u8)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub enum DTCSeverityMask {
+pub enum DtcSeverityMask {
     // GtrDtcClassInfo
     /// Unclassified
-    DTCClass_0,
+    DtcClass0,
 
     /// Matches GTR module B Class A definition
     /// Malfunction is Class A when On-Board Diagnostic (OBD) threshold limits (OTL) are assumed to be exceeded
     /// It is accepted that the emissions may not be above the OTLs when this class of malfunction occurs
-    DTCClass_1,
+    DtcClass1,
 
     /// Matches GTR module B Class B1 definition
-    DTCClass_2,
+    DtcClass2,
     /// Matches GTR module B Class B2 definition
-    DTCClass_3,
+    DtcClass3,
     /// Matches GTR module B Class C definition
-    DTCClass_4,
+    DtcClass4,
 
     // DTCSeverityInfo section
     /// Failure requests maintenance only
@@ -400,22 +398,18 @@ pub enum DTCSeverityMask {
     CheckImmediately = 0b1000_0000, // bit 7
 }
 
-impl DTCSeverityMask {
+impl DtcSeverityMask {
     /// Returns `true` if at least one DTC class bit (bits 0-4) is set.
     /// Multiple class bits may be set to query multiple DTC classes at once.
     #[must_use]
     pub fn is_valid(&self) -> bool {
         self.intersects(
-            Self::DTCClass_0
-                | Self::DTCClass_1
-                | Self::DTCClass_2
-                | Self::DTCClass_3
-                | Self::DTCClass_4,
+            Self::DtcClass0 | Self::DtcClass1 | Self::DtcClass2 | Self::DtcClass3 | Self::DtcClass4,
         )
     }
 }
 
-impl Encode for DTCSeverityMask {
+impl Encode for DtcSeverityMask {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -423,7 +417,7 @@ impl Encode for DTCSeverityMask {
     }
 }
 
-impl<'a> Decode<'a> for DTCSeverityMask {
+impl<'a> Decode<'a> for DtcSeverityMask {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -442,10 +436,10 @@ impl<'a> Decode<'a> for DTCSeverityMask {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct DTCStoredDataRecordNumber(u8);
+pub struct DtcStoredDataRecordNumber(u8);
 
-// create a constructor for DTCStoredDataRecordNumber
-impl DTCStoredDataRecordNumber {
+// create a constructor for DtcStoredDataRecordNumber
+impl DtcStoredDataRecordNumber {
     ///
     /// # Errors
     /// Will return `Err(Error::ReservedForLegislativeUse()` if the record number == 0x00 or 0xF0
@@ -467,13 +461,13 @@ impl DTCStoredDataRecordNumber {
     }
 }
 
-impl From<u8> for DTCStoredDataRecordNumber {
+impl From<u8> for DtcStoredDataRecordNumber {
     fn from(value: u8) -> Self {
         Self(value)
     }
 }
 
-impl Encode for DTCStoredDataRecordNumber {
+impl Encode for DtcStoredDataRecordNumber {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -481,7 +475,7 @@ impl Encode for DTCStoredDataRecordNumber {
     }
 }
 
-impl<'a> Decode<'a> for DTCStoredDataRecordNumber {
+impl<'a> Decode<'a> for DtcStoredDataRecordNumber {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -502,7 +496,7 @@ mod encode_param_tests {
 
     #[test]
     fn encode_stored_data_record_number() {
-        let n = DTCStoredDataRecordNumber::new(0x05).unwrap();
+        let n = DtcStoredDataRecordNumber::new(0x05).unwrap();
         let mut buf = [0u8; 4];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 1);
@@ -514,18 +508,18 @@ mod encode_param_tests {
     fn stored_data_record_number_construction_is_strict_parsing_is_liberal() {
         // TX: constructing a reserved value is rejected.
         assert!(matches!(
-            DTCStoredDataRecordNumber::new(0xF0),
+            DtcStoredDataRecordNumber::new(0xF0),
             Err(Error::ReservedForLegislativeUse(0xF0))
         ));
         // RX: a reserved value from a foreign implementation still decodes, and value()
         // lets the caller inspect it.
-        let (decoded, _) = <DTCStoredDataRecordNumber as Decode>::decode(&[0xF0]).unwrap();
+        let (decoded, _) = <DtcStoredDataRecordNumber as Decode>::decode(&[0xF0]).unwrap();
         assert_eq!(decoded.value(), 0xF0);
     }
 
     #[test]
     fn encode_severity_mask() {
-        let m = DTCSeverityMask::CheckImmediately;
+        let m = DtcSeverityMask::CheckImmediately;
         let mut buf = [0u8; 4];
         let written = Encode::encode(&m, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 1);
@@ -546,7 +540,7 @@ mod encode_param_tests {
     #[test]
     fn functional_group_identifier_value_does_not_panic_on_reserved() {
         // Regression: value() previously called todo!() for carried-byte variants.
-        let g = FunctionalGroupIdentifier::from(0x10); // -> ISOSAEReserved(0x10)
+        let g = FunctionalGroupIdentifier::from(0x10); // -> IsoSaeReserved(0x10)
         assert_eq!(g.value(), 0x10);
         let g2 = FunctionalGroupIdentifier::from(0xD5); // -> LegislativeSystemGroup(0xD5)
         assert_eq!(g2.value(), 0xD5);
@@ -559,35 +553,35 @@ mod dtc_status_tests {
 
     #[test]
     fn status_mask() {
-        let status_mask = DTCStatusMask::TestFailed | DTCStatusMask::PendingDTC;
+        let status_mask = DtcStatusMask::TestFailed | DtcStatusMask::PendingDtc;
         assert_eq!(status_mask.bits(), 0b0000_0101);
 
-        let status_mask = DTCStatusMask::TestFailedThisOperationCycle
-            | DTCStatusMask::TestNotCompletedSinceLastClear;
+        let status_mask = DtcStatusMask::TestFailedThisOperationCycle
+            | DtcStatusMask::TestNotCompletedSinceLastClear;
 
         assert_eq!(status_mask.bits(), 0b0001_0010);
     }
 
     #[test]
     fn gtr_dtc_class_info() {
-        let dtc_class = DTCSeverityMask::DTCClass_1 | DTCSeverityMask::MaintenanceOnly;
+        let dtc_class = DtcSeverityMask::DtcClass1 | DtcSeverityMask::MaintenanceOnly;
         assert_eq!(dtc_class.bits(), 0b0010_0010);
         assert!(dtc_class.is_valid());
     }
 
     #[test]
     fn dtc_severity_info() {
-        let dtc_severity = DTCSeverityMask::CheckImmediately;
+        let dtc_severity = DtcSeverityMask::CheckImmediately;
         assert_eq!(dtc_severity.bits(), 0b1000_0000);
     }
 
     #[test]
     fn dtc_record_encode_decode() {
-        let record = DTCRecord::new(0x01, 0x02, 0x03);
+        let record = DtcRecord::new(0x01, 0x02, 0x03);
         let mut buf = [0u8; 3];
         let written = Encode::encode(&record, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 3);
-        let (decoded, rest) = <DTCRecord as Decode>::decode(&buf).unwrap();
+        let (decoded, rest) = <DtcRecord as Decode>::decode(&buf).unwrap();
         assert_eq!(decoded, record);
         assert!(rest.is_empty());
     }

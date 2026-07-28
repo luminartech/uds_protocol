@@ -1,5 +1,5 @@
 mod diagnostic_identifier;
-pub use diagnostic_identifier::{UDSIdentifier, UDSRoutineIdentifier};
+pub use diagnostic_identifier::{UdsIdentifier, UdsRoutineIdentifier};
 
 mod negative_response_code;
 pub use negative_response_code::NegativeResponseCode;
