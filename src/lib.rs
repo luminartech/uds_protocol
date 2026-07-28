@@ -36,9 +36,10 @@ mod services;
 pub use services::{
     ClearDiagnosticInfoRequest, ClearDiagnosticInfoResponse, CommunicationControlRequest,
     CommunicationControlResponse, CommunicationControlType, CommunicationType,
-    ControlDTCSettingsRequest, ControlDTCSettingsResponse, DiagnosticSessionControlRequest,
-    DiagnosticSessionControlResponse, DiagnosticSessionType, DirSizePayload, DtcAndStatusIter,
-    DtcFaultDetectionIter, DtcSettings, DtcSeverityAndStatusIter, EcuResetRequest,
+    ControlDTCSettingsRequest, ControlDTCSettingsResponse, DTCFaultDetectionCounterRecord,
+    DiagnosticSessionControlRequest, DiagnosticSessionControlResponse, DiagnosticSessionType,
+    DirSizePayload, DtcAndStatusIter, DtcFaultDetectionIter, DtcSettings,
+    DtcSeverityAndStatusIter, EcuResetRequest,
     EcuResetResponse, FileOperationMode, FileSizePayload, NamePayload, NegativeResponse,
     PositionPayload, ReadDTCInfoRequest, ReadDTCInfoResponse, ReadDTCInfoSubFunction,
     ReadDataByIdentifierRequest, ReadDataByIdentifierResponse, RequestDownloadRequest,
@@ -118,6 +119,18 @@ mod no_std_api_tests {
         assert_eq!(records.len(), 2);
         assert_eq!(u32::from(records[0].0), 0x01_0203);
         assert_eq!(u32::from(records[1].0), 0x04_0506);
+    }
+
+    #[test]
+    fn fault_detection_counter_record_is_nameable_from_crate_root() {
+        // `DTCFaultDetectionCounterRecord` is the `Item` of `DtcFaultDetectionIter`. Without a
+        // crate-root path, callers can iterate but cannot name the type — no `Vec<T>`, no struct
+        // field, no helper signature. This pins the re-export.
+        let data = [0x01, 0x02, 0x03, 0x2A];
+        let record: DTCFaultDetectionCounterRecord =
+            DtcFaultDetectionIter::new(&data).next().unwrap().unwrap();
+        assert_eq!(u32::from(record.dtc_record), 0x01_0203);
+        assert_eq!(record.dtc_fault_detection_counter, 0x2A);
     }
 
     #[test]
