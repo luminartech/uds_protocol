@@ -2,9 +2,9 @@ use crate::{
     ClearDiagnosticInfoResponse, CommunicationControlResponse, ControlDtcSettingResponse, Decode,
     DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, Incomplete,
     NegativeResponse, ReadDataByIdentifierResponse, ReadDtcInfoResponse, RequestDownloadResponse,
-    RequestFileTransferResponse, RequestTransferExitResponse, RoutineControlResponse,
-    SecurityAccessResponse, TesterPresentResponse, TransferDataResponse, UdsServiceType,
-    WriteDataByIdentifierResponse,
+    RequestFileTransferResponse, RequestTransferExitResponse, RequestUploadResponse,
+    RoutineControlResponse, SecurityAccessResponse, TesterPresentResponse, TransferDataResponse,
+    UdsServiceType, WriteDataByIdentifierResponse,
 };
 use automotive_wire_codec::{write_all, write_u8};
 
@@ -45,6 +45,8 @@ pub enum Response<'a> {
     RequestFileTransfer(RequestFileTransferResponse<'a>),
     /// Positive response to `RequestTransferExit`.
     RequestTransferExit(RequestTransferExitResponse<'a>),
+    /// Positive response to `RequestUpload`.
+    RequestUpload(RequestUploadResponse<'a>),
     /// Positive response to `RoutineControl`.
     RoutineControl(RoutineControlResponse<'a>),
     /// Positive response to `SecurityAccess`.
@@ -114,6 +116,9 @@ impl<'a> Decode<'a> for Response<'a> {
             UdsServiceType::RequestTransferExit => Self::RequestTransferExit(
                 <RequestTransferExitResponse as Decode>::decode_exact(payload)?,
             ),
+            UdsServiceType::RequestUpload => {
+                Self::RequestUpload(<RequestUploadResponse as Decode>::decode_exact(payload)?)
+            }
             UdsServiceType::RoutineControl => {
                 Self::RoutineControl(<RoutineControlResponse as Decode>::decode_exact(payload)?)
             }
@@ -167,6 +172,7 @@ impl Response<'_> {
             Self::RequestDownload(_) => UdsServiceType::RequestDownload.to_response_sid(),
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer.to_response_sid(),
             Self::RequestTransferExit(_) => UdsServiceType::RequestTransferExit.to_response_sid(),
+            Self::RequestUpload(_) => UdsServiceType::RequestUpload.to_response_sid(),
             Self::RoutineControl(_) => UdsServiceType::RoutineControl.to_response_sid(),
             Self::SecurityAccess(_) => UdsServiceType::SecurityAccess.to_response_sid(),
             Self::TesterPresent(_) => UdsServiceType::TesterPresent.to_response_sid(),
@@ -187,6 +193,7 @@ impl Encode for Response<'_> {
         let payload = match self {
             Self::ClearDiagnosticInfo(resp) => resp.encode(writer)?,
             Self::RequestTransferExit(resp) => resp.encode(writer)?,
+            Self::RequestUpload(resp) => resp.encode(writer)?,
             Self::CommunicationControl(resp) => resp.encode(writer)?,
             Self::ControlDtcSetting(resp) => resp.encode(writer)?,
             Self::DiagnosticSessionControl(resp) => resp.encode(writer)?,
