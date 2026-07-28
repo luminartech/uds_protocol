@@ -81,8 +81,8 @@ you need to keep before the buffer is reused.
 ## Service coverage
 
 These services decode into typed \[`Request`\]/\[`Response`\] variants: `DiagnosticSessionControl`,
-`EcuReset`, `SecurityAccess`, `CommunicationControl`, `TesterPresent`, `ControlDTCSettings`,
-`ReadDataByIdentifier`, `WriteDataByIdentifier`, `ClearDiagnosticInfo`, `ReadDTCInfo`,
+`EcuReset`, `SecurityAccess`, `CommunicationControl`, `TesterPresent`, `ControlDtcSetting`,
+`ReadDataByIdentifier`, `WriteDataByIdentifier`, `ClearDiagnosticInfo`, `ReadDtcInfo`,
 `RoutineControl`, `RequestDownload`, `TransferData`, `RequestTransferExit`, `RequestFileTransfer`,
 and `NegativeResponse`.
 

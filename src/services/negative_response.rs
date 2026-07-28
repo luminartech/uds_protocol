@@ -103,10 +103,7 @@ mod tests {
         let (nr, rest) = <NegativeResponse as Decode>::decode(&wire).unwrap();
         assert!(rest.is_empty());
         assert_eq!(nr.request_service_sid(), 0x40);
-        assert_eq!(
-            nr.request_service(),
-            UdsServiceType::from_request_sid(0x40)
-        );
+        assert_eq!(nr.request_service(), UdsServiceType::from_request_sid(0x40));
         let mut buf = [0u8; 2];
         let n = Encode::encode(&nr, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..n], &wire);

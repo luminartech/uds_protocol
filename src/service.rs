@@ -56,7 +56,7 @@ pub enum UdsServiceType {
     /// Enable or disable the detection of any or all errors.
     /// This is important when diagnostic work is performed in the car,
     /// which can cause an anomalous behavior of individual devices.
-    ControlDTCSettings,
+    ControlDtcSetting,
     /// Request the server to start or stop sending responses when a specified event occurs.
     ResponseOnEvent,
     /// The Service Link Control is used to set the baud rate of the diagnostic access.
@@ -98,7 +98,7 @@ pub enum UdsServiceType {
     /// These DTCs can be read via this service.
     ///  In addition to the errors themselves,
     /// additional diagnostic information is stored.
-    ReadDTCInfo,
+    ReadDtcInfo,
     // ========================================================================
     // Input / Output Control
     /// Substitute or control an input/output signal using a DID.
@@ -155,7 +155,7 @@ impl UdsServiceType {
             0x3E => Self::TesterPresent,
             0x83 => Self::AccessTimingParameters,
             0x84 => Self::SecuredDataTransmission,
-            0x85 => Self::ControlDTCSettings,
+            0x85 => Self::ControlDtcSetting,
             0x86 => Self::ResponseOnEvent,
             0x87 => Self::LinkControl,
             0x22 => Self::ReadDataByIdentifier,
@@ -166,7 +166,7 @@ impl UdsServiceType {
             0x2E => Self::WriteDataByIdentifier,
             0x3D => Self::WriteMemoryByAddress,
             0x14 => Self::ClearDiagnosticInfo,
-            0x19 => Self::ReadDTCInfo,
+            0x19 => Self::ReadDtcInfo,
             0x2F => Self::InputOutputControlByIdentifier,
             0x31 => Self::RoutineControl,
             0x34 => Self::RequestDownload,
@@ -197,7 +197,7 @@ impl UdsServiceType {
             Self::TesterPresent => 0x3E,
             Self::AccessTimingParameters => 0x83,
             Self::SecuredDataTransmission => 0x84,
-            Self::ControlDTCSettings => 0x85,
+            Self::ControlDtcSetting => 0x85,
             Self::ResponseOnEvent => 0x86,
             Self::LinkControl => 0x87,
             Self::ReadDataByIdentifier => 0x22,
@@ -208,7 +208,7 @@ impl UdsServiceType {
             Self::WriteDataByIdentifier => 0x2E,
             Self::WriteMemoryByAddress => 0x3D,
             Self::ClearDiagnosticInfo => 0x14,
-            Self::ReadDTCInfo => 0x19,
+            Self::ReadDtcInfo => 0x19,
             Self::InputOutputControlByIdentifier => 0x2F,
             Self::RoutineControl => 0x31,
             Self::RequestDownload => 0x34,
@@ -233,7 +233,7 @@ impl UdsServiceType {
             0x7E => Self::TesterPresent,
             0xC3 => Self::AccessTimingParameters,
             0xC4 => Self::SecuredDataTransmission,
-            0xC5 => Self::ControlDTCSettings,
+            0xC5 => Self::ControlDtcSetting,
             0xC6 => Self::ResponseOnEvent,
             0xC7 => Self::LinkControl,
             0x62 => Self::ReadDataByIdentifier,
@@ -244,7 +244,7 @@ impl UdsServiceType {
             0x6E => Self::WriteDataByIdentifier,
             0x7D => Self::WriteMemoryByAddress,
             0x54 => Self::ClearDiagnosticInfo,
-            0x59 => Self::ReadDTCInfo,
+            0x59 => Self::ReadDtcInfo,
             0x6F => Self::InputOutputControlByIdentifier,
             0x71 => Self::RoutineControl,
             0x74 => Self::RequestDownload,
@@ -272,7 +272,7 @@ impl UdsServiceType {
             Self::TesterPresent => 0x7E,
             Self::AccessTimingParameters => 0xC3,
             Self::SecuredDataTransmission => 0xC4,
-            Self::ControlDTCSettings => 0xC5,
+            Self::ControlDtcSetting => 0xC5,
             Self::ResponseOnEvent => 0xC6,
             Self::LinkControl => 0xC7,
             Self::ReadDataByIdentifier => 0x62,
@@ -283,7 +283,7 @@ impl UdsServiceType {
             Self::WriteDataByIdentifier => 0x6E,
             Self::WriteMemoryByAddress => 0x7D,
             Self::ClearDiagnosticInfo => 0x54,
-            Self::ReadDTCInfo => 0x59,
+            Self::ReadDtcInfo => 0x59,
             Self::InputOutputControlByIdentifier => 0x6F,
             Self::RoutineControl => 0x71,
             Self::RequestDownload => 0x74,

@@ -9,7 +9,7 @@ pub use communication_control::{
 
 mod control_dtc_settings;
 pub use control_dtc_settings::{
-    ControlDTCSettingsRequest, ControlDTCSettingsResponse, DtcSettings,
+    ControlDtcSettingRequest, ControlDtcSettingResponse, DtcSettingType,
 };
 
 mod diagnostic_session_control;
@@ -28,8 +28,8 @@ pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentif
 
 mod read_dtc_information;
 pub use read_dtc_information::{
-    DTCFaultDetectionCounterRecord, DtcAndStatusIter, DtcFaultDetectionIter,
-    DtcSeverityAndStatusIter, ReadDTCInfoRequest, ReadDTCInfoResponse, ReadDTCInfoSubFunction,
+    DtcAndStatusIter, DtcFaultDetectionCounterRecord, DtcFaultDetectionIter,
+    DtcSeverityAndStatusIter, ReadDtcInfoRequest, ReadDtcInfoResponse, ReadDtcInfoSubFunction,
 };
 
 mod request_download;

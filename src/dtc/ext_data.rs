@@ -1,15 +1,15 @@
 use crate::{Decode, Encode, Error, Incomplete};
 use automotive_wire_codec::write_u8;
 
-/// The `DTCExtDataRecordNumber` is used in the request message to get a stored `DTCExtDataRecord`
+/// The `DtcExtDataRecordNumber` is used in the request message to get a stored `DTCExtDataRecord`
 /// It's used to specify the type of `DTCExtDataRecord` to be reported.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum DTCExtDataRecordNumber {
+pub enum DtcExtDataRecordNumber {
     /// ISO/SAE reserved record numbers (`0x00`, `0xF0-0xFD`).
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
 
     /// Vehicle manufacturer-specific stored `DTCExtDataRecord`s
     ///
@@ -20,31 +20,31 @@ pub enum DTCExtDataRecordNumber {
     /// The values are specified in SAE J1979-DA.
     ///
     /// 0x90-0x9F
-    RegulatedEmissionsOBDDTCExtDataRecords(u8),
+    RegulatedEmissionsObdDtcExtDataRecords(u8),
 
-    /// The `DTCExtDataRecordNumber` parameter is used to specify the DTC number of the `DTCExtendedData` record to be reported.
+    /// The `DtcExtDataRecordNumber` parameter is used to specify the DTC number of the `DTCExtendedData` record to be reported.
     ///
     /// 0xA0-0xEF
-    RegulatedDTCExtDataRecords(u8),
+    RegulatedDtcExtDataRecords(u8),
 
     /// Requests the server to report all regulated emissions OBD stored `DTCExtendedDataRecords`.
-    AllRegulatedEmissionsOBDDTCExtDataRecords,
+    AllRegulatedEmissionsObdDtcExtDataRecords,
 
     /// Requests the server to report all stored `DTCExtendedDataRecords`
-    AllDTCExtDataRecords,
+    AllDtcExtDataRecords,
 }
 
-impl DTCExtDataRecordNumber {
-    /// Create a new `DTCExtDataRecordNumber` from a raw byte, mapping it to the correct variant.
+impl DtcExtDataRecordNumber {
+    /// Create a new `DtcExtDataRecordNumber` from a raw byte, mapping it to the correct variant.
     #[must_use]
     pub fn new(value: u8) -> Self {
         match value {
-            0x00 | 0xF0..=0xFD => Self::ISOSAEReserved(value),
+            0x00 | 0xF0..=0xFD => Self::IsoSaeReserved(value),
             0x01..=0x8F => Self::VehicleManufacturer(value),
-            0x90..=0x9F => Self::RegulatedEmissionsOBDDTCExtDataRecords(value),
-            0xA0..=0xEF => Self::RegulatedDTCExtDataRecords(value),
-            0xFE => Self::AllRegulatedEmissionsOBDDTCExtDataRecords,
-            0xFF => Self::AllDTCExtDataRecords,
+            0x90..=0x9F => Self::RegulatedEmissionsObdDtcExtDataRecords(value),
+            0xA0..=0xEF => Self::RegulatedDtcExtDataRecords(value),
+            0xFE => Self::AllRegulatedEmissionsObdDtcExtDataRecords,
+            0xFF => Self::AllDtcExtDataRecords,
         }
     }
 
@@ -53,23 +53,23 @@ impl DTCExtDataRecordNumber {
     #[allow(clippy::match_same_arms)]
     pub const fn value(&self) -> u8 {
         match self {
-            Self::ISOSAEReserved(value) => *value,
+            Self::IsoSaeReserved(value) => *value,
             Self::VehicleManufacturer(value) => *value,
-            Self::RegulatedEmissionsOBDDTCExtDataRecords(value) => *value,
-            Self::RegulatedDTCExtDataRecords(value) => *value,
-            Self::AllRegulatedEmissionsOBDDTCExtDataRecords => 0xFE,
-            Self::AllDTCExtDataRecords => 0xFF,
+            Self::RegulatedEmissionsObdDtcExtDataRecords(value) => *value,
+            Self::RegulatedDtcExtDataRecords(value) => *value,
+            Self::AllRegulatedEmissionsObdDtcExtDataRecords => 0xFE,
+            Self::AllDtcExtDataRecords => 0xFF,
         }
     }
 }
 
-impl PartialEq<u8> for DTCExtDataRecordNumber {
+impl PartialEq<u8> for DtcExtDataRecordNumber {
     fn eq(&self, other: &u8) -> bool {
         self.value() == *other
     }
 }
 
-impl Encode for DTCExtDataRecordNumber {
+impl Encode for DtcExtDataRecordNumber {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -77,7 +77,7 @@ impl Encode for DTCExtDataRecordNumber {
     }
 }
 
-impl<'a> Decode<'a> for DTCExtDataRecordNumber {
+impl<'a> Decode<'a> for DtcExtDataRecordNumber {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -98,15 +98,15 @@ mod tests {
 
     #[test]
     fn record_number() {
-        let record_number = DTCExtDataRecordNumber::new(0x00);
-        assert_eq!(record_number, DTCExtDataRecordNumber::ISOSAEReserved(0x00));
+        let record_number = DtcExtDataRecordNumber::new(0x00);
+        assert_eq!(record_number, DtcExtDataRecordNumber::IsoSaeReserved(0x00));
         assert_eq!(record_number.value(), 0x00);
     }
 
     #[test]
     fn encode_ext_data_record_number() {
         use crate::test_util::assert_encode_size_agrees;
-        let n = DTCExtDataRecordNumber::new(0x90);
+        let n = DtcExtDataRecordNumber::new(0x90);
         let mut buf = [0u8; 4];
         let written = crate::Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 1);

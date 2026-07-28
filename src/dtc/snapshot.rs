@@ -10,7 +10,7 @@ use automotive_wire_codec::write_u8;
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum DTCSnapshotRecordNumber {
+pub enum DtcSnapshotRecordNumber {
     /// Reserved for Legislative purposes
     Reserved(u8),
     /// Indicates the number of the specific `DTCSnapshot` data record requested
@@ -19,8 +19,8 @@ pub enum DTCSnapshotRecordNumber {
     All,
 }
 
-impl DTCSnapshotRecordNumber {
-    /// Create a `DTCSnapshotRecordNumber`, classifying the raw byte into `Reserved`
+impl DtcSnapshotRecordNumber {
+    /// Create a `DtcSnapshotRecordNumber`, classifying the raw byte into `Reserved`
     /// (`0x00`/`0xF0`), `All` (`0xFF`), or `Number`. Every byte is accepted (decoding is
     /// deliberately liberal); no value is rejected.
     #[must_use]
@@ -36,20 +36,20 @@ impl DTCSnapshotRecordNumber {
     #[allow(clippy::match_same_arms)]
     pub const fn value(&self) -> u8 {
         match self {
-            DTCSnapshotRecordNumber::Reserved(value) => *value,
-            DTCSnapshotRecordNumber::Number(value) => *value,
-            DTCSnapshotRecordNumber::All => 0xFF,
+            DtcSnapshotRecordNumber::Reserved(value) => *value,
+            DtcSnapshotRecordNumber::Number(value) => *value,
+            DtcSnapshotRecordNumber::All => 0xFF,
         }
     }
 }
 
-impl PartialEq<u8> for DTCSnapshotRecordNumber {
+impl PartialEq<u8> for DtcSnapshotRecordNumber {
     fn eq(&self, other: &u8) -> bool {
         self.value() == *other
     }
 }
 
-impl Encode for DTCSnapshotRecordNumber {
+impl Encode for DtcSnapshotRecordNumber {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
@@ -57,7 +57,7 @@ impl Encode for DTCSnapshotRecordNumber {
     }
 }
 
-impl<'a> Decode<'a> for DTCSnapshotRecordNumber {
+impl<'a> Decode<'a> for DtcSnapshotRecordNumber {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
@@ -77,18 +77,18 @@ mod tests {
 
     #[test]
     fn snapshot_record_number() {
-        let record = DTCSnapshotRecordNumber::new(0x01);
+        let record = DtcSnapshotRecordNumber::new(0x01);
         assert_eq!(record.value(), 0x01);
-        assert_eq!(record, DTCSnapshotRecordNumber::Number(0x01));
+        assert_eq!(record, DtcSnapshotRecordNumber::Number(0x01));
 
-        let all = DTCSnapshotRecordNumber::new(0xFF);
-        assert_eq!(all, DTCSnapshotRecordNumber::All);
+        let all = DtcSnapshotRecordNumber::new(0xFF);
+        assert_eq!(all, DtcSnapshotRecordNumber::All);
     }
 
     #[test]
     fn encode_snapshot_record_number() {
         use crate::test_util::assert_encode_size_agrees;
-        let n = DTCSnapshotRecordNumber::new(0x02);
+        let n = DtcSnapshotRecordNumber::new(0x02);
         let mut buf = [0u8; 4];
         let written = crate::Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 1);

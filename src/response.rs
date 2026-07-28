@@ -1,7 +1,7 @@
 use crate::{
-    ClearDiagnosticInfoResponse, CommunicationControlResponse, ControlDTCSettingsResponse, Decode,
+    ClearDiagnosticInfoResponse, CommunicationControlResponse, ControlDtcSettingResponse, Decode,
     DiagnosticSessionControlResponse, EcuResetResponse, Encode, Error, Incomplete,
-    NegativeResponse, ReadDTCInfoResponse, ReadDataByIdentifierResponse, RequestDownloadResponse,
+    NegativeResponse, ReadDataByIdentifierResponse, ReadDtcInfoResponse, RequestDownloadResponse,
     RequestFileTransferResponse, RequestTransferExitResponse, RoutineControlResponse,
     SecurityAccessResponse, TesterPresentResponse, TransferDataResponse, UdsServiceType,
     WriteDataByIdentifierResponse,
@@ -19,8 +19,8 @@ pub enum Response<'a> {
     ClearDiagnosticInfo(ClearDiagnosticInfoResponse),
     /// Positive response to `CommunicationControl`.
     CommunicationControl(CommunicationControlResponse),
-    /// Positive response to `ControlDTCSettings`.
-    ControlDTCSettings(ControlDTCSettingsResponse),
+    /// Positive response to `ControlDtcSetting`.
+    ControlDtcSetting(ControlDtcSettingResponse),
     /// Positive response to `DiagnosticSessionControl`.
     DiagnosticSessionControl(DiagnosticSessionControlResponse),
     /// Positive response to `EcuReset`.
@@ -38,7 +38,7 @@ pub enum Response<'a> {
     /// number of data bytes, then repeat on the remainder.
     ReadDataByIdentifier(ReadDataByIdentifierResponse<'a>),
     /// Positive response to `ReadDTCInformation` with lazy iterators.
-    ReadDTCInfo(ReadDTCInfoResponse<'a>),
+    ReadDtcInfo(ReadDtcInfoResponse<'a>),
     /// Positive response to `RequestDownload`.
     RequestDownload(RequestDownloadResponse<'a>),
     /// Positive response to `RequestFileTransfer`.
@@ -87,8 +87,8 @@ impl<'a> Decode<'a> for Response<'a> {
             UdsServiceType::CommunicationControl => Self::CommunicationControl(
                 <CommunicationControlResponse as Decode>::decode_exact(payload)?,
             ),
-            UdsServiceType::ControlDTCSettings => Self::ControlDTCSettings(
-                <ControlDTCSettingsResponse as Decode>::decode_exact(payload)?,
+            UdsServiceType::ControlDtcSetting => Self::ControlDtcSetting(
+                <ControlDtcSettingResponse as Decode>::decode_exact(payload)?,
             ),
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
                 <DiagnosticSessionControlResponse as Decode>::decode_exact(payload)?,
@@ -102,8 +102,8 @@ impl<'a> Decode<'a> for Response<'a> {
             UdsServiceType::ReadDataByIdentifier => {
                 Self::ReadDataByIdentifier(ReadDataByIdentifierResponse::new(payload))
             }
-            UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(<ReadDTCInfoResponse as Decode>::decode_exact(payload)?)
+            UdsServiceType::ReadDtcInfo => {
+                Self::ReadDtcInfo(<ReadDtcInfoResponse as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::RequestDownload => {
                 Self::RequestDownload(<RequestDownloadResponse as Decode>::decode_exact(payload)?)
@@ -155,19 +155,15 @@ impl Response<'_> {
     fn response_sid(&self) -> u8 {
         match self {
             Self::ClearDiagnosticInfo(_) => UdsServiceType::ClearDiagnosticInfo.to_response_sid(),
-            Self::CommunicationControl(_) => {
-                UdsServiceType::CommunicationControl.to_response_sid()
-            }
-            Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings.to_response_sid(),
+            Self::CommunicationControl(_) => UdsServiceType::CommunicationControl.to_response_sid(),
+            Self::ControlDtcSetting(_) => UdsServiceType::ControlDtcSetting.to_response_sid(),
             Self::DiagnosticSessionControl(_) => {
                 UdsServiceType::DiagnosticSessionControl.to_response_sid()
             }
             Self::EcuReset(_) => UdsServiceType::EcuReset.to_response_sid(),
             Self::NegativeResponse(_) => UdsServiceType::NegativeResponse.to_response_sid(),
-            Self::ReadDataByIdentifier(_) => {
-                UdsServiceType::ReadDataByIdentifier.to_response_sid()
-            }
-            Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo.to_response_sid(),
+            Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier.to_response_sid(),
+            Self::ReadDtcInfo(_) => UdsServiceType::ReadDtcInfo.to_response_sid(),
             Self::RequestDownload(_) => UdsServiceType::RequestDownload.to_response_sid(),
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer.to_response_sid(),
             Self::RequestTransferExit(_) => UdsServiceType::RequestTransferExit.to_response_sid(),
@@ -192,13 +188,13 @@ impl Encode for Response<'_> {
             Self::ClearDiagnosticInfo(resp) => resp.encode(writer)?,
             Self::RequestTransferExit(resp) => resp.encode(writer)?,
             Self::CommunicationControl(resp) => resp.encode(writer)?,
-            Self::ControlDTCSettings(resp) => resp.encode(writer)?,
+            Self::ControlDtcSetting(resp) => resp.encode(writer)?,
             Self::DiagnosticSessionControl(resp) => resp.encode(writer)?,
             Self::EcuReset(resp) => resp.encode(writer)?,
             Self::NegativeResponse(resp) => resp.encode(writer)?,
             Self::ReadDataByIdentifier(resp) => resp.encode(writer)?,
             Self::WriteDataByIdentifier(resp) => resp.encode(writer)?,
-            Self::ReadDTCInfo(resp) => resp.encode(writer)?,
+            Self::ReadDtcInfo(resp) => resp.encode(writer)?,
             Self::RequestDownload(resp) => resp.encode(writer)?,
             Self::RequestFileTransfer(resp) => resp.encode(writer)?,
             Self::RoutineControl(resp) => resp.encode(writer)?,

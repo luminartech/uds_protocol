@@ -25,7 +25,7 @@ fn size_param_width(a: u128, b: u128) -> usize {
 #[non_exhaustive]
 pub enum FileOperationMode {
     /// ISO/SAE reserved (`0x00`, `0x07–0xFF`).
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
     /// Add a file to the server
     AddFile = 0x01,
     /// Delete the specified file from the server
@@ -45,7 +45,7 @@ pub enum FileOperationMode {
 impl From<FileOperationMode> for u8 {
     fn from(value: FileOperationMode) -> Self {
         match value {
-            FileOperationMode::ISOSAEReserved(value) => value,
+            FileOperationMode::IsoSaeReserved(value) => value,
             FileOperationMode::AddFile => 0x01,
             FileOperationMode::DeleteFile => 0x02,
             FileOperationMode::ReplaceFile => 0x03,
@@ -67,7 +67,7 @@ impl TryFrom<u8> for FileOperationMode {
             0x04 => Ok(Self::ReadFile),
             0x05 => Ok(Self::ReadDir),
             0x06 => Ok(Self::ResumeFile),
-            0x00 | 0x07..=0xFF => Ok(Self::ISOSAEReserved(value)),
+            0x00 | 0x07..=0xFF => Ok(Self::IsoSaeReserved(value)),
         }
     }
 }
@@ -749,7 +749,7 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
                 };
                 Ok((value, rest))
             }
-            FileOperationMode::ISOSAEReserved(b) => Err(Error::InvalidFileOperationMode(b)),
+            FileOperationMode::IsoSaeReserved(b) => Err(Error::InvalidFileOperationMode(b)),
         }
     }
 }
@@ -858,7 +858,7 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
                 let (pos, rest) = PositionPayload::decode(&rest[1..])?;
                 Ok((Self::ResumeFile(mode, sent, dfi, pos), rest))
             }
-            FileOperationMode::ISOSAEReserved(b) => Err(Error::InvalidFileOperationMode(b)),
+            FileOperationMode::IsoSaeReserved(b) => Err(Error::InvalidFileOperationMode(b)),
         }
     }
 }
@@ -885,7 +885,7 @@ mod request_tests {
         assert_eq!(ReadDir, FileOperationMode::try_from(0x05).unwrap());
         assert_eq!(ResumeFile, FileOperationMode::try_from(0x06).unwrap());
         assert_eq!(
-            ISOSAEReserved(0x07),
+            IsoSaeReserved(0x07),
             FileOperationMode::try_from(0x07).unwrap()
         );
     }

@@ -53,16 +53,16 @@ pub enum SecurityAccessType {
     /// Construct through [`SecurityAccessType::try_from`] so the raw byte is range-checked
     /// and can never collide with the SPRMIB bit.
     #[non_exhaustive]
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
     /// `RequestSeed` with the level of security defined by the vehicle manufacturer
     RequestSeed(SecurityAccessLevel),
     /// `SendKey` with the level of security defined by the vehicle manufacturer
     SendKey(SecurityAccessLevel),
     /// `RequestSeed` with different levels of security defined for end of life
     /// activation of on-board pyrotechnic devices
-    ISO26021_2Values,
+    Iso26021_2Values,
     /// `SendKey` with different levels of security defined for end of life activation
-    ISO26021_2SendKeyValues,
+    Iso26021_2SendKeyValues,
     /// This range of values is reserved for system supplier specific use
     ///
     /// Construct through [`SecurityAccessType::try_from`] so the raw byte is range-checked
@@ -75,11 +75,11 @@ impl From<SecurityAccessType> for u8 {
     #[allow(clippy::match_same_arms)]
     fn from(value: SecurityAccessType) -> Self {
         match value {
-            SecurityAccessType::ISOSAEReserved(val) => val,
+            SecurityAccessType::IsoSaeReserved(val) => val,
             SecurityAccessType::RequestSeed(level) => level.value(),
             SecurityAccessType::SendKey(level) => level.value(),
-            SecurityAccessType::ISO26021_2Values => 0x5F,
-            SecurityAccessType::ISO26021_2SendKeyValues => 0x60,
+            SecurityAccessType::Iso26021_2Values => 0x5F,
+            SecurityAccessType::Iso26021_2SendKeyValues => 0x60,
             SecurityAccessType::SystemSupplierSpecific(val) => val,
         }
     }
@@ -89,7 +89,7 @@ impl TryFrom<u8> for SecurityAccessType {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 | 0x43..=0x5E | 0x7F => Ok(Self::ISOSAEReserved(value)),
+            0x00 | 0x43..=0x5E | 0x7F => Ok(Self::IsoSaeReserved(value)),
             // Security requests alternate, with odd numbers being seed requests,
             // and even numbers being send key requests
             0x01..=0x42 => {
@@ -100,8 +100,8 @@ impl TryFrom<u8> for SecurityAccessType {
                     Ok(Self::SendKey(SecurityAccessLevel(value)))
                 }
             }
-            0x5F => Ok(Self::ISO26021_2Values),
-            0x60 => Ok(Self::ISO26021_2SendKeyValues),
+            0x5F => Ok(Self::Iso26021_2Values),
+            0x60 => Ok(Self::Iso26021_2SendKeyValues),
             0x61..=0x7E => Ok(Self::SystemSupplierSpecific(value)),
             _ => Err(Error::InvalidSecurityAccessType(value)),
         }
@@ -127,7 +127,7 @@ mod security_access_type_tests {
     fn security_access_type_from_all_u8_values() {
         assert_eq!(
             SecurityAccessType::try_from(0).unwrap(),
-            SecurityAccessType::ISOSAEReserved(0)
+            SecurityAccessType::IsoSaeReserved(0)
         );
         for value in &REQUEST_SEED_VALUES {
             assert_eq!(
@@ -144,16 +144,16 @@ mod security_access_type_tests {
         for i in 0x43..=0x5E {
             assert_eq!(
                 SecurityAccessType::try_from(i).unwrap(),
-                SecurityAccessType::ISOSAEReserved(i)
+                SecurityAccessType::IsoSaeReserved(i)
             );
         }
         assert_eq!(
             SecurityAccessType::try_from(0x5F).unwrap(),
-            SecurityAccessType::ISO26021_2Values
+            SecurityAccessType::Iso26021_2Values
         );
         assert_eq!(
             SecurityAccessType::try_from(0x60).unwrap(),
-            SecurityAccessType::ISO26021_2SendKeyValues
+            SecurityAccessType::Iso26021_2SendKeyValues
         );
         for i in 0x61..=0x7E {
             assert_eq!(
@@ -163,7 +163,7 @@ mod security_access_type_tests {
         }
         assert_eq!(
             SecurityAccessType::try_from(0x7F).unwrap(),
-            SecurityAccessType::ISOSAEReserved(0x7F)
+            SecurityAccessType::IsoSaeReserved(0x7F)
         );
         for i in 0x80..=0xFF {
             match SecurityAccessType::try_from(i).unwrap_err() {
