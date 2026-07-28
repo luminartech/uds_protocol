@@ -70,6 +70,16 @@ impl RequestDownloadRequest {
         })
     }
 
+    /// The compression and encryption methods the client asked the server to use.
+    ///
+    /// A server implementing download has to act on this, so it must be readable back off a
+    /// decoded request; use [`DataFormatIdentifier::compression_method`] and
+    /// [`DataFormatIdentifier::encryption_method`] for the individual nibbles.
+    #[must_use]
+    pub const fn data_format_identifier(&self) -> DataFormatIdentifier {
+        self.data_format_identifier
+    }
+
     /// Starting address of the server memory.
     #[must_use]
     pub const fn memory_address(&self) -> u64 {
@@ -323,6 +333,33 @@ mod tests {
         let block = [0x10u8, 0x00, 0x00];
         let resp = RequestDownloadResponse::new(&block);
         assert_encode_size_agrees(&resp);
+    }
+
+    #[test]
+    fn data_format_identifier_is_readable_off_a_decoded_request() {
+        // A server has to act on the compression/encryption methods it was asked for. All of
+        // `RequestDownloadRequest`'s fields are private (the width nibbles must stay in sync
+        // with the values), so without this getter the DFI was write-only: constructible but
+        // unreadable after a decode.
+        // Wire: DFI=0x21 (compression 2, encryption 1), ALFID=0x12 (size 1 byte, addr 2 bytes),
+        // addr=0xBEEF, size=0x10
+        let wire = [0x21, 0x12, 0xBE, 0xEF, 0x10];
+        let req = <RequestDownloadRequest as Decode>::decode_exact(&wire).unwrap();
+        let dfi = req.data_format_identifier();
+        assert_eq!(dfi.compression_method(), 0x02);
+        assert_eq!(dfi.encryption_method(), 0x01);
+        assert_eq!(u8::from(dfi), 0x21);
+        assert_eq!(req.memory_address(), 0xBEEF);
+        assert_eq!(req.memory_size(), 0x10);
+    }
+
+    #[test]
+    fn data_format_identifier_survives_construction() {
+        let dfi = DataFormatIdentifier::new(0x0A, 0x0B).unwrap();
+        let req = RequestDownloadRequest::new(dfi, 0x1234, 0x10).unwrap();
+        assert_eq!(req.data_format_identifier(), dfi);
+        assert_eq!(req.data_format_identifier().encryption_method(), 0x0A);
+        assert_eq!(req.data_format_identifier().compression_method(), 0x0B);
     }
 
     #[test]

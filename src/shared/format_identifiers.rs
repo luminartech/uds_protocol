@@ -121,6 +121,22 @@ impl DataFormatIdentifier {
             _ => Err(Error::InvalidEncryptionCompressionMethod(value)),
         }
     }
+
+    /// The compression method nibble (the high nibble on the wire).
+    ///
+    /// `0x00` means no compression. Other values are vehicle-manufacturer specific.
+    #[must_use]
+    pub const fn compression_method(&self) -> u8 {
+        self.compression_method
+    }
+
+    /// The encryption method nibble (the low nibble on the wire).
+    ///
+    /// `0x00` means no encryption. Other values are vehicle-manufacturer specific.
+    #[must_use]
+    pub const fn encryption_method(&self) -> u8 {
+        self.encryption_method
+    }
 }
 impl From<u8> for DataFormatIdentifier {
     fn from(value: u8) -> Self {
