@@ -3,6 +3,8 @@ use automotive_wire_codec::{
 };
 use thiserror::Error;
 
+use crate::NegativeResponseCode;
+
 /// Errors that can occur during UDS message encoding, decoding, or validation.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -87,6 +89,74 @@ impl Error {
     pub(crate) fn io<E: embedded_io::Error>(e: E) -> Self {
         Self::IoError(e.kind())
     }
+
+    /// The [`NegativeResponseCode`] a server should return for this error.
+    ///
+    /// A server decodes an inbound request, and on failure has to answer with a negative
+    /// response. This is that mapping, so callers do not have to re-derive it against a
+    /// `#[non_exhaustive]` enum they cannot match exhaustively:
+    ///
+    /// ```
+    /// use uds_protocol::{Decode, NegativeResponse, Request, UdsServiceType};
+    ///
+    /// let frame = [0x11, 0x01, 0xAA]; // EcuReset with a trailing junk byte
+    /// if let Err(err) = Request::decode(&frame) {
+    ///     let nack = NegativeResponse::new(UdsServiceType::EcuReset, err.negative_response_code());
+    ///     assert_eq!(u8::from(nack.nrc()), 0x13);
+    /// }
+    /// ```
+    ///
+    /// # Classification
+    ///
+    /// Following ISO 14229-1:
+    ///
+    /// - **`0x13` `incorrectMessageLengthOrInvalidFormat`** — the frame itself is malformed:
+    ///   too short, too long, or a declared width that does not fit.
+    /// - **`0x12` `subFunctionNotSupported`** — the *sub-function* byte is not a value this
+    ///   service defines. Applies to the services whose sub-function the crate validates:
+    ///   `0x10`, `0x11`, `0x19`, `0x27`, `0x28`, `0x31`, `0x3E`, `0x85`.
+    /// - **`0x31` `requestOutOfRange`** — a *parameter* (not a sub-function) carries a value
+    ///   outside its permitted range. Note that `communicationType` is a parameter of
+    ///   `CommunicationControl`, not its sub-function, so it lands here rather than on `0x12`.
+    /// - **`0x10` `generalReject`** — reserved for [`Error::IoError`]. A transport failure is
+    ///   not a protocol error and no other code fits; ISO designates `generalReject` for
+    ///   exactly the case where no other response code meets the implementation's needs.
+    ///
+    /// The mapping never returns [`NegativeResponseCode::PositiveResponse`] or any reserved
+    /// code, so the result is always a legal NRC to put on the wire.
+    #[must_use]
+    pub const fn negative_response_code(&self) -> NegativeResponseCode {
+        match self {
+            // The frame is malformed.
+            Self::InsufficientData(_)
+            | Self::TrailingBytes(_)
+            | Self::InvalidWidth(_)
+            | Self::IncorrectMessageLengthOrInvalidFormat
+            | Self::NoDataAvailable => NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+
+            // The sub-function byte is not a defined value for the service.
+            Self::InvalidDiagnosticSessionType(_)
+            | Self::InvalidEcuResetType(_)
+            | Self::InvalidSecurityAccessType(_)
+            | Self::InvalidCommunicationControlType(_)
+            | Self::InvalidTesterPresentType(_)
+            | Self::InvalidRoutineControlSubFunction(_)
+            | Self::InvalidDtcSubfunctionType(_)
+            | Self::InvalidDtcSetting(_) => NegativeResponseCode::SubFunctionNotSupported,
+
+            // A parameter value is outside its permitted range.
+            Self::InvalidCommunicationType(_)
+            | Self::InvalidMemoryAddress(_)
+            | Self::InvalidEncryptionCompressionMethod(_)
+            | Self::InvalidFileOperationMode(_)
+            | Self::InvalidFileSizeParameterLength(_)
+            | Self::InvalidDtcFormatIdentifier(_)
+            | Self::ReservedForLegislativeUse(_) => NegativeResponseCode::RequestOutOfRange,
+
+            // Transport failure: not a protocol error, so no specific NRC applies.
+            Self::IoError(_) => NegativeResponseCode::GeneralReject,
+        }
+    }
 }
 
 impl From<embedded_io::ErrorKind> for Error {
@@ -135,6 +205,155 @@ impl From<WriteUintError> for Error {
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {
         Self::IoError(err.kind().into())
+    }
+}
+
+#[cfg(test)]
+mod nrc_mapping_tests {
+    use super::*;
+    use crate::NegativeResponseCode;
+
+    /// Every variant, with the NRC byte a server should send back. Grouped by the ISO 14229-1
+    /// classification the mapping implements: 0x13 for length/format, 0x12 for an unsupported
+    /// sub-function byte, 0x31 for an in-range-but-unsupported parameter value.
+    fn cases() -> impl Iterator<Item = (Error, u8, &'static str)> {
+        [
+            // --- 0x13 incorrectMessageLengthOrInvalidFormat: the frame is malformed ---
+            (
+                Error::InsufficientData(Incomplete {
+                    needed: 4,
+                    available: 1,
+                }),
+                0x13,
+                "short read",
+            ),
+            (Error::TrailingBytes(TrailingBytes(2)), 0x13, "extra bytes"),
+            (
+                Error::InvalidWidth(InvalidWidth { max: 4, got: 9 }),
+                0x13,
+                "declared width too wide",
+            ),
+            (
+                Error::IncorrectMessageLengthOrInvalidFormat,
+                0x13,
+                "explicit length/format",
+            ),
+            (
+                Error::NoDataAvailable,
+                0x13,
+                "payload expected, none present",
+            ),
+            // --- 0x12 subFunctionNotSupported: the sub-function byte is not a known value ---
+            (
+                Error::InvalidDiagnosticSessionType(0x99),
+                0x12,
+                "0x10 sub-function",
+            ),
+            (Error::InvalidEcuResetType(0x99), 0x12, "0x11 sub-function"),
+            (
+                Error::InvalidSecurityAccessType(0x99),
+                0x12,
+                "0x27 sub-function",
+            ),
+            (
+                Error::InvalidCommunicationControlType(0x99),
+                0x12,
+                "0x28 sub-function",
+            ),
+            (
+                Error::InvalidTesterPresentType(0x99),
+                0x12,
+                "0x3E sub-function",
+            ),
+            (
+                Error::InvalidRoutineControlSubFunction(0x99),
+                0x12,
+                "0x31 sub-function",
+            ),
+            (
+                Error::InvalidDtcSubfunctionType(0x99),
+                0x12,
+                "0x19 sub-function",
+            ),
+            (Error::InvalidDtcSetting(0x99), 0x12, "0x85 sub-function"),
+            // --- 0x31 requestOutOfRange: a parameter value, not a sub-function ---
+            (
+                Error::InvalidCommunicationType(0x99),
+                0x31,
+                "0x28 communicationType parameter",
+            ),
+            (
+                Error::InvalidMemoryAddress(0x1_0000_0000_0000),
+                0x31,
+                "address beyond 5 bytes",
+            ),
+            (
+                Error::InvalidEncryptionCompressionMethod(0x99),
+                0x31,
+                "nibble overflow",
+            ),
+            (
+                Error::InvalidFileOperationMode(0x99),
+                0x31,
+                "0x38 modeOfOperation",
+            ),
+            (
+                Error::InvalidFileSizeParameterLength(0x99),
+                0x31,
+                "0x38 length parameter",
+            ),
+            (
+                Error::InvalidDtcFormatIdentifier(0x99),
+                0x31,
+                "DTC format identifier",
+            ),
+            (
+                Error::ReservedForLegislativeUse(0x99),
+                0x31,
+                "legislative reserved value",
+            ),
+            // --- 0x10 generalReject: transport failure, no protocol NRC applies ---
+            (
+                Error::IoError(embedded_io::ErrorKind::WriteZero),
+                0x10,
+                "I/O failure",
+            ),
+        ]
+        .into_iter()
+    }
+
+    #[test]
+    fn every_error_maps_to_its_iso_negative_response_code() {
+        for (err, want, why) in cases() {
+            let got = u8::from(err.negative_response_code());
+            assert_eq!(
+                got, want,
+                "{err:?} ({why}): got 0x{got:02X}, want 0x{want:02X}"
+            );
+        }
+    }
+
+    #[test]
+    fn mapping_only_produces_codes_the_iso_tables_allow() {
+        // A decode failure must never be reported as a positive response, and must never
+        // invent a reserved code — either would put an invalid NRC on the wire.
+        for (err, _, why) in cases() {
+            let nrc = err.negative_response_code();
+            assert_ne!(
+                nrc,
+                NegativeResponseCode::PositiveResponse,
+                "{why}: decode failure mapped to PositiveResponse"
+            );
+            assert!(
+                !matches!(
+                    nrc,
+                    NegativeResponseCode::IsoSaeReserved(_)
+                        | NegativeResponseCode::ExtendedDataLinkSecurityReserved(_)
+                        | NegativeResponseCode::ReservedForSpecificConditionsNotMet(_)
+                ),
+                "{why}: mapped to a reserved NRC ({nrc:?})"
+            );
+        }
     }
 }
 
