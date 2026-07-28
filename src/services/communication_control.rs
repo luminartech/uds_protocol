@@ -277,7 +277,14 @@ const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] =
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct CommunicationControlRequest {
-    control_type: SuppressablePositiveResponse<CommunicationControlType>,
+    /// Whether the server should suppress a positive response (SPRMIB).
+    ///
+    /// Public because it carries no invariant with the other fields: it occupies bit 7 of the
+    /// sub-function byte and is fused onto `control_type` only at the wire boundary. The
+    /// remaining fields stay private because `node_id` must be present exactly when
+    /// `control_type` is an enhanced-address variant.
+    pub suppress_positive_response: bool,
+    control_type: CommunicationControlType,
     communication_type: CommunicationType,
     node_id: Option<u16>,
 }
@@ -300,10 +307,8 @@ impl CommunicationControlRequest {
             )));
         }
         Ok(Self {
-            control_type: SuppressablePositiveResponse::new(
-                suppress_positive_response,
-                control_type,
-            ),
+            suppress_positive_response,
+            control_type,
             communication_type,
             node_id: None,
         })
@@ -327,25 +332,21 @@ impl CommunicationControlRequest {
             )));
         }
         Ok(Self {
-            control_type: SuppressablePositiveResponse::new(
-                suppress_positive_response,
-                control_type,
-            ),
+            suppress_positive_response,
+            control_type,
             communication_type,
             node_id: Some(node_id),
         })
     }
 
-    /// Getter for whether a positive response should be suppressed
+    /// The requested [`CommunicationControlType`].
+    ///
+    /// Private field with a getter, not a public field: `node_id` must be present exactly when
+    /// this is an enhanced-address variant, so the two are set together through
+    /// [`new`](Self::new) / [`new_with_node_id`](Self::new_with_node_id).
     #[must_use]
-    pub fn suppress_positive_response(&self) -> bool {
-        self.control_type.suppress_positive_response()
-    }
-
-    /// Getter for the requested [`CommunicationControlType`]
-    #[must_use]
-    pub fn control_type(&self) -> CommunicationControlType {
-        self.control_type.value()
+    pub const fn control_type(&self) -> CommunicationControlType {
+        self.control_type
     }
 
     /// The [`CommunicationType`] the control applies to.
@@ -370,12 +371,12 @@ impl Encode for CommunicationControlRequest {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        // Fuse the SPRMIB bit onto the sub-function at the wire boundary.
+        let sub_function =
+            SuppressablePositiveResponse::new(self.suppress_positive_response, self.control_type);
         let mut written = write_all(
             writer,
-            &[
-                u8::from(self.control_type),
-                u8::from(self.communication_type),
-            ],
+            &[u8::from(sub_function), u8::from(self.communication_type)],
         )
         .map_err(Error::io)?;
         if let Some(id) = self.node_id {
@@ -409,7 +410,9 @@ impl<'a> Decode<'a> for CommunicationControlRequest {
                 let node_id = Some(u16::from_be_bytes([buf[2], buf[3]]));
                 Ok((
                     Self {
-                        control_type: communication_enable,
+                        suppress_positive_response: communication_enable
+                            .suppress_positive_response(),
+                        control_type: communication_enable.value(),
                         communication_type,
                         node_id,
                     },
@@ -418,7 +421,8 @@ impl<'a> Decode<'a> for CommunicationControlRequest {
             }
             _ => Ok((
                 Self {
-                    control_type: communication_enable,
+                    suppress_positive_response: communication_enable.suppress_positive_response(),
+                    control_type: communication_enable.value(),
                     communication_type,
                     node_id: None,
                 },
@@ -435,6 +439,9 @@ impl<'a> Decode<'a> for CommunicationControlRequest {
 #[non_exhaustive] // Prevent direct construction externally
 pub struct CommunicationControlResponse {
     /// The communication control type echoed from the request.
+    ///
+    /// Public here although [`CommunicationControlRequest::control_type`] is a getter: the
+    /// response carries no `node_id`, so there is no cross-field invariant to protect.
     pub control_type: CommunicationControlType,
 }
 
@@ -530,7 +537,7 @@ mod request {
         )
         .unwrap();
         assert_eq!(req.node_id(), Some(258));
-        assert!(req.suppress_positive_response());
+        assert!(req.suppress_positive_response);
     }
 
     #[test]
@@ -541,7 +548,7 @@ mod request {
             CommunicationType::NetworkManagement,
         )
         .unwrap();
-        assert!(!req.suppress_positive_response());
+        assert!(!req.suppress_positive_response);
 
         assert_eq!(CommunicationControlRequest::allowed_nack_codes().len(), 4);
     }
