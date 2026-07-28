@@ -2,7 +2,9 @@
 
 use crate::shared::DataFormatIdentifier;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{minimal_be_len, read_be_uint, write_be_uint};
+use automotive_wire_codec::{
+    minimal_be_len, read_be_uint, write_all, write_be_uint, write_u8, write_u16_be, write_u64_be,
+};
 
 /// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
 /// values. Used to derive the on-wire `parameterLength` prefix from the data itself,
@@ -448,14 +450,10 @@ impl Encode for NamePayload<'_> {
         let name = self.file_path_and_name.as_bytes();
         let name_len =
             u16::try_from(name.len()).map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
-        writer
-            .write_all(&[u8::from(self.mode_of_operation)])
-            .map_err(Error::io)?;
-        writer
-            .write_all(&name_len.to_be_bytes())
-            .map_err(Error::io)?;
-        writer.write_all(name).map_err(Error::io)?;
-        Ok(1 + 2 + self.file_path_and_name.len())
+        let mut written = write_u8(writer, u8::from(self.mode_of_operation)).map_err(Error::io)?;
+        written += write_u16_be(writer, name_len).map_err(Error::io)?;
+        written += write_all(writer, name).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
@@ -503,10 +501,10 @@ impl Encode for SizePayload {
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u8
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let n = self.width();
-        writer.write_all(&[n as u8]).map_err(Error::io)?;
-        write_be_uint(writer, self.file_size_uncompressed, n)?;
-        write_be_uint(writer, self.file_size_compressed, n)?;
-        Ok(1 + 2 * self.width())
+        let mut written = write_u8(writer, n as u8).map_err(Error::io)?;
+        written += write_be_uint(writer, self.file_size_uncompressed, n)?;
+        written += write_be_uint(writer, self.file_size_compressed, n)?;
+        Ok(written)
     }
 }
 
@@ -546,11 +544,9 @@ impl Encode for SentDataPayload<'_> {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let len = u8::try_from(self.max_number_of_block_length.len())
             .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
-        writer.write_all(&[len]).map_err(Error::io)?;
-        writer
-            .write_all(self.max_number_of_block_length)
-            .map_err(Error::io)?;
-        Ok(1 + self.max_number_of_block_length.len())
+        let mut written = write_u8(writer, len).map_err(Error::io)?;
+        written += write_all(writer, self.max_number_of_block_length).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
@@ -587,12 +583,10 @@ impl Encode for FileSizePayload {
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let n = self.width();
-        writer
-            .write_all(&(n as u16).to_be_bytes())
-            .map_err(Error::io)?;
-        write_be_uint(writer, self.file_size_uncompressed, n)?;
-        write_be_uint(writer, self.file_size_compressed, n)?;
-        Ok(2 + 2 * self.width())
+        let mut written = write_u16_be(writer, n as u16).map_err(Error::io)?;
+        written += write_be_uint(writer, self.file_size_uncompressed, n)?;
+        written += write_be_uint(writer, self.file_size_compressed, n)?;
+        Ok(written)
     }
 }
 
@@ -632,11 +626,9 @@ impl Encode for DirSizePayload {
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let n = self.width();
-        writer
-            .write_all(&(n as u16).to_be_bytes())
-            .map_err(Error::io)?;
-        write_be_uint(writer, self.dir_info_length, n)?;
-        Ok(2 + self.width())
+        let mut written = write_u16_be(writer, n as u16).map_err(Error::io)?;
+        written += write_be_uint(writer, self.dir_info_length, n)?;
+        Ok(written)
     }
 }
 
@@ -667,10 +659,7 @@ impl Encode for PositionPayload {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&self.file_position.to_be_bytes())
-            .map_err(Error::io)?;
-        Ok(8)
+        write_u64_be(writer, self.file_position).map_err(Error::io)
     }
 }
 
@@ -701,14 +690,12 @@ impl Encode for RequestFileTransferRequest<'_> {
             | Self::ReplaceFile(name, dfi, size)
             | Self::ResumeFile(name, dfi, size) => {
                 len = name.encode(writer)?;
-                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
-                len += 1;
+                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
                 len += size.encode(writer)?;
             }
             Self::ReadFile(name, dfi) => {
                 len = name.encode(writer)?;
-                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
-                len += 1;
+                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
             }
             Self::DeleteFile(name) | Self::ReadDir(name) => {
                 len = name.encode(writer)?;
@@ -764,36 +751,32 @@ impl Encode for RequestFileTransferResponse<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut len = 1;
+        let mut len = 0;
         match self {
             Self::DeleteFile(mode) => {
-                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
             }
             Self::AddFile(mode, sent, dfi) | Self::ReplaceFile(mode, sent, dfi) => {
-                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
                 len += sent.encode(writer)?;
-                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
-                len += 1;
+                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
             }
             Self::ReadFile(mode, sent, dfi, fs) => {
-                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
                 len += sent.encode(writer)?;
-                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
-                len += 1;
+                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
                 len += fs.encode(writer)?;
             }
             Self::ReadDir(mode, sent, dfi, ds) => {
-                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
                 len += sent.encode(writer)?;
-                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
-                len += 1;
+                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
                 len += ds.encode(writer)?;
             }
             Self::ResumeFile(mode, sent, dfi, pos) => {
-                writer.write_all(&[u8::from(*mode)]).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
                 len += sent.encode(writer)?;
-                writer.write_all(&[u8::from(*dfi)]).map_err(Error::io)?;
-                len += 1;
+                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
                 len += pos.encode(writer)?;
             }
         }

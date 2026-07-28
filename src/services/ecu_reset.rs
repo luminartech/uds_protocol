@@ -1,6 +1,7 @@
 //! `ECUReset` (0x11) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{write_all, write_u8};
 
 /// UDS defines a number of different types of resets that can be requested
 /// The reset type is used to specify the type of reset that the ECU should perform
@@ -217,10 +218,7 @@ impl Encode for EcuResetRequest {
         // Fuse the SPRMIB bit into the sub-function byte only at the wire boundary.
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.reset_type);
-        writer
-            .write_all(&[u8::from(sub_function)])
-            .map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, u8::from(sub_function)).map_err(Error::io)
     }
 }
 
@@ -272,10 +270,7 @@ impl Encode for EcuResetResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[u8::from(self.reset_type), self.power_down_time])
-            .map_err(Error::io)?;
-        Ok(2)
+        write_all(writer, &[u8::from(self.reset_type), self.power_down_time]).map_err(Error::io)
     }
 }
 

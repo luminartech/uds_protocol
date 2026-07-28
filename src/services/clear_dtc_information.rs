@@ -1,5 +1,6 @@
 //! `ClearDiagnosticInformation` (0x14) service implementation
 use crate::{CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::write_u8;
 
 /// Positive response to `ClearDiagnosticInformation`. Carries no payload.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -83,11 +84,9 @@ impl Encode for ClearDiagnosticInfoRequest {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
-        let size = Encode::encode(&self.group_of_dtc, writer)?;
-        writer
-            .write_all(&[self.memory_selection])
-            .map_err(crate::Error::io)?;
-        Ok(size + 1)
+        let mut written = Encode::encode(&self.group_of_dtc, writer)?;
+        written += write_u8(writer, self.memory_selection).map_err(crate::Error::io)?;
+        Ok(written)
     }
 }
 

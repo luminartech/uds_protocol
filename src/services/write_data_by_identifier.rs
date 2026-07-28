@@ -1,5 +1,6 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{write_all, write_u16_be};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -46,11 +47,9 @@ impl Encode for WriteDataByIdentifierRequest<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&self.identifier.to_be_bytes())
-            .map_err(Error::io)?;
-        writer.write_all(self.data).map_err(Error::io)?;
-        Ok(2 + self.data.len())
+        let mut written = write_u16_be(writer, self.identifier).map_err(Error::io)?;
+        written += write_all(writer, self.data).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
@@ -99,10 +98,7 @@ impl Encode for WriteDataByIdentifierResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&self.identifier.to_be_bytes())
-            .map_err(Error::io)?;
-        Ok(2)
+        write_u16_be(writer, self.identifier).map_err(Error::io)
     }
 }
 

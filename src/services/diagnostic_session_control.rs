@@ -11,6 +11,7 @@
 
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{write_u8, write_u16_be};
 
 /// `DiagnosticSessionType` is used to specify or describe the session type of the server
 ///
@@ -203,10 +204,7 @@ impl Encode for DiagnosticSessionControlRequest {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.session_type);
-        writer
-            .write_all(&[u8::from(sub_function)])
-            .map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, u8::from(sub_function)).map_err(Error::io)
     }
 }
 
@@ -264,16 +262,10 @@ impl Encode for DiagnosticSessionControlResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[u8::from(self.session_type)])
-            .map_err(Error::io)?;
-        writer
-            .write_all(&self.p2_server_max.to_be_bytes())
-            .map_err(Error::io)?;
-        writer
-            .write_all(&self.p2_star_server_max.to_be_bytes())
-            .map_err(Error::io)?;
-        Ok(5)
+        let mut written = write_u8(writer, u8::from(self.session_type)).map_err(Error::io)?;
+        written += write_u16_be(writer, self.p2_server_max).map_err(Error::io)?;
+        written += write_u16_be(writer, self.p2_star_server_max).map_err(Error::io)?;
+        Ok(written)
     }
 }
 

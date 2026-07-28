@@ -1,4 +1,5 @@
 use crate::{Decode, Encode, Error, Incomplete};
+use automotive_wire_codec::write_u8;
 
 /// The `DTCExtDataRecordNumber` is used in the request message to get a stored `DTCExtDataRecord`
 /// It's used to specify the type of `DTCExtDataRecord` to be reported.
@@ -71,8 +72,7 @@ impl Encode for DTCExtDataRecordNumber {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer.write_all(&[self.value()]).map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, self.value()).map_err(Error::io)
     }
 }
 

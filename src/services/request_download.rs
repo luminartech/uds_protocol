@@ -2,7 +2,7 @@
 
 use crate::shared::{DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier};
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{read_be_uint_into, write_be_uint};
+use automotive_wire_codec::{read_be_uint_into, write_all, write_be_uint, write_u8};
 
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -92,21 +92,23 @@ impl Encode for RequestDownloadRequest {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[
+        let mut written = write_all(
+            writer,
+            &[
                 self.data_format_identifier.into(),
                 self.address_and_length_format_identifier.into(),
-            ])
-            .map_err(Error::io)?;
+            ],
+        )
+        .map_err(Error::io)?;
 
         let addr_len = self
             .address_and_length_format_identifier
             .memory_address_length as usize;
         let size_len = self.address_and_length_format_identifier.memory_size_length as usize;
-        write_be_uint(writer, u128::from(self.memory_address), addr_len)?;
-        write_be_uint(writer, u128::from(self.memory_size), size_len)?;
+        written += write_be_uint(writer, u128::from(self.memory_address), addr_len)?;
+        written += write_be_uint(writer, u128::from(self.memory_size), size_len)?;
 
-        Ok(2 + self.address_and_length_format_identifier.len())
+        Ok(written)
     }
 }
 
@@ -187,13 +189,9 @@ impl Encode for RequestDownloadResponse<'_> {
         let length_format_identifier = LengthFormatIdentifier {
             max_number_of_block_length: nibble,
         };
-        writer
-            .write_all(&[length_format_identifier.into()])
-            .map_err(Error::io)?;
-        writer
-            .write_all(self.max_number_of_block_length)
-            .map_err(Error::io)?;
-        Ok(1 + self.max_number_of_block_length.len())
+        let mut written = write_u8(writer, length_format_identifier.into()).map_err(Error::io)?;
+        written += write_all(writer, self.max_number_of_block_length).map_err(Error::io)?;
+        Ok(written)
     }
 }
 

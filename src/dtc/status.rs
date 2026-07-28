@@ -1,6 +1,7 @@
 use bitmask_enum::bitmask;
 
 use crate::{Decode, DecodeIter, Encode, Error, Incomplete};
+use automotive_wire_codec::{write_all, write_u8};
 
 /// Bit-packed DTC status information used by the `ReadDTCInformation` service
 ///
@@ -109,8 +110,7 @@ pub enum DTCStatusMask {
 impl Encode for DTCStatusMask {
     type Error = crate::Error;
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer.write_all(&[self.bits()]).map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, self.bits()).map_err(Error::io)
     }
 }
 
@@ -236,10 +236,7 @@ impl Encode for DTCRecord {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[self.high_byte, self.middle_byte, self.low_byte])
-            .map_err(Error::io)?;
-        Ok(3)
+        write_all(writer, &[self.high_byte, self.middle_byte, self.low_byte]).map_err(Error::io)
     }
 }
 
@@ -341,8 +338,7 @@ impl Encode for FunctionalGroupIdentifier {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer.write_all(&[self.value()]).map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, self.value()).map_err(Error::io)
     }
 }
 
@@ -423,8 +419,7 @@ impl Encode for DTCSeverityMask {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer.write_all(&[self.bits()]).map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, self.bits()).map_err(Error::io)
     }
 }
 
@@ -482,8 +477,7 @@ impl Encode for DTCStoredDataRecordNumber {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer.write_all(&[self.0]).map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, self.0).map_err(Error::io)
     }
 }
 

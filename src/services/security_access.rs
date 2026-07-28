@@ -1,6 +1,7 @@
 //! `SecurityAccess` (0x27) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{write_all, write_u8};
 
 /// A `SecurityAccess` level byte, guaranteed to fit the 7-bit sub-function field
 /// (`0x00..=0x7F`).
@@ -283,11 +284,9 @@ impl Encode for SecurityAccessRequest<'_> {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.access_type);
-        writer
-            .write_all(&[u8::from(sub_function)])
-            .map_err(Error::io)?;
-        writer.write_all(self.request_data).map_err(Error::io)?;
-        Ok(1 + self.request_data.len())
+        let mut written = write_u8(writer, u8::from(sub_function)).map_err(Error::io)?;
+        written += write_all(writer, self.request_data).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
@@ -341,11 +340,9 @@ impl Encode for SecurityAccessResponse<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[u8::from(self.access_type)])
-            .map_err(Error::io)?;
-        writer.write_all(self.security_seed).map_err(Error::io)?;
-        Ok(1 + self.security_seed.len())
+        let mut written = write_u8(writer, u8::from(self.access_type)).map_err(Error::io)?;
+        written += write_all(writer, self.security_seed).map_err(Error::io)?;
+        Ok(written)
     }
 }
 

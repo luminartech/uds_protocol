@@ -1,6 +1,7 @@
 //! `CommunicationControl` (0x28) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{write_all, write_u8, write_u16_be};
 
 /// `CommunicationControlType` is used to specify the type of communication behavior to be modified
 ///
@@ -369,18 +370,18 @@ impl Encode for CommunicationControlRequest {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[
+        let mut written = write_all(
+            writer,
+            &[
                 u8::from(self.control_type),
                 u8::from(self.communication_type),
-            ])
-            .map_err(Error::io)?;
+            ],
+        )
+        .map_err(Error::io)?;
         if let Some(id) = self.node_id {
-            writer.write_all(&id.to_be_bytes()).map_err(Error::io)?;
-            Ok(4)
-        } else {
-            Ok(2)
+            written += write_u16_be(writer, id).map_err(Error::io)?;
         }
+        Ok(written)
     }
 }
 
@@ -449,10 +450,7 @@ impl Encode for CommunicationControlResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[u8::from(self.control_type)])
-            .map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, u8::from(self.control_type)).map_err(Error::io)
     }
 }
 

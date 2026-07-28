@@ -9,6 +9,7 @@ use crate::{
         TesterPresentRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
 };
+use automotive_wire_codec::{write_all, write_u8};
 
 use super::service::UdsServiceType;
 
@@ -137,7 +138,7 @@ impl Encode for Request<'_> {
             Self::Other { sid, .. } => *sid,
             other => other.service().request_service_to_byte(),
         };
-        writer.write_all(&[sid]).map_err(Error::io)?;
+        let sid_len = write_u8(writer, sid).map_err(Error::io)?;
         let payload = match self {
             Self::ClearDiagnosticInfo(req) => req.encode(writer)?,
             Self::CommunicationControl(req) => req.encode(writer)?,
@@ -150,16 +151,13 @@ impl Encode for Request<'_> {
             Self::RequestDownload(req) => req.encode(writer)?,
             Self::RequestFileTransfer(req) => req.encode(writer)?,
             Self::RequestTransferExit(req) => req.encode(writer)?,
-            Self::Other { data, .. } => {
-                writer.write_all(data).map_err(Error::io)?;
-                data.len()
-            }
+            Self::Other { data, .. } => write_all(writer, data).map_err(Error::io)?,
             Self::RoutineControl(req) => req.encode(writer)?,
             Self::SecurityAccess(req) => req.encode(writer)?,
             Self::TesterPresent(req) => req.encode(writer)?,
             Self::TransferData(req) => req.encode(writer)?,
         };
-        Ok(1 + payload)
+        Ok(sid_len + payload)
     }
 }
 

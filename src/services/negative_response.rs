@@ -1,5 +1,6 @@
 //! `NegativeResponse` (0x7F) service implementation
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode, UdsServiceType};
+use automotive_wire_codec::write_all;
 
 /// A negative response from the server indicating a request could not be fulfilled.
 ///
@@ -56,10 +57,7 @@ impl Encode for NegativeResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[self.request_service_sid, u8::from(self.nrc)])
-            .map_err(Error::io)?;
-        Ok(2)
+        write_all(writer, &[self.request_service_sid, u8::from(self.nrc)]).map_err(Error::io)
     }
 }
 

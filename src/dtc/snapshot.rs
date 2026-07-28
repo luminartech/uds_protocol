@@ -3,6 +3,7 @@
 //! Represents the state of the server at the time the DTC was triggered.
 
 use crate::{Decode, Encode, Error, Incomplete};
+use automotive_wire_codec::write_u8;
 
 /// Identifies which DTC snapshot record is being requested or reported.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -51,8 +52,7 @@ impl Encode for DTCSnapshotRecordNumber {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer.write_all(&[self.value()]).map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, self.value()).map_err(Error::io)
     }
 }
 

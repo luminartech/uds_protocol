@@ -4,6 +4,7 @@
 //! However, some routines may have side effects or require certain preconditions to be met.
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{write_all, write_u8, write_u16_be};
 
 /// What type of routine control to perform for a [`RoutineControlRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -109,14 +110,10 @@ impl Encode for RoutineControlRequest<'_> {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.sub_function);
-        writer
-            .write_all(&[u8::from(sub_function)])
-            .map_err(Error::io)?;
-        writer
-            .write_all(&self.routine_id.to_be_bytes())
-            .map_err(Error::io)?;
-        writer.write_all(self.option_record).map_err(Error::io)?;
-        Ok(1 + 2 + self.option_record.len())
+        let mut written = write_u8(writer, u8::from(sub_function)).map_err(Error::io)?;
+        written += write_u16_be(writer, self.routine_id).map_err(Error::io)?;
+        written += write_all(writer, self.option_record).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
@@ -183,14 +180,10 @@ impl Encode for RoutineControlResponse<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[u8::from(self.sub_function)])
-            .map_err(Error::io)?;
-        writer
-            .write_all(&self.routine_id.to_be_bytes())
-            .map_err(Error::io)?;
-        writer.write_all(self.status_record).map_err(Error::io)?;
-        Ok(1 + 2 + self.status_record.len())
+        let mut written = write_u8(writer, u8::from(self.sub_function)).map_err(Error::io)?;
+        written += write_u16_be(writer, self.routine_id).map_err(Error::io)?;
+        written += write_all(writer, self.status_record).map_err(Error::io)?;
+        Ok(written)
     }
 }
 

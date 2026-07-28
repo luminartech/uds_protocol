@@ -1,6 +1,7 @@
 //! `ControlDTCSetting` (0x85) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::write_u8;
 
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -79,10 +80,7 @@ impl Encode for ControlDTCSettingsRequest {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.setting);
-        writer
-            .write_all(&[u8::from(sub_function)])
-            .map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, u8::from(sub_function)).map_err(Error::io)
     }
 }
 
@@ -131,10 +129,7 @@ impl Encode for ControlDTCSettingsResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[u8::from(self.setting)])
-            .map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, u8::from(self.setting)).map_err(Error::io)
     }
 }
 

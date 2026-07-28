@@ -1,6 +1,7 @@
 //! `TesterPresent` (0x3E) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::write_u8;
 
 const TESTER_PRESENT_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 2] = [
     NegativeResponseCode::SubFunctionNotSupported,
@@ -89,10 +90,7 @@ impl Encode for TesterPresentRequest {
             self.suppress_positive_response,
             ZeroSubFunction::NoSubFunctionSupported,
         );
-        writer
-            .write_all(&[u8::from(sub_function)])
-            .map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, u8::from(sub_function)).map_err(Error::io)
     }
 }
 
@@ -148,10 +146,7 @@ impl Encode for TesterPresentResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[u8::from(self.zero_sub_function)])
-            .map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, u8::from(self.zero_sub_function)).map_err(Error::io)
     }
 }
 

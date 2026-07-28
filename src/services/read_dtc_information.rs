@@ -1,6 +1,6 @@
 //! `ReadDTCInformation` (0x19) request and response service implementation
 
-use automotive_wire_codec::{read_u8, write_u8};
+use automotive_wire_codec::{read_u8, write_all, write_u8, write_u16_be};
 
 use crate::{
     DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
@@ -878,16 +878,16 @@ impl Encode for ReadDTCInfoResponse<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let mut written = 0;
         match self {
             Self::NumberOfDTCs {
                 sub_function_id,
                 status_availability_mask,
                 count,
             } => {
-                writer
-                    .write_all(&[*sub_function_id, status_availability_mask.bits()])
+                written += write_all(writer, &[*sub_function_id, status_availability_mask.bits()])
                     .map_err(Error::io)?;
-                writer.write_all(&count.to_be_bytes()).map_err(Error::io)?;
+                written += write_u16_be(writer, *count).map_err(Error::io)?;
             }
             Self::DTCList {
                 sub_function_id,
@@ -899,14 +899,13 @@ impl Encode for ReadDTCInfoResponse<'_> {
                 status_availability_mask,
                 raw_records,
             } => {
-                writer
-                    .write_all(&[*sub_function_id, status_availability_mask.bits()])
+                written += write_all(writer, &[*sub_function_id, status_availability_mask.bits()])
                     .map_err(Error::io)?;
-                writer.write_all(raw_records).map_err(Error::io)?;
+                written += write_all(writer, raw_records).map_err(Error::io)?;
             }
             Self::DTCFaultDetectionCounterList { raw_records } => {
-                writer.write_all(&[0x14]).map_err(Error::io)?;
-                writer.write_all(raw_records).map_err(Error::io)?;
+                written += write_u8(writer, 0x14).map_err(Error::io)?;
+                written += write_all(writer, raw_records).map_err(Error::io)?;
             }
             Self::WWHOBDDTCByMaskRecord {
                 functional_group_identifier,
@@ -915,26 +914,21 @@ impl Encode for ReadDTCInfoResponse<'_> {
                 format_identifier,
                 raw_records,
             } => {
-                writer
-                    .write_all(&[
+                written += write_all(
+                    writer,
+                    &[
                         0x42,
                         u8::from(*functional_group_identifier),
                         status_availability_mask.bits(),
                         severity_availability_mask.bits(),
                         u8::from(*format_identifier),
-                    ])
-                    .map_err(Error::io)?;
-                writer.write_all(raw_records).map_err(Error::io)?;
+                    ],
+                )
+                .map_err(Error::io)?;
+                written += write_all(writer, raw_records).map_err(Error::io)?;
             }
         }
-        Ok(match self {
-            Self::NumberOfDTCs { .. } => 4,
-            Self::DTCList { raw_records, .. } | Self::DTCSeverityList { raw_records, .. } => {
-                2 + raw_records.len()
-            }
-            Self::DTCFaultDetectionCounterList { raw_records } => 1 + raw_records.len(),
-            Self::WWHOBDDTCByMaskRecord { raw_records, .. } => 5 + raw_records.len(),
-        })
+        Ok(written)
     }
 }
 

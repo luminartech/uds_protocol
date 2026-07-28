@@ -6,6 +6,7 @@ use crate::{
     SecurityAccessResponse, TesterPresentResponse, TransferDataResponse, UdsServiceType,
     WriteDataByIdentifierResponse,
 };
+use automotive_wire_codec::{write_all, write_u8};
 
 /// Parsed zero-copy UDS response. Borrows from the wire buffer.
 ///
@@ -186,9 +187,7 @@ impl Encode for Response<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[self.response_sid()])
-            .map_err(Error::io)?;
+        let sid_len = write_u8(writer, self.response_sid()).map_err(Error::io)?;
         let payload = match self {
             Self::ClearDiagnosticInfo(resp) => resp.encode(writer)?,
             Self::RequestTransferExit(resp) => resp.encode(writer)?,
@@ -206,12 +205,9 @@ impl Encode for Response<'_> {
             Self::SecurityAccess(resp) => resp.encode(writer)?,
             Self::TesterPresent(resp) => resp.encode(writer)?,
             Self::TransferData(resp) => resp.encode(writer)?,
-            Self::Other { data, .. } => {
-                writer.write_all(data).map_err(Error::io)?;
-                data.len()
-            }
+            Self::Other { data, .. } => write_all(writer, data).map_err(Error::io)?,
         };
-        Ok(1 + payload)
+        Ok(sid_len + payload)
     }
 }
 

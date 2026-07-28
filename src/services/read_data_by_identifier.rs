@@ -1,5 +1,6 @@
 //! `ReadDataByIdentifier` (0x22) service implementation
 use crate::{Decode, Encode, Error, NegativeResponseCode};
+use automotive_wire_codec::{write_all, write_u16_be};
 
 /// Positive response to `ReadDataByIdentifier`: raw `[DID][data record]…` bytes.
 ///
@@ -34,8 +35,7 @@ impl Encode for ReadDataByIdentifierResponse<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer.write_all(self.records).map_err(Error::io)?;
-        Ok(self.records.len())
+        write_all(writer, self.records).map_err(Error::io)
     }
 }
 
@@ -133,16 +133,14 @@ impl Encode for ReadDataByIdentifierRequest<'_> {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         match self.dids {
             Dids::Native(s) => {
+                let mut written = 0;
                 for did in s {
-                    writer.write_all(&did.to_be_bytes()).map_err(Error::io)?;
+                    written += write_u16_be(writer, *did).map_err(Error::io)?;
                 }
+                Ok(written)
             }
-            Dids::Wire(b) => writer.write_all(b).map_err(Error::io)?,
+            Dids::Wire(b) => write_all(writer, b).map_err(Error::io),
         }
-        Ok(match self.dids {
-            Dids::Native(s) => s.len() * 2,
-            Dids::Wire(b) => b.len(),
-        })
     }
 }
 

@@ -1,6 +1,7 @@
 //! `TransferData` (0x36) service implementation
 
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{write_all, write_u8};
 
 const TRANSFER_DATA_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -64,11 +65,9 @@ impl Encode for TransferDataRequest<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[self.block_sequence_counter])
-            .map_err(Error::io)?;
-        writer.write_all(self.data).map_err(Error::io)?;
-        Ok(1 + self.data.len())
+        let mut written = write_u8(writer, self.block_sequence_counter).map_err(Error::io)?;
+        written += write_all(writer, self.data).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
@@ -120,11 +119,9 @@ impl Encode for TransferDataResponse<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[self.block_sequence_counter])
-            .map_err(Error::io)?;
-        writer.write_all(self.data).map_err(Error::io)?;
-        Ok(1 + self.data.len())
+        let mut written = write_u8(writer, self.block_sequence_counter).map_err(Error::io)?;
+        written += write_all(writer, self.data).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
