@@ -1079,14 +1079,63 @@ mod iter_tests {
 
     #[test]
     fn size_hint_matches_the_number_of_items_yielded() {
-        for len in 0usize..=12 {
-            let data = [0u8; 12];
-            let iter = DtcAndStatusIter::new(&data[..len]);
-            let (lower, upper) = iter.size_hint();
-            let actual = iter.clone().take(16).count();
-            assert_eq!(lower, actual, "lower bound wrong for {len} bytes");
-            assert_eq!(upper, Some(actual), "upper bound wrong for {len} bytes");
+        // All three iterators, every buffer length across several record boundaries. The two
+        // record widths differ (4 bytes vs 5), so each needs its own `div_ceil` checked.
+        // `take` bounds the count so a non-termination regression fails rather than hangs.
+        let data = [0u8; 16];
+        for len in 0usize..=16 {
+            let it = DtcAndStatusIter::new(&data[..len]);
+            let actual = it.clone().take(32).count();
+            assert_eq!(
+                it.size_hint(),
+                (actual, Some(actual)),
+                "DtcAndStatusIter, {len} bytes"
+            );
+            assert_eq!(
+                actual,
+                len.div_ceil(4),
+                "DtcAndStatusIter count, {len} bytes"
+            );
+
+            let it = DtcFaultDetectionIter::new(&data[..len]);
+            let actual = it.clone().take(32).count();
+            assert_eq!(
+                it.size_hint(),
+                (actual, Some(actual)),
+                "DtcFaultDetectionIter, {len} bytes"
+            );
+            assert_eq!(
+                actual,
+                len.div_ceil(4),
+                "DtcFaultDetectionIter count, {len} bytes"
+            );
+
+            let it = WwhObdDtcSeverityIter::new(&data[..len]);
+            let actual = it.clone().take(32).count();
+            assert_eq!(
+                it.size_hint(),
+                (actual, Some(actual)),
+                "WwhObdDtcSeverityIter, {len} bytes"
+            );
+            assert_eq!(actual, len.div_ceil(5), "WwhObdDtcSeverityIter count, {len} bytes");
         }
+    }
+
+    #[test]
+    fn all_three_iterators_terminate_and_stay_exhausted() {
+        // FusedIterator is only sound if `next()` keeps returning None once drained.
+        let data = [0u8; 7]; // not a whole number of records for either width
+        let mut a = DtcAndStatusIter::new(&data);
+        while a.next().is_some() {}
+        assert!(a.next().is_none() && a.next().is_none());
+
+        let mut b = DtcFaultDetectionIter::new(&data);
+        while b.next().is_some() {}
+        assert!(b.next().is_none() && b.next().is_none());
+
+        let mut c = WwhObdDtcSeverityIter::new(&data);
+        while c.next().is_some() {}
+        assert!(c.next().is_none() && c.next().is_none());
     }
 
     /// Minimal counting collector so the termination tests need no allocator.
