@@ -6,6 +6,7 @@ use automotive_wire_codec::write_u8;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum DTCExtDataRecordNumber {
     /// ISO/SAE reserved record numbers (`0x00`, `0xF0-0xFD`).
     ISOSAEReserved(u8),

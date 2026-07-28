@@ -251,6 +251,7 @@ mod read_dtc_info_request_encode_tests {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct DTCFaultDetectionCounterRecord {
     /// The DTC this counter belongs to.
     pub dtc_record: DTCRecord,
@@ -263,6 +264,7 @@ pub struct DTCFaultDetectionCounterRecord {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum ReadDTCInfoSubFunction {
     /// * Parameter: `DTCStatusMask`
     ///
