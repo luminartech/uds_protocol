@@ -77,7 +77,7 @@ impl<'a> Decode<'a> for Response<'a> {
                 available: buf.len(),
             }));
         }
-        let service = UdsServiceType::response_from_byte(buf[0]);
+        let service = UdsServiceType::from_response_sid(buf[0]);
         let payload = &buf[1..];
 
         let response = match service {
@@ -146,37 +146,37 @@ impl Response<'_> {
     #[must_use]
     pub fn service(&self) -> UdsServiceType {
         match self {
-            Self::Other { sid, .. } => UdsServiceType::response_from_byte(*sid),
-            other => UdsServiceType::response_from_byte(other.response_sid()),
+            Self::Other { sid, .. } => UdsServiceType::from_response_sid(*sid),
+            other => UdsServiceType::from_response_sid(other.response_sid()),
         }
     }
 
     /// Returns the response service-ID byte that frames this response on the wire.
     fn response_sid(&self) -> u8 {
         match self {
-            Self::ClearDiagnosticInfo(_) => UdsServiceType::ClearDiagnosticInfo.response_to_byte(),
+            Self::ClearDiagnosticInfo(_) => UdsServiceType::ClearDiagnosticInfo.to_response_sid(),
             Self::CommunicationControl(_) => {
-                UdsServiceType::CommunicationControl.response_to_byte()
+                UdsServiceType::CommunicationControl.to_response_sid()
             }
-            Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings.response_to_byte(),
+            Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings.to_response_sid(),
             Self::DiagnosticSessionControl(_) => {
-                UdsServiceType::DiagnosticSessionControl.response_to_byte()
+                UdsServiceType::DiagnosticSessionControl.to_response_sid()
             }
-            Self::EcuReset(_) => UdsServiceType::EcuReset.response_to_byte(),
-            Self::NegativeResponse(_) => UdsServiceType::NegativeResponse.response_to_byte(),
+            Self::EcuReset(_) => UdsServiceType::EcuReset.to_response_sid(),
+            Self::NegativeResponse(_) => UdsServiceType::NegativeResponse.to_response_sid(),
             Self::ReadDataByIdentifier(_) => {
-                UdsServiceType::ReadDataByIdentifier.response_to_byte()
+                UdsServiceType::ReadDataByIdentifier.to_response_sid()
             }
-            Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo.response_to_byte(),
-            Self::RequestDownload(_) => UdsServiceType::RequestDownload.response_to_byte(),
-            Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer.response_to_byte(),
-            Self::RequestTransferExit(_) => UdsServiceType::RequestTransferExit.response_to_byte(),
-            Self::RoutineControl(_) => UdsServiceType::RoutineControl.response_to_byte(),
-            Self::SecurityAccess(_) => UdsServiceType::SecurityAccess.response_to_byte(),
-            Self::TesterPresent(_) => UdsServiceType::TesterPresent.response_to_byte(),
-            Self::TransferData(_) => UdsServiceType::TransferData.response_to_byte(),
+            Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo.to_response_sid(),
+            Self::RequestDownload(_) => UdsServiceType::RequestDownload.to_response_sid(),
+            Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer.to_response_sid(),
+            Self::RequestTransferExit(_) => UdsServiceType::RequestTransferExit.to_response_sid(),
+            Self::RoutineControl(_) => UdsServiceType::RoutineControl.to_response_sid(),
+            Self::SecurityAccess(_) => UdsServiceType::SecurityAccess.to_response_sid(),
+            Self::TesterPresent(_) => UdsServiceType::TesterPresent.to_response_sid(),
+            Self::TransferData(_) => UdsServiceType::TransferData.to_response_sid(),
             Self::WriteDataByIdentifier(_) => {
-                UdsServiceType::WriteDataByIdentifier.response_to_byte()
+                UdsServiceType::WriteDataByIdentifier.to_response_sid()
             }
             Self::Other { sid, .. } => *sid,
         }
@@ -261,7 +261,7 @@ mod tests {
         let frame = [0x99, 0x01, 0x02];
         let (resp, _) = Response::decode(&frame).unwrap();
         assert!(matches!(resp, Response::Other { sid: 0x99, .. }));
-        assert_eq!(resp.service(), UdsServiceType::response_from_byte(0x99));
+        assert_eq!(resp.service(), UdsServiceType::from_response_sid(0x99));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &frame); // previously became 0x7F (NegativeResponse)
