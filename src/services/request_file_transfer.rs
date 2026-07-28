@@ -22,6 +22,7 @@ fn size_param_width(a: u128, b: u128) -> usize {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum FileOperationMode {
     /// ISO/SAE reserved (`0x00`, `0x07–0xFF`).
     IsoSaeReserved(u8),
@@ -91,6 +92,7 @@ impl TryFrom<u8> for FileOperationMode {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct SizePayload {
     /// Specifies the size of the uncompressed file in bytes.
     ///
@@ -140,6 +142,7 @@ impl SizePayload {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct NamePayload<'a> {
     /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
     pub mode_of_operation: FileOperationMode,
@@ -256,6 +259,7 @@ impl RequestFileTransferRequest<'_> {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct SentDataPayload<'a> {
     /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
     /// data bytes (maxNumberOfBlockLength) to include in each `TransferData` request message from the client or how
@@ -304,6 +308,7 @@ impl<'a> SentDataPayload<'a> {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct FileSizePayload {
     /// Size of the uncompressed file in bytes.
     pub file_size_uncompressed: u128,
@@ -344,6 +349,7 @@ impl FileSizePayload {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct DirSizePayload {
     /// Total size of the directory information in bytes.
     pub dir_info_length: u128,
@@ -379,6 +385,7 @@ impl DirSizePayload {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct PositionPayload {
     /// Specifies the byte position within the file at which the Tester will resume downloading after an initial download is suspended
     /// A download is suspended when the ECU stops receiving [`crate::TransferDataRequest`] requests and does not receive the
