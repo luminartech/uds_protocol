@@ -65,6 +65,15 @@ pub enum Request<'a> {
     },
 }
 
+/// # Remainder
+///
+/// The returned remainder is **always empty**. A UDS frame is not self-delimiting — its length
+/// comes from the transport (ISO-TP, `DoIP`, ...), not from the message — so one buffer is exactly
+/// one frame, and every payload is decoded with `decode_exact`. This means `decode` behaves as
+/// `decode_exact` despite the streaming shape of the [`Decode`] contract: do **not** feed it
+/// concatenated frames expecting it to consume one at a time, and note that
+/// [`DecodeIter`](crate::DecodeIter) over such a buffer would treat the whole thing as a single
+/// frame. Split frames at the transport layer before calling this.
 impl<'a> Decode<'a> for Request<'a> {
     type Error = crate::Error;
 

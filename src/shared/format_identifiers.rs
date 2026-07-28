@@ -101,18 +101,28 @@ pub struct DataFormatIdentifier {
 }
 
 impl DataFormatIdentifier {
+    /// No compression and no encryption — the `0x00` byte, and the overwhelmingly common case.
+    pub const NONE: Self = Self {
+        compression_method: 0,
+        encryption_method: 0,
+    };
+
     /// Build a `DataFormatIdentifier` from its compression and encryption method nibbles.
     ///
-    /// `0x00` for both means no compression and no encryption (the default). Both values
-    /// occupy a single nibble on the wire.
+    /// Arguments are in **wire order**: compression is the high nibble, encryption the low
+    /// nibble. `0x00` for both means no compression and no encryption — prefer
+    /// [`DataFormatIdentifier::NONE`] for that. Each value occupies a single nibble.
+    ///
+    /// Both parameters are `u8`, so the compiler cannot catch a transposition; if you are
+    /// converting a byte you already have, use `DataFormatIdentifier::from(byte)` instead.
     ///
     /// # Errors
     /// Returns [`Error::InvalidEncryptionCompressionMethod`] if either value does not fit
     /// in a nibble (i.e. is greater than `0x0F`).
-    pub fn new(encryption_method: u8, compression_method: u8) -> Result<Self, Error> {
+    pub fn new(compression_method: u8, encryption_method: u8) -> Result<Self, Error> {
         Ok(Self {
-            encryption_method: Self::check_value(encryption_method)?,
             compression_method: Self::check_value(compression_method)?,
+            encryption_method: Self::check_value(encryption_method)?,
         })
     }
     fn check_value(value: u8) -> Result<u8, Error> {
@@ -208,6 +218,19 @@ mod tests {
             data_format_identifier,
             Err(Error::InvalidEncryptionCompressionMethod(0x1F))
         ));
+
+        // Arguments are in wire order: compression is the high nibble.
+        let dfi = DataFormatIdentifier::new(0x02, 0x01).unwrap();
+        assert_eq!(dfi.compression_method(), 0x02);
+        assert_eq!(dfi.encryption_method(), 0x01);
+        assert_eq!(
+            u8::from(dfi),
+            0x21,
+            "compression must land in the high nibble"
+        );
+
+        assert_eq!(u8::from(DataFormatIdentifier::NONE), 0x00);
+        assert_eq!(DataFormatIdentifier::NONE, DataFormatIdentifier::from(0x00));
     }
 
     mod prop {

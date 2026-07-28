@@ -11,8 +11,67 @@ pre-1.0 crates).
 
 These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
+### Fixed (hang on malformed input)
+
+- **All three DTC iterators looped forever on a partial trailing record.** `next()` returned
+  `Some(Err(..))` without advancing, so the error was yielded indefinitely: `for` loops and
+  `count()` hung, and `collect::<Vec<Result<_, _>>>()` allocated without bound. Reachable from
+  untrusted wire input, because `ReadDtcInfoResponse::decode` passes the record tail through
+  verbatim without checking that it divides evenly:
+
+  ```rust
+  let (resp, _) = Response::decode(&[0x59, 0x02, 0xFF, 0x01, 0x02])?; // 2 leftover bytes
+  for r in resp.dtc_and_status_iter().unwrap() { /* never returns */ }
+  ```
+
+  `collect_all()` was the only safe path, and only incidentally —
+  `collect::<Result<Vec, _>>()` short-circuits on the first error. The fuzz targets missed it
+  because they call `decode` and never drive the iterators. Each iterator now consumes the
+  partial tail, reporting the error exactly once and terminating.
+
+### Changed (iterator traits)
+
+- The DTC iterators now implement `size_hint` (exact) and
+  [`FusedIterator`](core::iter::FusedIterator). They deliberately do **not** implement
+  `ExactSizeIterator`: its `len()` would have to count items yielded, which exceeds the
+  complete-record count when a partial tail is present, contradicting the inherent `len()`.
+  Documented on each type.
+
+### Changed (naming, encapsulation, ergonomics)
+
+- **Breaking:** `DtcSeverityAndStatusIter` -> `WwhObdDtcSeverityIter`, and
+  `ReadDtcInfoResponse::severity_and_status_iter` -> `wwh_obd_dtc_severity_iter`. The old name pointed at
+  the wrong variant: it reads as "the severity iterator" but only handles the 5-byte records of
+  `WwhObdDtcByMaskRecord` (0x42), while the 0x08/0x09 `DtcSeverityList` records are 6 bytes with
+  an extra functional-unit byte. The `DtcSeverityList` doc previously had to carry a warning that
+  the iterator did not apply to it.
+- **Breaking:** `DataFormatIdentifier::new` now takes its arguments in **wire order** —
+  `new(compression_method, encryption_method)`, compression being the high nibble. It previously
+  took encryption first, contradicting both the wire layout and the type's own doc comment, and
+  since both parameters are `u8` the compiler could not catch a transposition. **Review any
+  call site passing two different non-zero values.** `From<u8>` is unaffected and remains the
+  usual path. Added `DataFormatIdentifier::NONE` for the common no-compression/no-encryption case.
+- **Breaking:** `CommunicationControlRequest::suppress_positive_response()` is now a public
+  field, matching the other six suppressable requests. The type stays encapsulated, but because
+  of the `control_type`/`node_id` invariant — `node_id` must be present exactly when
+  `control_type` is an enhanced-address variant — not because of SPRMIB, which is independent and
+  fused onto the sub-function byte only at the wire boundary. `control_type()` remains a getter.
+- **Breaking:** `ReadDataByIdentifierResponse::records()` is now the public field `records`,
+  matching every other opaque response slice. It carries no invariant.
+- `CommunicationControlResponse::control_type` (public) and `NegativeResponse`'s private fields
+  are both deliberate and now documented, so the remaining asymmetry is not read as an oversight.
+
 ### Added
 
+- `NegativeResponse::new_with_sid(request_service_sid, nrc)`, the construction-side counterpart
+  to `Request::Other { sid }`. `new()` routes through `to_request_sid()`, which collapses every
+  unmodeled service to `0x7F`, so a server that decoded `Request::Other { sid: 0x40 }` could not
+  answer `serviceNotSupported` echoing `0x40` — despite this type already preserving such bytes
+  losslessly on decode.
+- `Request::decode` and `Response::decode` now document that the returned remainder is **always
+  empty**. A UDS frame is not self-delimiting, so one buffer is one frame and every payload is
+  decoded with `decode_exact`; feeding concatenated frames (or `DecodeIter`) will treat the whole
+  buffer as a single frame.
 - `RequestUpload` (0x35 / 0x75) is now modeled, via `RequestUploadRequest` and
   `RequestUploadResponse` plus `Request::RequestUpload` / `Response::RequestUpload`. It was the
   conspicuous gap in the transfer story: `RequestDownload`, `TransferData` and
@@ -160,6 +219,17 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
 - The `serde_bytes` optional dependency. The `serde` feature activated it, but the crate never
   referenced it.
+
+### CI
+
+- New `features` job running `cargo hack check --feature-powerset --no-dev-deps` (20
+  combinations). The previous matrix only ever built `--all-features`,
+  `--no-default-features`, and `--no-default-features --features alloc`, which is why the
+  `utoipa`/`clap` breakage went unnoticed.
+- The bare-metal job now also builds `serde` and `alloc,serde` for `thumbv6m-none-eabi`, the only
+  place the serde `default-features` defect was observable.
+- Publication is now gated on `no-std` and `features` in addition to the existing jobs. A tag
+  could previously publish a crate whose `no_std` build or feature graph was broken.
 
 ### Changed
 
