@@ -8,11 +8,6 @@ use crate::{
     FunctionalGroupIdentifier, Incomplete, NegativeResponseCode,
 };
 
-/// Used for non-emissions related servers
-type DTCFaultDetectionCounter = u8;
-/// Used to address the respective user-defined DTC memory when retrieving DTCs
-type MemorySelection = u8;
-
 const READ_DTC_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
     NegativeResponseCode::SubFunctionNotSupported,
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -257,13 +252,11 @@ mod read_dtc_info_request_encode_tests {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DTCFaultDetectionCounterRecord {
+    /// The DTC this counter belongs to.
     pub dtc_record: DTCRecord,
-    pub dtc_fault_detection_counter: DTCFaultDetectionCounter,
+    /// Fault detection counter, used for non-emissions related servers.
+    pub dtc_fault_detection_counter: u8,
 }
-
-/// Have to reference SAE J1979-DA for the corresponding DTC readiness groups and the [`FunctionalGroupIdentifier`]s
-/// This RGID depends on the functional group
-type DTCReadinessGroupIdentifier = u8; // RGID
 
 /// Subfunctions for the `ReadDTCInformation` service
 #[allow(non_camel_case_types)]
@@ -339,24 +332,19 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x17
     ReportUserDefMemoryDTC_ByStatusMask(DTCStatusMask),
 
-    // TODO: UserDef and MemorySelection might just need to be u8
+    /// Parameter: `DTCRecord` (3 bytes)
+    /// Parameter: `DTCSnapshotRecordNumber`(1)
+    /// Parameter: `memorySelection`(1) — addresses the user-defined DTC memory to read from
+    ///
     /// 0x18
-    ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(
-        DTCRecord,
-        DTCSnapshotRecordNumber,
-        MemorySelection,
-    ),
+    ReportUserDefMemoryDTCSnapshotRecord_ByDTCNumber(DTCRecord, DTCSnapshotRecordNumber, u8),
 
     /// Parameter: `DTCRecord` (3 bytes)
-    /// Parameter: DTCExtDataRecordNumber(1) (0xFF for all records)
-    /// Parameter: MemorySelection(1)
+    /// Parameter: `DTCExtDataRecordNumber`(1) (0xFF for all records)
+    /// Parameter: `memorySelection`(1) — addresses the user-defined DTC memory to read from
     ///
     /// 0x19
-    ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(
-        DTCRecord,
-        DTCExtDataRecordNumber,
-        MemorySelection,
-    ),
+    ReportUserDefMemoryDTCExtDataRecord_ByDTCNumber(DTCRecord, DTCExtDataRecordNumber, u8),
 
     /// * Parameter: DTCExtDataRecordNumber(1)
     ///
@@ -375,14 +363,13 @@ pub enum ReadDTCInfoSubFunction {
     /// 0x55
     ReportWWHOBDDTC_WithPermanentStatus(FunctionalGroupIdentifier),
 
-    /// * Parameter: FunctionalGroupIdentifier(1)
-    /// * Parameter: DTCReadinessGroupIdentifier(1)
+    /// * Parameter: `FunctionalGroupIdentifier`(1)
+    /// * Parameter: `DTCReadinessGroupIdentifier` (RGID, 1 byte). The RGID depends on the
+    ///   functional group; see SAE J1979-DA for the readiness groups that correspond to each
+    ///   [`FunctionalGroupIdentifier`].
     ///
     /// 0x56
-    ReportDTCInformation_ByDTCReadinessGroupIdentifier(
-        FunctionalGroupIdentifier,
-        DTCReadinessGroupIdentifier,
-    ),
+    ReportDTCInformation_ByDTCReadinessGroupIdentifier(FunctionalGroupIdentifier, u8),
     /// 0x42-0x54, 0x57-0x7F
     ISOSAEReserved(u8),
 }
@@ -491,11 +478,6 @@ impl Encode for ReadDTCInfoSubFunction {
         Ok(written)
     }
 }
-
-/// Same representation as [`DTCStatusMask`] but with the bits 'on' representing the DTC status supported by the server
-/// IE if the server doesn't support [`DTCStatusMask::WarningIndicatorRequested`] then the bit for that status will be 'off'
-/// and all other bits will be 'on'
-type DTCStatusAvailabilityMask = DTCStatusMask;
 
 // ---------------------------------------------------------------------------
 // no_std RX types with lazy iterators
@@ -691,8 +673,11 @@ pub enum ReadDTCInfoResponse<'a> {
     NumberOfDTCs {
         /// Sub-function byte echo.
         sub_function_id: u8,
-        /// DTC status availability mask.
-        status_availability_mask: DTCStatusAvailabilityMask,
+        /// Which status bits this server supports reporting. Same representation as
+        /// [`DTCStatusMask`], but a bit is 'on' when the server supports that status — a server
+        /// that does not support [`DTCStatusMask::WarningIndicatorRequested`] leaves that bit
+        /// 'off' and sets the rest.
+        status_availability_mask: DTCStatusMask,
         /// Number of matching DTCs.
         count: u16,
     },
@@ -700,8 +685,11 @@ pub enum ReadDTCInfoResponse<'a> {
     DTCList {
         /// Sub-function byte echo.
         sub_function_id: u8,
-        /// DTC status availability mask.
-        status_availability_mask: DTCStatusAvailabilityMask,
+        /// Which status bits this server supports reporting. Same representation as
+        /// [`DTCStatusMask`], but a bit is 'on' when the server supports that status — a server
+        /// that does not support [`DTCStatusMask::WarningIndicatorRequested`] leaves that bit
+        /// 'off' and sets the rest.
+        status_availability_mask: DTCStatusMask,
         /// Raw record bytes — use [`DtcAndStatusIter`] to iterate.
         #[cfg_attr(feature = "serde", serde(borrow))]
         raw_records: &'a [u8],
@@ -716,8 +704,11 @@ pub enum ReadDTCInfoResponse<'a> {
     DTCSeverityList {
         /// Sub-function byte echo.
         sub_function_id: u8,
-        /// DTC status availability mask.
-        status_availability_mask: DTCStatusAvailabilityMask,
+        /// Which status bits this server supports reporting. Same representation as
+        /// [`DTCStatusMask`], but a bit is 'on' when the server supports that status — a server
+        /// that does not support [`DTCStatusMask::WarningIndicatorRequested`] leaves that bit
+        /// 'off' and sets the rest.
+        status_availability_mask: DTCStatusMask,
         /// Raw `DTCAndSeverityRecord` bytes (6 bytes each: severity + DTC functional unit +
         /// 3-byte DTC + status). These differ from the 5-byte WWH-OBD records, so
         /// [`DtcSeverityAndStatusIter`] does **not** apply here; no severity-list iterator is
@@ -729,8 +720,11 @@ pub enum ReadDTCInfoResponse<'a> {
     WWHOBDDTCByMaskRecord {
         /// Functional group identifier echo.
         functional_group_identifier: FunctionalGroupIdentifier,
-        /// DTC status availability mask.
-        status_availability_mask: DTCStatusAvailabilityMask,
+        /// Which status bits this server supports reporting. Same representation as
+        /// [`DTCStatusMask`], but a bit is 'on' when the server supports that status — a server
+        /// that does not support [`DTCStatusMask::WarningIndicatorRequested`] leaves that bit
+        /// 'off' and sets the rest.
+        status_availability_mask: DTCStatusMask,
         /// Severity availability mask.
         severity_availability_mask: DTCSeverityMask,
         /// DTC format identifier.
@@ -801,7 +795,7 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                         available: buf.len(),
                     }));
                 }
-                let status_availability_mask = DTCStatusAvailabilityMask::from(buf[0]);
+                let status_availability_mask = DTCStatusMask::from(buf[0]);
                 let count = u16::from_be_bytes([buf[1], buf[2]]);
                 Ok((
                     Self::NumberOfDTCs {
@@ -819,7 +813,7 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                         available: buf.len(),
                     }));
                 }
-                let status_availability_mask = DTCStatusAvailabilityMask::from(buf[0]);
+                let status_availability_mask = DTCStatusMask::from(buf[0]);
                 Ok((
                     Self::DTCList {
                         sub_function_id: subfunction_id,
@@ -837,7 +831,7 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                         available: buf.len(),
                     }));
                 }
-                let status_availability_mask = DTCStatusAvailabilityMask::from(buf[0]);
+                let status_availability_mask = DTCStatusMask::from(buf[0]);
                 Ok((
                     Self::DTCSeverityList {
                         sub_function_id: subfunction_id,
@@ -855,7 +849,7 @@ impl<'a> Decode<'a> for ReadDTCInfoResponse<'a> {
                     }));
                 }
                 let functional_group_identifier = FunctionalGroupIdentifier::from(buf[0]);
-                let status_availability_mask = DTCStatusAvailabilityMask::from(buf[1]);
+                let status_availability_mask = DTCStatusMask::from(buf[1]);
                 let severity_availability_mask = DTCSeverityMask::from(buf[2]);
                 let format_identifier = DTCFormatIdentifier::from(buf[3]);
                 Ok((
