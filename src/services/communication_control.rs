@@ -59,6 +59,27 @@ pub enum CommunicationControlType {
 }
 
 impl CommunicationControlType {
+    /// The raw sub-function byte, without the SPRMIB bit.
+    ///
+    /// `const` so [`CommunicationControlRequest::new`] and
+    /// [`new_with_node_id`](CommunicationControlRequest::new_with_node_id) can be `const` too:
+    /// they need the byte for their error payload, and `u8::from` is a trait method, which is
+    /// not callable in a `const fn` on stable.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        match self {
+            Self::EnableRxAndTx => 0x00,
+            Self::EnableRxAndDisableTx => 0x01,
+            Self::DisableRxAndEnableTx => 0x02,
+            Self::DisableRxAndTx => 0x03,
+            Self::EnableRxAndDisableTxWithEnhancedAddressInfo => 0x04,
+            Self::EnableRxAndTxWithEnhancedAddressInfo => 0x05,
+            Self::IsoSaeReserved(value)
+            | Self::VehicleManufacturerSpecific(value)
+            | Self::SystemSupplierSpecific(value) => *value,
+        }
+    }
+
     /// Returns `true` if this control type requires an enhanced-address node identifier.
     #[must_use]
     pub const fn is_extended_address_variant(&self) -> bool {
@@ -71,19 +92,8 @@ impl CommunicationControlType {
 }
 
 impl From<CommunicationControlType> for u8 {
-    #[allow(clippy::match_same_arms)]
     fn from(value: CommunicationControlType) -> Self {
-        match value {
-            CommunicationControlType::EnableRxAndTx => 0x00,
-            CommunicationControlType::EnableRxAndDisableTx => 0x01,
-            CommunicationControlType::DisableRxAndEnableTx => 0x02,
-            CommunicationControlType::DisableRxAndTx => 0x03,
-            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo => 0x04,
-            CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => 0x05,
-            CommunicationControlType::IsoSaeReserved(val) => val,
-            CommunicationControlType::VehicleManufacturerSpecific(val) => val,
-            CommunicationControlType::SystemSupplierSpecific(val) => val,
-        }
+        value.value()
     }
 }
 
@@ -396,15 +406,13 @@ impl CommunicationControlRequest {
     /// Returns [`Error::InvalidCommunicationControlType`] if `control_type` is an
     /// enhanced-address variant — those require a node identifier and must be built
     /// with [`new_with_node_id`](Self::new_with_node_id).
-    pub fn new(
+    pub const fn new(
         suppress_positive_response: bool,
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
     ) -> Result<Self, Error> {
         if control_type.is_extended_address_variant() {
-            return Err(Error::InvalidCommunicationControlType(u8::from(
-                control_type,
-            )));
+            return Err(Error::InvalidCommunicationControlType(control_type.value()));
         }
         Ok(Self {
             suppress_positive_response,
@@ -421,16 +429,14 @@ impl CommunicationControlRequest {
     /// Returns [`Error::InvalidCommunicationControlType`] if `control_type` is not an
     /// enhanced-address variant — a node identifier is only carried by the
     /// `*WithEnhancedAddressInfo` variants.
-    pub fn new_with_node_id(
+    pub const fn new_with_node_id(
         suppress_positive_response: bool,
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
         node_id: u16,
     ) -> Result<Self, Error> {
         if !control_type.is_extended_address_variant() {
-            return Err(Error::InvalidCommunicationControlType(u8::from(
-                control_type,
-            )));
+            return Err(Error::InvalidCommunicationControlType(control_type.value()));
         }
         Ok(Self {
             suppress_positive_response,

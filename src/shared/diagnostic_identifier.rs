@@ -5,7 +5,7 @@
 /// The identifiers listed here are defined and should be implemented by the vehicle manufacturer/system supplier.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[cfg_attr(feature = "clap", derive(clap::ValueEnum, clap::Parser))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum UdsIdentifier {
