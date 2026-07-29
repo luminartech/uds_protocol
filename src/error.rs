@@ -71,9 +71,6 @@ pub enum Error {
     /// The DTC-setting byte is not a valid [`DtcSettingType`](crate::DtcSettingType) value.
     #[error("Invalid DTC Setting: {0}")]
     InvalidDtcSetting(u8),
-    /// The value is reserved for legislative use and must not be used.
-    #[error("Reserved for legislative use: {0}")]
-    ReservedForLegislativeUse(u8),
 }
 
 impl Error {
@@ -153,8 +150,7 @@ impl Error {
             | Self::InvalidMemoryAddress(_)
             | Self::InvalidDtcRecord(_)
             | Self::InvalidEncryptionCompressionMethod(_)
-            | Self::InvalidFileOperationMode(_)
-            | Self::ReservedForLegislativeUse(_) => NegativeResponseCode::RequestOutOfRange,
+            | Self::InvalidFileOperationMode(_) => NegativeResponseCode::RequestOutOfRange,
 
             // Transport failure: not a protocol error, so no specific NRC applies.
             Self::IoError(_) => NegativeResponseCode::GeneralReject,
@@ -299,11 +295,6 @@ mod nrc_mapping_tests {
                 Error::InvalidDtcRecord(0xFF01_0203),
                 0x31,
                 "a u32 wider than three DTC bytes",
-            ),
-            (
-                Error::ReservedForLegislativeUse(0x99),
-                0x31,
-                "legislative reserved value",
             ),
             // --- 0x10 generalReject: transport failure, no protocol NRC applies ---
             (

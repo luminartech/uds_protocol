@@ -6,8 +6,8 @@
 //! impossible for anyone else to build still looks constructible from there.
 
 use uds_protocol::{
-    DirSizePayload, DtcFaultDetectionCounterRecord, DtcRecord, FileOperationMode, FileSizePayload,
-    NamePayload, PositionPayload, SentDataPayload, SizePayload,
+    DirSizePayload, DtcFaultDetectionCounterRecord, DtcRecord, FileSizePayload, NamePayload,
+    PositionPayload, SentDataPayload, SizePayload,
 };
 
 #[test]
@@ -26,7 +26,7 @@ fn every_non_exhaustive_payload_type_has_a_reachable_constructor() {
     // a constructor and one did not, which made it unbuildable outside the crate. Pin all
     // seven so the next `#[non_exhaustive]` cannot reintroduce the gap silently.
     let _ = SizePayload::new(0xC350, 0x7530);
-    let _ = NamePayload::new(FileOperationMode::AddFile, "/a");
+    let _ = NamePayload::new("/a");
     let _ = SentDataPayload::new(&[0x02, 0x00]);
     let _ = FileSizePayload::new(0xC350, 0x7530);
     let _ = DirSizePayload::new(0x20);

@@ -517,32 +517,43 @@ impl<'a> Decode<'a> for DtcSeverityMask {
 pub struct DtcStoredDataRecordNumber(u8);
 
 impl DtcStoredDataRecordNumber {
-    /// Create a `DtcStoredDataRecordNumber` from a raw byte, rejecting the one value ISO 14229-1
-    /// reserves for this parameter.
+    /// Create a `DtcStoredDataRecordNumber` from a raw byte. Every byte is accepted.
+    ///
+    /// Total, like [`DtcSnapshotRecordNumber::new`](crate::DtcSnapshotRecordNumber::new) and
+    /// [`DtcExtDataRecordNumber::new`](crate::DtcExtDataRecordNumber::new), because decoding is
+    /// deliberately liberal and `From<u8>` already accepted anything — so a fallible `new`
+    /// promised a guarantee the type did not actually hold. Use
+    /// [`is_reserved`](Self::is_reserved) when you need the check.
     ///
     /// Clause 12.3.3.2 reserves `0x00` for legislated purposes, makes `0x01`-`0xFE` available
     /// for vehicle-manufacturer use, and gives `0xFF` the meaning "report all stored records".
     /// Note that `0xF0` is *not* reserved here — that belongs to the
     /// [`DtcSnapshotRecordNumber`](crate::DtcSnapshotRecordNumber) space, which the spec says
     /// does not share an address space with this one.
-    ///
-    /// # Errors
-    /// Returns [`Error::ReservedForLegislativeUse`] if the record number is `0x00`.
-    pub const fn new(record_number: u8) -> Result<Self, Error> {
-        if record_number == 0 {
-            return Err(Error::ReservedForLegislativeUse(record_number));
-        }
-        Ok(Self(record_number))
+    #[must_use]
+    pub const fn new(record_number: u8) -> Self {
+        Self(record_number)
+    }
+
+    /// Whether this record number is the `0x00` that clause 12.3.3.2 reserves for legislated
+    /// purposes, and which a client therefore should not request.
+    #[must_use]
+    pub const fn is_reserved(&self) -> bool {
+        self.0 == 0
     }
 
     /// Return the raw record-number byte.
     ///
-    /// A value obtained from [`From<u8>`](Self::from) or [`Decode`] may be the reserved `0x00`
-    /// that [`new`](Self::new) would reject — decoding is deliberately liberal so responses
-    /// from foreign implementations can still be inspected.
+    /// May be the reserved `0x00`; check [`is_reserved`](Self::is_reserved) if that matters.
     #[must_use]
     pub const fn value(&self) -> u8 {
         self.0
+    }
+}
+
+impl PartialEq<u8> for DtcStoredDataRecordNumber {
+    fn eq(&self, other: &u8) -> bool {
+        self.value() == *other
     }
 }
 
@@ -581,7 +592,7 @@ mod encode_param_tests {
 
     #[test]
     fn encode_stored_data_record_number() {
-        let n = DtcStoredDataRecordNumber::new(0x05).unwrap();
+        let n = DtcStoredDataRecordNumber::new(0x05);
         let mut buf = [0u8; 4];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 1);
@@ -590,25 +601,23 @@ mod encode_param_tests {
     }
 
     #[test]
-    fn stored_data_record_number_construction_is_strict_parsing_is_liberal() {
+    fn stored_data_record_number_accepts_every_byte_and_flags_the_reserved_one() {
         // ISO 14229-1:2020 clause 12.3.3.2 reserves only 0x00 for this parameter: "DTCStoredData
         // records in range of 0x01 through 0xFE shall be available for vehicle manufacturer
-        // specific usage", and 0xFF requests all records.
-        assert!(matches!(
-            DtcStoredDataRecordNumber::new(0x00),
-            Err(Error::ReservedForLegislativeUse(0x00))
-        ));
+        // specific usage", and 0xFF requests all records. 0xF0 belongs to the *snapshot*
+        // record-number space and used to be rejected here by a check copied from there.
+        for byte in [0x00u8, 0x01, 0xF0, 0xFE, 0xFF] {
+            let number = DtcStoredDataRecordNumber::new(byte);
+            assert_eq!(number.value(), byte);
+            assert_eq!(number, byte, "PartialEq<u8> must agree with value()");
+            assert_eq!(number, DtcStoredDataRecordNumber::from(byte));
+            assert_eq!(number.is_reserved(), byte == 0x00, "for {byte:#04X}");
+        }
 
-        // 0xF0 belongs to the *snapshot* record-number space, not this one, and used to be
-        // rejected here by a doc-and-check copied from `DtcSnapshotRecordNumber`.
-        assert_eq!(DtcStoredDataRecordNumber::new(0xF0).unwrap().value(), 0xF0);
-        assert_eq!(DtcStoredDataRecordNumber::new(0xFE).unwrap().value(), 0xFE);
-        assert_eq!(DtcStoredDataRecordNumber::new(0xFF).unwrap().value(), 0xFF);
-
-        // RX: a reserved value from a foreign implementation still decodes, and value()
-        // lets the caller inspect it.
+        // Decoding is liberal for the same reason `new` is total: a response from a foreign
+        // implementation must still be inspectable.
         let (decoded, _) = <DtcStoredDataRecordNumber as Decode>::decode(&[0x00]).unwrap();
-        assert_eq!(decoded.value(), 0x00);
+        assert!(decoded.is_reserved());
     }
 
     #[test]
