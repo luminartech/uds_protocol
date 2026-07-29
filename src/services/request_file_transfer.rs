@@ -220,10 +220,16 @@ pub enum RequestFileTransferRequest<'a> {
     ),
 }
 
-const REQUEST_FILE_TRANSFER_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
+/// Permitted NRCs for `RequestFileTransfer` (0x38), per ISO 14229-1:2020 Table 484.
+const REQUEST_FILE_TRANSFER_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 7] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
     NegativeResponseCode::ConditionsNotCorrect,
+    // Table 484: "shall be returned when modeOfOperation is 06 (ResumeFile) and the requested
+    // file has already been completely transferred".
+    NegativeResponseCode::RequestSequenceError,
     NegativeResponseCode::RequestOutOfRange,
+    NegativeResponseCode::SecurityAccessDenied,
+    NegativeResponseCode::AuthenticationRequired,
     NegativeResponseCode::UploadDownloadNotAccepted,
 ];
 
@@ -866,13 +872,21 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
 #[cfg(test)]
 mod request_tests {
     use super::*;
-    use crate::NegativeResponseCode;
     use crate::test_util::assert_encode_size_agrees;
 
     #[test]
     fn test_allowed_nack_codes() {
+        // ISO 14229-1:2020 Table 484 lists exactly these seven codes. Pinned as a set rather
+        // than spot-checked, because a `contains` assertion cannot notice a missing code --
+        // and three were missing, including the requestSequenceError that Table 484 defines
+        // specifically for ResumeFile on an already-complete transfer.
         let codes = RequestFileTransferRequest::allowed_nack_codes();
-        assert!(codes.contains(&NegativeResponseCode::UploadDownloadNotAccepted));
+        let mut bytes = [0u8; 7];
+        assert_eq!(codes.len(), bytes.len(), "wrong number of codes: {codes:?}");
+        for (slot, code) in bytes.iter_mut().zip(codes) {
+            *slot = u8::from(*code);
+        }
+        assert_eq!(bytes, [0x13, 0x22, 0x24, 0x31, 0x33, 0x34, 0x70]);
     }
 
     #[test]
