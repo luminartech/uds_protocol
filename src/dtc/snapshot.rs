@@ -24,7 +24,7 @@ impl DtcSnapshotRecordNumber {
     /// (`0x00`/`0xF0`), `All` (`0xFF`), or `Number`. Every byte is accepted (decoding is
     /// deliberately liberal); no value is rejected.
     #[must_use]
-    pub fn new(record_number: u8) -> Self {
+    pub const fn new(record_number: u8) -> Self {
         match record_number {
             0x00 | 0xF0 => Self::Reserved(record_number),
             0xFF => Self::All,

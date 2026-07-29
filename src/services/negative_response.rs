@@ -34,7 +34,7 @@ impl NegativeResponse {
     /// [`Request::Other`](crate::Request::Other) — use [`new_with_sid`](Self::new_with_sid) so
     /// the original byte is echoed.
     #[must_use]
-    pub fn new(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
+    pub const fn new(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
         Self {
             request_service_sid: request_service.to_request_sid(),
             nrc,
@@ -68,7 +68,7 @@ impl NegativeResponse {
     /// [`UdsServiceType::UnsupportedDiagnosticService`]; the original byte remains available
     /// from [`request_service_sid`](Self::request_service_sid) and is what gets re-encoded.
     #[must_use]
-    pub fn request_service(&self) -> UdsServiceType {
+    pub const fn request_service(&self) -> UdsServiceType {
         UdsServiceType::from_request_sid(self.request_service_sid)
     }
 

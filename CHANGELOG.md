@@ -56,6 +56,11 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   bytes in the input. Both `Error::InsufficientData` and `Error::TrailingBytes` map to
   NRC `0x13` (`IncorrectMessageLengthOrInvalidFormat`).
 
+- `DtcRecord::high_byte()`, `middle_byte()` and `low_byte()`. The fields are private and the type
+  had no accessors at all, so a decoded DTC could only be inspected by round-tripping through
+  `u32` — awkward given ISO 14229-1 Annex D.1 assigns the high byte its own meaning (system
+  group). All three are `const fn`.
+
 ### Changed
 
 - **Breaking:** `ClearDiagnosticInfoRequest::memory_selection` is now `Option<u8>`, and the
@@ -69,6 +74,15 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
 - **Breaking:** `SecurityAccessLevel::value` now takes `&self` instead of `self`, matching the
   other twenty accessors in the crate. No call-site change is needed: the type is `Copy`.
+
+- `DtcRecord::new`, `DtcSnapshotRecordNumber::new`, `DtcExtDataRecordNumber::new`,
+  `DtcStoredDataRecordNumber::new`, `DataFormatIdentifier::new`, `NegativeResponse::new`,
+  `NegativeResponse::request_service`, `RequestDownloadRequest::new`, `RequestUploadRequest::new`
+  and all four `UdsServiceType` SID conversions (`from_request_sid`, `to_request_sid`,
+  `from_response_sid`, `to_response_sid`) are now `const fn`. The crate was otherwise uniformly
+  `const fn new`, and the gaps fell exactly on the primitives a caller wants in a `const` table:
+  DTC constants, record numbers, the format identifier, and the SID map a server dispatch table
+  is built from. `NegativeResponse::new` was blocked only because `to_request_sid` was not const.
 
 - The DTC iterators now implement `size_hint` (exact) and
   [`FusedIterator`](core::iter::FusedIterator). They deliberately do **not** implement
@@ -195,6 +209,16 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 - This release remains a semver-major bump.
 
 ### Fixed
+
+- Documentation corrections across the shared format identifiers and DTC record numbers:
+  `DataFormatIdentifier` named only `RequestDownloadRequest` (it is also used by
+  `RequestUploadRequest` and four `RequestFileTransferRequest` variants) and pointed at a
+  `data_format_identifier` *field* that is now private behind an accessor; the same staleness
+  affected `MemoryFormatIdentifier` and `LengthFormatIdentifier`. `DtcStoredDataRecordNumber`
+  described itself as a `DTCSnapshot` record, and its `new()` had an empty summary line and a
+  malformed `Error::ReservedForLegislativeUse` link. `DtcSettingType` was the only type whose doc
+  comment sat after its derives. Two redundant intra-doc link targets in
+  `communication_control.rs` are gone, so `cargo doc --document-private-items` is now clean.
 
 - **Breaking:** `ReadDtcInfoResponse::decode` now rejects a record list whose length is not a
   whole number of records, with `Error::IncorrectMessageLengthOrInvalidFormat` (NRC `0x13`).
