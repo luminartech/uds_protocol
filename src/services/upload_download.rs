@@ -272,8 +272,6 @@ macro_rules! upload_download_service {
         mod $test_mod {
             use super::*;
             use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-            #[cfg(feature = "alloc")]
-            use alloc::vec;
 
             #[test]
             fn simple_request() {
@@ -334,16 +332,68 @@ macro_rules! upload_download_service {
                 assert_eq!(decoded.memory_size(), 0);
             }
 
-            #[cfg(feature = "alloc")]
             #[test]
             fn check_message_size() {
                 let req = $req::new(0x00.into(), 0xF0_FF_FF_67, 0x0A).unwrap();
+                let mut buf = [0u8; 16];
+                let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
 
-                let mut vec = vec![];
-                Encode::encode(&req, &mut vec).unwrap();
-
-                assert_eq!(vec.len(), req.encoded_size().unwrap());
+                assert_eq!(written, req.encoded_size().unwrap());
                 assert_encode_size_agrees(&req);
+            }
+
+            #[test]
+            fn new_derives_the_alfid_nibbles_in_wire_order() {
+                // The two nibbles are asymmetric here on purpose: the high nibble is the
+                // memorySize width and the low nibble the memoryAddress width, so transposing
+                // them changes these bytes. A symmetric case (or a length-only assertion)
+                // cannot tell the two apart, and a swap silently truncates the address.
+                for (address, size, want) in [
+                    // 4-byte address, 1-byte size -> ALFID 0x14
+                    (
+                        0xF0FF_FF67u64,
+                        0x0Au32,
+                        [0x00, 0x14, 0xF0, 0xFF, 0xFF, 0x67, 0x0A].as_slice(),
+                    ),
+                    // 1-byte address, 2-byte size -> ALFID 0x21
+                    (0xBE, 0x0100, [0x00, 0x21, 0xBE, 0x01, 0x00].as_slice()),
+                ] {
+                    let req = $req::new(DataFormatIdentifier::NONE, address, size).unwrap();
+                    let mut buf = [0u8; 16];
+                    let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                    assert_eq!(
+                        &buf[..written],
+                        want,
+                        "wrong wire bytes for address {address:#X} size {size:#X}"
+                    );
+
+                    // ...and the frame the crate emits must be one the crate can read back.
+                    let decoded = <$req as Decode>::decode_exact(&buf[..written]).unwrap();
+                    assert_eq!(decoded.memory_address(), address);
+                    assert_eq!(decoded.memory_size(), size);
+                }
+            }
+
+            #[test]
+            fn the_widest_legal_address_and_size_round_trip() {
+                // Annex H Table H.1 permits a 4-byte memorySize and a 5-byte memoryAddress
+                // (ALFID 0x45), which `new` derives for these values. The decoder used to
+                // reject both widths, so the crate could not read back its own output for any
+                // transfer above 16 MB or to an address above 4 GB.
+                let req =
+                    $req::new(DataFormatIdentifier::NONE, 0xFF_FFFF_FFFF, 0xFFFF_FFFF).unwrap();
+                let mut buf = [0u8; 16];
+                let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                assert_eq!(
+                    &buf[..written],
+                    &[
+                        0x00, 0x45, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+                    ],
+                );
+
+                let decoded = <$req as Decode>::decode_exact(&buf[..written]).unwrap();
+                assert_eq!(decoded.memory_address(), 0xFF_FFFF_FFFF);
+                assert_eq!(decoded.memory_size(), 0xFFFF_FFFF);
             }
 
             #[test]
