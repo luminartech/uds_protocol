@@ -1,3 +1,6 @@
+#[cfg(feature = "utoipa")]
+mod byte_schema;
+
 mod diagnostic_identifier;
 pub use diagnostic_identifier::{UdsIdentifier, UdsRoutineIdentifier};
 

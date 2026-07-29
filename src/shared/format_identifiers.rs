@@ -116,8 +116,11 @@ impl From<LengthFormatIdentifier> for u8 {
 /// [`RequestDownloadRequest::data_format_identifier`](crate::RequestDownloadRequest::data_format_identifier).
 /// Also carried by the `AddFile`, `ReplaceFile`, `ReadFile` and `ResumeFile` variants of
 /// [`RequestFileTransferRequest`](crate::RequestFileTransferRequest).
+/// Serializes as the single wire byte it occupies. Going through the byte rather than the two
+/// private nibble fields means `serde` cannot mint a nibble wider than `0x0F`, which `new`
+/// rejects — the byte form simply has no such state to represent.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DataFormatIdentifier {
     // low nibble

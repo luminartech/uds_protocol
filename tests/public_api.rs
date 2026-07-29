@@ -33,3 +33,67 @@ fn every_non_exhaustive_payload_type_has_a_reachable_constructor() {
     let _ = PositionPayload::new(0x10);
     let _ = DtcFaultDetectionCounterRecord::new(DtcRecord::new(0, 0, 0), 0);
 }
+
+/// A `derive(Deserialize)` ignores field visibility and range checks, so it is a second,
+/// unvalidated constructor for every type whose invariant lives in its constructor. These check
+/// that deserializing cannot build a value `new`/`try_from` would have rejected.
+#[cfg(feature = "serde")]
+mod serde_cannot_bypass_validation {
+    use uds_protocol::{
+        CommunicationType, DataFormatIdentifier, DtcSettingType, SecurityAccessLevel, SubnetNumber,
+    };
+
+    #[test]
+    fn security_access_level_rejects_a_value_that_collides_with_sprmib() {
+        // A level must fit in 0x00..=0x7F, because bit 7 of the sub-function byte is SPRMIB.
+        // Deserializing 0xFF produced a level that encoded to a byte which decoded back as a
+        // *different* level with suppression set — silent semantic corruption.
+        assert!(serde_json::from_str::<SecurityAccessLevel>("255").is_err());
+        let level: SecurityAccessLevel = serde_json::from_str("127").unwrap();
+        assert_eq!(level.value(), 0x7F);
+    }
+
+    #[test]
+    fn data_format_identifier_rejects_an_over_wide_nibble() {
+        // `new` returns Err when either method exceeds 0x0F; JSON must not be a way around it.
+        assert!(
+            serde_json::from_str::<DataFormatIdentifier>(
+                r#"{"encryption_method":255,"compression_method":255}"#
+            )
+            .is_err()
+        );
+        let dfi: DataFormatIdentifier = serde_json::from_str("33").unwrap();
+        assert_eq!(dfi.compression_method(), 0x02);
+        assert_eq!(dfi.encryption_method(), 0x01);
+    }
+
+    #[test]
+    fn range_checked_enums_reject_out_of_range_bytes() {
+        // Each of these has a `try_from` that range-checks the byte; the derived impl let a
+        // caller name the reserved variant directly and skip it.
+        assert!(serde_json::from_str::<SubnetNumber>("16").is_err());
+        assert!(serde_json::from_str::<DtcSettingType>("0").is_err());
+        assert!(serde_json::from_str::<CommunicationType>("7").is_err());
+
+        assert_eq!(
+            serde_json::from_str::<SubnetNumber>("15").unwrap(),
+            SubnetNumber::ReceivedOn
+        );
+    }
+
+    #[test]
+    fn the_serialized_form_is_the_wire_byte() {
+        // Round-tripping through serde must agree with the protocol's own representation,
+        // otherwise `serde(try_from)` on the way in and a struct shape on the way out would
+        // disagree with each other.
+        assert_eq!(
+            serde_json::to_string(&SubnetNumber::ReceivedOn).unwrap(),
+            "15"
+        );
+        assert_eq!(serde_json::to_string(&DtcSettingType::Off).unwrap(), "2");
+        assert_eq!(
+            serde_json::to_string(&SecurityAccessLevel::new(0x11).unwrap()).unwrap(),
+            "17"
+        );
+    }
+}
