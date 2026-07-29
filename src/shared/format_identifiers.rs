@@ -177,6 +177,14 @@ impl DataFormatIdentifier {
         self.compression_method
     }
 
+    /// The single byte this identifier occupies on the wire.
+    ///
+    /// `const`, unlike `u8::from(identifier)`, so it can be used in a `const` context.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        self.encryption_method | (self.compression_method << 4)
+    }
+
     /// The encryption method nibble (the low nibble on the wire).
     ///
     /// `0x00` means no encryption. Other values are vehicle-manufacturer specific.

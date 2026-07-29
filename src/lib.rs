@@ -298,11 +298,53 @@ mod no_std_api_tests {
             Err(_) => panic!("both nibbles are in range"),
         };
 
-        assert_eq!(u32::from(DTC), 0x01_0203);
+        // Getting the byte back out must be const too, or a `const` dispatch table can be
+        // built but not read. These four had only a non-const `From`, so each of these lines
+        // was previously an E0015.
+        const DTC_U32: u32 = DTC.to_u32();
+        const DFI_BYTE: u8 = DFI.value();
+        const NRC_BYTE: u8 = NegativeResponseCode::ConditionsNotCorrect.value();
+        const FORMAT_BYTE: u8 = DtcFormatIdentifier::Iso14229_1DtcFormat.value();
+        const CONTROL_BYTE: u8 = CommunicationControlType::DisableRxAndTx.value();
+
+        assert_eq!(DTC_U32, 0x01_0203);
+        assert_eq!(u32::from(DTC), DTC_U32);
         assert_eq!(SNAPSHOT.value(), 0x02);
         assert_eq!(EXT_DATA.value(), 0x90);
         assert_eq!(STORED.value(), 0x02);
-        assert_eq!(u8::from(DFI), 0x12);
+        assert_eq!(DFI_BYTE, 0x12);
+        assert_eq!(u8::from(DFI), DFI_BYTE);
+        assert_eq!(NRC_BYTE, 0x22);
+        assert_eq!(FORMAT_BYTE, 0x01);
+        assert_eq!(CONTROL_BYTE, 0x03);
+    }
+
+    #[test]
+    fn communication_control_requests_are_const_constructible() {
+        // Both constructors were the crate's only non-`const` `new`s. The blocker was
+        // `u8::from(control_type)` in their error payload, which an inherent `const fn value()`
+        // on the enum removes.
+        const REQ: CommunicationControlRequest = match CommunicationControlRequest::new(
+            false,
+            CommunicationControlType::DisableRxAndTx,
+            CommunicationType::NormalAndNetworkManagement,
+        ) {
+            Ok(req) => req,
+            Err(_) => panic!("DisableRxAndTx takes no node id"),
+        };
+        const WITH_ID: CommunicationControlRequest =
+            match CommunicationControlRequest::new_with_node_id(
+                false,
+                CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo,
+                CommunicationType::Normal,
+                0x000A,
+            ) {
+                Ok(req) => req,
+                Err(_) => panic!("the enhanced variant requires a node id"),
+            };
+
+        assert_eq!(REQ.control_type(), CommunicationControlType::DisableRxAndTx);
+        assert_eq!(WITH_ID.node_id(), Some(0x000A));
     }
 
     #[test]

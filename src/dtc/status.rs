@@ -170,6 +170,23 @@ impl From<u8> for DtcFormatIdentifier {
     }
 }
 
+impl DtcFormatIdentifier {
+    /// The raw format-identifier byte.
+    ///
+    /// `const`, unlike `u8::from(identifier)`, so a `const` table can read it back out.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        match self {
+            Self::SaeJ2012DaDtcFormat00 => 0x00,
+            Self::Iso14229_1DtcFormat => 0x01,
+            Self::SaeJ1939_73DtcFormat => 0x02,
+            Self::Iso11992_4DtcFormat => 0x03,
+            Self::SaeJ2012DaDtcFormat04 => 0x04,
+            Self::IsoSaeReserved(value) => *value,
+        }
+    }
+}
+
 impl From<DtcFormatIdentifier> for u8 {
     fn from(val: DtcFormatIdentifier) -> Self {
         match val {
@@ -269,6 +286,17 @@ impl TryFrom<u32> for DtcRecord {
             middle_byte: ((value >> 8) & 0xFF) as u8,
             low_byte: (value & 0xFF) as u8,
         })
+    }
+}
+
+impl DtcRecord {
+    /// The three DTC bytes as the low 24 bits of a `u32`, big-endian.
+    ///
+    /// `const`, unlike `u32::from(record)`: trait methods are not callable in a `const fn` on
+    /// stable, so a `const` table of DTC values needs this.
+    #[must_use]
+    pub const fn to_u32(&self) -> u32 {
+        ((self.high_byte as u32) << 16) | ((self.middle_byte as u32) << 8) | self.low_byte as u32
     }
 }
 

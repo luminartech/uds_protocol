@@ -18,7 +18,7 @@ use super::service::UdsServiceType;
 ///
 /// Variable-length payloads are stored as raw `&'a [u8]` slices that can be
 /// further parsed on demand.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Request<'a> {
     /// Clear diagnostic information request.
