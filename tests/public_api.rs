@@ -82,6 +82,108 @@ mod serde_cannot_bypass_validation {
     }
 
     #[test]
+    fn tester_present_cannot_be_given_a_sub_function_that_collides_with_sprmib() {
+        use uds_protocol::TesterPresentRequest;
+
+        // The sub-function field is private precisely so a caller cannot mint a value with bit
+        // 7 set, which is SPRMIB. The derived impl exposed the private field by name and
+        // accepted any variant payload.
+        assert!(
+            serde_json::from_str::<TesterPresentRequest>(
+                r#"{"suppress_positive_response":false,"sub_function":128}"#
+            )
+            .is_err()
+        );
+        // A reserved-but-legal byte is still accepted, because decode must round-trip it.
+        let req: TesterPresentRequest =
+            serde_json::from_str(r#"{"suppress_positive_response":false,"sub_function":66}"#)
+                .unwrap();
+        assert_eq!(req.sub_function(), 0x42);
+    }
+
+    #[test]
+    fn communication_control_cannot_be_given_a_contradictory_node_id() {
+        use uds_protocol::CommunicationControlRequest;
+
+        // `node_id` must be present exactly when `control_type` is an enhanced-address
+        // variant. That rule is the entire reason both fields are private, and deserializing
+        // ignored it: an enhanced type with a null node_id produced a request that encoded to
+        // two bytes, which this crate's own decoder then rejected.
+        assert!(
+            serde_json::from_str::<CommunicationControlRequest>(
+                r#"{"suppress_positive_response":false,"control_type":5,"communication_type":1,"subnet":0,"node_id":null}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<CommunicationControlRequest>(
+                r#"{"suppress_positive_response":false,"control_type":3,"communication_type":1,"subnet":0,"node_id":10}"#
+            )
+            .is_err()
+        );
+
+        let req: CommunicationControlRequest = serde_json::from_str(
+            r#"{"suppress_positive_response":false,"control_type":5,"communication_type":1,"subnet":15,"node_id":10}"#
+        )
+        .unwrap();
+        assert_eq!(req.node_id(), Some(10));
+        assert_eq!(req.subnet(), SubnetNumber::ReceivedOn);
+    }
+
+    #[test]
+    fn transfer_requests_cannot_be_given_a_width_that_truncates_the_value() {
+        use uds_protocol::RequestDownloadRequest;
+
+        // The width nibbles are private so they cannot fall out of step with the values. A
+        // deserialized 8-byte address with a 1-byte declared width silently truncated to one
+        // byte on the wire.
+        assert!(
+            serde_json::from_str::<RequestDownloadRequest>(
+                r#"{"data_format_identifier":0,"memory_address":18446744073709551615,"memory_address_length":1,"memory_size":16,"memory_size_length":1}"#
+            )
+            .is_err()
+        );
+        // A width outside Table H.1 is rejected too.
+        assert!(
+            serde_json::from_str::<RequestDownloadRequest>(
+                r#"{"data_format_identifier":0,"memory_address":16,"memory_address_length":9,"memory_size":16,"memory_size_length":0}"#
+            )
+            .is_err()
+        );
+
+        // A wider-than-minimal declaration survives the round trip, so the ALFID a server was
+        // sent is the one it gets back.
+        let json = r#"{"data_format_identifier":17,"memory_address":6299648,"memory_address_length":3,"memory_size":65535,"memory_size_length":3}"#;
+        let req: RequestDownloadRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.memory_address(), 0x0060_2000);
+        assert_eq!(serde_json::to_string(&req).unwrap(), json);
+    }
+
+    #[test]
+    fn no_crate_private_type_appears_in_the_serialized_form() {
+        use uds_protocol::{RequestDownloadRequest, TesterPresentRequest};
+
+        // `ZeroSubFunction` is module-private and `MemoryFormatIdentifier` is `pub(crate)`, yet
+        // both used to be named components of the serialized shape — and of the generated
+        // OpenAPI schema, giving client generators a type downstream Rust cannot reference.
+        let tester = serde_json::to_string(&TesterPresentRequest::new(false)).unwrap();
+        assert!(
+            !tester.contains("zero_sub_function"),
+            "leaked a private field name: {tester}"
+        );
+        assert!(tester.contains("sub_function"), "got {tester}");
+
+        let download =
+            RequestDownloadRequest::new(DataFormatIdentifier::NONE, 0x1234, 0x10).unwrap();
+        let json = serde_json::to_string(&download).unwrap();
+        assert!(
+            !json.contains("address_and_length_format_identifier"),
+            "leaked a private field name: {json}"
+        );
+        assert!(json.contains("memory_address_length"), "got {json}");
+    }
+
+    #[test]
     fn the_serialized_form_is_the_wire_byte() {
         // Round-tripping through serde must agree with the protocol's own representation,
         // otherwise `serde(try_from)` on the way in and a struct shape on the way out would

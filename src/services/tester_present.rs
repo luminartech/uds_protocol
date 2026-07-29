@@ -14,8 +14,6 @@ const NO_SUBFUNCTION_VALUE: u8 = 0x00;
 ///
 /// The range of values is only 7 of the 8 bits, with bit 7 being used as the
 /// Suppress Positive Response (SPR) Message Indication Bit.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ZeroSubFunction {
     /// Request and response. Indicates that no value beside the SPR Message Indication Bit is supported by this service.
@@ -60,7 +58,10 @@ impl TryFrom<u8> for ZeroSubFunction {
 
 /// Request to indicate the client is still connected
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "SubFunctionRepr", into = "SubFunctionRepr")
+)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct TesterPresentRequest {
@@ -140,7 +141,10 @@ impl<'a> Decode<'a> for TesterPresentRequest {
 
 /// Positive response to a `TesterPresentRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "SubFunctionOnlyRepr", into = "SubFunctionOnlyRepr")
+)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct TesterPresentResponse {
@@ -343,5 +347,98 @@ mod test {
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
         assert_encode_size_agrees(&test_type);
+    }
+}
+
+/// The serde/`OpenAPI` shape of [`TesterPresentRequest`]: its public wire parameters.
+///
+/// Deserializing goes through this rather than the request's own fields, so the sub-function
+/// byte is range-checked on the way in and the private [`ZeroSubFunction`] never appears in the
+/// serialized form or in a generated schema.
+#[cfg(any(feature = "serde", feature = "utoipa"))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+struct SubFunctionRepr {
+    suppress_positive_response: bool,
+    sub_function: u8,
+}
+
+/// The serde/`OpenAPI` shape of [`TesterPresentResponse`], which carries no SPRMIB flag.
+#[cfg(any(feature = "serde", feature = "utoipa"))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+struct SubFunctionOnlyRepr {
+    sub_function: u8,
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<SubFunctionRepr> for TesterPresentRequest {
+    type Error = Error;
+
+    fn try_from(repr: SubFunctionRepr) -> Result<Self, Error> {
+        Ok(Self {
+            suppress_positive_response: repr.suppress_positive_response,
+            zero_sub_function: ZeroSubFunction::try_from(repr.sub_function)?,
+        })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<TesterPresentRequest> for SubFunctionRepr {
+    fn from(request: TesterPresentRequest) -> Self {
+        Self {
+            suppress_positive_response: request.suppress_positive_response,
+            sub_function: request.sub_function(),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<SubFunctionOnlyRepr> for TesterPresentResponse {
+    type Error = Error;
+
+    fn try_from(repr: SubFunctionOnlyRepr) -> Result<Self, Error> {
+        Ok(Self {
+            zero_sub_function: ZeroSubFunction::try_from(repr.sub_function)?,
+        })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<TesterPresentResponse> for SubFunctionOnlyRepr {
+    fn from(response: TesterPresentResponse) -> Self {
+        Self {
+            sub_function: response.sub_function(),
+        }
+    }
+}
+
+// The schema follows the serialized shape, not the Rust fields, for the same reason the serde
+// impls do: `ZeroSubFunction` is module-private and must not surface in a generated client.
+#[cfg(feature = "utoipa")]
+impl utoipa::PartialSchema for TesterPresentRequest {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        <SubFunctionRepr as utoipa::PartialSchema>::schema()
+    }
+}
+
+#[cfg(feature = "utoipa")]
+impl utoipa::ToSchema for TesterPresentRequest {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("TesterPresentRequest")
+    }
+}
+
+#[cfg(feature = "utoipa")]
+impl utoipa::PartialSchema for TesterPresentResponse {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        <SubFunctionOnlyRepr as utoipa::PartialSchema>::schema()
+    }
+}
+
+#[cfg(feature = "utoipa")]
+impl utoipa::ToSchema for TesterPresentResponse {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("TesterPresentResponse")
     }
 }

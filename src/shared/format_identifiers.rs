@@ -39,8 +39,6 @@ const ENCRYPTION_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
 /// either type's public surface.
 ///
 /// See ISO-14229-1:2020, Table H.1 for format information
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct MemoryFormatIdentifier {
     pub memory_size_length: u8,
@@ -84,8 +82,6 @@ impl From<MemoryFormatIdentifier> for u8 {
 /// length of `max_number_of_block_length`, i.e. `0x20` means that field is 2 bytes long.
 /// Derived from the slice length when encoding, so it is not part of either response's
 /// public surface.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct LengthFormatIdentifier {
     pub max_number_of_block_length: u8,

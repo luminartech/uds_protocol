@@ -28,10 +28,7 @@ pub(crate) const fn fuse_sprmib(suppress_positive_response: bool, value: u8) -> 
 
 /// `SuppressablePositiveResponse` is used to encapsulate subfunction enumerations that can also encode the response suppression bit.
 /// This eliminates bit masking logic from a number of subfunction enumerations.
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[non_exhaustive]
 pub(crate) struct SuppressablePositiveResponse<T: TryFrom<u8> + Into<u8> + Copy> {
     suppress_positive_response: bool,
     value: T,

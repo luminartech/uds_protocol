@@ -366,7 +366,13 @@ const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] =
 
 /// Request for the server to change communication behavior
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(
+    feature = "serde",
+    serde(
+        try_from = "CommunicationControlRepr",
+        into = "CommunicationControlRepr"
+    )
+)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct CommunicationControlRequest {
@@ -803,5 +809,70 @@ mod response {
         assert_eq!(written, 1);
         assert_eq!(buffer.len(), written);
         assert_encode_size_agrees(&res);
+    }
+}
+
+/// The serde/`OpenAPI` shape of [`CommunicationControlRequest`].
+///
+/// Deserializing routes through the constructors, so the rule that `node_id` is present exactly
+/// when `control_type` is an enhanced-address variant -- the reason those fields are private --
+/// still holds for a value that arrived as JSON.
+#[cfg(any(feature = "serde", feature = "utoipa"))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+struct CommunicationControlRepr {
+    suppress_positive_response: bool,
+    control_type: CommunicationControlType,
+    communication_type: CommunicationType,
+    subnet: SubnetNumber,
+    node_id: Option<u16>,
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<CommunicationControlRepr> for CommunicationControlRequest {
+    type Error = Error;
+
+    fn try_from(repr: CommunicationControlRepr) -> Result<Self, Error> {
+        let request = match repr.node_id {
+            Some(node_id) => CommunicationControlRequest::new_with_node_id(
+                repr.suppress_positive_response,
+                repr.control_type,
+                repr.communication_type,
+                node_id,
+            )?,
+            None => CommunicationControlRequest::new(
+                repr.suppress_positive_response,
+                repr.control_type,
+                repr.communication_type,
+            )?,
+        };
+        Ok(request.with_subnet(repr.subnet))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<CommunicationControlRequest> for CommunicationControlRepr {
+    fn from(request: CommunicationControlRequest) -> Self {
+        Self {
+            suppress_positive_response: request.suppress_positive_response,
+            control_type: request.control_type(),
+            communication_type: request.communication_type(),
+            subnet: request.subnet(),
+            node_id: request.node_id(),
+        }
+    }
+}
+
+#[cfg(feature = "utoipa")]
+impl utoipa::PartialSchema for CommunicationControlRequest {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        <CommunicationControlRepr as utoipa::PartialSchema>::schema()
+    }
+}
+
+#[cfg(feature = "utoipa")]
+impl utoipa::ToSchema for CommunicationControlRequest {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("CommunicationControlRequest")
     }
 }

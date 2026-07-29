@@ -39,6 +39,8 @@ const REQUEST_UPLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 macro_rules! upload_download_service {
     (
         request: $req:ident,
+        request_serde_repr: $repr:ident,
+        request_serde_repr_name: $repr_str:literal,
         response: $resp:ident,
         nrcs: $nrcs:ident,
         request_doc: $req_doc:literal,
@@ -52,7 +54,7 @@ macro_rules! upload_download_service {
         /// `address_and_length_format_identifier` value.
         /// See ISO-14229-1:2020, Table H.1 for format information.
         #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-        #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+        #[cfg_attr(feature = "serde", serde(try_from = $repr_str, into = $repr_str))]
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         #[non_exhaustive]
         pub struct $req {
@@ -179,6 +181,70 @@ macro_rules! upload_download_service {
             #[must_use]
             pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
                 &$nrcs
+            }
+        }
+
+        #[doc = concat!("The serde/`OpenAPI` shape of [`", stringify!($req), "`].")]
+        ///
+        /// Deserializing routes through
+        #[doc = concat!("[`", stringify!($req), "::new_with_widths`],")]
+        /// so a declared width that would truncate its value is rejected rather than silently
+        /// corrupting the address on the wire, and the crate-private
+        /// `addressAndLengthFormatIdentifier` never surfaces in the serialized form.
+        #[cfg(any(feature = "serde", feature = "utoipa"))]
+        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+        #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+        struct $repr {
+            data_format_identifier: DataFormatIdentifier,
+            memory_address: u64,
+            memory_address_length: u8,
+            memory_size: u32,
+            memory_size_length: u8,
+        }
+
+        #[cfg(feature = "serde")]
+        impl TryFrom<$repr> for $req {
+            type Error = Error;
+
+            fn try_from(repr: $repr) -> Result<Self, Error> {
+                Self::new_with_widths(
+                    repr.data_format_identifier,
+                    repr.memory_address,
+                    repr.memory_address_length,
+                    repr.memory_size,
+                    repr.memory_size_length,
+                )
+            }
+        }
+
+        #[cfg(feature = "serde")]
+        impl From<$req> for $repr {
+            fn from(request: $req) -> Self {
+                Self {
+                    data_format_identifier: request.data_format_identifier,
+                    memory_address: request.memory_address,
+                    memory_address_length: request
+                        .address_and_length_format_identifier
+                        .memory_address_length,
+                    memory_size: request.memory_size,
+                    memory_size_length: request
+                        .address_and_length_format_identifier
+                        .memory_size_length,
+                }
+            }
+        }
+
+        #[cfg(feature = "utoipa")]
+        impl utoipa::PartialSchema for $req {
+            fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+                <$repr as utoipa::PartialSchema>::schema()
+            }
+        }
+
+        #[cfg(feature = "utoipa")]
+        impl utoipa::ToSchema for $req {
+            fn name() -> std::borrow::Cow<'static, str> {
+                std::borrow::Cow::Borrowed(stringify!($req))
             }
         }
 
@@ -573,6 +639,8 @@ macro_rules! upload_download_service {
 
 upload_download_service! {
     request: RequestDownloadRequest,
+    request_serde_repr: RequestDownloadRepr,
+    request_serde_repr_name: "RequestDownloadRepr",
     response: RequestDownloadResponse,
     nrcs: REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES,
     request_doc: "A request to the server for it to download data from the client.\n\nA positive response ([`RequestDownloadResponse`]) is sent once the server has taken all necessary actions and is ready to receive the data.",
@@ -583,6 +651,8 @@ upload_download_service! {
 
 upload_download_service! {
     request: RequestUploadRequest,
+    request_serde_repr: RequestUploadRepr,
+    request_serde_repr_name: "RequestUploadRepr",
     response: RequestUploadResponse,
     nrcs: REQUEST_UPLOAD_NEGATIVE_RESPONSE_CODES,
     request_doc: "A request to the server for it to upload data to the client.\n\nA positive response ([`RequestUploadResponse`]) is sent once the server is ready to transmit; the client then drives the transfer with [`TransferDataRequest`](crate::TransferDataRequest), reading the data out of each positive response, and finishes with [`RequestTransferExitRequest`](crate::RequestTransferExitRequest).",
