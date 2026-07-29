@@ -970,7 +970,7 @@ impl<'a> ReadDtcInfoResponse<'a> {
     ///
     /// Returns `None` if this is not that variant.
     #[must_use]
-    pub fn fault_detection_iter(&self) -> Option<DtcFaultDetectionIter<'a>> {
+    pub fn dtc_fault_detection_iter(&self) -> Option<DtcFaultDetectionIter<'a>> {
         match self {
             Self::DtcFaultDetectionCounterList { raw_records } => {
                 Some(DtcFaultDetectionIter::new(raw_records))
@@ -1404,7 +1404,7 @@ mod response_decode_tests {
                 let counted = resp
                     .dtc_and_status_iter()
                     .map(Iterator::count)
-                    .or_else(|| resp.fault_detection_iter().map(Iterator::count))
+                    .or_else(|| resp.dtc_fault_detection_iter().map(Iterator::count))
                     .or_else(|| resp.wwh_obd_dtc_severity_iter().map(Iterator::count));
                 // DtcSeverityList has no iterator wired yet, so it has no count to check.
                 if let Some(counted) = counted {
@@ -1453,7 +1453,7 @@ mod response_decode_tests {
             if let Some(mut it) = resp.dtc_and_status_iter() {
                 assert!(it.all(|r| r.is_ok()), "{label}");
             }
-            if let Some(mut it) = resp.fault_detection_iter() {
+            if let Some(mut it) = resp.dtc_fault_detection_iter() {
                 assert!(it.all(|r| r.is_ok()), "{label}");
             }
             if let Some(mut it) = resp.wwh_obd_dtc_severity_iter() {

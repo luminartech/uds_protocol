@@ -189,7 +189,7 @@ mod no_std_api_tests {
         assert_eq!(resp.service(), UdsServiceType::RequestUpload);
         match resp {
             Response::RequestUpload(ref up) => {
-                assert_eq!(up.max_number_of_block_length, &[0x08, 0x00]);
+                assert_eq!(up.max_number_of_block_length(), &[0x08, 0x00]);
             }
             other => panic!("expected RequestUpload, got {other:?}"),
         }
