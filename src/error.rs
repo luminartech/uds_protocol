@@ -53,24 +53,18 @@ pub enum Error {
     /// The memory address value is out of the valid range.
     #[error("Invalid Memory Address: {0}")]
     InvalidMemoryAddress(u64),
+    /// A `u32` did not fit the three bytes of a DTC (i.e. exceeded `0x00FF_FFFF`).
+    #[error("Invalid DTC record: {0:#010X} does not fit three bytes")]
+    InvalidDtcRecord(u32),
     /// The encryption or compression method byte is not recognised.
     #[error("Invalid Encryption/Compression Method: {0}")]
     InvalidEncryptionCompressionMethod(u8),
-    /// A payload was expected but the stream contained no data.
-    #[error("Data required but found none")]
-    NoDataAvailable,
     /// The `RequestFileTransfer` `modeOfOperation` byte is not valid.
     #[error("Invalid FileTransfer modeOfOperation (server will send requestOutOfRange): {0}")]
     InvalidFileOperationMode(u8),
-    /// The `fileSizeParameterLength` / `fileSizeOrDirInfoParameterLength` value is outside 1–16.
-    #[error("Invalid fileSizeParameterLength (valid range: 1..=16): {0}")]
-    InvalidFileSizeParameterLength(u16),
     /// The `ReadDTCInformation` sub-function byte is not valid.
     #[error("Invalid DTC Subfunction Type: {0}")]
     InvalidDtcSubfunctionType(u8),
-    /// The DTC format identifier byte is not recognised.
-    #[error("Invalid DTC Format Identifier: {0}")]
-    InvalidDtcFormatIdentifier(u8),
     /// The routine-control sub-function byte is not a valid [`RoutineControlSubFunction`](crate::RoutineControlSubFunction).
     #[error("Invalid Routine Control Sub-Function: {0}")]
     InvalidRoutineControlSubFunction(u8),
@@ -112,8 +106,18 @@ impl Error {
     /// - **`0x13` `incorrectMessageLengthOrInvalidFormat`** — the frame itself is malformed:
     ///   too short, too long, or a declared width that does not fit.
     /// - **`0x12` `subFunctionNotSupported`** — the *sub-function* byte is not a value this
-    ///   service defines. Applies to the services whose sub-function the crate validates:
-    ///   `0x10`, `0x11`, `0x19`, `0x27`, `0x28`, `0x31`, `0x3E`, `0x85`.
+    ///   service defines.
+    ///
+    ///   Only two services reject a reserved sub-function at decode and so produce this code
+    ///   themselves: `0x31` `RoutineControl` (Table 426 defines no manufacturer range, so
+    ///   anything outside `0x01`-`0x03` is invalid) and `0x85` `ControlDTCSetting`.
+    ///
+    ///   The others — `0x10`, `0x11`, `0x19`, `0x27`, `0x28`, `0x3E` — model the whole
+    ///   `0x00..=0x7F` space, so a reserved byte decodes into an `IsoSaeReserved`-style variant
+    ///   and round-trips unchanged rather than failing. That is deliberate: it lets a server see
+    ///   the byte it was actually sent. **Answering `0x12` for those is the server's job**, not
+    ///   this mapping's: match on the sub-function and use
+    ///   [`NegativeResponseCode::SubFunctionNotSupported`] for a value you do not implement.
     /// - **`0x31` `requestOutOfRange`** — a *parameter* (not a sub-function) carries a value
     ///   outside its permitted range. Note that `communicationType` is a parameter of
     ///   `CommunicationControl`, not its sub-function, so it lands here rather than on `0x12`.
@@ -130,8 +134,9 @@ impl Error {
             Self::InsufficientData(_)
             | Self::TrailingBytes(_)
             | Self::InvalidWidth(_)
-            | Self::IncorrectMessageLengthOrInvalidFormat
-            | Self::NoDataAvailable => NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+            | Self::IncorrectMessageLengthOrInvalidFormat => {
+                NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat
+            }
 
             // The sub-function byte is not a defined value for the service.
             Self::InvalidDiagnosticSessionType(_)
@@ -146,10 +151,9 @@ impl Error {
             // A parameter value is outside its permitted range.
             Self::InvalidCommunicationType(_)
             | Self::InvalidMemoryAddress(_)
+            | Self::InvalidDtcRecord(_)
             | Self::InvalidEncryptionCompressionMethod(_)
             | Self::InvalidFileOperationMode(_)
-            | Self::InvalidFileSizeParameterLength(_)
-            | Self::InvalidDtcFormatIdentifier(_)
             | Self::ReservedForLegislativeUse(_) => NegativeResponseCode::RequestOutOfRange,
 
             // Transport failure: not a protocol error, so no specific NRC applies.
@@ -237,11 +241,6 @@ mod nrc_mapping_tests {
                 0x13,
                 "explicit length/format",
             ),
-            (
-                Error::NoDataAvailable,
-                0x13,
-                "payload expected, none present",
-            ),
             // --- 0x12 subFunctionNotSupported: the sub-function byte is not a known value ---
             (
                 Error::InvalidDiagnosticSessionType(0x99),
@@ -297,14 +296,9 @@ mod nrc_mapping_tests {
                 "0x38 modeOfOperation",
             ),
             (
-                Error::InvalidFileSizeParameterLength(0x99),
+                Error::InvalidDtcRecord(0xFF01_0203),
                 0x31,
-                "0x38 length parameter",
-            ),
-            (
-                Error::InvalidDtcFormatIdentifier(0x99),
-                0x31,
-                "DTC format identifier",
+                "a u32 wider than three DTC bytes",
             ),
             (
                 Error::ReservedForLegislativeUse(0x99),

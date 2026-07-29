@@ -248,13 +248,27 @@ impl DtcRecord {
     }
 }
 
-impl From<u32> for DtcRecord {
-    fn from(value: u32) -> Self {
-        Self {
+impl TryFrom<u32> for DtcRecord {
+    type Error = Error;
+
+    /// A DTC is three bytes, so only the low 24 bits of a `u32` are a valid DTC.
+    ///
+    /// This is `TryFrom` rather than `From` because masking the top byte away silently would
+    /// make `0xFF01_0203` and `0x0001_0203` the same record — a caller who has a DTC in a `u32`
+    /// from elsewhere and one byte too many would get a wrong DTC with no signal.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidDtcRecord`] if `value` exceeds `0x00FF_FFFF`.
+    fn try_from(value: u32) -> Result<Self, Error> {
+        if value > 0x00FF_FFFF {
+            return Err(Error::InvalidDtcRecord(value));
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        Ok(Self {
             high_byte: ((value >> 16) & 0xFF) as u8,
             middle_byte: ((value >> 8) & 0xFF) as u8,
             low_byte: (value & 0xFF) as u8,
-        }
+        })
     }
 }
 
@@ -607,7 +621,7 @@ mod dtc_status_tests {
     fn dtc_record_exposes_its_three_wire_bytes() {
         // A decoded DtcRecord has to be inspectable byte-wise: D.1 assigns meaning to the
         // high byte (system group) separately from the middle and low bytes.
-        let record = DtcRecord::from(0x12_3456);
+        let record = DtcRecord::try_from(0x12_3456).unwrap();
         assert_eq!(record.high_byte(), 0x12);
         assert_eq!(record.middle_byte(), 0x34);
         assert_eq!(record.low_byte(), 0x56);

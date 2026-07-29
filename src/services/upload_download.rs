@@ -14,6 +14,9 @@ use crate::shared::{
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 use automotive_wire_codec::{read_be_uint_into, write_all, write_be_uint, write_u8};
 
+/// Widest `maxNumberOfBlockLength` a `lengthFormatIdentifier` nibble can declare, in bytes.
+const MAX_BLOCK_LENGTH_BYTES: usize = 0x0F;
+
 /// Permitted NRCs for `RequestDownload` (0x34).
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -321,20 +324,45 @@ macro_rules! upload_download_service {
         pub struct $resp<'d> {
             /// Maximum number of bytes per [`TransferDataRequest`](crate::TransferDataRequest).
             ///
-            /// The on-wire `lengthFormatIdentifier` nibble is derived from this slice's length
-            /// at encode time, so the declared length can never disagree with the bytes present.
+            /// The on-wire `lengthFormatIdentifier` nibble is derived from this slice's length,
+            /// so the declared length can never disagree with the bytes present. That nibble
+            /// holds at most `0x0F`, which is why the slice is private and
+            #[doc = concat!("[`", stringify!($resp), "::new`] is fallible.")]
             #[cfg_attr(feature = "serde", serde(borrow))]
-            pub max_number_of_block_length: &'d [u8],
+            max_number_of_block_length: &'d [u8],
+            /// The low nibble of the `lengthFormatIdentifier`, which ISO 14229-1 leaves
+            /// undefined for this byte.
+            ///
+            /// Retained from the wire so a decode/re-encode is byte-exact -- the same reason
+            /// `TesterPresentRequest` keeps a reserved sub-function value rather than
+            /// normalizing it. `0` for a response this crate constructs.
+            reserved_length_nibble: u8,
         }
 
         impl<'d> $resp<'d> {
             #[doc = concat!("Create a new `", stringify!($resp), "`. The `lengthFormatIdentifier`")]
             /// is derived from `max_number_of_block_length` during encoding.
-            #[must_use]
-            pub const fn new(max_number_of_block_length: &'d [u8]) -> Self {
-                Self {
-                    max_number_of_block_length,
+            ///
+            /// # Errors
+            /// Returns [`Error::IncorrectMessageLengthOrInvalidFormat`] if the slice is longer
+            /// than 15 bytes, which is the widest a single nibble can declare. The check used to
+            /// live in `encode`, so a too-long slice was accepted here and failed later — the
+            /// same construct-then-fail-to-encode asymmetry the transfer requests had.
+            pub const fn new(max_number_of_block_length: &'d [u8]) -> Result<Self, Error> {
+                if max_number_of_block_length.len() > MAX_BLOCK_LENGTH_BYTES {
+                    return Err(Error::IncorrectMessageLengthOrInvalidFormat);
                 }
+                Ok(Self {
+                    max_number_of_block_length,
+                    reserved_length_nibble: 0,
+                })
+            }
+
+            /// The maximum number of bytes the server will accept per `TransferData` request,
+            /// as the raw big-endian bytes the server sent.
+            #[must_use]
+            pub const fn max_number_of_block_length(&self) -> &'d [u8] {
+                self.max_number_of_block_length
             }
         }
 
@@ -342,14 +370,12 @@ macro_rules! upload_download_service {
             type Error = crate::Error;
 
             fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-                // The block-length field width is carried in a single nibble, so the slice
-                // can be at most 0x0F bytes long.
-                let nibble = u8::try_from(self.max_number_of_block_length.len())
-                    .ok()
-                    .filter(|n| *n <= 0x0F)
-                    .ok_or(Error::IncorrectMessageLengthOrInvalidFormat)?;
+                // `new` already bounded this to a nibble, so the cast cannot truncate.
+                #[allow(clippy::cast_possible_truncation)]
+                let nibble = self.max_number_of_block_length.len() as u8;
                 let length_format_identifier = LengthFormatIdentifier {
                     max_number_of_block_length: nibble,
+                    reserved_low_nibble: self.reserved_length_nibble,
                 };
                 let mut written =
                     write_u8(writer, length_format_identifier.into()).map_err(Error::io)?;
@@ -380,6 +406,7 @@ macro_rules! upload_download_service {
                 Ok((
                     Self {
                         max_number_of_block_length: &buf[1..total],
+                        reserved_length_nibble: length_format_identifier.reserved_low_nibble,
                     },
                     &buf[total..],
                 ))
@@ -571,20 +598,45 @@ macro_rules! upload_download_service {
             #[test]
             fn response_encode_size_agrees() {
                 let block = [0x10u8, 0x00, 0x00];
-                let resp = $resp::new(&block);
+                let resp = $resp::new(&block).unwrap();
                 assert_encode_size_agrees(&resp);
+            }
+
+            #[test]
+            fn a_reserved_length_nibble_is_echoed_rather_than_zeroed() {
+                // The low nibble of the lengthFormatIdentifier is undefined in ISO 14229-1, so
+                // it is not this crate's to clear: `74 25 08 00` used to re-encode as
+                // `74 20 08 00`. That is the same loss `TesterPresentRequest` was fixed for.
+                let wire = [0x25, 0x08, 0x00];
+                let resp = <$resp as Decode>::decode_exact(&wire).unwrap();
+                assert_eq!(resp.max_number_of_block_length(), &[0x08, 0x00]);
+
+                let mut buf = [0u8; 8];
+                let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+                assert_eq!(&buf[..written], &wire);
+
+                // A response the crate builds itself leaves the nibble clear.
+                let fresh = $resp::new(&[0x08, 0x00]).unwrap();
+                let written = Encode::encode(&fresh, &mut buf.as_mut_slice()).unwrap();
+                assert_eq!(&buf[..written], &[0x20, 0x08, 0x00]);
+            }
+
+            #[test]
+            fn a_block_length_wider_than_a_nibble_is_rejected_at_construction() {
+                assert!($resp::new(&[0u8; 16]).is_err());
+                assert!($resp::new(&[0u8; 15]).is_ok());
             }
 
             #[test]
             fn response_round_trips() {
                 let block = [0x02u8, 0x00];
-                let resp = $resp::new(&block);
+                let resp = $resp::new(&block).unwrap();
                 let mut buf = [0u8; 8];
                 let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
                 assert_eq!(&buf[..n], &[0x20, 0x02, 0x00]);
                 let (decoded, rest) = <$resp as Decode>::decode(&buf[..n]).unwrap();
                 assert!(rest.is_empty());
-                assert_eq!(decoded.max_number_of_block_length, &block);
+                assert_eq!(decoded.max_number_of_block_length(), &block);
             }
 
             #[test]

@@ -85,18 +85,25 @@ impl From<MemoryFormatIdentifier> for u8 {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct LengthFormatIdentifier {
     pub max_number_of_block_length: u8,
+    /// The low nibble, which ISO 14229-1 does not define for this byte.
+    ///
+    /// Retained rather than zeroed so a decode/re-encode is byte-exact: a server that sets it
+    /// gets its own byte back. Encoding a freshly constructed response leaves it `0`.
+    pub reserved_low_nibble: u8,
 }
 
 impl From<u8> for LengthFormatIdentifier {
     fn from(value: u8) -> Self {
         Self {
             max_number_of_block_length: (value & BLOCK_LENGTH_NIBBLE_MASK) >> 4,
+            reserved_low_nibble: value & LOW_NIBBLE_MASK,
         }
     }
 }
 impl From<LengthFormatIdentifier> for u8 {
     fn from(length_format_identifier: LengthFormatIdentifier) -> u8 {
-        length_format_identifier.max_number_of_block_length << 4
+        (length_format_identifier.max_number_of_block_length << 4)
+            | length_format_identifier.reserved_low_nibble
     }
 }
 
@@ -305,9 +312,10 @@ mod tests {
             }
 
             #[test]
-            fn prop_length_format_identifier_roundtrip(high_nibble in 0u8..=15) {
-                // LengthFormatIdentifier only stores the high nibble
-                let byte = high_nibble << 4;
+            fn prop_length_format_identifier_roundtrip(byte in any::<u8>()) {
+                // Every byte round-trips, including one with the ISO-undefined low nibble set.
+                // This generator used to be `high_nibble << 4`, so the low nibble was always
+                // zero and the property held trivially while the impl silently zeroed it.
                 let lfi = LengthFormatIdentifier::from(byte);
                 let back: u8 = lfi.into();
                 prop_assert_eq!(byte, back);
