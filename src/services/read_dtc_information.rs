@@ -1247,6 +1247,68 @@ mod response_decode_tests {
     }
 
     #[test]
+    fn the_wwh_obd_response_header_and_records_decode_field_by_field() {
+        // ISO 14229-1:2020 Table 332: FGID, DTCStatusAvailabilityMask,
+        // DTCSeverityAvailabilityMask, DTCFormatIdentifier, then 5-byte records of
+        // severity + 3-byte DTC + status.
+        //
+        // Nothing had ever asserted a value this iterator yields, nor any of the four header
+        // fields — every test checked only counts and `is_ok()`. Reversing the header fields, or
+        // swapping severity with status and reversing the DTC bytes, passed the whole suite.
+        let wire = [
+            0x59, 0x42, 0x33, 0xFF, 0xF0, 0x01, 0x80, 0x01, 0x02, 0x03, 0x0A,
+        ];
+        let (resp, _) = Response::decode(&wire).unwrap();
+        let Response::ReadDtcInfo(ReadDtcInfoResponse::WwhObdDtcByMaskRecord {
+            functional_group_identifier,
+            status_availability_mask,
+            severity_availability_mask,
+            format_identifier,
+            ..
+        }) = resp
+        else {
+            panic!("expected a WwhObdDtcByMaskRecord response, got {resp:?}");
+        };
+
+        assert_eq!(
+            functional_group_identifier,
+            FunctionalGroupIdentifier::EmissionsSystemGroup,
+            "0x33 is the emissions group per Table D.15"
+        );
+        assert_eq!(status_availability_mask.bits(), 0xFF);
+        assert_eq!(severity_availability_mask.bits(), 0xF0);
+        assert_eq!(format_identifier, DtcFormatIdentifier::Iso14229_1DtcFormat);
+
+        let Response::ReadDtcInfo(ref inner) = resp else {
+            unreachable!()
+        };
+        let mut records = inner
+            .wwh_obd_dtc_severity_iter()
+            .expect("0x42 carries this iterator");
+        let (severity, dtc, status) = records.next().unwrap().unwrap();
+        assert_eq!(
+            severity,
+            DtcSeverityMask::CheckImmediately,
+            "severity is byte 0"
+        );
+        assert_eq!(
+            dtc,
+            DtcRecord::new(0x01, 0x02, 0x03),
+            "DTC bytes are big-endian"
+        );
+        assert_eq!(
+            status.bits(),
+            0x0A,
+            "status is the last byte, not the first"
+        );
+        assert!(records.next().is_none());
+
+        let mut buf = [0u8; 16];
+        let written = resp.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
     fn a_dtc_count_response_missing_the_count_is_rejected() {
         // Four payload bytes are mandatory after the sub-function echo; three is a truncated
         // frame, not a frame whose format identifier happens to be the count's high byte.
@@ -1292,14 +1354,18 @@ mod response_decode_tests {
         // A trailing partial record means the frame is malformed. Rejecting it here matches how
         // the crate treats every other length mismatch, and means the iterators returned by the
         // accessors can never see a partial tail.
+        // Every misaligned length below two whole records, which crucially includes 1..width --
+        // a list too short to hold even one record. That range was untested, so a `whole_records`
+        // that accepted any short list passed: 0 records was covered by
+        // `empty_record_lists_are_valid` and 1 record by the aligned test, but the 0-valid /
+        // 1-invalid boundary, the whole point of the check, was not.
         for (label, prefix, width) in LISTS {
-            for extra in 1..width {
-                let (buf, len) = frame(prefix, width + extra);
+            for record_bytes in (1..2 * width).filter(|n| n % width != 0) {
+                let (buf, len) = frame(prefix, record_bytes);
                 let got = <ReadDtcInfoResponse as Decode>::decode(&buf[..len]);
                 assert!(
                     matches!(got, Err(Error::IncorrectMessageLengthOrInvalidFormat)),
-                    "{label}: {} record bytes ({width}+{extra}) should be rejected, got {got:?}",
-                    width + extra
+                    "{label}: {record_bytes} record bytes (width {width}) should be rejected, got {got:?}"
                 );
             }
         }
@@ -1483,17 +1549,33 @@ mod iter_tests {
     #[test]
     fn all_three_iterators_terminate_and_stay_exhausted() {
         // FusedIterator is only sound if `next()` keeps returning None once drained.
+        //
+        // The drains are bounded, like the ones in `size_hint_matches_the_number_of_items_
+        // yielded`: a 7-byte buffer can yield at most 2 items, so `take(8)` cannot hide a real
+        // result, and a regression that stops advancing `remaining` fails here instead of
+        // hanging `cargo test` forever with the other failures unreported.
+        const CAP: usize = 8;
         let data = [0u8; 7]; // not a whole number of records for either width
+
         let mut a = DtcAndStatusIter::new(&data);
-        while a.next().is_some() {}
+        assert!(
+            a.by_ref().take(CAP).count() < CAP,
+            "DtcAndStatusIter did not terminate"
+        );
         assert!(a.next().is_none() && a.next().is_none());
 
         let mut b = DtcFaultDetectionIter::new(&data);
-        while b.next().is_some() {}
+        assert!(
+            b.by_ref().take(CAP).count() < CAP,
+            "DtcFaultDetectionIter did not terminate"
+        );
         assert!(b.next().is_none() && b.next().is_none());
 
         let mut c = WwhObdDtcSeverityIter::new(&data);
-        while c.next().is_some() {}
+        assert!(
+            c.by_ref().take(CAP).count() < CAP,
+            "WwhObdDtcSeverityIter did not terminate"
+        );
         assert!(c.next().is_none() && c.next().is_none());
     }
 

@@ -100,10 +100,9 @@ impl Error {
     /// use uds_protocol::{Decode, NegativeResponse, Request, UdsServiceType};
     ///
     /// let frame = [0x11, 0x01, 0xAA]; // EcuReset with a trailing junk byte
-    /// if let Err(err) = Request::decode(&frame) {
-    ///     let nack = NegativeResponse::new(UdsServiceType::EcuReset, err.negative_response_code());
-    ///     assert_eq!(u8::from(nack.nrc()), 0x13);
-    /// }
+    /// let err = Request::decode(&frame).expect_err("the trailing byte must be rejected");
+    /// let nack = NegativeResponse::new(UdsServiceType::EcuReset, err.negative_response_code());
+    /// assert_eq!(u8::from(nack.nrc()), 0x13);
     /// ```
     ///
     /// # Classification

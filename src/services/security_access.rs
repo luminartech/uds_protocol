@@ -391,8 +391,6 @@ impl<'a> Decode<'a> for SecurityAccessResponse<'a> {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees, test_util::assert_impl_eq};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
     #[test]
     fn derive_contract() {
@@ -406,7 +404,6 @@ mod request {
         }
     }
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn request_seed() {
         let bytes: [u8; 6] = [
@@ -421,9 +418,11 @@ mod request {
         );
         assert_eq!(req.request_data, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
-        let mut buf = Vec::new();
-        let written = Encode::encode(&req, &mut buf).unwrap();
-        assert_eq!(written, bytes.len());
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        // The bytes, not just the count: the two halves of this test were otherwise
+        // disconnected, so swapping what `encode` writes went unnoticed.
+        assert_eq!(&buf[..written], &bytes);
         assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
@@ -433,10 +432,7 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn response_send() {
         let bytes: [u8; 6] = [
@@ -451,9 +447,9 @@ mod response {
         );
         assert_eq!(resp.security_seed, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
-        let mut buf = Vec::new();
-        let written = Encode::encode(&resp, &mut buf).unwrap();
-        assert_eq!(written, bytes.len());
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &bytes);
         assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
     }

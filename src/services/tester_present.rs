@@ -358,6 +358,9 @@ mod test {
 #[cfg(any(feature = "serde", feature = "utoipa"))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+// With `utoipa` but not `serde` these fields are never read: they exist to give the schema its
+// shape, which the derive reads at compile time rather than at run time.
+#[cfg_attr(not(feature = "serde"), allow(dead_code))]
 struct SubFunctionRepr {
     suppress_positive_response: bool,
     sub_function: u8,
@@ -367,6 +370,9 @@ struct SubFunctionRepr {
 #[cfg(any(feature = "serde", feature = "utoipa"))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+// With `utoipa` but not `serde` these fields are never read: they exist to give the schema its
+// shape, which the derive reads at compile time rather than at run time.
+#[cfg_attr(not(feature = "serde"), allow(dead_code))]
 struct SubFunctionOnlyRepr {
     sub_function: u8,
 }
