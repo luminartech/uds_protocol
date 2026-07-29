@@ -6,8 +6,8 @@
 //! impossible for anyone else to build still looks constructible from there.
 
 use uds_protocol::{
-    DirSizePayload, DtcFaultDetectionCounterRecord, DtcRecord, FileSizePayload, NamePayload,
-    PositionPayload, SentDataPayload, SizePayload,
+    DirSizePayload, DtcFaultDetectionCounterRecord, DtcFormatIdentifier, DtcRecord,
+    FileSizePayload, NamePayload, PositionPayload, SentDataPayload, SizePayload,
 };
 
 #[test]
@@ -32,6 +32,28 @@ fn every_non_exhaustive_payload_type_has_a_reachable_constructor() {
     let _ = DirSizePayload::new(0x20);
     let _ = PositionPayload::new(0x10);
     let _ = DtcFaultDetectionCounterRecord::new(DtcRecord::new(0, 0, 0), 0);
+}
+
+#[test]
+fn a_reserved_variant_cannot_alias_a_named_one() {
+    // `PartialEq` on these enums is variant equality, not wire equality, so being able to name a
+    // reserved variant with a byte that a named variant also encodes creates a trap:
+    // `DtcFormatIdentifier::IsoSaeReserved(0x01) != Iso14229_1DtcFormat` even though both encode
+    // 0x01. `#[non_exhaustive]` on the byte-carrying variants makes that unconstructible from
+    // out here, so a value can only be obtained through the classifier, which never aliases.
+    //
+    // Constructing one is a compile error, checked by `tests/ui` conventions in spirit; what this
+    // test pins is the positive half — the classifier and the byte accessor agree, and equality
+    // matches the wire for every byte.
+    for byte in 0x00..=0xFFu8 {
+        let format = DtcFormatIdentifier::from(byte);
+        assert_eq!(format.value(), byte, "classifier lost the byte {byte:#04X}");
+        assert_eq!(
+            format == DtcFormatIdentifier::Iso14229_1DtcFormat,
+            byte == 0x01,
+            "equality disagreed with the wire for {byte:#04X}"
+        );
+    }
 }
 
 /// A `derive(Deserialize)` ignores field visibility and range checks, so it is a second,
