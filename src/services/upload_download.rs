@@ -7,7 +7,10 @@
 //! bytes. Both pairs are generated from one macro so the wire codec has a single source of
 //! truth; a fix to the width-derivation logic cannot land on one service and miss the other.
 
-use crate::shared::{DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier};
+use crate::shared::{
+    DataFormatIdentifier, LengthFormatIdentifier, MAX_MEMORY_ADDRESS_LENGTH,
+    MAX_MEMORY_SIZE_LENGTH, MemoryFormatIdentifier,
+};
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 use automotive_wire_codec::{read_be_uint_into, write_all, write_be_uint, write_u8};
 
@@ -98,6 +101,53 @@ macro_rules! upload_download_service {
                 Ok(Self {
                     data_format_identifier,
                     address_and_length_format_identifier,
+                    memory_address,
+                    memory_size,
+                })
+            }
+
+            #[doc = concat!("Create a `", stringify!($req), "` with client-chosen field widths.")]
+            ///
+            /// ISO 14229-1:2020 Table 441 makes the `addressAndLengthFormatIdentifier` a
+            /// client choice rather than a function of the values, and many bootloaders
+            /// require a particular one (often `0x44`) and answer `requestOutOfRange`
+            /// otherwise. [`new`](Self::new) always derives the *minimal* widths, so it cannot
+            /// express a wider-than-minimal declaration; this can.
+            ///
+            /// Widths are in bytes: `memory_address_length` may be 1 through 5 and
+            /// `memory_size_length` 1 through 4 (Annex H Table H.1).
+            ///
+            /// # Errors
+            /// Returns [`Error::IncorrectMessageLengthOrInvalidFormat`] if either width is
+            /// outside the range Table H.1 permits, or if a value does not fit in the width
+            /// declared for it — which would otherwise truncate it on the wire.
+            pub const fn new_with_widths(
+                data_format_identifier: DataFormatIdentifier,
+                memory_address: u64,
+                memory_address_length: u8,
+                memory_size: u32,
+                memory_size_length: u8,
+            ) -> Result<Self, Error> {
+                if memory_address_length < 1
+                    || memory_address_length > MAX_MEMORY_ADDRESS_LENGTH
+                    || memory_size_length < 1
+                    || memory_size_length > MAX_MEMORY_SIZE_LENGTH
+                {
+                    return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+                }
+                // A width of n bytes holds values below 1 << (8 * n). Shifting is done on u128
+                // so the 8-byte case cannot overflow, and compared in u128 for the same reason.
+                if (memory_address as u128) >= (1u128 << (8 * memory_address_length as u32))
+                    || (memory_size as u128) >= (1u128 << (8 * memory_size_length as u32))
+                {
+                    return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+                }
+                Ok(Self {
+                    data_format_identifier,
+                    address_and_length_format_identifier: MemoryFormatIdentifier {
+                        memory_size_length,
+                        memory_address_length,
+                    },
                     memory_address,
                     memory_size,
                 })
@@ -372,6 +422,51 @@ macro_rules! upload_download_service {
                     assert_eq!(decoded.memory_address(), address);
                     assert_eq!(decoded.memory_size(), size);
                 }
+            }
+
+            #[test]
+            fn explicit_widths_can_reproduce_the_spec_example_alfid() {
+                // ISO 14229-1:2020 Table 441 makes the addressAndLengthFormatIdentifier a
+                // client choice, not a function of the values. Table 462's own example declares
+                // 3 bytes of memorySize for the value 0x00FFFF, which needs only 2 -- so `new`,
+                // which always derives minimal widths, cannot produce that frame. Real
+                // bootloaders commonly mandate a fixed ALFID (often 0x44) and answer
+                // requestOutOfRange otherwise.
+                let req = $req::new_with_widths(
+                    DataFormatIdentifier::from(0x11),
+                    0x0060_2000,
+                    3,
+                    0x0000_FFFF,
+                    3,
+                )
+                .unwrap();
+                let mut buf = [0u8; 16];
+                let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                assert_eq!(
+                    &buf[..written],
+                    &[0x11, 0x33, 0x60, 0x20, 0x00, 0x00, 0xFF, 0xFF],
+                );
+
+                let decoded = <$req as Decode>::decode_exact(&buf[..written]).unwrap();
+                assert_eq!(
+                    decoded, req,
+                    "a wider-than-minimal width must survive decode"
+                );
+            }
+
+            #[test]
+            fn explicit_widths_reject_a_value_that_does_not_fit() {
+                // A declared width narrower than the value would silently truncate on the wire.
+                assert!(
+                    $req::new_with_widths(DataFormatIdentifier::NONE, 0x1_0000, 2, 1, 1).is_err()
+                );
+                assert!(
+                    $req::new_with_widths(DataFormatIdentifier::NONE, 1, 1, 0x1_0000, 2).is_err()
+                );
+                // ...and the widths themselves must be ones Table H.1 permits.
+                assert!($req::new_with_widths(DataFormatIdentifier::NONE, 1, 0, 1, 1).is_err());
+                assert!($req::new_with_widths(DataFormatIdentifier::NONE, 1, 6, 1, 1).is_err());
+                assert!($req::new_with_widths(DataFormatIdentifier::NONE, 1, 1, 1, 5).is_err());
             }
 
             #[test]
