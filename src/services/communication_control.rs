@@ -7,7 +7,7 @@ use automotive_wire_codec::{write_all, write_u8, write_u16_be};
 ///
 /// *Note*:
 ///
-/// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`](crate::Error) if the
+/// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
@@ -184,7 +184,7 @@ mod communication_control_type_tests {
 ///
 /// Note:
 ///
-/// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`](crate::Error) if the value is not a valid `CommunicationType`
+/// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`] if the value is not a valid `CommunicationType`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]

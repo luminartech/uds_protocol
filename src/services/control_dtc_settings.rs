@@ -3,14 +3,14 @@ use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 use automotive_wire_codec::write_u8;
 
+/// Controls whether the server should enable or disable DTC status-bit updates.
+///
+/// Used by [`ControlDtcSettingRequest`] to instruct the server.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-/// Controls whether the server should enable or disable DTC status-bit updates.
-///
-/// Used by [`ControlDtcSettingRequest`] to instruct the server.
 pub enum DtcSettingType {
     /// Re-enable DTC status-bit updates.
     On,

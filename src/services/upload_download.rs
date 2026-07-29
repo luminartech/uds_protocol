@@ -75,7 +75,7 @@ macro_rules! upload_download_service {
             /// # Errors
             /// Returns an error if `memory_address` exceeds 5 bytes (> `0xFF_FFFF_FFFF`).
             #[allow(clippy::cast_possible_truncation)]
-            pub fn new(
+            pub const fn new(
                 data_format_identifier: DataFormatIdentifier,
                 memory_address: u64,
                 memory_size: u32,
@@ -85,11 +85,12 @@ macro_rules! upload_download_service {
                 }
                 // A length of 0 produces an invalid `MemoryFormatIdentifier` (the nibbles
                 // must be >=1 per ISO-14229), so clamp to at least one byte even when the
-                // address or size is 0.
-                let memory_address_length =
-                    ((u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8).max(1);
-                let memory_size_length =
-                    ((u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8).max(1);
+                // address or size is 0. Written as `if` rather than `.max(1)` because
+                // `Ord::max` is not callable in a `const fn`.
+                let address_bytes = (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
+                let memory_address_length = if address_bytes == 0 { 1 } else { address_bytes };
+                let size_bytes = (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
+                let memory_size_length = if size_bytes == 0 { 1 } else { size_bytes };
                 let address_and_length_format_identifier = MemoryFormatIdentifier {
                     memory_size_length,
                     memory_address_length,

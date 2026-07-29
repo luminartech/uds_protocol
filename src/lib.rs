@@ -276,4 +276,64 @@ mod no_std_api_tests {
             &[0xAA, 0xBB],
         );
     }
+
+    #[test]
+    fn wire_primitives_are_const_constructible() {
+        // These are the types a caller puts in a `const` table: DTC constants, record
+        // numbers, and the format identifier. Each must be reachable in const context.
+        const DTC: DtcRecord = DtcRecord::new(0x01, 0x02, 0x03);
+        const SNAPSHOT: DtcSnapshotRecordNumber = DtcSnapshotRecordNumber::new(0x02);
+        const EXT_DATA: DtcExtDataRecordNumber = DtcExtDataRecordNumber::new(0x90);
+        const STORED: DtcStoredDataRecordNumber = match DtcStoredDataRecordNumber::new(0x02) {
+            Ok(number) => number,
+            Err(_) => panic!("0x02 is not reserved"),
+        };
+        const DFI: DataFormatIdentifier = match DataFormatIdentifier::new(0x01, 0x02) {
+            Ok(dfi) => dfi,
+            Err(_) => panic!("both nibbles are in range"),
+        };
+
+        assert_eq!(u32::from(DTC), 0x01_0203);
+        assert_eq!(SNAPSHOT.value(), 0x02);
+        assert_eq!(EXT_DATA.value(), 0x90);
+        assert_eq!(STORED.value(), 0x02);
+        assert_eq!(u8::from(DFI), 0x12);
+    }
+
+    #[test]
+    fn sid_conversions_and_negative_responses_are_const() {
+        // The SID map is the crate's most reusable lookup; a server dispatch table wants it
+        // in const context. `NegativeResponse::new` builds on it, so it follows.
+        const SID: u8 = UdsServiceType::EcuReset.to_request_sid();
+        const SERVICE: UdsServiceType = UdsServiceType::from_request_sid(0x11);
+        const RESP_SID: u8 = UdsServiceType::EcuReset.to_response_sid();
+        const RESP_SERVICE: UdsServiceType = UdsServiceType::from_response_sid(0x51);
+        const NACK: NegativeResponse = NegativeResponse::new(
+            UdsServiceType::EcuReset,
+            NegativeResponseCode::ConditionsNotCorrect,
+        );
+
+        assert_eq!(SID, 0x11);
+        assert_eq!(SERVICE, UdsServiceType::EcuReset);
+        assert_eq!(RESP_SID, 0x51);
+        assert_eq!(RESP_SERVICE, UdsServiceType::EcuReset);
+        assert_eq!(NACK.request_service_sid(), 0x11);
+    }
+
+    #[test]
+    fn transfer_setup_requests_are_const_constructible() {
+        const DOWNLOAD: RequestDownloadRequest =
+            match RequestDownloadRequest::new(DataFormatIdentifier::NONE, 0x1234, 0x10) {
+                Ok(req) => req,
+                Err(_) => panic!("address fits in 5 bytes"),
+            };
+        const UPLOAD: RequestUploadRequest =
+            match RequestUploadRequest::new(DataFormatIdentifier::NONE, 0x1234, 0x10) {
+                Ok(req) => req,
+                Err(_) => panic!("address fits in 5 bytes"),
+            };
+
+        assert_eq!(DOWNLOAD.memory_address(), 0x1234);
+        assert_eq!(UPLOAD.memory_size(), 0x10);
+    }
 }

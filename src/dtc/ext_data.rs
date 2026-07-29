@@ -36,7 +36,7 @@ pub enum DtcExtDataRecordNumber {
 impl DtcExtDataRecordNumber {
     /// Create a new `DtcExtDataRecordNumber` from a raw byte, mapping it to the correct variant.
     #[must_use]
-    pub fn new(value: u8) -> Self {
+    pub const fn new(value: u8) -> Self {
         match value {
             0x00 | 0xF0..=0xFD => Self::IsoSaeReserved(value),
             0x01..=0x8F => Self::VehicleManufacturer(value),

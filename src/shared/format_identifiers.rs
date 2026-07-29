@@ -3,6 +3,9 @@ use crate::Error;
 const LOW_NIBBLE_MASK: u8 = 0b0000_1111;
 const HIGH_NIBBLE_MASK: u8 = 0b1111_0000;
 
+/// Largest value that fits in a single nibble.
+const NIBBLE_MAX: u8 = 0x0F;
+
 /// Address and length format identifier
 const MEMORY_SIZE_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
 const MEMORY_ADDRESS_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
@@ -17,7 +20,11 @@ const ENCRYPTION_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
 /// Takes in the actual memory address to be used and the size of the memory to be used
 /// and computes how many bytes are needed to represent them
 ///
-/// Decoded from the `address_and_length_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
+/// Carried by the `addressAndLengthFormatIdentifier` byte of
+/// [`RequestDownloadRequest`](crate::RequestDownloadRequest) and
+/// [`RequestUploadRequest`](crate::RequestUploadRequest), which share one message layout.
+/// Derived from the address and size rather than set by the caller, so it is not part of
+/// either type's public surface.
 ///
 /// See ISO-14229-1:2020, Table H.1 for format information
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -61,10 +68,13 @@ impl From<MemoryFormatIdentifier> for u8 {
     }
 }
 
-/// Decoded from the `length_format_identifier` field of the [`RequestDownloadResponse`] struct.
-/// The format is similar to the `address_and_length_format_identifier` field in the [`RequestDownloadRequest`] struct.
-/// Specifically, it is a byte where the high nibble represents the byte length of the `max_number_of_block_length` field,
-/// i.e, a value of `0x20` indicates that the `max_number_of_block_length` field is 2 bytes long.
+/// The leading byte of a [`RequestDownloadResponse`](crate::RequestDownloadResponse) or
+/// [`RequestUploadResponse`](crate::RequestUploadResponse), which share one message layout.
+///
+/// The format mirrors [`MemoryFormatIdentifier`]: a byte whose high nibble gives the byte
+/// length of `max_number_of_block_length`, i.e. `0x20` means that field is 2 bytes long.
+/// Derived from the slice length when encoding, so it is not part of either response's
+/// public surface.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -85,11 +95,18 @@ impl From<LengthFormatIdentifier> for u8 {
     }
 }
 
-/// Used by [`crate::RequestDownloadRequest`] for the compression method (high nibble) and encrypting method (low nibble)
-/// - 0x00 is no compression or encryption, which is the default
+/// The compression method (high nibble) and encryption method (low nibble) a client asks the
+/// server to use for a transfer.
 ///
-/// Decoded from the `data_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
-/// Values other than 0x00 are Vehicle Manufacturer specific according to ISO-14229-1:2020
+/// - `0x00` for both means no compression and no encryption, which is the default; prefer
+///   [`DataFormatIdentifier::NONE`].
+/// - Values other than `0x00` are Vehicle Manufacturer specific according to ISO-14229-1:2020.
+///
+/// Supplied to [`RequestDownloadRequest::new`](crate::RequestDownloadRequest::new) and
+/// [`RequestUploadRequest::new`](crate::RequestUploadRequest::new), and read back with
+/// [`RequestDownloadRequest::data_format_identifier`](crate::RequestDownloadRequest::data_format_identifier).
+/// Also carried by the `AddFile`, `ReplaceFile`, `ReadFile` and `ResumeFile` variants of
+/// [`RequestFileTransferRequest`](crate::RequestFileTransferRequest).
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -119,17 +136,22 @@ impl DataFormatIdentifier {
     /// # Errors
     /// Returns [`Error::InvalidEncryptionCompressionMethod`] if either value does not fit
     /// in a nibble (i.e. is greater than `0x0F`).
-    pub fn new(compression_method: u8, encryption_method: u8) -> Result<Self, Error> {
-        Ok(Self {
-            compression_method: Self::check_value(compression_method)?,
-            encryption_method: Self::check_value(encryption_method)?,
-        })
-    }
-    fn check_value(value: u8) -> Result<u8, Error> {
-        match value {
-            0..=15 => Ok(value),
-            _ => Err(Error::InvalidEncryptionCompressionMethod(value)),
+    // Written as explicit range checks rather than a `?` on a helper: `?` is not permitted in
+    // a `const fn`, and const construction is what lets callers put a `DataFormatIdentifier`
+    // in a `const` table.
+    pub const fn new(compression_method: u8, encryption_method: u8) -> Result<Self, Error> {
+        if compression_method > NIBBLE_MAX {
+            return Err(Error::InvalidEncryptionCompressionMethod(
+                compression_method,
+            ));
         }
+        if encryption_method > NIBBLE_MAX {
+            return Err(Error::InvalidEncryptionCompressionMethod(encryption_method));
+        }
+        Ok(Self {
+            encryption_method,
+            compression_method,
+        })
     }
 
     /// The compression method nibble (the high nibble on the wire).
