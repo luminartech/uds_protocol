@@ -29,7 +29,7 @@ impl SecurityAccessLevel {
 
     /// The raw level byte (always `0x00..=0x7F`).
     #[must_use]
-    pub const fn value(self) -> u8 {
+    pub const fn value(&self) -> u8 {
         self.0
     }
 }
