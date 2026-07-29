@@ -26,7 +26,7 @@ pub enum Request<'a> {
     /// Communication control request.
     CommunicationControl(CommunicationControlRequest),
     /// Control DTC settings request.
-    ControlDtcSetting(ControlDtcSettingRequest),
+    ControlDtcSetting(ControlDtcSettingRequest<'a>),
     /// Diagnostic session control request.
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
     /// ECU reset request.
