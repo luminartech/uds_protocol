@@ -11,6 +11,141 @@ pre-1.0 crates).
 
 These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
+### Fixed — wire-format conformance
+
+Found by a review pass that checked the crate against the ISO 14229-1:2020 text rather than
+against itself. All five predate this branch; none was caught by the existing tests, because a
+round-trip written against the crate's own output passes whenever `encode` and `decode` share a
+misreading. `tests/spec_conformance.rs` now round-trips 34 byte sequences quoted from the
+standard's own numbered example tables, which is what closes that gap.
+
+- **Breaking:** `MemoryFormatIdentifier::try_from` used exclusive range patterns where its own
+  comments said inclusive, accepting a `memorySize` width of 1-3 and a `memoryAddress` width of
+  1-4. Annex H Table H.1 runs to 4 and 5, and `RequestDownloadRequest::new` already documented and
+  derived those wider values — so the crate emitted frames it could not decode. Any transfer above
+  16 MB, or to an address above 4 GB, was unrepresentable, and ALFID `0x44` (the usual value in a
+  real programming session) was rejected outright. The property test had its generators narrowed
+  to exactly the buggy accepted set.
+
+- **Breaking:** `EcuResetResponse::power_down_time` is now `Option<u8>`. Table 35 marks
+  `powerDownTime` `Cvt` = `C`, present only for `enableRapidPowerShutDown`, and Table 39's flow
+  example is the two-byte `51 01`. The field was a bare `u8` that `encode` always wrote, so
+  decoding `51 01` and re-encoding produced `51 01 00`: any proxy that decoded and re-encoded
+  traffic rewrote every positive response except 0x04's. `None` is now distinct from `Some(0)`,
+  which the old decode conflated, and the doc named `0x00` as the not-available sentinel where
+  Table 36 defines that as `0xFF`.
+
+- **Breaking:** `ReadDtcInfoRequest` gained `suppress_positive_response`. `decode` matched the raw
+  sub-function byte, so bit 7 — SPRMIB — was read as part of the sub-function value. Table 13
+  requires both bit values for every supported sub-function. A suppressed
+  `reportDTCByStatusMask` (`19 82 FF`) was rejected as having trailing bytes, and `19 8A` decoded
+  as a *reserved* sub-function, so a server answered `SubFunctionNotSupported` to a request it was
+  required to execute. 0x19 was the only one of the eight sub-function services not using the
+  shared helper.
+
+- **Breaking:** `ReadDtcInfoSubFunction::ReportUserDefMemoryDtcByStatusMask` gained the mandatory
+  `MemorySelection` byte (Table 310). The conformant 4-byte request was rejected and the malformed
+  3-byte one accepted — exactly inverted. Sub-functions 0x18 and 0x19 already read theirs.
+
+- **Breaking:** `ReadDtcInfoResponse::NumberOfDtcs` gained `format_identifier`. Table 319 makes
+  `DTCFormatIdentifier` mandatory between the availability mask and the count, so decode was
+  reading it as the count's high byte: Table 341's own example `59 01 2F 01 00 01` was rejected
+  outright, and a count of 1 came back as `0x0100`. It is also the only thing that says how to
+  interpret a DTC's three bytes.
+
+### Fixed — spec gaps in modeled services
+
+- **Breaking:** `ControlDtcSettingRequest` gained `option_record: &'d [u8]` for the
+  `DTCSettingControlOptionRecord` (Table 127, `Cvt` = `U`), so the type now borrows. Table 132
+  reserves NRC `0x31` for an error *in that record*, which a server can only detect if the record
+  reaches it. This is the same `Cvt = U` omission as `ClearDiagnosticInformation`'s
+  `memorySelection`.
+
+- **Breaking:** `DtcSettingType` gained `VehicleManufacturerSpecific` and `SystemSupplierSpecific`
+  for the `0x40`-`0x5F` and `0x60`-`0x7E` ranges Table 128 reserves. Both were rejected outright,
+  so a client could not send a manufacturer-defined setting and a server never saw the byte.
+
+- **Breaking:** `CommunicationControl` now decodes the subnet nibble. Annex B Table B.1 splits
+  the `communicationType` byte into message type (bits 1-0), reserved bits 3-2 and subnet number
+  (bits 7-4), but the whole byte was matched against `0x00..=0x03`, so `0xF3` — a common
+  real-world value — was rejected. New `SubnetNumber` type, plus
+  `CommunicationControlRequest::with_subnet` and `::subnet`. The file's `TODO` admitting this gap
+  is gone.
+
+- **Breaking:** `RoutineControlSubFunction::try_from` returns
+  `Error::InvalidRoutineControlSubFunction` rather than `IncorrectMessageLengthOrInvalidFormat`,
+  so a reserved `routineControlType` is answered with NRC `0x12` as Table 430 requires rather than
+  `0x13` — for a request whose length was perfectly correct. That variant had never been
+  constructed anywhere in the crate despite being in the NRC mapping table and its test.
+
+- **Breaking:** `WriteDataByIdentifierRequest::new` is now fallible and `decode` requires three
+  payload bytes. Table 277 marks `dataRecord` byte #1 mandatory and Figure 26 states a four-byte
+  minimum, but a three-byte message decoded into an empty data record, so a server would attempt
+  a zero-length write instead of answering NRC `0x13`. A test had locked the wrong behaviour in.
+
+- **Breaking:** `DtcStoredDataRecordNumber::new` no longer rejects `0xF0`. Clause 12.3.3.2
+  reserves only `0x00` for this parameter; `0x00`/`0xF0` is the *snapshot* record-number space,
+  and both the check and its doc had been copied from there.
+
+- `RequestFileTransferRequest::allowed_nack_codes` gained `RequestSequenceError` (0x24),
+  `SecurityAccessDenied` (0x33) and `AuthenticationRequired` (0x34), three of the seven codes
+  Table 484 mandates. 0x24 exists specifically for `ResumeFile` against an already-complete
+  transfer.
+
+- `RequestDownloadRequest::new_with_widths` / `RequestUploadRequest::new_with_widths` let a client
+  choose the field widths. Table 441 makes the `addressAndLengthFormatIdentifier` a client choice,
+  not a function of the values, and `new` derives only minimal widths — so the crate could not
+  reproduce Table 462's own example, nor satisfy the bootloaders that mandate a fixed ALFID.
+
+### Fixed — encapsulation
+
+- **Breaking:** deserializing can no longer bypass a type's validation. `derive(Deserialize)`
+  ignores both field visibility and constructor checks, so it was a second, unchecked way in for
+  every sealed type: `serde_json::from_str::<SecurityAccessLevel>("255")` succeeded, producing a
+  level that encoded to a byte which decoded back as a *different* level with SPRMIB set. The six
+  single-byte types now serialize as their wire byte via `serde(try_from = "u8", into = "u8")`,
+  and `TesterPresentRequest`, `CommunicationControlRequest` and the two transfer requests
+  deserialize through a repr routed via their constructors. This changes their serialized
+  representation, and removes the module-private `ZeroSubFunction` and the `pub(crate)`
+  `MemoryFormatIdentifier` from both the serialized form and the generated OpenAPI schema, where
+  they had been giving client generators types downstream Rust cannot name.
+
+- `DtcFaultDetectionCounterRecord::new`. The type is `#[non_exhaustive]` with `pub` fields and had
+  no `impl` block, so outside the crate a struct literal is `E0639` and there was no constructor
+  to fall back on — the `Item` type of a public iterator was unbuildable by any downstream crate.
+  Introduced on this branch by the `#[non_exhaustive]` sweep; the test meant to guard it was a
+  unit test, where the attribute does not apply.
+
+- **Breaking:** `UdsServiceType::DynamicallyDefinedDataIdentifier` is now
+  `DynamicallyDefineDataIdentifier`, the name Table 23 gives service 0x2C.
+
+### Fixed — documentation
+
+- `NegativeResponseCode::RequestCorrectlyReceivedResponsePending` (0x78) carried 0x73's
+  description, calling it a `BlockSequenceCounter` error. It is the response-pending code that
+  extends P2\*, and per Annex A.1 obliges the server to send a final response regardless of
+  SPRMIB.
+
+- `DiagnosticSessionControlResponse::p2_star_server_max` documented its scaling backwards. Table
+  29 gives the parameter a 10 ms resolution, so the stored value is milliseconds ÷ 10; reading it
+  as a raw millisecond count under-waits by a factor of ten.
+
+- `ReadDtcInfoResponse`'s `InsufficientData` shortfalls measured `needed` including the
+  sub-function byte while `available` was measured after it, so `needed - available` overstated
+  the gap by one.
+
+- `RoutineControlResponse::status_record` now says that it spans the optional `routineInfo` byte
+  as well (Table 428). Nothing on the wire distinguishes the two layouts, so a general-purpose
+  decoder cannot split them — but the field name implied it already had.
+
+- `ReadDtcInfoSubFunction::IsoSaeReserved` listed `0x42` — a modeled report type — as reserved,
+  and omitted most of the ranges Table 317 actually reserves.
+
+- README: `AccessTimingParameters` is annotated as ISO 14229-1:2013-only (it was removed in the
+  2020 edition the crate targets), the escaped brackets that rendered as dead `[Request]` text on
+  the crate's front page are now real links, and the re-export list no longer says the codec
+  traits are re-exported "eventually" — they already are.
+
 ### Added
 
 - `NegativeResponse::new_with_sid(request_service_sid, nrc)`, the construction-side counterpart
@@ -40,7 +175,7 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   every server had to re-derive the mapping against a `#[non_exhaustive]` enum.
 
 - `Request::allowed_nack_codes()` dispatches to the per-service tables from a decoded
-  `Request`, alongside the existing `service()` and `is_positive_response_suppressed()`. All 15
+  `Request`, alongside the existing `service()` and `is_positive_response_suppressed()`. All 16
   request types already exposed the associated function, but reaching it from a `Request`
   required matching every variant. Returns an empty slice for `Request::Other`, meaning "NRC set
   unknown" rather than "no codes apply".
@@ -58,8 +193,9 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
 - `DtcRecord::high_byte()`, `middle_byte()` and `low_byte()`. The fields are private and the type
   had no accessors at all, so a decoded DTC could only be inspected by round-tripping through
-  `u32` — awkward given ISO 14229-1 Annex D.1 assigns the high byte its own meaning (system
-  group). All three are `const fn`.
+  `u32`. All three are `const fn`. Their docs deliberately do not ascribe a meaning to any
+  individual byte: ISO 14229-1 clause 12.3.2.3 specifies no decoding method for the three DTC
+  bytes, deferring to whichever standard the `DTCFormatIdentifier` names.
 
 ### Changed
 
@@ -73,13 +209,13 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   decode with `InsufficientData`, while every encode emitted a spurious 4th byte.
 
 - **Breaking:** `SecurityAccessLevel::value` now takes `&self` instead of `self`, matching the
-  other twenty accessors in the crate. No call-site change is needed: the type is `Copy`.
+  crate's other by-reference accessors. No call-site change is needed: the type is `Copy`.
 
 - `DtcRecord::new`, `DtcSnapshotRecordNumber::new`, `DtcExtDataRecordNumber::new`,
   `DtcStoredDataRecordNumber::new`, `DataFormatIdentifier::new`, `NegativeResponse::new`,
   `NegativeResponse::request_service`, `RequestDownloadRequest::new`, `RequestUploadRequest::new`
   and all four `UdsServiceType` SID conversions (`from_request_sid`, `to_request_sid`,
-  `from_response_sid`, `to_response_sid`) are now `const fn`. The crate was otherwise uniformly
+  `from_response_sid`, `to_response_sid`) are now `const fn`. Most of the crate was already
   `const fn new`, and the gaps fell exactly on the primitives a caller wants in a `const` table:
   DTC constants, record numbers, the format identifier, and the SID map a server dispatch table
   is built from. `NegativeResponse::new` was blocked only because `to_request_sid` was not const.
@@ -141,8 +277,8 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   | `ReadDTCInfoSubFunction`         | `ReadDtcInfoSubFunction`         |
 
   Enum variants follow the same rule mechanically (`UdsServiceType::ReadDTCInfo` ->
-  `ReadDtcInfo`, `ISOSAEReserved` -> `IsoSaeReserved` across all nine enums that
-  declare it, and so on). Four variant groups did **not** rename mechanically:
+  `ReadDtcInfo`, `ISOSAEReserved` -> `IsoSaeReserved` across every enum that declares it, and
+  so on). Four variant groups did **not** rename mechanically:
 
   - `ReadDtcInfoSubFunction` variants lose their underscores along with the enum's
     `#[allow(non_camel_case_types)]`: `ReportDTC_ByStatusMask` -> `ReportDtcByStatusMask`,
@@ -179,7 +315,9 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   `DtcExtDataRecordNumber`, `DtcSnapshotRecordNumber`, `DtcFaultDetectionCounterRecord`,
   `SizePayload`, `NamePayload`, `SentDataPayload`, `FileSizePayload`, `DirSizePayload`,
   `PositionPayload`. Downstream `match` statements over these need a wildcard arm, and the
-  seven structs must be built through `new()` rather than a struct literal.
+  seven structs must be built through `new()` rather than a struct literal — which is why
+  `DtcFaultDetectionCounterRecord` gained one (see below); it had no constructor at all, so this
+  attribute had made it impossible for a downstream crate to build.
   `ReadDtcInfoSubFunction` is the important one: it has sub-functions the crate does not model
   yet, so adding one post-tag would otherwise have been breaking.
 
@@ -256,10 +394,12 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   keeps its signature and its `0x00` encoding — so a server can report
   `subFunctionNotSupported` naming the byte it actually received.
 
-- `TesterPresentResponse::new()` is now `const`, the last `new()` in the crate that was not.
+- `TesterPresentResponse::new()` is now `const`. `CommunicationControlRequest::new` and
+  `::new_with_node_id` remain non-`const`: both call `u8::from` on the control type in their
+  error path, and trait methods are not callable in a `const fn` on stable.
 
-- The README service table was missing rows for `DynamicallyDefinedDataIdentifier` (0x2C) and
-  `AccessTimingParameter` (0x83), both enumerated in `UdsServiceType`, and named two services
+- The README service table was missing rows for `DynamicallyDefineDataIdentifier` (0x2C) and
+  `AccessTimingParameters` (0x83), both enumerated in `UdsServiceType`, and named two services
   differently from the code (`ECUReset`, `ControlDTCSetting`). The table's 27 rows now match the
   27 request SIDs in `UdsServiceType` exactly.
 
@@ -280,8 +420,9 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   features are enabled.
 
 - `FunctionalGroupIdentifier::VODBSystem` is now `VobdSystem`. Beyond the casing change, the
-  old name transposed the letters: ISO 14229-1 Table D.1 names functional group `0xFE`
-  `VOBDSystem` (vehicle OBD system).
+  old name transposed the letters: ISO 14229-1 Table **D.15** names functional group `0xFE`
+  `VOBDsystem` (vehicle OBD system). Table D.1 is the `groupOfDTC` definition, not the
+  functional-group one.
 
 - `DtcFaultDetectionCounterRecord` is now exported from the crate root. It is the `Item` of
   the public `DtcFaultDetectionIter`, but had no public path, so callers could iterate it and

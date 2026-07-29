@@ -237,9 +237,17 @@ impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
 pub struct DiagnosticSessionControlResponse {
     /// The session type that is now active.
     pub session_type: DiagnosticSessionType,
-    /// P2 server max timing parameter (milliseconds).
+    /// `P2Server_max`: how long the client should wait for a response, at 1 ms per count.
+    ///
+    /// The stored value *is* the millisecond count (ISO 14229-1:2020 Table 29).
     pub p2_server_max: u16,
-    /// P2* (enhanced) server max timing parameter (milliseconds × 10).
+    /// `P2*Server_max`: the enhanced timeout that applies after a
+    /// [`NegativeResponseCode::RequestCorrectlyReceivedResponsePending`], at **10 ms per
+    /// count**.
+    ///
+    /// Multiply by 10 to get milliseconds: Table 29 gives this parameter a resolution of 10 ms,
+    /// so the stored value is milliseconds ÷ 10 and the maximum is 655 350 ms. Reading it as a
+    /// raw millisecond count under-waits by a factor of ten.
     pub p2_star_server_max: u16,
 }
 

@@ -212,20 +212,36 @@ impl DtcRecord {
         }
     }
 
-    /// The high byte, which ISO 14229-1 Annex D.1 uses to identify the system group
-    /// (powertrain, body, chassis, network).
+    /// The most significant of the three DTC bytes.
+    ///
+    /// What it means depends on the server's [`DtcFormatIdentifier`]: ISO 14229-1 itself
+    /// specifies no decoding method for the three bytes (clause 12.3.2.3), deferring to
+    /// whichever of SAE J2012-DA, ISO 11992-4, SAE J1939-73 or ISO 15031-6 the format
+    /// identifier names.
+    ///
+    /// Annex D.1 Table D.1 does assign meaning, but to whole 3-byte `groupOfDTC` *values*, not
+    /// to this byte in isolation — and its powertrain/chassis/body/network rows are explicitly
+    /// "to be determined by vehicle manufacturer". The one byte-level assignment it makes is to
+    /// the *low* byte: for `0xFFFF00`-`0xFFFFFE` that byte is a
+    /// [`FunctionalGroupIdentifier`](crate::FunctionalGroupIdentifier).
     #[must_use]
     pub const fn high_byte(&self) -> u8 {
         self.high_byte
     }
 
-    /// The middle byte of the DTC number.
+    /// The middle of the three DTC bytes. See [`high_byte`](Self::high_byte) for why this
+    /// crate does not ascribe a meaning to it.
     #[must_use]
     pub const fn middle_byte(&self) -> u8 {
         self.middle_byte
     }
 
-    /// The low byte of the DTC number, which carries the failure type.
+    /// The least significant of the three DTC bytes.
+    ///
+    /// In SAE J2012-DA format this is the failure type byte, and for a `groupOfDTC` in
+    /// `0xFFFF00`-`0xFFFFFE` it is a
+    /// [`FunctionalGroupIdentifier`](crate::FunctionalGroupIdentifier) (ISO 14229-1:2020 Annex
+    /// D.1 Table D.1). Neither reading is universal — see [`high_byte`](Self::high_byte).
     #[must_use]
     pub const fn low_byte(&self) -> u8 {
         self.low_byte
@@ -459,13 +475,19 @@ impl<'a> Decode<'a> for DtcSeverityMask {
 pub struct DtcStoredDataRecordNumber(u8);
 
 impl DtcStoredDataRecordNumber {
-    /// Create a `DtcStoredDataRecordNumber` from a raw byte, rejecting the values ISO 14229-1
-    /// reserves.
+    /// Create a `DtcStoredDataRecordNumber` from a raw byte, rejecting the one value ISO 14229-1
+    /// reserves for this parameter.
+    ///
+    /// Clause 12.3.3.2 reserves `0x00` for legislated purposes, makes `0x01`-`0xFE` available
+    /// for vehicle-manufacturer use, and gives `0xFF` the meaning "report all stored records".
+    /// Note that `0xF0` is *not* reserved here — that belongs to the
+    /// [`DtcSnapshotRecordNumber`](crate::DtcSnapshotRecordNumber) space, which the spec says
+    /// does not share an address space with this one.
     ///
     /// # Errors
-    /// Returns [`Error::ReservedForLegislativeUse`] if the record number is `0x00` or `0xF0`.
+    /// Returns [`Error::ReservedForLegislativeUse`] if the record number is `0x00`.
     pub const fn new(record_number: u8) -> Result<Self, Error> {
-        if record_number == 0 || record_number == 0xF0 {
+        if record_number == 0 {
             return Err(Error::ReservedForLegislativeUse(record_number));
         }
         Ok(Self(record_number))
@@ -473,9 +495,9 @@ impl DtcStoredDataRecordNumber {
 
     /// Return the raw record-number byte.
     ///
-    /// A value obtained from [`From<u8>`](Self::from) or [`Decode`] may be a reserved
-    /// `0x00`/`0xF0` that [`new`](Self::new) would reject — decoding is deliberately liberal
-    /// so responses from foreign implementations can still be inspected.
+    /// A value obtained from [`From<u8>`](Self::from) or [`Decode`] may be the reserved `0x00`
+    /// that [`new`](Self::new) would reject — decoding is deliberately liberal so responses
+    /// from foreign implementations can still be inspected.
     #[must_use]
     pub const fn value(&self) -> u8 {
         self.0
@@ -527,15 +549,24 @@ mod encode_param_tests {
 
     #[test]
     fn stored_data_record_number_construction_is_strict_parsing_is_liberal() {
-        // TX: constructing a reserved value is rejected.
+        // ISO 14229-1:2020 clause 12.3.3.2 reserves only 0x00 for this parameter: "DTCStoredData
+        // records in range of 0x01 through 0xFE shall be available for vehicle manufacturer
+        // specific usage", and 0xFF requests all records.
         assert!(matches!(
-            DtcStoredDataRecordNumber::new(0xF0),
-            Err(Error::ReservedForLegislativeUse(0xF0))
+            DtcStoredDataRecordNumber::new(0x00),
+            Err(Error::ReservedForLegislativeUse(0x00))
         ));
+
+        // 0xF0 belongs to the *snapshot* record-number space, not this one, and used to be
+        // rejected here by a doc-and-check copied from `DtcSnapshotRecordNumber`.
+        assert_eq!(DtcStoredDataRecordNumber::new(0xF0).unwrap().value(), 0xF0);
+        assert_eq!(DtcStoredDataRecordNumber::new(0xFE).unwrap().value(), 0xFE);
+        assert_eq!(DtcStoredDataRecordNumber::new(0xFF).unwrap().value(), 0xFF);
+
         // RX: a reserved value from a foreign implementation still decodes, and value()
         // lets the caller inspect it.
-        let (decoded, _) = <DtcStoredDataRecordNumber as Decode>::decode(&[0xF0]).unwrap();
-        assert_eq!(decoded.value(), 0xF0);
+        let (decoded, _) = <DtcStoredDataRecordNumber as Decode>::decode(&[0x00]).unwrap();
+        assert_eq!(decoded.value(), 0x00);
     }
 
     #[test]

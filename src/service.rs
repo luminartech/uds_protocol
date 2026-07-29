@@ -50,6 +50,11 @@ pub enum UdsServiceType {
     /// If these timings are exceeded without a message being sent,
     /// it must be assumed that the connection was interrupted.
     /// These timings can be read and changed through this service.
+    ///
+    /// Defined in ISO 14229-1:2013 and **removed in the 2020 edition**, which this crate
+    /// otherwise targets. The variant is retained so a 2013-era `0x83`/`0xC3` byte round-trips
+    /// as itself rather than becoming an unrecognized
+    /// [`Request::Other`](crate::Request::Other); no request or response type models it.
     AccessTimingParameters,
     /// Transmit data using a security sub-layer (ISO 15764).
     SecuredDataTransmission,
@@ -83,7 +88,7 @@ pub enum UdsServiceType {
     /// - Source DID, position, length (in bytes), Sub-Function Byte: defineByIdentifier
     /// - Memory address length (in bytes), Sub-Function Byte: defineByMemoryAddress
     /// - Combinations of the two above methods through multiple requests.
-    DynamicallyDefinedDataIdentifier,
+    DynamicallyDefineDataIdentifier,
     /// Change the specified Data Identifier (DID) to the provided value
     WriteDataByIdentifier,
     /// Write information into the ECU at one or more contiguous memory locations.
@@ -162,7 +167,7 @@ impl UdsServiceType {
             0x23 => Self::ReadMemoryByAddress,
             0x24 => Self::ReadScalingDataByIdentifier,
             0x2A => Self::ReadDataByIdentifierPeriodic,
-            0x2C => Self::DynamicallyDefinedDataIdentifier,
+            0x2C => Self::DynamicallyDefineDataIdentifier,
             0x2E => Self::WriteDataByIdentifier,
             0x3D => Self::WriteMemoryByAddress,
             0x14 => Self::ClearDiagnosticInfo,
@@ -204,7 +209,7 @@ impl UdsServiceType {
             Self::ReadMemoryByAddress => 0x23,
             Self::ReadScalingDataByIdentifier => 0x24,
             Self::ReadDataByIdentifierPeriodic => 0x2A,
-            Self::DynamicallyDefinedDataIdentifier => 0x2C,
+            Self::DynamicallyDefineDataIdentifier => 0x2C,
             Self::WriteDataByIdentifier => 0x2E,
             Self::WriteMemoryByAddress => 0x3D,
             Self::ClearDiagnosticInfo => 0x14,
@@ -240,7 +245,7 @@ impl UdsServiceType {
             0x63 => Self::ReadMemoryByAddress,
             0x64 => Self::ReadScalingDataByIdentifier,
             0x6A => Self::ReadDataByIdentifierPeriodic,
-            0x6C => Self::DynamicallyDefinedDataIdentifier,
+            0x6C => Self::DynamicallyDefineDataIdentifier,
             0x6E => Self::WriteDataByIdentifier,
             0x7D => Self::WriteMemoryByAddress,
             0x54 => Self::ClearDiagnosticInfo,
@@ -279,7 +284,7 @@ impl UdsServiceType {
             Self::ReadMemoryByAddress => 0x63,
             Self::ReadScalingDataByIdentifier => 0x64,
             Self::ReadDataByIdentifierPeriodic => 0x6A,
-            Self::DynamicallyDefinedDataIdentifier => 0x6C,
+            Self::DynamicallyDefineDataIdentifier => 0x6C,
             Self::WriteDataByIdentifier => 0x6E,
             Self::WriteMemoryByAddress => 0x7D,
             Self::ClearDiagnosticInfo => 0x54,

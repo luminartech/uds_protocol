@@ -1053,7 +1053,7 @@ impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
             0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
                 if buf.is_empty() {
                     return Err(Error::InsufficientData(Incomplete {
-                        needed: 2,
+                        needed: 1,
                         available: buf.len(),
                     }));
                 }
@@ -1076,7 +1076,7 @@ impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
             0x08 | 0x09 => {
                 if buf.is_empty() {
                     return Err(Error::InsufficientData(Incomplete {
-                        needed: 2,
+                        needed: 1,
                         available: buf.len(),
                     }));
                 }
@@ -1093,7 +1093,7 @@ impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
             0x42 => {
                 if buf.len() < 4 {
                     return Err(Error::InsufficientData(Incomplete {
-                        needed: 5,
+                        needed: 4,
                         available: buf.len(),
                     }));
                 }
@@ -1306,6 +1306,29 @@ mod response_decode_tests {
         let mut buf = [0u8; 16];
         let written = resp.encode_to_slice(&mut buf).unwrap();
         assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
+    fn an_insufficient_data_shortfall_measures_both_counts_on_one_buffer() {
+        // `needed` used to include the sub-function byte while `available` was measured after it
+        // was sliced off, so a caller computing `needed - available` got a shortfall one byte
+        // too large. Both are now relative to the payload.
+        for (label, frame, needed, available) in [
+            ("0x01 count", [0x59, 0x01, 0x2F].as_slice(), 4, 1),
+            ("0x02 list", [0x59, 0x02].as_slice(), 1, 0),
+            ("0x08 severity list", [0x59, 0x08].as_slice(), 1, 0),
+            ("0x42 WWH-OBD", [0x59, 0x42, 0x33, 0xFF].as_slice(), 4, 2),
+        ] {
+            let got = Response::decode(frame);
+            let Err(Error::InsufficientData(incomplete)) = got else {
+                panic!("{label}: expected InsufficientData, got {got:?}");
+            };
+            assert_eq!(incomplete.needed, needed, "{label}: wrong `needed`");
+            assert_eq!(
+                incomplete.available, available,
+                "{label}: wrong `available`"
+            );
+        }
     }
 
     #[test]
