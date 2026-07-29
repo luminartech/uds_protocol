@@ -174,15 +174,6 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   `NegativeResponse`/`UnsupportedDiagnosticService`, and point at `Request::Other` /
   `Response::Other` for lossless pass-through of unmodeled services.
 
-- **Breaking:** `#[non_exhaustive]` added to eleven public types that ISO will grow into, so
-  that later additions are not breaking changes: `ReadDtcInfoSubFunction`, `FileOperationMode`,
-  `DtcExtDataRecordNumber`, `DtcSnapshotRecordNumber`, `DtcFaultDetectionCounterRecord`,
-  `SizePayload`, `NamePayload`, `SentDataPayload`, `FileSizePayload`, `DirSizePayload`,
-  `PositionPayload`. Downstream `match` statements over these need a wildcard arm, and the
-  seven structs must be built through `new()` rather than a struct literal.
-  `ReadDtcInfoSubFunction` is the important one: it has sub-functions the crate does not model
-  yet, so adding one post-tag would otherwise have been breaking.
-
 - **Breaking:** `Error::InsufficientData` now carries an `automotive_wire_codec::Incomplete`
   (with `needed` and `available` byte counts) instead of a bare `usize`.
 
@@ -295,10 +286,6 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   field and variant docs, and `DTCStatusAvailabilityMask` (`= DtcStatusMask`) is spelled
   `DtcStatusMask` with its "bits on = supported by server" semantics moved onto the four
   `status_availability_mask` fields. This closes the `TODO` above sub-function `0x18`.
-
-- `RequestTransferExitRequest` and `RequestTransferExitResponse` now derive `serde` and
-  `utoipa` support like every other public request/response type. Enabling the `serde` feature
-  previously left these two types unserializable.
 
 ### Removed
 

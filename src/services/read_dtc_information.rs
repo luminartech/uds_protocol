@@ -1422,7 +1422,9 @@ mod iter_tests {
             .take(8)
             .collect_bounded();
         assert_eq!((five.oks, five.errs), (1, 1));
-        let six: heapless_vec::Bounded<8> = WwhObdDtcSeverityIter::new(&[0u8; 6]).take(8).collect_bounded();
+        let six: heapless_vec::Bounded<8> = WwhObdDtcSeverityIter::new(&[0u8; 6])
+            .take(8)
+            .collect_bounded();
         assert_eq!((six.oks, six.errs), (1, 1));
     }
 
@@ -1474,7 +1476,11 @@ mod iter_tests {
                 (actual, Some(actual)),
                 "WwhObdDtcSeverityIter, {len} bytes"
             );
-            assert_eq!(actual, len.div_ceil(5), "WwhObdDtcSeverityIter count, {len} bytes");
+            assert_eq!(
+                actual,
+                len.div_ceil(5),
+                "WwhObdDtcSeverityIter count, {len} bytes"
+            );
         }
     }
 

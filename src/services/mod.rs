@@ -4,7 +4,7 @@ pub use clear_dtc_information::{ClearDiagnosticInfoRequest, ClearDiagnosticInfoR
 mod communication_control;
 pub use communication_control::{
     CommunicationControlRequest, CommunicationControlResponse, CommunicationControlType,
-    CommunicationType,
+    CommunicationType, SubnetNumber,
 };
 
 mod control_dtc_settings;

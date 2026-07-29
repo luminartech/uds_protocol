@@ -39,7 +39,7 @@ It is based on the ISO 14229-1:2020 standard.
 | `TesterPresent`                    | 0x3E        | 0x7E         | ✓       |
 | `AccessTimingParameter`            | 0x83        | 0xC3         |         |
 | `SecuredDataTransmission`          | 0x84        | 0xC4         |         |
-| `ControlDtcSetting`               | 0x85        | 0xC5         | ✓       |
+| `ControlDtcSetting`                | 0x85        | 0xC5         | ✓       |
 | `ResponseOnEvent`                  | 0x86        | 0xC6         |         |
 | `LinkControl`                      | 0x87        | 0xC7         |         |
 
