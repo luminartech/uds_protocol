@@ -46,7 +46,7 @@ pub use services::{
     RequestTransferExitResponse, RequestUploadRequest, RequestUploadResponse, ResetType,
     RoutineControlRequest, RoutineControlResponse, RoutineControlSubFunction, SecurityAccessLevel,
     SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType, SentDataPayload,
-    SizePayload, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
+    SizePayload, SubnetNumber, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
     TransferDataResponse, WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
     WwhObdDtcSeverityIter,
 };
