@@ -359,6 +359,21 @@ pub struct DtcFaultDetectionCounterRecord {
     pub dtc_fault_detection_counter: u8,
 }
 
+impl DtcFaultDetectionCounterRecord {
+    /// Create a `DtcFaultDetectionCounterRecord`.
+    ///
+    /// This type is `#[non_exhaustive]`, so downstream crates cannot use a struct literal and
+    /// need this constructor — for a test fixture, or for a server building the record list
+    /// that [`DtcFaultDetectionIter`] reads back.
+    #[must_use]
+    pub const fn new(dtc_record: DtcRecord, dtc_fault_detection_counter: u8) -> Self {
+        Self {
+            dtc_record,
+            dtc_fault_detection_counter,
+        }
+    }
+}
+
 /// Subfunctions for the `ReadDTCInformation` service
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
