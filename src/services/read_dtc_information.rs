@@ -872,6 +872,12 @@ pub enum ReadDtcInfoResponse<'a> {
         /// that does not support [`DtcStatusMask::WarningIndicatorRequested`] leaves that bit
         /// 'off' and sets the rest.
         status_availability_mask: DtcStatusMask,
+        /// How the server's DTC numbers are formatted and encoded.
+        ///
+        /// Mandatory in this response (ISO 14229-1:2020 Table 319), and the only thing that
+        /// says how to interpret the three bytes of each DTC — ISO 14229-1 itself defines no
+        /// decoding method for them.
+        format_identifier: DtcFormatIdentifier,
         /// Number of matching DTCs.
         count: u16,
     },
@@ -1008,21 +1014,25 @@ impl<'a> Decode<'a> for ReadDtcInfoResponse<'a> {
 
         match subfunction_id {
             0x01 | 0x07 => {
-                if buf.len() < 3 {
+                // Table 319: DTCStatusAvailabilityMask, DTCFormatIdentifier, then a 2-byte
+                // DTCCount -- four mandatory bytes after the sub-function echo.
+                if buf.len() < 4 {
                     return Err(Error::InsufficientData(Incomplete {
                         needed: 4,
                         available: buf.len(),
                     }));
                 }
                 let status_availability_mask = DtcStatusMask::from(buf[0]);
-                let count = u16::from_be_bytes([buf[1], buf[2]]);
+                let format_identifier = DtcFormatIdentifier::from(buf[1]);
+                let count = u16::from_be_bytes([buf[2], buf[3]]);
                 Ok((
                     Self::NumberOfDtcs {
                         sub_function_id: subfunction_id,
                         status_availability_mask,
+                        format_identifier,
                         count,
                     },
-                    &buf[3..],
+                    &buf[4..],
                 ))
             }
             0x02 | 0x0A | 0x0B | 0x0C | 0x0D | 0x0E | 0x15 => {
@@ -1101,10 +1111,18 @@ impl Encode for ReadDtcInfoResponse<'_> {
             Self::NumberOfDtcs {
                 sub_function_id,
                 status_availability_mask,
+                format_identifier,
                 count,
             } => {
-                written += write_all(writer, &[*sub_function_id, status_availability_mask.bits()])
-                    .map_err(Error::io)?;
+                written += write_all(
+                    writer,
+                    &[
+                        *sub_function_id,
+                        status_availability_mask.bits(),
+                        u8::from(*format_identifier),
+                    ],
+                )
+                .map_err(Error::io)?;
                 written += write_u16_be(writer, *count).map_err(Error::io)?;
             }
             Self::DtcList {
@@ -1179,7 +1197,46 @@ mod derive_contract {
 #[cfg(test)]
 mod response_decode_tests {
     use super::*;
-    use crate::{Decode, Response};
+    use crate::{Decode, Encode, Response};
+
+    #[test]
+    fn the_dtc_count_response_carries_a_format_identifier() {
+        // ISO 14229-1:2020 Table 341 (flow example #1) is exactly these six bytes:
+        // SID, reportType, DTCStatusAvailabilityMask, DTCFormatIdentifier, count high, low.
+        // Table 319 marks all of them `M`. The format identifier used to be missing from the
+        // model, so it was read as the count high byte: this frame was rejected outright, and
+        // a count of 1 came back as 0x0100.
+        let wire = [0x59, 0x01, 0x2F, 0x01, 0x00, 0x01];
+        let (resp, _) = Response::decode(&wire).unwrap();
+        let Response::ReadDtcInfo(ReadDtcInfoResponse::NumberOfDtcs {
+            sub_function_id,
+            status_availability_mask,
+            format_identifier,
+            count,
+        }) = resp
+        else {
+            panic!("expected a NumberOfDtcs response, got {resp:?}");
+        };
+        assert_eq!(sub_function_id, 0x01);
+        assert_eq!(status_availability_mask.bits(), 0x2F);
+        assert_eq!(
+            format_identifier,
+            DtcFormatIdentifier::Iso14229_1DtcFormat,
+            "0x01 is ISO_14229-1_DTCFormat per Table D.14"
+        );
+        assert_eq!(count, 1);
+
+        let mut buf = [0u8; 8];
+        let written = resp.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
+    fn a_dtc_count_response_missing_the_count_is_rejected() {
+        // Four payload bytes are mandatory after the sub-function echo; three is a truncated
+        // frame, not a frame whose format identifier happens to be the count's high byte.
+        assert!(<ReadDtcInfoResponse as Decode>::decode(&[0x01, 0x2F, 0x01]).is_err());
+    }
 
     /// `(label, sub-function payload prefix, record width)` for every variant that carries a
     /// record list. The payload here is what follows the sub-function byte.
