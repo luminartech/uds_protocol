@@ -7,7 +7,7 @@ use automotive_wire_codec::{write_all, write_u8};
 ///
 /// Used by [`ControlDtcSettingRequest`] to instruct the server.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]

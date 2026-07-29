@@ -10,8 +10,8 @@ use automotive_wire_codec::{write_all, write_u8, write_u16_be};
 /// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum CommunicationControlType {
@@ -182,7 +182,7 @@ mod communication_control_type_tests {
 /// See ISO 14229-1:2020 Annex B Table B.1. The low nibble of the same byte is the
 /// [`CommunicationType`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum SubnetNumber {
@@ -213,6 +213,12 @@ impl SubnetNumber {
     }
 }
 
+impl From<SubnetNumber> for u8 {
+    fn from(subnet: SubnetNumber) -> Self {
+        subnet.value()
+    }
+}
+
 impl TryFrom<u8> for SubnetNumber {
     type Error = Error;
 
@@ -237,8 +243,8 @@ impl TryFrom<u8> for SubnetNumber {
 ///
 /// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`] if the value is not a valid `CommunicationType`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum CommunicationType {
