@@ -10,6 +10,18 @@ const NIBBLE_MAX: u8 = 0x0F;
 const MEMORY_SIZE_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
 const MEMORY_ADDRESS_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
 
+/// Widest `memorySize` the `addressAndLengthFormatIdentifier` may declare, in bytes.
+///
+/// ISO 14229-1:2020 Annex H Table H.1 marks high-nibble values 1 through 4 applicable
+/// (manageable size 256 bytes through 4 GB) and everything else "not applicable".
+pub(crate) const MAX_MEMORY_SIZE_LENGTH: u8 = 4;
+
+/// Widest `memoryAddress` the `addressAndLengthFormatIdentifier` may declare, in bytes.
+///
+/// Table H.1 marks low-nibble values 1 through 5 applicable (addressable memory 256 bytes
+/// through 1024 GB - 1).
+pub(crate) const MAX_MEMORY_ADDRESS_LENGTH: u8 = 5;
+
 /// Length format identifier
 const BLOCK_LENGTH_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
 
@@ -37,26 +49,23 @@ pub(crate) struct MemoryFormatIdentifier {
 
 impl TryFrom<u8> for MemoryFormatIdentifier {
     type Error = Error;
-    // NRC::RequestOutOfRange if address_and_length_format_identifier is not valid
     fn try_from(value: u8) -> Result<Self, Error> {
+        // High nibble: bytes used for the memorySize parameter. Table H.1 marks 1 through 4
+        // applicable (manageable size 256 bytes to 4 GB); 0 and 5..=15 are "not applicable".
         let memory_size_length = (value & MEMORY_SIZE_NIBBLE_MASK) >> 4;
+        // Low nibble: bytes used for the memoryAddress parameter. Table H.1 marks 1 through 5
+        // applicable (addressable memory 256 bytes to 1024 GB - 1).
         let memory_address_length = value & MEMORY_ADDRESS_NIBBLE_MASK;
 
-        match memory_size_length {
-            1..4 => (),
-            _ => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
+        if !matches!(memory_size_length, 1..=MAX_MEMORY_SIZE_LENGTH) {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
         }
-        match memory_address_length {
-            1..5 => (),
-            _ => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
+        if !matches!(memory_address_length, 1..=MAX_MEMORY_ADDRESS_LENGTH) {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
         }
         Ok(Self {
-            // get the low nibble of address_and_length_format_identifier
-            // Memory size length is 1 through 4 bytes (manageable size: 256 bytes to 4GB)
             memory_size_length,
-            // get the high nibble of address_and_length_format_identifier
-            // Memory address is 1 through 5 bytes (addressable memory: 256 bytes - 1024GB)
-            memory_address_length: value & MEMORY_ADDRESS_NIBBLE_MASK,
+            memory_address_length,
         })
     }
 }
@@ -217,6 +226,35 @@ mod tests {
     }
 
     #[test]
+    fn every_alfid_legal_per_table_h1_is_accepted() {
+        // ISO 14229-1:2020 Annex H Table H.1 runs from 0x11 to 0x45: the high nibble
+        // (memorySize) is applicable for 1..=4 bytes and the low nibble (memoryAddress) for
+        // 1..=5. Anything outside that is "not applicable" and must be rejected.
+        for size_len in 1..=4u8 {
+            for addr_len in 1..=5u8 {
+                let byte = (size_len << 4) | addr_len;
+                let mfi = MemoryFormatIdentifier::try_from(byte)
+                    .unwrap_or_else(|e| panic!("Table H.1 lists {byte:#04X} as valid, got {e:?}"));
+                assert_eq!(mfi.memory_size_length, size_len, "for {byte:#04X}");
+                assert_eq!(mfi.memory_address_length, addr_len, "for {byte:#04X}");
+                assert_eq!(u8::from(mfi), byte, "round trip for {byte:#04X}");
+            }
+        }
+    }
+
+    #[test]
+    fn alfid_nibbles_outside_table_h1_are_rejected() {
+        // A zero nibble is "not applicable" on either side, and the widths stop at 4 (size)
+        // and 5 (address).
+        for byte in [0x00, 0x01, 0x10, 0x05, 0x50, 0x46, 0x55, 0xF5, 0x5F] {
+            assert!(
+                MemoryFormatIdentifier::try_from(byte).is_err(),
+                "{byte:#04X} is not applicable per Table H.1 but was accepted"
+            );
+        }
+    }
+
+    #[test]
     fn length_format_identifier() {
         let length_format_identifier = LengthFormatIdentifier::from(0xF0);
         assert_eq!(length_format_identifier.max_number_of_block_length, 15);
@@ -278,8 +316,11 @@ mod tests {
 
             #[test]
             fn prop_memory_format_identifier_roundtrip(
-                size_len in 1u8..=3,
-                addr_len in 1u8..=4,
+                // The full range Annex H Table H.1 declares applicable. Narrowing these to
+                // what the decoder happened to accept is what previously let an off-by-one in
+                // the range checks sit underneath a passing property test.
+                size_len in 1u8..=MAX_MEMORY_SIZE_LENGTH,
+                addr_len in 1u8..=MAX_MEMORY_ADDRESS_LENGTH,
             ) {
                 let byte = (size_len << 4) | addr_len;
                 let mfi = MemoryFormatIdentifier::try_from(byte).unwrap();
