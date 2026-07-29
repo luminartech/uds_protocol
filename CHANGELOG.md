@@ -58,6 +58,18 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
 ### Changed
 
+- **Breaking:** `ClearDiagnosticInfoRequest::memory_selection` is now `Option<u8>`, and the
+  constructors are split accordingly: `new(group_of_dtc)` / `clear_all()` for the ordinary case,
+  `new_with_memory_selection(group_of_dtc, selection)` / `clear_all_in_memory(selection)` when
+  addressing user-defined DTC memory. ISO 14229-1:2020 Table 296 marks `MemorySelection` `U`
+  (user option), so it is absent from the wire unless the client is targeting user-defined
+  memory — the crate previously required it, which meant the plain 3-byte request (the only
+  form in the 2013 edition, and the one in the standard's own Table 300 flow example) failed to
+  decode with `InsufficientData`, while every encode emitted a spurious 4th byte.
+
+- **Breaking:** `SecurityAccessLevel::value` now takes `&self` instead of `self`, matching the
+  other twenty accessors in the crate. No call-site change is needed: the type is `Copy`.
+
 - The DTC iterators now implement `size_hint` (exact) and
   [`FusedIterator`](core::iter::FusedIterator). They deliberately do **not** implement
   `ExactSizeIterator`: its `len()` would have to count items yielded, which exceeds the
