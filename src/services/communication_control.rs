@@ -791,10 +791,7 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let bytes: [u8; 1] = [0x01];
@@ -804,10 +801,9 @@ mod response {
             CommunicationControlType::EnableRxAndDisableTx
         );
 
-        let mut buffer = Vec::new();
-        let written = Encode::encode(&res, &mut buffer).unwrap();
-        assert_eq!(written, 1);
-        assert_eq!(buffer.len(), written);
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(&res, &mut buffer.as_mut_slice()).unwrap();
+        assert_eq!(&buffer[..written], &bytes);
         assert_encode_size_agrees(&res);
     }
 }
@@ -820,6 +816,9 @@ mod response {
 #[cfg(any(feature = "serde", feature = "utoipa"))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+// With `utoipa` but not `serde` these fields are never read: they exist to give the schema its
+// shape, which the derive reads at compile time rather than at run time.
+#[cfg_attr(not(feature = "serde"), allow(dead_code))]
 struct CommunicationControlRepr {
     suppress_positive_response: bool,
     control_type: CommunicationControlType,

@@ -119,6 +119,10 @@ mod no_std_api_tests {
         assert_eq!(records.len(), 2);
         assert_eq!(u32::from(records[0].0), 0x01_0203);
         assert_eq!(u32::from(records[1].0), 0x04_0506);
+        // The status byte matters as much as the DTC: 0x02 and 0x0A-0x0E are the most-used
+        // sub-functions, and nothing asserted it, so "every DTC reports status 0x00" passed.
+        assert_eq!(records[0].1.bits(), 0x0A);
+        assert_eq!(records[1].1.bits(), 0x0B);
     }
 
     #[test]

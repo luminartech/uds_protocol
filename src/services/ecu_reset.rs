@@ -335,16 +335,16 @@ impl<'a> Decode<'a> for EcuResetResponse {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn ecu_reset_request() {
         let bytes: [u8; 2] = [0x81, 0x00];
         let req = EcuResetRequest::new(true, ResetType::HardReset);
-        let mut buffer = Vec::new();
-        let written = Encode::encode(&req, &mut buffer).unwrap();
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(&req, &mut buffer.as_mut_slice()).unwrap();
+        // The request is one byte: the second byte of `bytes` is the next frame's, and the
+        // decoder is expected to leave it alone.
+        assert_eq!(&buffer[..written], &bytes[..1]);
         let (result, _) = <EcuResetRequest as Decode>::decode(&bytes).unwrap();
         assert_eq!(result, req);
 
@@ -358,23 +358,20 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn ecu_reset_response() {
         let bytes: [u8; 2] = [0x04, 0x20];
         let resp =
             EcuResetResponse::new_with_power_down_time(ResetType::EnableRapidPowerShutDown, 0x20);
-        let mut buffer = Vec::new();
-        let written = Encode::encode(&resp, &mut buffer).unwrap();
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(&resp, &mut buffer.as_mut_slice()).unwrap();
         let (result, _) = <EcuResetResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(result, resp);
 
         // The encoded bytes themselves, not just their count: without this the two halves of
         // the test are disconnected and swapping the two written bytes goes unnoticed.
-        assert_eq!(buffer, bytes);
+        assert_eq!(&buffer[..written], &bytes);
         assert_eq!(written, 2);
         assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
