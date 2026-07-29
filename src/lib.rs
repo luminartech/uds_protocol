@@ -289,10 +289,7 @@ mod no_std_api_tests {
         const DTC: DtcRecord = DtcRecord::new(0x01, 0x02, 0x03);
         const SNAPSHOT: DtcSnapshotRecordNumber = DtcSnapshotRecordNumber::new(0x02);
         const EXT_DATA: DtcExtDataRecordNumber = DtcExtDataRecordNumber::new(0x90);
-        const STORED: DtcStoredDataRecordNumber = match DtcStoredDataRecordNumber::new(0x02) {
-            Ok(number) => number,
-            Err(_) => panic!("0x02 is not reserved"),
-        };
+        const STORED: DtcStoredDataRecordNumber = DtcStoredDataRecordNumber::new(0x02);
         const DFI: DataFormatIdentifier = match DataFormatIdentifier::new(0x01, 0x02) {
             Ok(dfi) => dfi,
             Err(_) => panic!("both nibbles are in range"),

@@ -42,17 +42,25 @@ pub enum FileOperationMode {
     ResumeFile = 0x06,
 }
 
+impl FileOperationMode {
+    /// The raw `modeOfOperation` byte. `const`, unlike `u8::from(mode)`.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        match self {
+            Self::IsoSaeReserved(value) => *value,
+            Self::AddFile => 0x01,
+            Self::DeleteFile => 0x02,
+            Self::ReplaceFile => 0x03,
+            Self::ReadFile => 0x04,
+            Self::ReadDir => 0x05,
+            Self::ResumeFile => 0x06,
+        }
+    }
+}
+
 impl From<FileOperationMode> for u8 {
     fn from(value: FileOperationMode) -> Self {
-        match value {
-            FileOperationMode::IsoSaeReserved(value) => value,
-            FileOperationMode::AddFile => 0x01,
-            FileOperationMode::DeleteFile => 0x02,
-            FileOperationMode::ReplaceFile => 0x03,
-            FileOperationMode::ReadFile => 0x04,
-            FileOperationMode::ReadDir => 0x05,
-            FileOperationMode::ResumeFile => 0x06,
-        }
+        value.value()
     }
 }
 
@@ -144,9 +152,6 @@ impl SizePayload {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct NamePayload<'a> {
-    /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
-    pub mode_of_operation: FileOperationMode,
-
     /// The path and name of the file or directory on the server.
     ///
     /// The on-wire length prefix is derived from this field during encoding, so it can
@@ -157,12 +162,14 @@ pub struct NamePayload<'a> {
 impl<'a> NamePayload<'a> {
     /// Build a name payload. The on-wire length prefix is computed from
     /// `file_path_and_name` at encode time.
+    ///
+    /// The `modeOfOperation` byte is **not** part of this payload: it is the
+    /// [`RequestFileTransferRequest`] variant, which writes it. Carrying it here as well let the
+    /// two disagree — and the field won, so `AddFile(NamePayload::new(DeleteFile, ..), dfi, size)`
+    /// silently encoded a `DeleteFile` request and dropped the format identifier and both sizes.
     #[must_use]
-    pub const fn new(mode_of_operation: FileOperationMode, file_path_and_name: &'a str) -> Self {
-        Self {
-            mode_of_operation,
-            file_path_and_name,
-        }
+    pub const fn new(file_path_and_name: &'a str) -> Self {
+        Self { file_path_and_name }
     }
 }
 
@@ -234,6 +241,21 @@ const REQUEST_FILE_TRANSFER_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 7] =
 ];
 
 impl RequestFileTransferRequest<'_> {
+    /// The `modeOfOperation` this request performs, derived from the variant.
+    ///
+    /// This *is* the variant rather than a stored field, so the two can never disagree.
+    #[must_use]
+    pub const fn mode_of_operation(&self) -> FileOperationMode {
+        match self {
+            Self::AddFile(..) => FileOperationMode::AddFile,
+            Self::DeleteFile(_) => FileOperationMode::DeleteFile,
+            Self::ReplaceFile(..) => FileOperationMode::ReplaceFile,
+            Self::ReadFile(..) => FileOperationMode::ReadFile,
+            Self::ReadDir(_) => FileOperationMode::ReadDir,
+            Self::ResumeFile(..) => FileOperationMode::ResumeFile,
+        }
+    }
+
     /// Get the allowed [`NegativeResponseCode`] variants for this request.
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
@@ -463,8 +485,7 @@ impl Encode for NamePayload<'_> {
         let name = self.file_path_and_name.as_bytes();
         let name_len =
             u16::try_from(name.len()).map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
-        let mut written = write_u8(writer, u8::from(self.mode_of_operation)).map_err(Error::io)?;
-        written += write_u16_be(writer, name_len).map_err(Error::io)?;
+        let mut written = write_u16_be(writer, name_len).map_err(Error::io)?;
         written += write_all(writer, name).map_err(Error::io)?;
         Ok(written)
     }
@@ -474,30 +495,23 @@ impl<'a> Decode<'a> for NamePayload<'a> {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        if buf.len() < 3 {
+        if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
-                needed: 3,
+                needed: 2,
                 available: buf.len(),
             }));
         }
-        let mode_of_operation = FileOperationMode::try_from(buf[0])?;
-        let name_len = u16::from_be_bytes([buf[1], buf[2]]) as usize;
-        let total = 3 + name_len;
+        let name_len = u16::from_be_bytes([buf[0], buf[1]]) as usize;
+        let total = 2 + name_len;
         if buf.len() < total {
             return Err(Error::InsufficientData(Incomplete {
                 needed: total,
                 available: buf.len(),
             }));
         }
-        let file_path_and_name = core::str::from_utf8(&buf[3..total])
+        let file_path_and_name = core::str::from_utf8(&buf[2..total])
             .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
-        Ok((
-            Self {
-                mode_of_operation,
-                file_path_and_name,
-            },
-            &buf[total..],
-        ))
+        Ok((Self { file_path_and_name }, &buf[total..]))
     }
 }
 
@@ -697,21 +711,22 @@ impl Encode for RequestFileTransferRequest<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut len;
+        // The mode byte comes from the variant, so it cannot disagree with the payload.
+        let mut len = write_u8(writer, self.mode_of_operation().value()).map_err(Error::io)?;
         match self {
             Self::AddFile(name, dfi, size)
             | Self::ReplaceFile(name, dfi, size)
             | Self::ResumeFile(name, dfi, size) => {
-                len = name.encode(writer)?;
+                len += name.encode(writer)?;
                 len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
                 len += size.encode(writer)?;
             }
             Self::ReadFile(name, dfi) => {
-                len = name.encode(writer)?;
+                len += name.encode(writer)?;
                 len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
             }
             Self::DeleteFile(name) | Self::ReadDir(name) => {
-                len = name.encode(writer)?;
+                len += name.encode(writer)?;
             }
         }
         Ok(len)
@@ -722,8 +737,15 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        let (name, rest) = NamePayload::decode(buf)?;
-        match name.mode_of_operation {
+        let [mode, tail @ ..] = buf else {
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
+        };
+        let mode_of_operation = FileOperationMode::try_from(*mode)?;
+        let (name, rest) = NamePayload::decode(tail)?;
+        match mode_of_operation {
             FileOperationMode::DeleteFile => Ok((Self::DeleteFile(name), rest)),
             FileOperationMode::ReadDir => Ok((Self::ReadDir(name), rest)),
             FileOperationMode::ReadFile => {
@@ -904,14 +926,14 @@ mod request_tests {
         );
     }
 
-    fn name_payload(mode: FileOperationMode, path: &str) -> NamePayload<'_> {
-        NamePayload::new(mode, path)
+    fn name_payload(path: &str) -> NamePayload<'_> {
+        NamePayload::new(path)
     }
 
     #[test]
     fn name_payload_roundtrip() {
         let path = "/tmp/foo.bin";
-        let n = name_payload(FileOperationMode::AddFile, path);
+        let n = name_payload(path);
         let mut buf = [0u8; 64];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, n.encoded_size().unwrap());
@@ -955,20 +977,56 @@ mod request_tests {
     }
 
     #[test]
+    fn the_mode_byte_comes_from_the_variant() {
+        // `NamePayload` used to carry its own `mode_of_operation`, and the field won over the
+        // variant: an `AddFile` request built with a `DeleteFile` payload encoded as DeleteFile
+        // and silently dropped the format identifier and both sizes. With the field gone the
+        // variant is the single source of the byte, so that state is unrepresentable.
+        let req = RequestFileTransferRequest::AddFile(
+            NamePayload::new("/a"),
+            DataFormatIdentifier::NONE,
+            SizePayload::new(1, 1),
+        );
+        assert_eq!(req.mode_of_operation(), FileOperationMode::AddFile);
+
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(
+            &buf[..written],
+            &[0x01, 0x00, 0x02, b'/', b'a', 0x00, 0x01, 0x01, 0x01],
+            "mode 0x01, name length 0x0002, \"/a\", DFI, then a 1-byte size pair"
+        );
+
+        // ...and every variant reports the byte the spec assigns it (Table 485).
+        for (req, byte) in [
+            (
+                RequestFileTransferRequest::DeleteFile(NamePayload::new("/a")),
+                0x02,
+            ),
+            (
+                RequestFileTransferRequest::ReadDir(NamePayload::new("/a")),
+                0x05,
+            ),
+        ] {
+            assert_eq!(req.mode_of_operation().value(), byte);
+        }
+    }
+
+    #[test]
     fn name_payload_length_prefix_matches_name() {
         // The 2-byte length prefix is always exactly the UTF-8 length of the name.
-        let n = NamePayload::new(FileOperationMode::DeleteFile, "abc");
+        let n = NamePayload::new("abc");
         let mut buf = [0u8; 16];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
-        // mode=0x02, length=0x0003, "abc"
-        assert_eq!(&buf[..written], &[0x02, 0x00, 0x03, b'a', b'b', b'c']);
+        // length=0x0003, "abc" — the modeOfOperation byte belongs to the request, not here.
+        assert_eq!(&buf[..written], &[0x00, 0x03, b'a', b'b', b'c']);
     }
 
     #[test]
     fn add_file_request_roundtrip() {
         let path = "test.txt";
         let req = RequestFileTransferRequest::AddFile(
-            name_payload(FileOperationMode::AddFile, path),
+            name_payload(path),
             DataFormatIdentifier::from(0x00),
             SizePayload::new(0x1234, 0x1234),
         );
@@ -984,10 +1042,7 @@ mod request_tests {
     #[test]
     fn delete_file_request_roundtrip() {
         let path = "/var/tmp/delete_file.bin";
-        let req = RequestFileTransferRequest::DeleteFile(name_payload(
-            FileOperationMode::DeleteFile,
-            path,
-        ));
+        let req = RequestFileTransferRequest::DeleteFile(name_payload(path));
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, req.encoded_size().unwrap());
@@ -1001,7 +1056,7 @@ mod request_tests {
     fn read_file_request_roundtrip() {
         let path = "/etc/passwd";
         let req = RequestFileTransferRequest::ReadFile(
-            name_payload(FileOperationMode::ReadFile, path),
+            name_payload(path),
             DataFormatIdentifier::from(0x11),
         );
         let mut buf = [0u8; 64];
@@ -1016,8 +1071,7 @@ mod request_tests {
     #[test]
     fn read_dir_request_roundtrip() {
         let path = "/var/log";
-        let req =
-            RequestFileTransferRequest::ReadDir(name_payload(FileOperationMode::ReadDir, path));
+        let req = RequestFileTransferRequest::ReadDir(name_payload(path));
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         let (decoded, _) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
@@ -1029,7 +1083,7 @@ mod request_tests {
     fn resume_file_request_roundtrip() {
         let path = "/big/file.bin";
         let req = RequestFileTransferRequest::ResumeFile(
-            name_payload(FileOperationMode::ResumeFile, path),
+            name_payload(path),
             DataFormatIdentifier::from(0x00),
             SizePayload::new(0xDEAD_BEEF, 0xDEAD_BEEF),
         );
