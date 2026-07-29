@@ -241,7 +241,7 @@ impl DtcRecord {
     /// to this byte in isolation — and its powertrain/chassis/body/network rows are explicitly
     /// "to be determined by vehicle manufacturer". The one byte-level assignment it makes is to
     /// the *low* byte: for `0xFFFF00`-`0xFFFFFE` that byte is a
-    /// [`FunctionalGroupIdentifier`](crate::FunctionalGroupIdentifier).
+    /// [`FunctionalGroupIdentifier`].
     #[must_use]
     pub const fn high_byte(&self) -> u8 {
         self.high_byte
@@ -258,7 +258,7 @@ impl DtcRecord {
     ///
     /// In SAE J2012-DA format this is the failure type byte, and for a `groupOfDTC` in
     /// `0xFFFF00`-`0xFFFFFE` it is a
-    /// [`FunctionalGroupIdentifier`](crate::FunctionalGroupIdentifier) (ISO 14229-1:2020 Annex
+    /// [`FunctionalGroupIdentifier`] (ISO 14229-1:2020 Annex
     /// D.1 Table D.1). Neither reading is universal — see [`high_byte`](Self::high_byte).
     #[must_use]
     pub const fn low_byte(&self) -> u8 {
