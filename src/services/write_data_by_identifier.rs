@@ -31,9 +31,17 @@ pub struct WriteDataByIdentifierRequest<'d> {
 
 impl<'d> WriteDataByIdentifierRequest<'d> {
     /// Create a request to write `data` to the given Data Identifier.
-    #[must_use]
-    pub const fn new(identifier: u16, data: &'d [u8]) -> Self {
-        Self { identifier, data }
+    ///
+    /// # Errors
+    /// Returns [`Error::IncorrectMessageLengthOrInvalidFormat`] if `data` is empty. ISO
+    /// 14229-1:2020 Table 277 marks the first `dataRecord` byte mandatory, so a request with
+    /// no data record is malformed — and would encode to a frame this crate's own decoder
+    /// rejects.
+    pub const fn new(identifier: u16, data: &'d [u8]) -> Result<Self, Error> {
+        if data.is_empty() {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+        }
+        Ok(Self { identifier, data })
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request.
@@ -56,10 +64,12 @@ impl Encode for WriteDataByIdentifierRequest<'_> {
 impl<'a> Decode<'a> for WriteDataByIdentifierRequest<'a> {
     type Error = crate::Error;
 
+    /// The 2-byte DID and at least one `dataRecord` byte are mandatory (ISO 14229-1:2020
+    /// Table 277, and Figure 26's "minimum length is 4 byte (SI + DID + DREC)").
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        if buf.len() < 2 {
+        if buf.len() < 3 {
             return Err(Error::InsufficientData(Incomplete {
-                needed: 2,
+                needed: 3,
                 available: buf.len(),
             }));
         }
@@ -167,7 +177,7 @@ mod test {
 
     #[test]
     fn wdbi_request_round_trips() {
-        let req = WriteDataByIdentifierRequest::new(0xF190, &[0x01, 0x02, 0x03]);
+        let req = WriteDataByIdentifierRequest::new(0xF190, &[0x01, 0x02, 0x03]).unwrap();
         let mut buf = [0u8; 8];
         let n = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..n], &[0xF1, 0x90, 0x01, 0x02, 0x03]);
@@ -179,17 +189,35 @@ mod test {
     }
 
     #[test]
-    fn wdbi_request_allows_empty_data() {
-        let (decoded, _) = <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1, 0x90]).unwrap();
-        assert_eq!(decoded.identifier, 0xF190);
-        assert!(decoded.data.is_empty());
+    fn wdbi_request_requires_at_least_one_data_byte() {
+        // ISO 14229-1:2020 Table 277 marks dataRecord `data#1` as `M` (only `data#2..#m` are
+        // `U`), and Figure 26's key states "minimum length is 4 byte (SI + DID + DREC)". A
+        // 3-byte message used to decode into an empty data record, so a server would attempt a
+        // zero-length write rather than answering NRC 0x13.
+        let err = <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1, 0x90])
+            .expect_err("a write with no data record must be rejected");
+        assert!(
+            matches!(
+                err,
+                Error::InsufficientData(Incomplete {
+                    needed: 3,
+                    available: 2
+                })
+            ),
+            "expected a 3-byte shortfall, got {err:?}"
+        );
+
+        // ...and the constructor must not mint a request the decoder would reject.
+        assert!(WriteDataByIdentifierRequest::new(0xF190, &[]).is_err());
+        let req = WriteDataByIdentifierRequest::new(0xF190, &[0x01]).unwrap();
+        assert_eq!(req.data, &[0x01]);
     }
 
     #[test]
     fn wdbi_request_rejects_short_buffer() {
         assert!(matches!(
             <WriteDataByIdentifierRequest as Decode>::decode(&[0xF1]),
-            Err(Error::InsufficientData(i)) if i.needed == 2 && i.available == 1
+            Err(Error::InsufficientData(i)) if i.needed == 3 && i.available == 1
         ));
     }
 }
