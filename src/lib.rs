@@ -229,9 +229,10 @@ mod no_std_api_tests {
     #[test]
     fn read_dtc_info_request_encodes_through_public_api() {
         // Public-surface construction: types reached via crate root, not shared::/services::.
-        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcByStatusMask(
-            DtcStatusMask::from(0xFF),
-        ));
+        let req = ReadDtcInfoRequest::new(
+            false,
+            ReadDtcInfoSubFunction::ReportDtcByStatusMask(DtcStatusMask::from(0xFF)),
+        );
         let mut buf = [0u8; 8];
         let written = req.encode_to_slice(&mut buf).unwrap();
         // sub=0x02 ReportDtcByStatusMask, mask=0xFF

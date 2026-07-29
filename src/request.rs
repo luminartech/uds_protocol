@@ -186,6 +186,7 @@ impl Request<'_> {
             Self::ControlDtcSetting(req) => req.suppress_positive_response,
             Self::DiagnosticSessionControl(req) => req.suppress_positive_response,
             Self::EcuReset(req) => req.suppress_positive_response,
+            Self::ReadDtcInfo(req) => req.suppress_positive_response,
             Self::RoutineControl(req) => req.suppress_positive_response,
             Self::SecurityAccess(req) => req.suppress_positive_response,
             Self::TesterPresent(req) => req.suppress_positive_response,

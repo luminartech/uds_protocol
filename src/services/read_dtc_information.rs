@@ -2,6 +2,7 @@
 
 use automotive_wire_codec::{read_u8, write_all, write_u8, write_u16_be};
 
+use crate::shared::{fuse_sprmib, split_sprmib};
 use crate::{
     Decode, DtcExtDataRecordNumber, DtcFormatIdentifier, DtcRecord, DtcSeverityMask,
     DtcSnapshotRecordNumber, DtcStatusMask, DtcStoredDataRecordNumber, Encode, Error,
@@ -20,6 +21,11 @@ const READ_DTC_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct ReadDtcInfoRequest {
+    /// Whether the server should suppress a positive response (SPRMIB).
+    ///
+    /// ISO 14229-1:2020 Table 13 requires a server to support both values for every
+    /// sub-function it supports, so this is independent of `dtc_subfunction`.
+    pub suppress_positive_response: bool,
     /// The sub-function specifying what DTC information to report.
     pub dtc_subfunction: ReadDtcInfoSubFunction,
 }
@@ -27,8 +33,14 @@ pub struct ReadDtcInfoRequest {
 impl ReadDtcInfoRequest {
     /// Create a new `ReadDtcInfoRequest`.
     #[must_use]
-    pub const fn new(dtc_subfunction: ReadDtcInfoSubFunction) -> Self {
-        Self { dtc_subfunction }
+    pub const fn new(
+        suppress_positive_response: bool,
+        dtc_subfunction: ReadDtcInfoSubFunction,
+    ) -> Self {
+        Self {
+            suppress_positive_response,
+            dtc_subfunction,
+        }
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request.
@@ -42,7 +54,15 @@ impl Encode for ReadDtcInfoRequest {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        self.dtc_subfunction.encode(writer)
+        // The sub-function byte carries SPRMIB in bit 7, so it is written here rather than by
+        // `ReadDtcInfoSubFunction::encode`, which has no way to know the flag.
+        let sub_function = fuse_sprmib(
+            self.suppress_positive_response,
+            self.dtc_subfunction.value(),
+        );
+        let mut written = write_u8(writer, sub_function).map_err(Error::io)?;
+        written += self.dtc_subfunction.encode_parameters(writer)?;
+        Ok(written)
     }
 }
 
@@ -58,7 +78,8 @@ impl<'a> Decode<'a> for ReadDtcInfoRequest {
                 available: buf.len(),
             }));
         }
-        let sub = buf[0];
+        // Bit 7 is SPRMIB, not part of the sub-function value (ISO 14229-1:2020 Table 13).
+        let (suppress_positive_response, sub) = split_sprmib(buf[0]);
         let rest = &buf[1..];
         let (dtc_subfunction, rest) = match sub {
             0x01 => {
@@ -111,7 +132,8 @@ impl<'a> Decode<'a> for ReadDtcInfoRequest {
             }
             0x17 => {
                 let (m, r) = DtcStatusMask::decode(rest)?;
-                (S::ReportUserDefMemoryDtcByStatusMask(m), r)
+                let (mem, r) = read_u8(r)?;
+                (S::ReportUserDefMemoryDtcByStatusMask(m, mem), r)
             }
             0x18 => {
                 let (rec, r) = DtcRecord::decode(rest)?;
@@ -155,7 +177,10 @@ impl<'a> Decode<'a> for ReadDtcInfoRequest {
             }
             other => (S::IsoSaeReserved(other), rest),
         };
-        Ok((ReadDtcInfoRequest::new(dtc_subfunction), rest))
+        Ok((
+            ReadDtcInfoRequest::new(suppress_positive_response, dtc_subfunction),
+            rest,
+        ))
     }
 }
 
@@ -167,7 +192,7 @@ mod read_dtc_info_request_encode_tests {
     #[test]
     fn encode_no_param_subfunction() {
         // 0x0A ReportSupportedDtc, no parameters.
-        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportSupportedDtc);
+        let req = ReadDtcInfoRequest::new(false, ReadDtcInfoSubFunction::ReportSupportedDtc);
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x0A]);
@@ -178,7 +203,8 @@ mod read_dtc_info_request_encode_tests {
     fn encode_single_param_subfunction() {
         // 0x02 ReportDtcByStatusMask(mask). DtcStatusMask is 1 byte.
         let mask = DtcStatusMask::from(0xFF);
-        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcByStatusMask(mask));
+        let req =
+            ReadDtcInfoRequest::new(false, ReadDtcInfoSubFunction::ReportDtcByStatusMask(mask));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x02, 0xFF]);
@@ -186,13 +212,81 @@ mod read_dtc_info_request_encode_tests {
     }
 
     #[test]
+    fn both_sprmib_values_round_trip_through_the_request_frame() {
+        // ISO 14229-1:2020 Table 13 requires that "values of both '0' and '1' shall be
+        // supported for all SubFunction parameter values ... supported by the server for any
+        // given service", and clause 12.3.2.2 introduces 0x19's sub-function table with
+        // "(suppressPosRspMsgIndicationBit (bit 7) not shown)". A suppressed
+        // reportDTCByStatusMask used to be rejected with TrailingBytes, because the raw 0x82
+        // fell through to IsoSaeReserved, which consumes no payload.
+        for (wire, suppressed) in [
+            ([0x19, 0x02, 0xFF].as_slice(), false),
+            ([0x19, 0x82, 0xFF].as_slice(), true),
+        ] {
+            let (req, _) = crate::Request::decode(wire).unwrap();
+            assert_eq!(
+                req.is_positive_response_suppressed(),
+                suppressed,
+                "wrong SPRMIB for {wire:02X?}"
+            );
+            let mut buf = [0u8; 8];
+            let written = req.encode_to_slice(&mut buf).unwrap();
+            assert_eq!(&buf[..written], wire, "round trip failed for {wire:02X?}");
+        }
+    }
+
+    #[test]
+    fn a_suppressed_sub_function_is_not_mistaken_for_a_reserved_one() {
+        // 0x8A is reportSupportedDTC with SPRMIB set. Matching on the raw byte decoded this as
+        // IsoSaeReserved(0x8A) and reported suppression as false, so a server built on this
+        // answered SubFunctionNotSupported to a request it was required to execute.
+        let (req, _) = <ReadDtcInfoRequest as Decode>::decode(&[0x8A]).unwrap();
+        assert_eq!(
+            req.dtc_subfunction,
+            ReadDtcInfoSubFunction::ReportSupportedDtc
+        );
+        assert!(req.suppress_positive_response);
+    }
+
+    #[test]
+    fn user_def_memory_dtc_by_status_mask_carries_a_memory_selection() {
+        // ISO 14229-1:2020 Table 310 marks both DTCStatusMask and MemorySelection `M`. The
+        // sibling sub-functions 0x18 and 0x19 (Tables 311/312) already carried theirs.
+        let wire = [0x17, 0xFF, 0x01];
+        let (req, rest) = <ReadDtcInfoRequest as Decode>::decode(&wire).unwrap();
+        assert_eq!(
+            req.dtc_subfunction,
+            ReadDtcInfoSubFunction::ReportUserDefMemoryDtcByStatusMask(
+                DtcStatusMask::from(0xFF),
+                0x01
+            )
+        );
+        assert!(rest.is_empty());
+
+        let mut buf = [0u8; 8];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &wire);
+        assert_encode_size_agrees(&req);
+    }
+
+    #[test]
+    fn user_def_memory_dtc_by_status_mask_rejects_a_missing_memory_selection() {
+        // Without the MemorySelection byte the frame is malformed, and used to be accepted
+        // while the conformant 3-parameter form was rejected as having trailing bytes.
+        assert!(<ReadDtcInfoRequest as Decode>::decode_exact(&[0x17, 0xFF]).is_err());
+    }
+
+    #[test]
     fn encode_multi_param_subfunction() {
         // 0x42 ReportWwhObdDtcByMaskRecord(group, status, severity).
-        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportWwhObdDtcByMaskRecord(
-            FunctionalGroupIdentifier::EmissionsSystemGroup,
-            DtcStatusMask::from(0x08),
-            DtcSeverityMask::CheckImmediately,
-        ));
+        let req = ReadDtcInfoRequest::new(
+            false,
+            ReadDtcInfoSubFunction::ReportWwhObdDtcByMaskRecord(
+                FunctionalGroupIdentifier::EmissionsSystemGroup,
+                DtcStatusMask::from(0x08),
+                DtcSeverityMask::CheckImmediately,
+            ),
+        );
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x42, 0x33, 0x08, 0b1000_0000]);
@@ -202,7 +296,7 @@ mod read_dtc_info_request_encode_tests {
     #[test]
     fn encode_reserved_subfunction() {
         // IsoSaeReserved carries the sub-function byte itself, no params.
-        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::IsoSaeReserved(0x57));
+        let req = ReadDtcInfoRequest::new(false, ReadDtcInfoSubFunction::IsoSaeReserved(0x57));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x57]);
@@ -214,20 +308,27 @@ mod read_dtc_info_request_encode_tests {
         use crate::Decode;
         // Encode into a scratch buffer (oracle), then decode_exact and assert round-trip fidelity.
         let cases = [
-            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportSupportedDtc),
-            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcByStatusMask(
-                DtcStatusMask::from(0xFF),
-            )),
-            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportWwhObdDtcByMaskRecord(
-                FunctionalGroupIdentifier::EmissionsSystemGroup,
-                DtcStatusMask::from(0x08),
-                DtcSeverityMask::CheckImmediately,
-            )),
-            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::IsoSaeReserved(0x57)),
-            ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcSnapshotRecordByDtcNumber(
-                DtcRecord::new(0x12, 0x34, 0x56),
-                DtcSnapshotRecordNumber::new(0x01),
-            )),
+            ReadDtcInfoRequest::new(false, ReadDtcInfoSubFunction::ReportSupportedDtc),
+            ReadDtcInfoRequest::new(
+                false,
+                ReadDtcInfoSubFunction::ReportDtcByStatusMask(DtcStatusMask::from(0xFF)),
+            ),
+            ReadDtcInfoRequest::new(
+                false,
+                ReadDtcInfoSubFunction::ReportWwhObdDtcByMaskRecord(
+                    FunctionalGroupIdentifier::EmissionsSystemGroup,
+                    DtcStatusMask::from(0x08),
+                    DtcSeverityMask::CheckImmediately,
+                ),
+            ),
+            ReadDtcInfoRequest::new(false, ReadDtcInfoSubFunction::IsoSaeReserved(0x57)),
+            ReadDtcInfoRequest::new(
+                false,
+                ReadDtcInfoSubFunction::ReportDtcSnapshotRecordByDtcNumber(
+                    DtcRecord::new(0x12, 0x34, 0x56),
+                    DtcSnapshotRecordNumber::new(0x01),
+                ),
+            ),
         ];
         for req in cases {
             let mut buf = [0u8; 16];
@@ -329,9 +430,12 @@ pub enum ReadDtcInfoSubFunction {
     ReportDtcExtDataRecordByRecordNumber(DtcExtDataRecordNumber),
 
     /// * Parameter: `DtcStatusMask`
+    /// * Parameter: `memorySelection`(1) — addresses the user-defined DTC memory to read from
+    ///
+    /// Both parameters are mandatory (ISO 14229-1:2020 Table 310).
     ///
     /// 0x17
-    ReportUserDefMemoryDtcByStatusMask(DtcStatusMask),
+    ReportUserDefMemoryDtcByStatusMask(DtcStatusMask, u8),
 
     /// Parameter: `DtcRecord` (3 bytes)
     /// Parameter: `DtcSnapshotRecordNumber`(1)
@@ -371,7 +475,15 @@ pub enum ReadDtcInfoSubFunction {
     ///
     /// 0x56
     ReportDtcInformationByDtcReadinessGroupIdentifier(FunctionalGroupIdentifier, u8),
-    /// 0x42-0x54, 0x57-0x7F
+    /// A sub-function byte this crate does not model.
+    ///
+    /// ISO 14229-1:2020 Table 317 reserves `0x00`, `0x1B`-`0x41`, `0x43`-`0x54` and
+    /// `0x57`-`0x7F`. The remaining bytes that land here are report types the crate has not
+    /// implemented yet; a server should answer those with
+    /// [`NegativeResponseCode::SubFunctionNotSupported`].
+    ///
+    /// The value never has bit 7 set: that bit is SPRMIB and is split off into
+    /// [`ReadDtcInfoRequest::suppress_positive_response`] before the sub-function is decoded.
     IsoSaeReserved(u8),
 }
 
@@ -397,7 +509,7 @@ impl ReadDtcInfoSubFunction {
             Self::ReportDtcFaultDetectionCounter => 0x14,
             Self::ReportDtcWithPermanentStatus => 0x15,
             Self::ReportDtcExtDataRecordByRecordNumber(_) => 0x16,
-            Self::ReportUserDefMemoryDtcByStatusMask(_) => 0x17,
+            Self::ReportUserDefMemoryDtcByStatusMask(_, _) => 0x17,
             Self::ReportUserDefMemoryDtcSnapshotRecordByDtcNumber(_, _, _) => 0x18,
             Self::ReportUserDefMemoryDtcExtDataRecordByDtcNumber(_, _, _) => 0x19,
             Self::ReportSupportedDtcExtDataRecord(_) => 0x1A,
@@ -409,18 +521,21 @@ impl ReadDtcInfoSubFunction {
     }
 }
 
-impl Encode for ReadDtcInfoSubFunction {
-    type Error = crate::Error;
-
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+impl ReadDtcInfoSubFunction {
+    /// Write only this sub-function's parameter bytes, not its leading sub-function byte.
+    ///
+    /// [`ReadDtcInfoRequest::encode`] writes that byte itself, because it has to fuse SPRMIB
+    /// into bit 7 and this type does not carry the flag.
+    fn encode_parameters(self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         use ReadDtcInfoSubFunction as S;
-        writer.write_all(&[self.value()]).map_err(Error::io)?;
-        let mut written = 1;
+        let mut written = 0;
         match self {
-            S::ReportNumberOfDtcByStatusMask(m)
-            | S::ReportDtcByStatusMask(m)
-            | S::ReportUserDefMemoryDtcByStatusMask(m) => {
+            S::ReportNumberOfDtcByStatusMask(m) | S::ReportDtcByStatusMask(m) => {
                 written += m.encode(writer)?;
+            }
+            S::ReportUserDefMemoryDtcByStatusMask(m, mem) => {
+                written += m.encode(writer)?;
+                written += write_u8(writer, mem).map_err(Error::io)?;
             }
             S::ReportDtcSnapshotRecordByDtcNumber(r, n) => {
                 written += r.encode(writer)?;
@@ -447,12 +562,12 @@ impl Encode for ReadDtcInfoSubFunction {
             S::ReportUserDefMemoryDtcSnapshotRecordByDtcNumber(r, n, mem) => {
                 written += r.encode(writer)?;
                 written += n.encode(writer)?;
-                written += write_u8(writer, *mem).map_err(Error::io)?;
+                written += write_u8(writer, mem).map_err(Error::io)?;
             }
             S::ReportUserDefMemoryDtcExtDataRecordByDtcNumber(r, n, mem) => {
                 written += r.encode(writer)?;
                 written += n.encode(writer)?;
-                written += write_u8(writer, *mem).map_err(Error::io)?;
+                written += write_u8(writer, mem).map_err(Error::io)?;
             }
             S::ReportWwhObdDtcByMaskRecord(g, m, s) => {
                 written += g.encode(writer)?;
@@ -464,7 +579,7 @@ impl Encode for ReadDtcInfoSubFunction {
             }
             S::ReportDtcInformationByDtcReadinessGroupIdentifier(g, rg) => {
                 written += g.encode(writer)?;
-                written += write_u8(writer, *rg).map_err(Error::io)?;
+                written += write_u8(writer, rg).map_err(Error::io)?;
             }
             S::ReportDtcSnapshotIdentification
             | S::ReportSupportedDtc
@@ -476,6 +591,22 @@ impl Encode for ReadDtcInfoSubFunction {
             | S::ReportDtcWithPermanentStatus
             | S::IsoSaeReserved(_) => {}
         }
+        Ok(written)
+    }
+}
+
+impl Encode for ReadDtcInfoSubFunction {
+    type Error = crate::Error;
+
+    /// Writes the sub-function byte with SPRMIB clear, followed by this sub-function's
+    /// parameters.
+    ///
+    /// Encode a [`ReadDtcInfoRequest`] instead to control the suppress-positive-response bit;
+    /// this impl always leaves it clear, because the flag lives on the request rather than on
+    /// the sub-function.
+    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+        let mut written = write_u8(writer, self.value()).map_err(Error::io)?;
+        written += self.encode_parameters(writer)?;
         Ok(written)
     }
 }
@@ -1027,6 +1158,7 @@ mod derive_contract {
     use crate::test_util::assert_impl_serde;
 
     const _: ReadDtcInfoRequest = ReadDtcInfoRequest::new(
+        false,
         ReadDtcInfoSubFunction::ReportDtcByStatusMask(DtcStatusMask::TestFailed),
     );
 
