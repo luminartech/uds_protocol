@@ -2,7 +2,7 @@
 
 This crate offers an ergonomic, `no_std`-friendly implementation of the UDS (ISO 14229) protocol codec in Rust.
 It targets embedded ECU diagnostics and desktop tooling alike: encoding and decoding UDS protocol messages — and custom data types — with no required allocator and no async runtime.
-It is not in a complete state yet with the 0.1.0 release, please check back soon!
+It is not in a complete state yet, please check back soon!
 
 [![Crates.io](https://img.shields.io/crates/v/uds_protocol.svg?style=for-the-badge)](https://crates.io/crates/uds_protocol)
 [![Docs.rs](https://img.shields.io/docsrs/uds_protocol?style=for-the-badge)](https://docs.rs/uds_protocol)
@@ -26,7 +26,7 @@ It is based on the ISO 14229-1:2020 standard.
 | `CommunicationControl`             | 0x28        | 0x68         | ✓       |
 | `Authentication`                   | 0x29        | 0x69         |         |
 | `ReadDataByPeriodicIdentifier`     | 0x2A        | 0x6A         |         |
-| `DynamicallyDefinedDataIdentifier` | 0x2C        | 0x6C         |         |
+| `DynamicallyDefineDataIdentifier`  | 0x2C        | 0x6C         |         |
 | `WriteDataByIdentifier`            | 0x2E        | 0x6E         | ✓       |
 | `InputOutputControlByIdentifier`   | 0x2F        | 0x6F         |         |
 | `RoutineControl`                   | 0x31        | 0x71         | ✓       |
@@ -37,11 +37,15 @@ It is based on the ISO 14229-1:2020 standard.
 | `RequestFileTransfer`              | 0x38        | 0x78         | ✓       |
 | `WriteMemoryByAddress`             | 0x3D        | 0x7D         |         |
 | `TesterPresent`                    | 0x3E        | 0x7E         | ✓       |
-| `AccessTimingParameter`            | 0x83        | 0xC3         |         |
+| `AccessTimingParameters`[^1]       | 0x83        | 0xC3         |         |
 | `SecuredDataTransmission`          | 0x84        | 0xC4         |         |
 | `ControlDtcSetting`                | 0x85        | 0xC5         | ✓       |
 | `ResponseOnEvent`                  | 0x86        | 0xC6         |         |
 | `LinkControl`                      | 0x87        | 0xC7         |         |
+
+[^1]: `AccessTimingParameters` (0x83) was defined in ISO 14229-1:2013 and removed in the 2020
+edition. `UdsServiceType` still names it so a 2013-era service byte round-trips rather than
+becoming an unrecognized `Other`, but it is not part of the standard this crate targets.
 
 ## Integration
 
@@ -82,22 +86,22 @@ you need to keep before the buffer is reused.
 
 ## Service coverage
 
-These services decode into typed \[`Request`\]/\[`Response`\] variants: `DiagnosticSessionControl`,
+These services decode into typed [`Request`]/[`Response`] variants: `DiagnosticSessionControl`,
 `EcuReset`, `SecurityAccess`, `CommunicationControl`, `TesterPresent`, `ControlDtcSetting`,
 `ReadDataByIdentifier`, `WriteDataByIdentifier`, `ClearDiagnosticInfo`, `ReadDtcInfo`,
 `RoutineControl`, `RequestDownload`, `RequestUpload`, `TransferData`, `RequestTransferExit`,
 `RequestFileTransfer`, and `NegativeResponse`.
 
-All other services enumerated in \[`UdsServiceType`\] (e.g. `Authentication`, `ReadMemoryByAddress`,
+All other services enumerated in [`UdsServiceType`] (e.g. `Authentication`, `ReadMemoryByAddress`,
 `ResponseOnEvent`) are not individually modeled. Frames for them decode into
-\[`Request::Other`\] / \[`Response::Other`\], carrying the service type and raw payload bytes for
+[`Request::Other`] / [`Response::Other`], carrying the service type and raw payload bytes for
 pass-through.
 
 ## Wire codec dependency
 
 `uds_protocol` builds its byte-level decoding on top of the [`automotive-wire-codec`](https://crates.io/crates/automotive-wire-codec)
-crate, and re-exports its `Incomplete` and `TrailingBytes` types (and, eventually, its codec
-traits) at the crate root. These types are intentionally part of `uds_protocol`'s public API:
+crate, and re-exports its `Incomplete`, `TrailingBytes` and `InvalidWidth` types and its codec
+traits (`Encode`, `Decode`, `DecodeIter`) at the crate root. These types are intentionally part of `uds_protocol`'s public API:
 they are shared across the Luminar automotive protocol crates so that callers handling multiple
 protocols see one consistent short-read/trailing-data error shape. Because of this, a semver-major
 release of `automotive-wire-codec` is a breaking change for `uds_protocol` as well.

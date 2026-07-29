@@ -74,7 +74,18 @@ pub enum NegativeResponseCode {
     /// This response code indicates that the server detected an error in the sequence of `BlockSequenceCounter` values.
     /// Note that the repetition of a `TransferDataRequest` message with a `BlockSequenceCounter` equal to the one included in the previous `TransferDataRequest` message shall be accepted by the server.
     WrongBlockSequenceCounter,
-    /// This response code indicates that the server detected an error in the sequence of `BlockSequenceCounter` values.
+    /// The request was received correctly and all its parameters were valid, but the server has
+    /// not finished the requested action and is not yet ready to accept another request.
+    ///
+    /// The server sends a final positive or negative response once the service completes, and
+    /// may repeat this code until then. It affects the application-layer timing parameters
+    /// (it extends P2\*), and per ISO 14229-1:2020 Annex A.1 the server "shall always send a
+    /// final response (positive or negative) independent of the
+    /// `suppressPosRspMsgIndicationBit` value" once it has used this code.
+    ///
+    /// Typically used while writing or erasing flash, when the programming routine cannot
+    /// service the bus. Generally supported by every service, which is why it is not listed in
+    /// the individual services' `allowed_nack_codes`.
     RequestCorrectlyReceivedResponsePending,
     /// This response code indicates that the requested action will not be taken because the server does not support the requested sub-function in the session currently active.
     /// Within the programmingSession negative response code 0x12 (subFunctionNotSupported) may optionally be reported instead of negative response code 0x7F (subFunctionNotSupportedInActiveSession).
