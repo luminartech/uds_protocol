@@ -7,6 +7,25 @@ const SPRMIB: u8 = 0x80;
 /// Mask to recover value in byte with SPRMIB
 pub(crate) const SPRMIB_VALUE_MASK: u8 = 0x7F;
 
+/// Split a sub-function byte into its SPRMIB flag and its value bits.
+///
+/// For sub-function enumerations that implement `TryFrom<u8>`, prefer
+/// [`SuppressablePositiveResponse`], which carries both halves as one value. This is for the
+/// services whose sub-function byte does not by itself determine the variant, because the
+/// variant also depends on the parameter bytes that follow it (`ReadDTCInformation`).
+pub(crate) const fn split_sprmib(byte: u8) -> (bool, u8) {
+    (byte & SPRMIB == SPRMIB, byte & SPRMIB_VALUE_MASK)
+}
+
+/// Fuse a SPRMIB flag back into a sub-function byte. The inverse of [`split_sprmib`].
+pub(crate) const fn fuse_sprmib(suppress_positive_response: bool, value: u8) -> u8 {
+    if suppress_positive_response {
+        value | SPRMIB
+    } else {
+        value
+    }
+}
+
 /// `SuppressablePositiveResponse` is used to encapsulate subfunction enumerations that can also encode the response suppression bit.
 /// This eliminates bit masking logic from a number of subfunction enumerations.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
