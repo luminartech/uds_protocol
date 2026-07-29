@@ -25,6 +25,7 @@ fn size_param_width(a: u128, b: u128) -> usize {
 #[non_exhaustive]
 pub enum FileOperationMode {
     /// ISO/SAE reserved (`0x00`, `0x07–0xFF`).
+    #[non_exhaustive]
     IsoSaeReserved(u8),
     /// Add a file to the server
     AddFile = 0x01,

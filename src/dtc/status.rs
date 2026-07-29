@@ -154,6 +154,7 @@ pub enum DtcFormatIdentifier {
 
     /// Reserved for future usage
     /// 0x05 - 0xFF
+    #[non_exhaustive]
     IsoSaeReserved(u8),
 }
 
@@ -364,6 +365,7 @@ pub enum FunctionalGroupIdentifier {
     /// 0x34 to 0xCF
     /// 0xE0 to 0xFD
     /// 0xFF
+    #[non_exhaustive]
     IsoSaeReserved(u8),
     /// 0x33
     EmissionsSystemGroup,

@@ -119,6 +119,75 @@ standard's own numbered example tables, which is what closes that gap.
 - **Breaking:** `UdsServiceType::DynamicallyDefinedDataIdentifier` is now
   `DynamicallyDefineDataIdentifier`, the name Table 23 gives service 0x2C.
 
+### Fixed — API shape
+
+- **Breaking:** `From<u32> for DtcRecord` is now `TryFrom<u32>`. It masked the top byte away, so
+  `from(0x01_0203)` and `from(0xFF01_0203)` compared equal — a caller with a DTC one byte too wide
+  got a wrong DTC and no signal. New `Error::InvalidDtcRecord`.
+
+- **Breaking:** `RequestDownloadResponse::new` / `RequestUploadResponse::new` are fallible and
+  `max_number_of_block_length` is behind an accessor. Its length becomes a single nibble, so it
+  cannot exceed 15 bytes — a check that lived in `encode`, leaving a 16-byte slice constructible
+  and only then unencodable, reachable through the public field as well.
+
+- **Breaking:** `LengthFormatIdentifier` no longer zeroes the low nibble of the
+  `lengthFormatIdentifier`, which ISO 14229-1 leaves undefined: `74 25 08 00` used to re-encode as
+  `74 20 08 00`. Same reasoning as the earlier `TesterPresentRequest` fix. Its property test had
+  generated `high_nibble << 4`, so the low nibble was always zero and the property held trivially.
+
+- **Breaking:** `NamePayload` no longer carries `mode_of_operation` — that is the
+  `RequestFileTransferRequest` variant, and nothing kept the two in step. The field won, so
+  `AddFile(NamePayload::new(DeleteFile, ..), dfi, size)` encoded a DeleteFile request and dropped
+  the format identifier and both sizes. New `RequestFileTransferRequest::mode_of_operation()`.
+
+- **Breaking:** `DtcStoredDataRecordNumber::new` is total, matching both sibling record-number
+  types, and gains `is_reserved()` plus the `PartialEq<u8>` they already had. It returned `Result`
+  while `From<u8>` accepted anything, so the invariant it advertised was not one the type held.
+
+- **Breaking:** four `Error` variants that no code path could construct are gone —
+  `NoDataAvailable`, `InvalidFileSizeParameterLength`, `InvalidDtcFormatIdentifier` and
+  `ReservedForLegislativeUse`. All were in the NRC mapping and asserted by its test, so the suite
+  was green on unreachable states.
+
+- **Breaking:** `#[non_exhaustive]` now covers the byte-carrying reserved variants of
+  `DtcFormatIdentifier`, `FunctionalGroupIdentifier`, `FileOperationMode` and
+  `ReadDtcInfoSubFunction`, matching the four sub-function enums that already had it. Naming one
+  directly let a caller build a value that aliases a named variant — `IsoSaeReserved(0x01)` is not
+  equal to `Iso14229_1DtcFormat` but encodes the same byte, so `PartialEq` silently stopped meaning
+  wire equality.
+
+- **Breaking:** `fault_detection_iter` is `dtc_fault_detection_iter`, matching
+  `DtcFaultDetectionIter`; and `clap::Parser` is gone from `UdsIdentifier`, where it had made a
+  53-variant data enum into a CLI parser with a `parse()` that reads `std::env::args`.
+
+- `Request` and `Response` derive `Eq`/`PartialEq`; every payload type already did, so `assert_eq!`
+  worked on a payload but not on the frame holding it.
+
+- Byte extraction is now `const` on the five types that had only a non-const `From`
+  (`NegativeResponseCode`, `DtcFormatIdentifier`, `FileOperationMode`, `DataFormatIdentifier`,
+  `CommunicationControlType`, plus `DtcRecord::to_u32`). A `const` server dispatch table could be
+  built but not read. Adding `CommunicationControlType::value()` also makes
+  `CommunicationControlRequest::new` and `::new_with_node_id` `const` — all 47 constructors now are.
+
+### Fixed — test integrity
+
+Mutation testing over the suite found 11 of 23 mutants surviving. The gaps, now closed: no test
+had ever asserted a value the DTC iterators yield, or any of the four header fields of the 0x42
+response; `allowed_nack_codes` dispatch asserted only `!is_empty()`, so any of 16 arms could return
+another service's table; the misaligned-record-list test never covered a list shorter than one
+record, the boundary it exists for; the iterator-termination test drained unbounded, so a
+regression hung `cargo test` rather than failing it; and six "round-trip" tests encoded into a
+buffer they never read.
+
+Ten codec tests were gated on `alloc` only because they used `Vec` as a writer. With stack buffers
+the no_std configuration — the one the crate targets first — now runs 236 tests rather than 186,
+and `clippy --no-default-features --all-targets` went from 21 warnings to zero.
+
+`assert_encode_size_agrees`' doc comment now says what it does not prove: `encoded_size` counts by
+encoding into a sink, so every quantity it compares comes from `encode` itself and none of them
+constrain *which* bytes are written. Reading its call sites as byte-correctness coverage is what
+made the two gaps above possible.
+
 ### Fixed — documentation
 
 - `NegativeResponseCode::RequestCorrectlyReceivedResponsePending` (0x78) carried 0x73's

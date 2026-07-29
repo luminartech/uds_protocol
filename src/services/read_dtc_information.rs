@@ -499,6 +499,7 @@ pub enum ReadDtcInfoSubFunction {
     ///
     /// The value never has bit 7 set: that bit is SPRMIB and is split off into
     /// [`ReadDtcInfoRequest::suppress_positive_response`] before the sub-function is decoded.
+    #[non_exhaustive]
     IsoSaeReserved(u8),
 }
 
