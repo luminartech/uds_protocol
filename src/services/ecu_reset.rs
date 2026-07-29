@@ -1,7 +1,7 @@
 //! `ECUReset` (0x11) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{write_all, write_u8};
+use automotive_wire_codec::write_u8;
 
 /// UDS defines a number of different types of resets that can be requested
 /// The reset type is used to specify the type of reset that the ECU should perform
@@ -251,17 +251,39 @@ impl<'a> Decode<'a> for EcuResetRequest {
 pub struct EcuResetResponse {
     /// The reset type echoed from the request.
     pub reset_type: ResetType,
-    /// Time in seconds before the server powers down (`0x00` = not available).
-    pub power_down_time: u8,
+    /// Minimum stand-by time the server will remain in the power-down sequence, at one second
+    /// per count.
+    ///
+    /// `0x00`-`0xFE` are 0 to 254 seconds; `0xFF` indicates a failure or that the time is not
+    /// available (ISO 14229-1:2020 Table 36).
+    ///
+    /// `None` means the byte is absent from the wire, which is the ordinary case: the parameter
+    /// is marked `C` (conditional) in Table 35 and is present only when `reset_type` is
+    /// [`ResetType::EnableRapidPowerShutDown`]. `None` is therefore distinct from `Some(0)`,
+    /// which is a server reporting zero seconds.
+    pub power_down_time: Option<u8>,
 }
 
 impl EcuResetResponse {
-    /// Create a new '`EcuResetResponse`'
+    /// Create a response that carries no `powerDownTime`, which is every reset type except
+    /// [`ResetType::EnableRapidPowerShutDown`].
     #[must_use]
-    pub const fn new(reset_type: ResetType, power_down_time: u8) -> Self {
+    pub const fn new(reset_type: ResetType) -> Self {
         Self {
             reset_type,
-            power_down_time,
+            power_down_time: None,
+        }
+    }
+
+    /// Create a response that reports a `powerDownTime`, as
+    /// [`ResetType::EnableRapidPowerShutDown`] requires.
+    ///
+    /// Pass `0xFF` to report a failure or that the time is not available.
+    #[must_use]
+    pub const fn new_with_power_down_time(reset_type: ResetType, power_down_time: u8) -> Self {
+        Self {
+            reset_type,
+            power_down_time: Some(power_down_time),
         }
     }
 }
@@ -270,30 +292,41 @@ impl Encode for EcuResetResponse {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_all(writer, &[u8::from(self.reset_type), self.power_down_time]).map_err(Error::io)
+        let mut written = write_u8(writer, u8::from(self.reset_type)).map_err(Error::io)?;
+        if let Some(power_down_time) = self.power_down_time {
+            written += write_u8(writer, power_down_time).map_err(Error::io)?;
+        }
+        Ok(written)
     }
 }
 
 impl<'a> Decode<'a> for EcuResetResponse {
     type Error = crate::Error;
 
+    /// The `resetType` echo is mandatory; a second byte, if present, is the conditional
+    /// `powerDownTime` (ISO 14229-1:2020 Table 35, `Cvt` = `C`).
+    ///
+    /// Presence is taken from the wire rather than inferred from `resetType`, so a response
+    /// from a server that sends the byte outside `enableRapidPowerShutDown` still round-trips
+    /// unchanged.
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        if buf.is_empty() {
+        let [reset_type, rest @ ..] = buf else {
             return Err(Error::InsufficientData(Incomplete {
                 needed: 1,
                 available: buf.len(),
             }));
-        }
-        let reset_type = ResetType::try_from(buf[0])?;
-        // powerDownTime is conditional per ISO 14229-1
-        let power_down_time = buf.get(1).copied().unwrap_or(0);
-        let consumed = core::cmp::min(buf.len(), 2);
+        };
+        let reset_type = ResetType::try_from(*reset_type)?;
+        let (power_down_time, rest) = match rest {
+            [] => (None, rest),
+            [time, tail @ ..] => (Some(*time), tail),
+        };
         Ok((
             Self {
                 reset_type,
                 power_down_time,
             },
-            &buf[consumed..],
+            rest,
         ))
     }
 }
@@ -331,15 +364,57 @@ mod response {
     #[cfg(feature = "alloc")]
     #[test]
     fn ecu_reset_response() {
-        let bytes: [u8; 2] = [0x01, 0x20];
-        let resp = EcuResetResponse::new(ResetType::HardReset, 0x20);
+        let bytes: [u8; 2] = [0x04, 0x20];
+        let resp =
+            EcuResetResponse::new_with_power_down_time(ResetType::EnableRapidPowerShutDown, 0x20);
         let mut buffer = Vec::new();
         let written = Encode::encode(&resp, &mut buffer).unwrap();
         let (result, _) = <EcuResetResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(result, resp);
 
+        // The encoded bytes themselves, not just their count: without this the two halves of
+        // the test are disconnected and swapping the two written bytes goes unnoticed.
+        assert_eq!(buffer, bytes);
         assert_eq!(written, 2);
         assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
+    }
+
+    #[test]
+    fn a_reset_type_without_a_power_down_time_encodes_one_byte() {
+        // ISO 14229-1:2020 Table 35 marks powerDownTime `C`, present only when the
+        // sub-function is enableRapidPowerShutDown (0x04). Table 39's positive-response flow
+        // example for hardReset is two bytes on the wire: `51 01`.
+        let resp = EcuResetResponse::new(ResetType::HardReset);
+        assert_eq!(resp.power_down_time, None);
+
+        let mut buf = [0u8; 4];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &[0x01]);
+        assert_encode_size_agrees(&resp);
+    }
+
+    #[test]
+    fn a_response_without_a_power_down_time_round_trips_unchanged() {
+        // Decoding and re-encoding must not invent a powerDownTime byte. This used to append
+        // a spurious 0x00, so any proxy that decoded and re-encoded ECU traffic rewrote every
+        // positive response except enableRapidPowerShutDown's.
+        for wire in [[0x51, 0x01].as_slice(), [0x51, 0x04, 0x20].as_slice()] {
+            let (resp, _) = crate::Response::decode(wire).unwrap();
+            let mut buf = [0u8; 8];
+            let written = resp.encode_to_slice(&mut buf).unwrap();
+            assert_eq!(&buf[..written], wire, "round trip failed for {wire:02X?}");
+        }
+    }
+
+    #[test]
+    fn an_absent_power_down_time_is_distinguishable_from_a_reported_zero() {
+        // 0x00 means "0 seconds" per Table 36; 0xFF is the failure/not-available sentinel.
+        // Conflating absent with 0 loses that distinction.
+        let (absent, _) = <EcuResetResponse as Decode>::decode(&[0x01]).unwrap();
+        let (zero, _) = <EcuResetResponse as Decode>::decode(&[0x01, 0x00]).unwrap();
+        assert_eq!(absent.power_down_time, None);
+        assert_eq!(zero.power_down_time, Some(0));
+        assert_ne!(absent, zero);
     }
 }
