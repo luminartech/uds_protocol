@@ -194,11 +194,26 @@ impl Request<'_> {
         }
     }
 
-    /// The [`NegativeResponseCode`]s this request's service is allowed to be answered with.
+    /// The [`NegativeResponseCode`]s ISO 14229-1 **lists** for this request's service.
     ///
     /// Each request type also exposes this as an associated function (e.g.
     /// [`EcuResetRequest::allowed_nack_codes`]); this dispatches to it for a decoded
     /// [`Request`], so a server does not have to re-match every variant to reach it.
+    ///
+    /// # This is a floor, not a ceiling — do not use it as a validation whitelist
+    ///
+    /// Clause 9.4: the Annex A.1 codes "shall be used **in addition to** the negative response
+    /// codes specified in each service description", and A.1 itself says a server "may also
+    /// utilise additional and applicable negative response codes … as defined by the vehicle
+    /// manufacturer". A.1 deliberately keeps the generally-supported codes out of the
+    /// per-service tables and says so per code — including `0x78`
+    /// [`RequestCorrectlyReceivedResponsePending`](NegativeResponseCode::RequestCorrectlyReceivedResponsePending),
+    /// which appears in **none** of these tables and is one of the most common codes in real
+    /// traffic. A client that rejected any NRC absent from this slice would reject every
+    /// `ResponsePending` it ever saw.
+    ///
+    /// Read it as "the codes the standard tabulates for this service", which is useful for
+    /// building a tester UI or a conformance report, and not as the set a server may send.
     ///
     /// Returns an empty slice for [`Request::Other`], which covers services the crate does not
     /// model. That means "the NRC set is unknown", not "no codes apply" — consult ISO 14229-1
@@ -313,6 +328,11 @@ mod tests {
         // Each frame is paired with the inherent table it must dispatch to. Asserting only
         // `!is_empty()` made the test vacuous: every modeled service has a non-empty table, so
         // any arm could return any *other* service's set and still pass.
+        //
+        // Two pairs remain indistinguishable, and that is correct rather than a gap: ISO gives
+        // CommunicationControl and ControlDTCSetting the same four codes, and Tables 444 and 449
+        // give RequestDownload and RequestUpload the same six. Swapping either pair's arms is
+        // unobservable because the answer is the same, so there is nothing here to pin.
         let frames: [(&[u8], &'static [NegativeResponseCode]); 16] = [
             (
                 &[0x14, 0xFF, 0xFF, 0xFF, 0x00],
