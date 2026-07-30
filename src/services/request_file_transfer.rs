@@ -163,8 +163,17 @@ pub struct NamePayload<'a> {
     /// The path and name of the file or directory on the server.
     ///
     /// The on-wire length prefix is derived from this field during encoding, so it can
-    /// never disagree with the name it describes.
-    pub file_path_and_name: &'a str,
+    /// never disagree with the name it describes. Private because that prefix is two bytes
+    /// wide, which bounds the name; read it back with
+    /// [`NamePayload::file_path_and_name`](Self::file_path_and_name).
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            borrow,
+            deserialize_with = "crate::shared::bounded::str_within_u16_len"
+        )
+    )]
+    file_path_and_name: &'a str,
 }
 
 impl<'a> NamePayload<'a> {
@@ -185,6 +194,12 @@ impl<'a> NamePayload<'a> {
             return Err(Error::IncorrectMessageLengthOrInvalidFormat);
         }
         Ok(Self { file_path_and_name })
+    }
+
+    /// The path and name of the file or directory on the server.
+    #[must_use]
+    pub const fn file_path_and_name(&self) -> &'a str {
+        self.file_path_and_name
     }
 }
 
@@ -314,7 +329,18 @@ pub struct SentDataPayload<'a> {
     /// affect the memory address of where the subsequent transferData request data would be written.
     /// If the modeOfOperation parameter equals to 0x02 (`DeleteFile`) this parameter shall be not be included in the
     /// response message.
-    pub max_number_of_block_length: &'a [u8],
+    ///
+    /// Private because the `lengthFormatIdentifier` that declares its length is one byte wide,
+    /// which bounds it; read it back with
+    /// [`SentDataPayload::max_number_of_block_length`](Self::max_number_of_block_length).
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            borrow,
+            deserialize_with = "crate::shared::bounded::bytes_within_u8_len"
+        )
+    )]
+    max_number_of_block_length: &'a [u8],
 }
 
 impl<'a> SentDataPayload<'a> {
@@ -334,6 +360,13 @@ impl<'a> SentDataPayload<'a> {
         Ok(Self {
             max_number_of_block_length,
         })
+    }
+
+    /// How many data bytes to include in each `TransferData` message, as the raw big-endian
+    /// bytes the server sent.
+    #[must_use]
+    pub const fn max_number_of_block_length(&self) -> &'a [u8] {
+        self.max_number_of_block_length
     }
 }
 

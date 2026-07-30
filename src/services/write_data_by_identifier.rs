@@ -25,8 +25,15 @@ pub struct WriteDataByIdentifierRequest<'d> {
     /// the big-endian encoding is handled on the wire.
     pub identifier: u16,
     /// The opaque data record written after the identifier.
-    #[cfg_attr(feature = "serde", serde(borrow))]
-    pub data: &'d [u8],
+    ///
+    /// Private because it carries an invariant: ISO 14229-1:2020 Table 277 marks `dataRecord`
+    /// byte #1 mandatory, so an empty record encodes to a frame this crate's own decoder
+    /// rejects. Read it back with [`WriteDataByIdentifierRequest::data`].
+    #[cfg_attr(
+        feature = "serde",
+        serde(borrow, deserialize_with = "crate::shared::bounded::non_empty_bytes")
+    )]
+    data: &'d [u8],
 }
 
 impl<'d> WriteDataByIdentifierRequest<'d> {
@@ -42,6 +49,12 @@ impl<'d> WriteDataByIdentifierRequest<'d> {
             return Err(Error::IncorrectMessageLengthOrInvalidFormat);
         }
         Ok(Self { identifier, data })
+    }
+
+    /// The opaque data record written after the identifier. Never empty.
+    #[must_use]
+    pub const fn data(&self) -> &'d [u8] {
+        self.data
     }
 
     /// Get the allowed [`NegativeResponseCode`] variants for this request.
