@@ -329,7 +329,7 @@ mod test {
         (UdsServiceType::CommunicationControl, 0x28, 0x68),
         (UdsServiceType::Authentication, 0x29, 0x69),
         (UdsServiceType::ReadDataByIdentifierPeriodic, 0x2A, 0x6A),
-        (UdsServiceType::DynamicallyDefinedDataIdentifier, 0x2C, 0x6C),
+        (UdsServiceType::DynamicallyDefineDataIdentifier, 0x2C, 0x6C),
         (UdsServiceType::WriteDataByIdentifier, 0x2E, 0x6E),
         (UdsServiceType::InputOutputControlByIdentifier, 0x2F, 0x6F),
         (UdsServiceType::RoutineControl, 0x31, 0x71),
