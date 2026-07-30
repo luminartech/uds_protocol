@@ -21,7 +21,10 @@ pub use dtc::{
 };
 
 mod shared;
-pub use shared::{DataFormatIdentifier, NegativeResponseCode, UdsIdentifier, UdsRoutineIdentifier};
+pub use shared::{
+    AddressAndLengthFormatIdentifier, DataFormatIdentifier, NegativeResponseCode, UdsIdentifier,
+    UdsRoutineIdentifier,
+};
 
 mod request;
 pub use request::Request;

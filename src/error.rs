@@ -53,6 +53,13 @@ pub enum Error {
     /// The memory address value is out of the valid range.
     #[error("Invalid Memory Address: {0}")]
     InvalidMemoryAddress(u64),
+    /// The memory size does not fit the width the `addressAndLengthFormatIdentifier` declares
+    /// for it, so encoding it would truncate the value on the wire.
+    ///
+    /// Tables 444 and 449 put a `memorySize` that "is not valid" on NRC 0x31, like
+    /// [`Error::InvalidMemoryAddress`].
+    #[error("Invalid Memory Size: {0}")]
+    InvalidMemorySize(u32),
     /// The `addressAndLengthFormatIdentifier` byte declares a width ISO does not permit.
     ///
     /// ISO 14229-1:2020 Annex H Table H.1 marks the high nibble (`memorySize`) applicable for
@@ -170,6 +177,7 @@ impl Error {
             // A parameter value is outside its permitted range.
             Self::InvalidCommunicationType(_)
             | Self::InvalidMemoryAddress(_)
+            | Self::InvalidMemorySize(_)
             | Self::InvalidAddressAndLengthFormatIdentifier(_)
             | Self::InvalidDtcRecord(_)
             | Self::InvalidEncryptionCompressionMethod(_)
@@ -325,6 +333,11 @@ mod nrc_mapping_tests {
                 Error::InvalidAddressAndLengthFormatIdentifier(0x00),
                 0x31,
                 "addressAndLengthFormatIdentifier outside Table H.1",
+            ),
+            (
+                Error::InvalidMemorySize(0x1_0000),
+                0x31,
+                "memorySize wider than its declared width",
             ),
         ]
         .into_iter()

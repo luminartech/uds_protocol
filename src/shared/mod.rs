@@ -13,8 +13,5 @@ pub(crate) use suppressable_positive_response::{
 };
 
 mod format_identifiers;
-pub use format_identifiers::DataFormatIdentifier;
-pub(crate) use format_identifiers::{
-    LengthFormatIdentifier, MAX_MEMORY_ADDRESS_LENGTH, MAX_MEMORY_SIZE_LENGTH,
-    MemoryFormatIdentifier,
-};
+pub(crate) use format_identifiers::LengthFormatIdentifier;
+pub use format_identifiers::{AddressAndLengthFormatIdentifier, DataFormatIdentifier};

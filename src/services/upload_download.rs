@@ -8,8 +8,7 @@
 //! truth; a fix to the width-derivation logic cannot land on one service and miss the other.
 
 use crate::shared::{
-    DataFormatIdentifier, LengthFormatIdentifier, MAX_MEMORY_ADDRESS_LENGTH,
-    MAX_MEMORY_SIZE_LENGTH, MemoryFormatIdentifier,
+    AddressAndLengthFormatIdentifier, DataFormatIdentifier, LengthFormatIdentifier,
 };
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 use automotive_wire_codec::{read_be_uint_into, write_all, write_be_uint, write_u8};
@@ -66,7 +65,7 @@ macro_rules! upload_download_service {
             data_format_identifier: DataFormatIdentifier,
             /// 7-4: length (# of bytes) of `memory_size` param, 3-0: length (# of bytes) of
             /// `memory_address` param
-            address_and_length_format_identifier: MemoryFormatIdentifier,
+            address_and_length_format_identifier: AddressAndLengthFormatIdentifier,
             /// Starting address of the server memory. The on-wire byte width is derived from
             /// this value (max 5 bytes), so it is private to keep it in sync with the format
             /// identifier.
@@ -78,10 +77,17 @@ macro_rules! upload_download_service {
         }
 
         impl $req {
-            #[doc = concat!("Create a new `", stringify!($req), "`")]
+            #[doc = concat!("Create a new `", stringify!($req), "` with the narrowest widths that")]
+            /// hold the given values.
+            ///
+            /// This is the common case. Use
+            #[doc = concat!("[`new_with_alfid`](", stringify!($req), "::new_with_alfid)")]
+            /// when the server mandates a particular `addressAndLengthFormatIdentifier`.
             ///
             /// # Errors
-            /// Returns an error if `memory_address` exceeds 5 bytes (> `0xFF_FFFF_FFFF`).
+            /// Returns [`Error::InvalidMemoryAddress`] if `memory_address` needs more than the
+            /// 5 bytes the format identifier's low nibble can declare (i.e. exceeds
+            /// `0xFF_FFFF_FFFF`). `memory_size` is a `u32`, so it always fits four.
             #[allow(clippy::cast_possible_truncation)]
             pub const fn new(
                 data_format_identifier: DataFormatIdentifier,
@@ -91,71 +97,76 @@ macro_rules! upload_download_service {
                 if memory_address > 0xFF_FFFF_FFFF {
                     return Err(Error::InvalidMemoryAddress(memory_address));
                 }
-                // A length of 0 produces an invalid `MemoryFormatIdentifier` (the nibbles
-                // must be >=1 per ISO-14229), so clamp to at least one byte even when the
-                // address or size is 0. Written as `if` rather than `.max(1)` because
-                // `Ord::max` is not callable in a `const fn`.
+                // A width of 0 is "not applicable" in Table H.1, so clamp to one byte even when
+                // the value is 0. Written as `if` rather than `.max(1)` because `Ord::max` is not
+                // callable in a `const fn`.
                 let address_bytes = (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
                 let memory_address_length = if address_bytes == 0 { 1 } else { address_bytes };
                 let size_bytes = (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
                 let memory_size_length = if size_bytes == 0 { 1 } else { size_bytes };
-                let address_and_length_format_identifier = MemoryFormatIdentifier {
+                // Delegate rather than build the value here, so there is exactly one path that
+                // decides whether a (value, width) pair is acceptable. These two used to be
+                // independent, and disagreed: the same over-wide address produced
+                // `InvalidMemoryAddress` from one and `IncorrectMessageLengthOrInvalidFormat`
+                // from the other, i.e. NRC 0x31 versus 0x13 for one input.
+                match AddressAndLengthFormatIdentifier::new(
                     memory_size_length,
                     memory_address_length,
-                };
+                ) {
+                    Ok(alfid) => Self::new_with_alfid(
+                        data_format_identifier,
+                        alfid,
+                        memory_address,
+                        memory_size,
+                    ),
+                    Err(e) => Err(e),
+                }
+            }
+
+            #[doc = concat!("Create a `", stringify!($req), "` with a caller-chosen")]
+            /// `addressAndLengthFormatIdentifier`.
+            ///
+            /// ISO 14229-1:2020 Table 441 makes the format identifier a client choice rather than
+            /// a function of the values, and clause 11.3.1 blesses "a **fixed**
+            /// addressAndLengthFormatIdentifier" with the unused bytes "padded with the value
+            /// 0x00". The standard's own examples are non-minimal — Table 462 declares three
+            /// `memorySize` bytes for `0x00FFFF`, which needs two — so [`new`](Self::new), which
+            /// always derives the narrowest widths, cannot reproduce them. This can.
+            ///
+            /// # Errors
+            /// Returns [`Error::InvalidMemoryAddress`] or [`Error::InvalidMemorySize`] if the
+            /// value does not fit the width `alfid` declares for it, which would otherwise
+            /// truncate it on the wire. Both map to NRC `0x31`, as Tables 444 and 449 require for
+            /// a `memoryAddress`/`memorySize` that "is not valid".
+            pub const fn new_with_alfid(
+                data_format_identifier: DataFormatIdentifier,
+                alfid: AddressAndLengthFormatIdentifier,
+                memory_address: u64,
+                memory_size: u32,
+            ) -> Result<Self, Error> {
+                // A width of n bytes holds values below 1 << (8 * n). Shifted and compared as
+                // u128 so the widest case cannot overflow.
+                if (memory_address as u128) >= (1u128 << (8 * alfid.memory_address_length() as u32))
+                {
+                    return Err(Error::InvalidMemoryAddress(memory_address));
+                }
+                if (memory_size as u128) >= (1u128 << (8 * alfid.memory_size_length() as u32)) {
+                    return Err(Error::InvalidMemorySize(memory_size));
+                }
                 Ok(Self {
                     data_format_identifier,
-                    address_and_length_format_identifier,
+                    address_and_length_format_identifier: alfid,
                     memory_address,
                     memory_size,
                 })
             }
 
-            #[doc = concat!("Create a `", stringify!($req), "` with client-chosen field widths.")]
-            ///
-            /// ISO 14229-1:2020 Table 441 makes the `addressAndLengthFormatIdentifier` a
-            /// client choice rather than a function of the values, and many bootloaders
-            /// require a particular one (often `0x44`) and answer `requestOutOfRange`
-            /// otherwise. [`new`](Self::new) always derives the *minimal* widths, so it cannot
-            /// express a wider-than-minimal declaration; this can.
-            ///
-            /// Widths are in bytes: `memory_address_length` may be 1 through 5 and
-            /// `memory_size_length` 1 through 4 (Annex H Table H.1).
-            ///
-            /// # Errors
-            /// Returns [`Error::IncorrectMessageLengthOrInvalidFormat`] if either width is
-            /// outside the range Table H.1 permits, or if a value does not fit in the width
-            /// declared for it — which would otherwise truncate it on the wire.
-            pub const fn new_with_widths(
-                data_format_identifier: DataFormatIdentifier,
-                memory_address: u64,
-                memory_address_length: u8,
-                memory_size: u32,
-                memory_size_length: u8,
-            ) -> Result<Self, Error> {
-                if memory_address_length < 1
-                    || memory_address_length > MAX_MEMORY_ADDRESS_LENGTH
-                    || memory_size_length < 1
-                    || memory_size_length > MAX_MEMORY_SIZE_LENGTH
-                {
-                    return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-                }
-                // A width of n bytes holds values below 1 << (8 * n). Shifting is done on u128
-                // so the 8-byte case cannot overflow, and compared in u128 for the same reason.
-                if (memory_address as u128) >= (1u128 << (8 * memory_address_length as u32))
-                    || (memory_size as u128) >= (1u128 << (8 * memory_size_length as u32))
-                {
-                    return Err(Error::IncorrectMessageLengthOrInvalidFormat);
-                }
-                Ok(Self {
-                    data_format_identifier,
-                    address_and_length_format_identifier: MemoryFormatIdentifier {
-                        memory_size_length,
-                        memory_address_length,
-                    },
-                    memory_address,
-                    memory_size,
-                })
+            /// The widths this request declares for `memoryAddress` and `memorySize`.
+            #[must_use]
+            pub const fn address_and_length_format_identifier(
+                &self,
+            ) -> AddressAndLengthFormatIdentifier {
+                self.address_and_length_format_identifier
             }
 
             /// The compression and encryption methods the client asked the server to use.
@@ -204,10 +215,9 @@ macro_rules! upload_download_service {
         #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
         struct $repr {
             data_format_identifier: DataFormatIdentifier,
+            address_and_length_format_identifier: AddressAndLengthFormatIdentifier,
             memory_address: u64,
-            memory_address_length: u8,
             memory_size: u32,
-            memory_size_length: u8,
         }
 
         #[cfg(feature = "serde")]
@@ -215,12 +225,11 @@ macro_rules! upload_download_service {
             type Error = Error;
 
             fn try_from(repr: $repr) -> Result<Self, Error> {
-                Self::new_with_widths(
+                Self::new_with_alfid(
                     repr.data_format_identifier,
+                    repr.address_and_length_format_identifier,
                     repr.memory_address,
-                    repr.memory_address_length,
                     repr.memory_size,
-                    repr.memory_size_length,
                 )
             }
         }
@@ -230,14 +239,10 @@ macro_rules! upload_download_service {
             fn from(request: $req) -> Self {
                 Self {
                     data_format_identifier: request.data_format_identifier,
+                    address_and_length_format_identifier: request
+                        .address_and_length_format_identifier,
                     memory_address: request.memory_address,
-                    memory_address_length: request
-                        .address_and_length_format_identifier
-                        .memory_address_length,
                     memory_size: request.memory_size,
-                    memory_size_length: request
-                        .address_and_length_format_identifier
-                        .memory_size_length,
                 }
             }
         }
@@ -282,9 +287,10 @@ macro_rules! upload_download_service {
 
                 let addr_len = self
                     .address_and_length_format_identifier
-                    .memory_address_length as usize;
-                let size_len =
-                    self.address_and_length_format_identifier.memory_size_length as usize;
+                    .memory_address_length() as usize;
+                let size_len = self
+                    .address_and_length_format_identifier
+                    .memory_size_length() as usize;
                 written += write_be_uint(writer, u128::from(self.memory_address), addr_len)?;
                 written += write_be_uint(writer, u128::from(self.memory_size), size_len)?;
 
@@ -303,9 +309,9 @@ macro_rules! upload_download_service {
                     }));
                 }
                 let data_format_identifier = DataFormatIdentifier::from(buf[0]);
-                let memory_identifier = MemoryFormatIdentifier::try_from(buf[1])?;
-                let addr_len = memory_identifier.memory_address_length as usize;
-                let size_len = memory_identifier.memory_size_length as usize;
+                let memory_identifier = AddressAndLengthFormatIdentifier::try_from(buf[1])?;
+                let addr_len = memory_identifier.memory_address_length() as usize;
+                let size_len = memory_identifier.memory_size_length() as usize;
                 let total = 2 + addr_len + size_len;
                 if buf.len() < total {
                     return Err(Error::InsufficientData(Incomplete {
@@ -435,12 +441,12 @@ macro_rules! upload_download_service {
                 assert_eq!(u8::from(req.data_format_identifier), 0);
                 assert_eq!(u8::from(req.address_and_length_format_identifier), 0x14);
                 assert_eq!(
-                    req.address_and_length_format_identifier.memory_size_length,
+                    req.address_and_length_format_identifier.memory_size_length(),
                     1
                 );
                 assert_eq!(
                     req.address_and_length_format_identifier
-                        .memory_address_length,
+                        .memory_address_length(),
                     4
                 );
 
@@ -466,11 +472,11 @@ macro_rules! upload_download_service {
                 let req = $req::new(0x00.into(), 0, 0).unwrap();
                 assert_eq!(
                     req.address_and_length_format_identifier
-                        .memory_address_length,
+                        .memory_address_length(),
                     1
                 );
                 assert_eq!(
-                    req.address_and_length_format_identifier.memory_size_length,
+                    req.address_and_length_format_identifier.memory_size_length(),
                     1
                 );
 
@@ -531,12 +537,11 @@ macro_rules! upload_download_service {
                 // which always derives minimal widths, cannot produce that frame. Real
                 // bootloaders commonly mandate a fixed ALFID (often 0x44) and answer
                 // requestOutOfRange otherwise.
-                let req = $req::new_with_widths(
+                let req = $req::new_with_alfid(
                     DataFormatIdentifier::from(0x11),
+                    AddressAndLengthFormatIdentifier::new(3, 3).unwrap(),
                     0x0060_2000,
-                    3,
                     0x0000_FFFF,
-                    3,
                 )
                 .unwrap();
                 let mut buf = [0u8; 16];
@@ -556,16 +561,47 @@ macro_rules! upload_download_service {
             #[test]
             fn explicit_widths_reject_a_value_that_does_not_fit() {
                 // A declared width narrower than the value would silently truncate on the wire.
-                assert!(
-                    $req::new_with_widths(DataFormatIdentifier::NONE, 0x1_0000, 2, 1, 1).is_err()
-                );
-                assert!(
-                    $req::new_with_widths(DataFormatIdentifier::NONE, 1, 1, 0x1_0000, 2).is_err()
-                );
-                // ...and the widths themselves must be ones Table H.1 permits.
-                assert!($req::new_with_widths(DataFormatIdentifier::NONE, 1, 0, 1, 1).is_err());
-                assert!($req::new_with_widths(DataFormatIdentifier::NONE, 1, 6, 1, 1).is_err());
-                assert!($req::new_with_widths(DataFormatIdentifier::NONE, 1, 1, 1, 5).is_err());
+                // Both of these are NRC 0x31 per Tables 444 and 449, and they name which
+                // parameter was at fault rather than collapsing to one length error.
+                let two_byte_address = AddressAndLengthFormatIdentifier::new(1, 2).unwrap();
+                assert!(matches!(
+                    $req::new_with_alfid(
+                        DataFormatIdentifier::NONE,
+                        two_byte_address,
+                        0x1_0000,
+                        1
+                    ),
+                    Err(Error::InvalidMemoryAddress(0x1_0000))
+                ));
+                let two_byte_size = AddressAndLengthFormatIdentifier::new(2, 1).unwrap();
+                assert!(matches!(
+                    $req::new_with_alfid(DataFormatIdentifier::NONE, two_byte_size, 1, 0x1_0000),
+                    Err(Error::InvalidMemorySize(0x1_0000))
+                ));
+
+                // ...and the widths themselves must be ones Table H.1 permits. That check now
+                // lives on the format identifier, so it cannot be reached with a bad width.
+                assert!(AddressAndLengthFormatIdentifier::new(1, 0).is_err());
+                assert!(AddressAndLengthFormatIdentifier::new(1, 6).is_err());
+                assert!(AddressAndLengthFormatIdentifier::new(5, 1).is_err());
+            }
+
+            #[test]
+            fn both_constructors_reject_an_over_wide_address_the_same_way() {
+                // These were independent code paths that disagreed: the same over-wide address
+                // produced InvalidMemoryAddress from `new` and IncorrectMessageLengthOrInvalidFormat
+                // from the explicit-width constructor -- NRC 0x31 versus 0x13 for one input.
+                // `new` now derives its widths and delegates, so there is one decision.
+                let too_wide = 0x1_0000_0000_0000u64;
+                let widest = AddressAndLengthFormatIdentifier::new(4, 5).unwrap();
+                assert!(matches!(
+                    $req::new(DataFormatIdentifier::NONE, too_wide, 0x10),
+                    Err(Error::InvalidMemoryAddress(a)) if a == too_wide
+                ));
+                assert!(matches!(
+                    $req::new_with_alfid(DataFormatIdentifier::NONE, widest, too_wide, 0x10),
+                    Err(Error::InvalidMemoryAddress(a)) if a == too_wide
+                ));
             }
 
             #[test]
