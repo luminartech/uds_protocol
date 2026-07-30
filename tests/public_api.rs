@@ -94,7 +94,7 @@ fn the_two_length_bounded_payloads_reject_an_unencodable_value() {
     assert!(SentDataPayload::new(&[0u8; 256]).is_err());
 
     let short = NamePayload::new("/a").expect("a two-character name fits");
-    assert_eq!(short.file_path_and_name, "/a");
+    assert_eq!(short.file_path_and_name(), "/a");
 }
 
 #[cfg(feature = "serde")]
@@ -162,6 +162,61 @@ fn a_reserved_variant_cannot_alias_a_named_one() {
 /// that deserializing cannot build a value `new`/`try_from` would have rejected.
 #[cfg(feature = "serde")]
 mod serde_cannot_bypass_validation {
+    #[test]
+    fn a_length_bounded_borrowed_str_cannot_be_deserialized_out_of_bounds() {
+        use uds_protocol::NamePayload;
+
+        // Making a constructor fallible does nothing on its own: `derive(Deserialize)` writes the
+        // fields directly, so it is a second constructor that skips the check. `filePathAndName`
+        // is declared by a two-byte length prefix, so a longer name cannot be encoded.
+        let too_long = "a".repeat(usize::from(u16::MAX) + 1);
+        let json = serde_json::to_string(&serde_json::json!({ "file_path_and_name": too_long }))
+            .expect("serializes");
+        assert!(
+            serde_json::from_str::<NamePayload>(&json).is_err(),
+            "a name longer than the two-byte length prefix must be rejected on the way in"
+        );
+
+        // ...and the longest legal name is still accepted, so the guard is a bound and not a
+        // blanket refusal.
+        let longest = "a".repeat(usize::from(u16::MAX));
+        let json = serde_json::to_string(&serde_json::json!({ "file_path_and_name": longest }))
+            .expect("serializes");
+        let payload: NamePayload =
+            serde_json::from_str(&json).expect("u16::MAX bytes is the largest declarable name");
+        assert_eq!(payload.file_path_and_name().len(), usize::from(u16::MAX));
+    }
+
+    #[test]
+    fn a_borrowed_byte_slice_field_is_not_reachable_through_json_at_all() {
+        use uds_protocol::WriteDataByIdentifierRequest;
+
+        // Worth pinning because it is easy to mistake for validation working. `&'de [u8]` needs a
+        // format with a native byte-string type; JSON has none, so serde_json refuses a sequence
+        // before any length check runs -- "invalid type: sequence, expected a borrowed byte
+        // array". Both of these fail, and the empty one fails for that reason rather than because
+        // the data record is empty.
+        //
+        // So the `deserialize_with` guard on these fields is only exercised by a format that can
+        // borrow bytes (CBOR, MessagePack, bincode). It is still the right place for the check --
+        // this crate does not get to choose the caller's format -- but do not read a passing
+        // serde_json test as evidence that it works.
+        assert!(
+            serde_json::from_str::<WriteDataByIdentifierRequest>(
+                r#"{"identifier":61840,"data":[]}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<WriteDataByIdentifierRequest>(
+                r#"{"identifier":61840,"data":[1,2,3]}"#
+            )
+            .is_err(),
+            "if this starts passing, JSON gained a byte type and the empty-record assertion \
+             above needs to become a real length check"
+        );
+    }
+
     #[test]
     fn tester_present_sub_function_stays_inside_the_seven_bit_range() {
         use uds_protocol::{TesterPresentRequest, TesterPresentResponse};
