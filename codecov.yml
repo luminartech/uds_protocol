@@ -1,0 +1,20 @@
+# Coverage gates. Coverage is uploaded by the Unit Tests CI job, which for this
+# crate runs every test that is not a `prop_`-prefixed property test — so the
+# lib's unit tests plus any integration suites. The Property Tests job runs the
+# four proptest roundtrips and uploads results only, no coverage, so these
+# targets are calibrated to a report that excludes them.
+coverage:
+  status:
+    # Overall coverage must not regress by more than 1% on a PR.
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    # New/changed lines in a PR must themselves be at least 80% covered.
+    patch:
+      default:
+        target: 80%
+
+comment:
+  layout: "condensed_header, diff, flags"
+  require_changes: true

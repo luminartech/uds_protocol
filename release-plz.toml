@@ -1,0 +1,20 @@
+[workspace]
+changelog_update = true
+git_release_enable = true
+
+[changelog]
+commit_parsers = [
+    { message = "^feat", group = "Added" },
+    { message = "^fix", group = "Fixed" },
+    { message = "^perf", group = "Performance" },
+    { message = "^docs?", group = "Documentation" },
+    { message = "^refactor", group = "Changed" },
+    { message = "^revert", group = "Reverted" },
+    { message = "^style", skip = true },
+    { message = "^test", skip = true },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore", skip = true },
+    { message = "^ci", skip = true },
+    { message = "^build", skip = true },
+    { message = ".*", group = "Other" },
+]

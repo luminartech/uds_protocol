@@ -1,9 +1,33 @@
 default_language_version:
   python: python3.12
 default_stages: [pre-commit]
+default_install_hook_types: [pre-commit, prepare-commit-msg, commit-msg]
 repos:
+  # The new pr-lint workflow rejects a PR title that is not a conventional
+  # commit, and squash-merge uses the PR title as the commit message. Checking
+  # the same grammar locally means the failure shows up before the push rather
+  # than in CI.
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args:
+          - --strict
+          - feat
+          - fix
+          - perf
+          - docs
+          - refactor
+          - revert
+          - style
+          - test
+          - chore
+          - ci
+          - build
   - repo: meta
     hooks:
+      - id: check-hooks-apply
       - id: check-useless-excludes
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
