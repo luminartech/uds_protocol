@@ -534,6 +534,10 @@ made the two gaps above possible.
   `DtcStatusMask` with its "bits on = supported by server" semantics moved onto the four
   `status_availability_mask` fields. This closes the `TODO` above sub-function `0x18`.
 
+- `RequestTransferExitRequest` and `RequestTransferExitResponse` now derive `serde` and
+  `utoipa` support like every other public request/response type. Enabling the `serde` feature
+  previously left these two types unserializable.
+
 ### Removed
 
 - The `serde_bytes` optional dependency. The `serde` feature activated it, but the crate never
