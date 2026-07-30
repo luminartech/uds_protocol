@@ -187,13 +187,18 @@ macro_rules! upload_download_service {
             }
         }
 
-        #[doc = concat!("The serde/`OpenAPI` shape of [`", stringify!($req), "`].")]
+        /// A transfer-setup request: a data-format identifier, a memory address and a memory
+        /// size, plus the byte width each of the latter two is declared with on the wire.
         ///
-        /// Deserializing routes through
-        #[doc = concat!("[`", stringify!($req), "::new_with_widths`],")]
-        /// so a declared width that would truncate its value is rejected rather than silently
-        /// corrupting the address on the wire, and the crate-private
-        /// `addressAndLengthFormatIdentifier` never surfaces in the serialized form.
+        /// A width that would truncate its value is rejected rather than silently corrupting the
+        /// address on the wire, and the crate-private `addressAndLengthFormatIdentifier` that
+        /// packs the two widths never surfaces here.
+        ///
+        /// This doc comment is the published schema description for the request type, because its
+        /// hand-written `PartialSchema` delegates here. It deliberately uses plain `///` lines:
+        /// utoipa's derive reads only literal doc attributes, so a `#[doc = concat!(..)]` naming
+        /// the specific service is dropped from the schema -- which is what left this description
+        /// missing its verb.
         #[cfg(any(feature = "serde", feature = "utoipa"))]
         #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
         #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -251,6 +256,17 @@ macro_rules! upload_download_service {
         impl utoipa::ToSchema for $req {
             fn name() -> std::borrow::Cow<'static, str> {
                 std::borrow::Cow::Borrowed(stringify!($req))
+            }
+
+            /// See the note on `CommunicationControlRequest::schemas`: a hand-written `ToSchema`
+            /// must forward this or its `$ref`s dangle.
+            fn schemas(
+                schemas: &mut Vec<(
+                    String,
+                    utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+                )>,
+            ) {
+                <$repr as utoipa::ToSchema>::schemas(schemas);
             }
         }
 
