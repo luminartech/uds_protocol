@@ -14,6 +14,13 @@ const NO_SUBFUNCTION_VALUE: u8 = 0x00;
 ///
 /// The range of values is only 7 of the 8 bits, with bit 7 being used as the
 /// Suppress Positive Response (SPR) Message Indication Bit.
+//
+// `serde(try_from = "u8", into = "u8")` is what keeps a deserialized value inside 0x00..=0x7F:
+// it routes through the `TryFrom<u8>` below, the same classifier `decode` uses. The two public
+// types then just rename the field, so no mirror struct is needed to enforce the range -- the
+// invariant is single-field, and `serde`/`utoipa` can both express that directly.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ZeroSubFunction {
     /// Request and response. Indicates that no value beside the SPR Message Indication Bit is supported by this service.
@@ -58,10 +65,7 @@ impl TryFrom<u8> for ZeroSubFunction {
 
 /// Request to indicate the client is still connected
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "SubFunctionRepr", into = "SubFunctionRepr")
-)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct TesterPresentRequest {
@@ -71,6 +75,17 @@ pub struct TesterPresentRequest {
     /// sub-function, so conformant traffic always carries `0x00`; this is kept private so a
     /// caller cannot mint a reserved value, but is retained on decode so that a reserved byte
     /// re-encodes unchanged. Read it back with [`TesterPresentRequest::sub_function`].
+    ///
+    /// Serialized as `sub_function`: a byte in `0x00..=0x7F`.
+    //
+    // The `rename` plus `value_type` is what keeps the private enum out of both the wire format
+    // and the schema. Two mirror structs used to do this; the invariant is single-field, so a
+    // field attribute expresses it directly.
+    #[cfg_attr(feature = "serde", serde(rename = "sub_function"))]
+    #[cfg_attr(
+        feature = "utoipa",
+        schema(rename = "sub_function", value_type = u8, minimum = 0, maximum = 0x7F)
+    )]
     zero_sub_function: ZeroSubFunction,
 }
 
@@ -141,13 +156,16 @@ impl<'a> Decode<'a> for TesterPresentRequest {
 
 /// Positive response to a `TesterPresentRequest`
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(try_from = "SubFunctionOnlyRepr", into = "SubFunctionOnlyRepr")
-)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct TesterPresentResponse {
+    /// The echoed sub-function byte. Serialized as `sub_function`; see the request's field.
+    #[cfg_attr(feature = "serde", serde(rename = "sub_function"))]
+    #[cfg_attr(
+        feature = "utoipa",
+        schema(rename = "sub_function", value_type = u8, minimum = 0, maximum = 0x7F)
+    )]
     zero_sub_function: ZeroSubFunction,
 }
 
@@ -347,131 +365,5 @@ mod test {
         let expected_bytes = vec![0];
         assert_eq!(buffer, expected_bytes);
         assert_encode_size_agrees(&test_type);
-    }
-}
-
-/// A `TesterPresent` (0x3E) request: a suppress-positive-response flag and the sub-function
-/// byte, which ISO 14229-1:2020 Table 119 defines only as `0x00`. Any other value is rejected.
-//
-// This doc comment is published verbatim as `TesterPresentRequest`'s schema description, because
-// its hand-written `PartialSchema` delegates here -- so it has to read as API documentation, and
-// must not name a type a client author cannot reach. The rationale goes in `//` lines for that
-// reason: deserializing routes through this rather than the request's own fields so the
-// sub-function byte is range-checked on the way in, and so the module-private ZeroSubFunction
-// stays out of both the serialized form and the generated schema.
-#[cfg(any(feature = "serde", feature = "utoipa"))]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-// With `utoipa` but not `serde` these fields are never read: they exist to give the schema its
-// shape, which the derive reads at compile time rather than at run time.
-#[cfg_attr(not(feature = "serde"), allow(dead_code))]
-struct SubFunctionRepr {
-    suppress_positive_response: bool,
-    sub_function: u8,
-}
-
-/// A `TesterPresent` (0x7E) positive response: the echoed sub-function byte, and no
-/// suppress-positive-response flag -- a response never carries one.
-#[cfg(any(feature = "serde", feature = "utoipa"))]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-// With `utoipa` but not `serde` these fields are never read: they exist to give the schema its
-// shape, which the derive reads at compile time rather than at run time.
-#[cfg_attr(not(feature = "serde"), allow(dead_code))]
-struct SubFunctionOnlyRepr {
-    sub_function: u8,
-}
-
-#[cfg(feature = "serde")]
-impl TryFrom<SubFunctionRepr> for TesterPresentRequest {
-    type Error = Error;
-
-    fn try_from(repr: SubFunctionRepr) -> Result<Self, Error> {
-        Ok(Self {
-            suppress_positive_response: repr.suppress_positive_response,
-            zero_sub_function: ZeroSubFunction::try_from(repr.sub_function)?,
-        })
-    }
-}
-
-#[cfg(feature = "serde")]
-impl From<TesterPresentRequest> for SubFunctionRepr {
-    fn from(request: TesterPresentRequest) -> Self {
-        Self {
-            suppress_positive_response: request.suppress_positive_response,
-            sub_function: request.sub_function(),
-        }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl TryFrom<SubFunctionOnlyRepr> for TesterPresentResponse {
-    type Error = Error;
-
-    fn try_from(repr: SubFunctionOnlyRepr) -> Result<Self, Error> {
-        Ok(Self {
-            zero_sub_function: ZeroSubFunction::try_from(repr.sub_function)?,
-        })
-    }
-}
-
-#[cfg(feature = "serde")]
-impl From<TesterPresentResponse> for SubFunctionOnlyRepr {
-    fn from(response: TesterPresentResponse) -> Self {
-        Self {
-            sub_function: response.sub_function(),
-        }
-    }
-}
-
-// The schema follows the serialized shape, not the Rust fields, for the same reason the serde
-// impls do: `ZeroSubFunction` is module-private and must not surface in a generated client.
-#[cfg(feature = "utoipa")]
-impl utoipa::PartialSchema for TesterPresentRequest {
-    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
-        <SubFunctionRepr as utoipa::PartialSchema>::schema()
-    }
-}
-
-#[cfg(feature = "utoipa")]
-impl utoipa::ToSchema for TesterPresentRequest {
-    fn name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("TesterPresentRequest")
-    }
-
-    /// See the note on `CommunicationControlRequest::schemas`: a hand-written `ToSchema` must
-    /// forward this or its `$ref`s dangle.
-    fn schemas(
-        schemas: &mut Vec<(
-            String,
-            utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
-        )>,
-    ) {
-        <SubFunctionRepr as utoipa::ToSchema>::schemas(schemas);
-    }
-}
-
-#[cfg(feature = "utoipa")]
-impl utoipa::PartialSchema for TesterPresentResponse {
-    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
-        <SubFunctionOnlyRepr as utoipa::PartialSchema>::schema()
-    }
-}
-
-#[cfg(feature = "utoipa")]
-impl utoipa::ToSchema for TesterPresentResponse {
-    fn name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("TesterPresentResponse")
-    }
-
-    /// See the note on `CommunicationControlRequest::schemas`: a hand-written `ToSchema` must
-    /// forward this or its `$ref`s dangle.
-    fn schemas(
-        schemas: &mut Vec<(
-            String,
-            utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
-        )>,
-    ) {
-        <SubFunctionOnlyRepr as utoipa::ToSchema>::schemas(schemas);
     }
 }

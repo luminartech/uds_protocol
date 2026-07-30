@@ -188,6 +188,29 @@ fn no_schema_description_leaks_a_private_type_or_is_empty() {
         .expect("components.schemas");
 
     for (name, schema) in schemas {
+        // Field descriptions are published too, and they come from field rustdoc, so they are
+        // just as capable of naming a private type as the top-level one is.
+        if let Some(properties) = schema
+            .get("properties")
+            .and_then(serde_json::Value::as_object)
+        {
+            for (field, property) in properties {
+                let Some(field_description) = property
+                    .get("description")
+                    .and_then(serde_json::Value::as_str)
+                else {
+                    continue;
+                };
+                for private in PRIVATE {
+                    assert!(
+                        !field_description.contains(private),
+                        "{name}.{field}'s published description names the private type \
+                         `{private}`: {field_description:?}"
+                    );
+                }
+            }
+        }
+
         let description = schema
             .get("description")
             .and_then(serde_json::Value::as_str)
