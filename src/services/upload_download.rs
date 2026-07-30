@@ -47,6 +47,7 @@ macro_rules! upload_download_service {
         nrcs: $nrcs:ident,
         request_doc: $req_doc:literal,
         response_doc: $resp_doc:literal,
+        block_length_accessor_doc: $block_accessor_doc:literal,
         verb: $verb:literal,
         tests: $test_mod:ident,
     ) => {
@@ -341,7 +342,8 @@ macro_rules! upload_download_service {
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         #[non_exhaustive]
         pub struct $resp<'d> {
-            /// Maximum number of bytes per [`TransferDataRequest`](crate::TransferDataRequest).
+            /// The `maxNumberOfBlockLength` bytes, as sent. See the accessor of the same name for
+            /// what the value means for this service -- it differs between download and upload.
             ///
             /// The on-wire `lengthFormatIdentifier` nibble is derived from this slice's length,
             /// so the declared length can never disagree with the bytes present. That nibble
@@ -369,8 +371,10 @@ macro_rules! upload_download_service {
                 })
             }
 
-            /// The maximum number of bytes the server will accept per `TransferData` request,
-            /// as the raw big-endian bytes the server sent.
+            #[doc = $block_accessor_doc]
+            ///
+            /// The raw big-endian bytes the server sent, so a value wider than `u64` is not
+            /// truncated. Its length is the `lengthFormatIdentifier` nibble, at most 15 bytes.
             #[must_use]
             pub const fn max_number_of_block_length(&self) -> &'d [u8] {
                 self.max_number_of_block_length
@@ -740,6 +744,7 @@ upload_download_service! {
     nrcs: REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES,
     request_doc: "A request to the server for it to download data from the client.\n\nA positive response ([`RequestDownloadResponse`]) is sent once the server has taken all necessary actions and is ready to receive the data.",
     response_doc: "Zero-alloc positive response to a [`RequestDownloadRequest`], indicating the server is ready to receive data. Borrows from the caller.",
+    block_length_accessor_doc: "How many bytes to put in each [`TransferDataRequest`](crate::TransferDataRequest), including its service identifier and data parameters.\n\nThis is the server\u{2019}s **receive** buffer size, so it constrains what the *client sends*. ISO 14229-1:2020 Table 443: the server \"is required to accept transferData requests that are equal in length to its reported maxNumberOfBlockLength\", and it is server-specific whether shorter ones are accepted at all. The last request in a block may have to be shorter.\n\nTable 443 also forbids a server from writing pad bytes that were not in the `TransferData` message, since that would shift the memory address the next request writes to.",
     verb: "downloaded",
     tests: request_download_tests,
 }
@@ -752,6 +757,7 @@ upload_download_service! {
     nrcs: REQUEST_UPLOAD_NEGATIVE_RESPONSE_CODES,
     request_doc: "A request to the server for it to upload data to the client.\n\nA positive response ([`RequestUploadResponse`]) is sent once the server is ready to transmit; the client then drives the transfer with [`TransferDataRequest`](crate::TransferDataRequest), reading the data out of each positive response, and finishes with [`RequestTransferExitRequest`](crate::RequestTransferExitRequest).",
     response_doc: "Zero-alloc positive response to a [`RequestUploadRequest`], indicating the server is ready to transmit data. Borrows from the caller.",
+    block_length_accessor_doc: "How many bytes the server will put in each [`TransferDataResponse`](crate::TransferDataResponse), including its service identifier and data parameters.\n\nNote the direction. Despite sharing a name with [`RequestDownloadResponse::max_number_of_block_length`](crate::RequestDownloadResponse::max_number_of_block_length), this constrains the *server\u{2019}s responses* rather than the client\u{2019}s requests, and reports the server\u{2019}s **send** buffer rather than its receive buffer. ISO 14229-1:2020 Table 448 also puts the obligation on the other party: the *client* \"is required to accept transferData responses that are equal in length to the reported maxNumberOfBlockLength\", and it is server-specific whether any shorter ones are sent. The last response in a block may be shorter.\n\nTable 448 states no pad-byte prohibition; that is the download side\u{2019}s concern, because nothing here is written to server memory.",
     verb: "uploaded",
     tests: request_upload_tests,
 }
