@@ -253,11 +253,14 @@ impl TryFrom<u8> for SubnetNumber {
 ///
 /// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`] if the value is not a valid `CommunicationType`
 ///
-/// Unlike the other single-byte types here, `serde` uses the derived variant-name form rather
-/// than routing through `u8`. There is nothing to smuggle — the four variants are in bijection
-/// with `0x00..=0x03` and `TryFrom<u8>` accepts all four — and the byte form would be *worse*:
-/// `TryFrom<u8>` reads bits 1-0 of a whole `communicationType` byte and masks the rest, so
-/// deserializing `17` would silently yield `Normal` and re-serialize as `1`.
+/// Serializes as its variant name (`"Normal"`), not as a number — unlike the other single-byte
+/// types in this crate.
+//
+// That is deliberate, and the reason belongs here rather than in the rustdoc, because utoipa
+// publishes the rustdoc as the schema description. There is nothing to smuggle: the four variants
+// are in bijection with 0x00..=0x03 and TryFrom<u8> accepts all four. Routing serde through the
+// byte would be *worse*, because TryFrom<u8> reads bits 1-0 of a whole communicationType byte and
+// masks the rest -- so deserializing 17 would silently yield Normal and re-serialize as 1.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
@@ -820,11 +823,14 @@ mod response {
     }
 }
 
-/// The serde/`OpenAPI` shape of [`CommunicationControlRequest`].
+/// A `CommunicationControl` (0x28) request.
 ///
-/// Deserializing routes through the constructors, so the rule that `node_id` is present exactly
-/// when `control_type` is an enhanced-address variant -- the reason those fields are private --
-/// still holds for a value that arrived as JSON.
+/// `node_id` must be present exactly when `control_type` is one of the two enhanced-address
+/// variants (`0x04`, `0x05`) and absent otherwise; a payload that breaks that rule is rejected
+/// rather than encoded into a frame this crate's own decoder would refuse.
+///
+/// This doc comment is the published schema description for `CommunicationControlRequest`,
+/// because its hand-written `PartialSchema` delegates here.
 #[cfg(any(feature = "serde", feature = "utoipa"))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -885,5 +891,20 @@ impl utoipa::PartialSchema for CommunicationControlRequest {
 impl utoipa::ToSchema for CommunicationControlRequest {
     fn name() -> std::borrow::Cow<'static, str> {
         std::borrow::Cow::Borrowed("CommunicationControlRequest")
+    }
+
+    /// Register the child schemas this one `$ref`s.
+    ///
+    /// `ToSchema::schemas` defaults to a no-op, and the derive is what normally overrides it. A
+    /// hand-written impl that only implements `schema()` therefore emits `$ref`s to types the
+    /// document never defines, which every client generator either rejects or degrades to an
+    /// untyped object -- strictly worse than the derived schema it replaced.
+    fn schemas(
+        schemas: &mut Vec<(
+            String,
+            utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+        )>,
+    ) {
+        <CommunicationControlRepr as utoipa::ToSchema>::schemas(schemas);
     }
 }

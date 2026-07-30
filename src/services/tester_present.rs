@@ -350,11 +350,15 @@ mod test {
     }
 }
 
-/// The serde/`OpenAPI` shape of [`TesterPresentRequest`]: its public wire parameters.
-///
-/// Deserializing goes through this rather than the request's own fields, so the sub-function
-/// byte is range-checked on the way in and the private [`ZeroSubFunction`] never appears in the
-/// serialized form or in a generated schema.
+/// A `TesterPresent` (0x3E) request: a suppress-positive-response flag and the sub-function
+/// byte, which ISO 14229-1:2020 Table 119 defines only as `0x00`. Any other value is rejected.
+//
+// This doc comment is published verbatim as `TesterPresentRequest`'s schema description, because
+// its hand-written `PartialSchema` delegates here -- so it has to read as API documentation, and
+// must not name a type a client author cannot reach. The rationale goes in `//` lines for that
+// reason: deserializing routes through this rather than the request's own fields so the
+// sub-function byte is range-checked on the way in, and so the module-private ZeroSubFunction
+// stays out of both the serialized form and the generated schema.
 #[cfg(any(feature = "serde", feature = "utoipa"))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -366,7 +370,8 @@ struct SubFunctionRepr {
     sub_function: u8,
 }
 
-/// The serde/`OpenAPI` shape of [`TesterPresentResponse`], which carries no SPRMIB flag.
+/// A `TesterPresent` (0x7E) positive response: the echoed sub-function byte, and no
+/// suppress-positive-response flag -- a response never carries one.
 #[cfg(any(feature = "serde", feature = "utoipa"))]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
@@ -433,6 +438,17 @@ impl utoipa::ToSchema for TesterPresentRequest {
     fn name() -> std::borrow::Cow<'static, str> {
         std::borrow::Cow::Borrowed("TesterPresentRequest")
     }
+
+    /// See the note on `CommunicationControlRequest::schemas`: a hand-written `ToSchema` must
+    /// forward this or its `$ref`s dangle.
+    fn schemas(
+        schemas: &mut Vec<(
+            String,
+            utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+        )>,
+    ) {
+        <SubFunctionRepr as utoipa::ToSchema>::schemas(schemas);
+    }
 }
 
 #[cfg(feature = "utoipa")]
@@ -446,5 +462,16 @@ impl utoipa::PartialSchema for TesterPresentResponse {
 impl utoipa::ToSchema for TesterPresentResponse {
     fn name() -> std::borrow::Cow<'static, str> {
         std::borrow::Cow::Borrowed("TesterPresentResponse")
+    }
+
+    /// See the note on `CommunicationControlRequest::schemas`: a hand-written `ToSchema` must
+    /// forward this or its `$ref`s dangle.
+    fn schemas(
+        schemas: &mut Vec<(
+            String,
+            utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+        )>,
+    ) {
+        <SubFunctionOnlyRepr as utoipa::ToSchema>::schemas(schemas);
     }
 }
