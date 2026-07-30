@@ -518,6 +518,7 @@ dependencies = [
  "embedded-io",
  "proptest",
  "serde",
+ "serde_json",
  "thiserror",
  "utoipa",
 ]
