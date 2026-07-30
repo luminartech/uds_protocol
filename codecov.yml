@@ -1,8 +1,8 @@
-# Coverage gates. Coverage is uploaded by the Unit Tests CI job, which for this
-# crate runs every test that is not a `prop_`-prefixed property test — so the
-# lib's unit tests plus any integration suites. The Property Tests job runs the
-# four proptest roundtrips and uploads results only, no coverage, so these
-# targets are calibrated to a report that excludes them.
+# Coverage gates. Coverage is uploaded by the Unit Tests CI job, which runs the
+# whole suite — so these targets describe every test the crate has. The Property
+# Tests job re-runs the `prop_`-prefixed subset under its own name and uploads
+# results only, no coverage; it is deliberately a subset rather than the other
+# half of a split, so that excluding it cannot silently understate coverage.
 coverage:
   status:
     # Overall coverage must not regress by more than 1% on a PR.
