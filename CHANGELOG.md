@@ -16,8 +16,10 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 Found by a review pass that checked the crate against the ISO 14229-1:2020 text rather than
 against itself. All five predate this branch; none was caught by the existing tests, because a
 round-trip written against the crate's own output passes whenever `encode` and `decode` share a
-misreading. `tests/spec_conformance.rs` now round-trips 34 byte sequences quoted from the
-standard's own numbered example tables, which is what closes that gap.
+misreading. `tests/spec_conformance.rs` now round-trips 36 byte sequences quoted from the
+standard's own numbered example tables. That catches a legal frame the crate rejects, and an
+`encode`/`decode` pair that disagree with each other — but not a misreading the two share
+symmetrically, which still round-trips. See the module doc for where the line falls.
 
 - **Breaking:** `MemoryFormatIdentifier::try_from` used exclusive range patterns where its own
   comments said inclusive, accepting a `memorySize` width of 1-3 and a `memoryAddress` width of

@@ -54,8 +54,6 @@ pub use services::{
 #[cfg(test)]
 mod no_std_api_tests {
     use super::*;
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
     #[test]
     fn encode_decode_tester_present_roundtrip() {
@@ -107,22 +105,29 @@ mod no_std_api_tests {
         assert_eq!(req.service(), UdsServiceType::EcuReset);
     }
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn dtc_and_status_iter_roundtrip() {
         // 2 DTC records: (0x01,0x02,0x03, status=0x0A), (0x04,0x05,0x06, status=0x0B)
+        //
+        // Deliberately not gated on `alloc`, and written with `next()` rather than `collect()`
+        // for that reason. While this was gated, mutating the status byte to a constant left
+        // `--no-default-features` fully green — so the assertion below existed but did not
+        // protect the config the crate targets first.
         let data = [0x01, 0x02, 0x03, 0x0A, 0x04, 0x05, 0x06, 0x0B];
-        let iter = DtcAndStatusIter::new(&data);
+        let mut iter = DtcAndStatusIter::new(&data);
         assert_eq!(iter.len(), 2);
 
-        let records: Vec<_> = iter.map(|r| r.unwrap()).collect();
-        assert_eq!(records.len(), 2);
-        assert_eq!(u32::from(records[0].0), 0x01_0203);
-        assert_eq!(u32::from(records[1].0), 0x04_0506);
+        let (dtc, status) = iter.next().unwrap().unwrap();
+        assert_eq!(u32::from(dtc), 0x01_0203);
         // The status byte matters as much as the DTC: 0x02 and 0x0A-0x0E are the most-used
         // sub-functions, and nothing asserted it, so "every DTC reports status 0x00" passed.
-        assert_eq!(records[0].1.bits(), 0x0A);
-        assert_eq!(records[1].1.bits(), 0x0B);
+        assert_eq!(status.bits(), 0x0A);
+
+        let (dtc, status) = iter.next().unwrap().unwrap();
+        assert_eq!(u32::from(dtc), 0x04_0506);
+        assert_eq!(status.bits(), 0x0B);
+
+        assert!(iter.next().is_none());
     }
 
     #[test]

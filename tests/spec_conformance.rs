@@ -1,12 +1,19 @@
 //! Round-trips the message-flow example byte sequences printed in ISO 14229-1:2020.
 //!
-//! Every frame below is quoted from a numbered example table in the standard, so this suite
-//! answers a question the rest of the tests cannot: does the crate agree with the document,
-//! rather than merely with itself? A layout error that both `encode` and `decode` share is
-//! invisible to a round-trip test written against the crate's own output, and that is exactly
-//! how several real defects survived — a missing mandatory `DTCFormatIdentifier`, a
-//! `MemorySelection` byte read from the wrong sub-functions, a `powerDownTime` written
-//! unconditionally.
+//! Every frame below is quoted from a numbered example table in the standard, which gives these
+//! tests an oracle the rest of the suite does not have: the bytes come from the document rather
+//! than from the crate.
+//!
+//! **What that does and does not buy.** It catches two things a round-trip against the crate's
+//! own output cannot: a legal frame the crate *rejects* (a missing mandatory
+//! `DTCFormatIdentifier`, a `MemorySelection` byte read from the wrong sub-functions), and an
+//! encode/decode pair that disagree with each other (a `powerDownTime` written unconditionally,
+//! so `51 01` re-encoded as `51 01 00`).
+//!
+//! It does **not** verify field *meaning*. If `encode` and `decode` share a misreading
+//! symmetrically — two same-width adjacent fields transposed in both directions, say — the bytes
+//! still round-trip and every test here passes. Only an assertion on the decoded *value* catches
+//! that, which is the unit tests' job. Do not read a green run here as "the layout is right".
 //!
 //! This is an integration test, so it sees the crate as a downstream user does: anything it
 //! needs must be reachable and constructible through the public API.
@@ -100,6 +107,10 @@ const REQUESTS: &[Example] = &[
             0x79, 0x31, 0x2E, 0x79, 0x78, 0x7A, 0x11, 0x02, 0xC3, 0x50, 0x75, 0x30,
         ],
     },
+    Example {
+        cite: "Table 49 - SecurityAccess request example #1 step #2 (sendKey)",
+        bytes: &[0x27, 0x02, 0xC9, 0xA9],
+    },
 ];
 
 const RESPONSES: &[Example] = &[
@@ -185,6 +196,13 @@ fn every_spec_request_example_decodes_and_re_encodes_unchanged() {
     for Example { cite, bytes } in REQUESTS {
         let req = Request::decode_exact(bytes)
             .unwrap_or_else(|e| panic!("{cite}: decode of {bytes:02X?} failed: {e:?}"));
+        // `Request::Other` carries the SID and payload verbatim, so it round-trips perfectly.
+        // Without this, a frame for a service the crate does not model would pass silently and
+        // this suite would report coverage it does not have.
+        assert!(
+            !matches!(req, Request::Other { .. }),
+            "{cite}: decoded to Request::Other, so this service is not actually modeled"
+        );
         let mut buf = [0u8; BUF];
         let written = req
             .encode_to_slice(&mut buf)
@@ -198,6 +216,11 @@ fn every_spec_response_example_decodes_and_re_encodes_unchanged() {
     for Example { cite, bytes } in RESPONSES {
         let resp = Response::decode_exact(bytes)
             .unwrap_or_else(|e| panic!("{cite}: decode of {bytes:02X?} failed: {e:?}"));
+        // Same trap as on the request side: `Response::Other` round-trips any SID unchanged.
+        assert!(
+            !matches!(resp, Response::Other { .. }),
+            "{cite}: decoded to Response::Other, so this service is not actually modeled"
+        );
         let mut buf = [0u8; BUF];
         let written = resp
             .encode_to_slice(&mut buf)
@@ -207,22 +230,38 @@ fn every_spec_response_example_decodes_and_re_encodes_unchanged() {
 }
 
 #[test]
-fn the_spec_examples_cover_every_service_the_crate_models() {
-    // Guards against a service quietly dropping out of this suite. Update the expected set
-    // deliberately when a service gains or loses spec-example coverage.
+fn the_set_of_services_with_spec_example_coverage_is_pinned() {
+    // A tripwire on this file's own fixtures, not a property of the crate: it reads the two
+    // const arrays above, so no production change can make it fail. Its only job is to force a
+    // deliberate edit here when a service gains or loses spec-example coverage. The previous
+    // name claimed it checked coverage of "every service the crate models", which it does not
+    // and cannot -- the crate models 16 request services and 13 have frames below.
     let mut sids: Vec<u8> = REQUESTS.iter().map(|e| e.bytes[0]).collect();
     sids.sort_unstable();
     sids.dedup();
     assert_eq!(
         sids,
         vec![
-            0x14, 0x19, 0x22, 0x28, 0x2E, 0x31, 0x34, 0x36, 0x37, 0x38, 0x3E, 0x85
+            0x14, 0x19, 0x22, 0x27, 0x28, 0x2E, 0x31, 0x34, 0x36, 0x37, 0x38, 0x3E, 0x85
         ],
         "request-side spec-example coverage changed"
     );
 
-    // 0x10, 0x11 and 0x27 appear on the response side only: the standard's request examples
-    // for those services are folded into prose rather than given as byte tables.
+    // Where a modeled service has no request frame here, the reason is that its example
+    // table's byte-value column is not machine-readable in the markdown conversion, NOT that
+    // the standard omits the example. An earlier version of this comment claimed the latter
+    // about 0x10, 0x11 and 0x27, and that was simply wrong: Table 31 (DiagnosticSessionControl),
+    // Table 38 (ECUReset) and Tables 47/49/51 (SecurityAccess) are all request byte tables.
+    //
+    // In Tables 31, 38 and 47 the conversion merged the byte value into the description cell
+    // ("ECUReset Request SID 11 16"), so the values can only be recovered by cross-referencing
+    // the parameter-definition tables — that is inference, not quotation, and quotation is the
+    // whole point of this suite. Table 49 survived the conversion intact and is included above.
+    // Table 472 (RequestUpload) is the same story: bytes #7 and #8 of its memorySize are not
+    // legible, so 0x35 has no frame here despite being fully modeled.
+    //
+    // This is the same class of extraction hazard as the two-bytes-in-one-cell rows noted on
+    // Tables 486 and 487. Verify against the PDF before adding a frame, never against a guess.
     let mut response_sids: Vec<u8> = RESPONSES.iter().map(|e| e.bytes[0]).collect();
     response_sids.sort_unstable();
     response_sids.dedup();
