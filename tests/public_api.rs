@@ -11,6 +11,32 @@ use uds_protocol::{
 };
 
 #[test]
+fn a_tester_can_still_request_an_unmodeled_read_dtc_information_sub_function() {
+    // Sealing `IsoSaeReserved` keeps bit 7 (SPRMIB) out of the sub-function value, but it also
+    // made `IsoSaeReserved(byte)` unwritable out here — so a tester could no longer originate a
+    // request for a report type the crate has not implemented. `try_reserved` is the door.
+    use uds_protocol::{Encode, ReadDtcInfoRequest, ReadDtcInfoSubFunction};
+
+    let sub = ReadDtcInfoSubFunction::try_reserved(0x57).expect("0x57 has bit 7 clear");
+    assert_eq!(sub.value(), 0x57);
+
+    let mut buf = [0u8; 4];
+    let req = ReadDtcInfoRequest::new(false, sub);
+    let written = req.encode_to_slice(&mut buf).expect("encodes");
+    assert_eq!(&buf[..written], &[0x57]);
+
+    // ...and with the positive response suppressed, the flag is fused back in as bit 7.
+    let suppressed = ReadDtcInfoRequest::new(true, sub);
+    let written = suppressed.encode_to_slice(&mut buf).expect("encodes");
+    assert_eq!(&buf[..written], &[0xD7]);
+
+    // Bit 7 is SPRMIB, so it must not be smuggled in as part of the sub-function value:
+    // 0x80 would otherwise encode as a suppressed 0x00.
+    assert!(ReadDtcInfoSubFunction::try_reserved(0x80).is_err());
+    assert!(ReadDtcInfoSubFunction::try_reserved(0xD7).is_err());
+}
+
+#[test]
 fn dtc_fault_detection_counter_record_is_constructible_downstream() {
     // This is the `Item` type of a public iterator and is re-exported at the crate root so
     // callers can name it. Without a constructor, `#[non_exhaustive]` made the only way to
@@ -133,19 +159,19 @@ mod serde_cannot_bypass_validation {
         // two bytes, which this crate's own decoder then rejected.
         assert!(
             serde_json::from_str::<CommunicationControlRequest>(
-                r#"{"suppress_positive_response":false,"control_type":5,"communication_type":1,"subnet":0,"node_id":null}"#
+                r#"{"suppress_positive_response":false,"control_type":5,"communication_type":"Normal","subnet":0,"node_id":null}"#
             )
             .is_err()
         );
         assert!(
             serde_json::from_str::<CommunicationControlRequest>(
-                r#"{"suppress_positive_response":false,"control_type":3,"communication_type":1,"subnet":0,"node_id":10}"#
+                r#"{"suppress_positive_response":false,"control_type":3,"communication_type":"Normal","subnet":0,"node_id":10}"#
             )
             .is_err()
         );
 
         let req: CommunicationControlRequest = serde_json::from_str(
-            r#"{"suppress_positive_response":false,"control_type":5,"communication_type":1,"subnet":15,"node_id":10}"#
+            r#"{"suppress_positive_response":false,"control_type":5,"communication_type":"Normal","subnet":15,"node_id":10}"#
         )
         .unwrap();
         assert_eq!(req.node_id(), Some(10));

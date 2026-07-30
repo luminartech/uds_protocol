@@ -36,7 +36,7 @@ standard's own numbered example tables, which is what closes that gap.
   Table 36 defines that as `0xFF`.
 
 - **Breaking:** `ReadDtcInfoRequest` gained `suppress_positive_response`. `decode` matched the raw
-  sub-function byte, so bit 7 — SPRMIB — was read as part of the sub-function value. Table 13
+  sub-function byte, so bit 7 — SPRMIB — was read as part of the sub-function value. Table 11
   requires both bit values for every supported sub-function. A suppressed
   `reportDTCByStatusMask` (`19 82 FF`) was rejected as having trailing bytes, and `19 8A` decoded
   as a *reserved* sub-function, so a server answered `SubFunctionNotSupported` to a request it was

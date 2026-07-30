@@ -9,7 +9,7 @@ pub use negative_response_code::NegativeResponseCode;
 
 mod suppressable_positive_response;
 pub(crate) use suppressable_positive_response::{
-    SuppressablePositiveResponse, fuse_sprmib, split_sprmib,
+    SPRMIB_VALUE_MASK, SuppressablePositiveResponse, fuse_sprmib, split_sprmib,
 };
 
 mod format_identifiers;

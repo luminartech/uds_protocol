@@ -289,7 +289,7 @@ mod test {
             );
             assert_eq!(
                 err.negative_response_code(),
-                NegativeResponseCode::SubFunctionNotSupported,
+                Some(NegativeResponseCode::SubFunctionNotSupported),
                 "wrong NRC for sub-function {byte:#04X}"
             );
         }

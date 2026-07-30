@@ -217,8 +217,7 @@ mod request {
         assert_eq!(&buffer[..written], &[0x81]);
         assert_eq!(req.encoded_size().unwrap(), written);
 
-        let (parsed, _) =
-            <ControlDtcSettingRequest as Decode>::decode(&buffer[..written]).unwrap();
+        let (parsed, _) = <ControlDtcSettingRequest as Decode>::decode(&buffer[..written]).unwrap();
         assert_eq!(parsed.setting, DtcSettingType::On);
         assert!(parsed.suppress_positive_response);
         assert_encode_size_agrees(&req);
@@ -260,7 +259,7 @@ mod request {
             );
             assert_eq!(
                 err.negative_response_code(),
-                NegativeResponseCode::SubFunctionNotSupported
+                Some(NegativeResponseCode::SubFunctionNotSupported)
             );
         }
     }
