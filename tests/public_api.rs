@@ -162,6 +162,39 @@ fn a_reserved_variant_cannot_alias_a_named_one() {
 /// that deserializing cannot build a value `new`/`try_from` would have rejected.
 #[cfg(feature = "serde")]
 mod serde_cannot_bypass_validation {
+    #[test]
+    fn tester_present_sub_function_stays_inside_the_seven_bit_range() {
+        use uds_protocol::{TesterPresentRequest, TesterPresentResponse};
+
+        // Bit 7 of the sub-function byte is the SPRMIB and is carried in its own field, so the
+        // sub-function itself is a 7-bit value. This used to be enforced by a mirror struct whose
+        // `TryFrom` called the classifier; it is now enforced by the classifier being serde's
+        // entry point for the field. Same guarantee, so the same bytes must be refused.
+        for byte in 0x80..=0xFFu8 {
+            let json = format!(r#"{{"suppress_positive_response":false,"sub_function":{byte}}}"#);
+            assert!(
+                serde_json::from_str::<TesterPresentRequest>(&json).is_err(),
+                "sub_function {byte:#04X} has bit 7 set and must be rejected"
+            );
+            let json = format!(r#"{{"sub_function":{byte}}}"#);
+            assert!(
+                serde_json::from_str::<TesterPresentResponse>(&json).is_err(),
+                "response sub_function {byte:#04X} has bit 7 set and must be rejected"
+            );
+        }
+
+        // And every legal byte round-trips, reserved values included, so the range check did not
+        // become a blanket rejection.
+        for byte in 0x00..=0x7Fu8 {
+            let json = format!(r#"{{"suppress_positive_response":true,"sub_function":{byte}}}"#);
+            let req: TesterPresentRequest =
+                serde_json::from_str(&json).expect("0x00..=0x7F is legal");
+            assert_eq!(req.sub_function(), byte);
+            assert!(req.suppress_positive_response);
+            assert_eq!(serde_json::to_string(&req).unwrap(), json);
+        }
+    }
+
     use uds_protocol::{
         CommunicationType, DataFormatIdentifier, DtcSettingType, SecurityAccessLevel, SubnetNumber,
     };
