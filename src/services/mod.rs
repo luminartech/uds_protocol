@@ -8,9 +8,7 @@ pub use communication_control::{
 };
 
 mod control_dtc_settings;
-pub use control_dtc_settings::{
-    ControlDtcSettingRequest, ControlDtcSettingResponse, DtcSettingType,
-};
+pub use control_dtc_settings::{ControlDtcSettingRequest, ControlDtcSettingResponse, DtcSettingType};
 
 mod diagnostic_session_control;
 pub use diagnostic_session_control::{

@@ -252,8 +252,14 @@ impl TryFrom<u8> for SubnetNumber {
 /// Note:
 ///
 /// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`] if the value is not a valid `CommunicationType`
+///
+/// Unlike the other single-byte types here, `serde` uses the derived variant-name form rather
+/// than routing through `u8`. There is nothing to smuggle — the four variants are in bijection
+/// with `0x00..=0x03` and `TryFrom<u8>` accepts all four — and the byte form would be *worse*:
+/// `TryFrom<u8>` reads bits 1-0 of a whole `communicationType` byte and masks the rest, so
+/// deserializing `17` would silently yield `Normal` and re-serialize as `1`.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]

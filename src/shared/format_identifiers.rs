@@ -56,10 +56,10 @@ impl TryFrom<u8> for MemoryFormatIdentifier {
         let memory_address_length = value & MEMORY_ADDRESS_NIBBLE_MASK;
 
         if !matches!(memory_size_length, 1..=MAX_MEMORY_SIZE_LENGTH) {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+            return Err(Error::InvalidAddressAndLengthFormatIdentifier(value));
         }
         if !matches!(memory_address_length, 1..=MAX_MEMORY_ADDRESS_LENGTH) {
-            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
+            return Err(Error::InvalidAddressAndLengthFormatIdentifier(value));
         }
         Ok(Self {
             memory_size_length,
@@ -82,28 +82,26 @@ impl From<MemoryFormatIdentifier> for u8 {
 /// length of `max_number_of_block_length`, i.e. `0x20` means that field is 2 bytes long.
 /// Derived from the slice length when encoding, so it is not part of either response's
 /// public surface.
+///
+/// The low nibble is not retained. ISO 14229-1:2020 Tables 443 and 448 both state that bits
+/// 3 to 0 are "reserved by document, to be set to '0'", and that "the lower nibble **shall**
+/// be set to '0'" — the byte range they give is `0x00` to `0xF0`. A non-zero low nibble is
+/// therefore not a value to echo back but a malformed byte, so encoding always emits zero.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct LengthFormatIdentifier {
     pub max_number_of_block_length: u8,
-    /// The low nibble, which ISO 14229-1 does not define for this byte.
-    ///
-    /// Retained rather than zeroed so a decode/re-encode is byte-exact: a server that sets it
-    /// gets its own byte back. Encoding a freshly constructed response leaves it `0`.
-    pub reserved_low_nibble: u8,
 }
 
 impl From<u8> for LengthFormatIdentifier {
     fn from(value: u8) -> Self {
         Self {
             max_number_of_block_length: (value & BLOCK_LENGTH_NIBBLE_MASK) >> 4,
-            reserved_low_nibble: value & LOW_NIBBLE_MASK,
         }
     }
 }
 impl From<LengthFormatIdentifier> for u8 {
     fn from(length_format_identifier: LengthFormatIdentifier) -> u8 {
-        (length_format_identifier.max_number_of_block_length << 4)
-            | length_format_identifier.reserved_low_nibble
+        length_format_identifier.max_number_of_block_length << 4
     }
 }
 
@@ -232,11 +230,17 @@ mod tests {
 
     #[test]
     fn failed_memory_format_identifier() {
+        // Tables 444 and 449 both put an invalid addressAndLengthFormatIdentifier on NRC 0x31
+        // requestOutOfRange, not 0x13.
         let memory_format_identifier = MemoryFormatIdentifier::try_from(0x00);
         assert!(matches!(
             memory_format_identifier,
-            Err(Error::IncorrectMessageLengthOrInvalidFormat)
+            Err(Error::InvalidAddressAndLengthFormatIdentifier(0x00))
         ));
+        assert_eq!(
+            Error::InvalidAddressAndLengthFormatIdentifier(0x00).negative_response_code(),
+            Some(crate::NegativeResponseCode::RequestOutOfRange)
+        );
     }
 
     #[test]
@@ -320,13 +324,14 @@ mod tests {
             }
 
             #[test]
-            fn prop_length_format_identifier_roundtrip(byte in any::<u8>()) {
-                // Every byte round-trips, including one with the ISO-undefined low nibble set.
-                // This generator used to be `high_nibble << 4`, so the low nibble was always
-                // zero and the property held trivially while the impl silently zeroed it.
+            fn prop_length_format_identifier_normalizes_the_reserved_nibble(byte in any::<u8>()) {
+                // Tables 443 and 448 require the low nibble to be '0', so re-encoding any byte
+                // must clear it while preserving the block-length nibble. Generating the full
+                // `u8` range rather than `high_nibble << 4` is what makes this a real property:
+                // the narrower generator held trivially whichever way the impl behaved.
                 let lfi = LengthFormatIdentifier::from(byte);
                 let back: u8 = lfi.into();
-                prop_assert_eq!(byte, back);
+                prop_assert_eq!(byte & 0xF0, back);
             }
 
             #[test]

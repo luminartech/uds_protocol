@@ -330,13 +330,6 @@ macro_rules! upload_download_service {
             #[doc = concat!("[`", stringify!($resp), "::new`] is fallible.")]
             #[cfg_attr(feature = "serde", serde(borrow))]
             max_number_of_block_length: &'d [u8],
-            /// The low nibble of the `lengthFormatIdentifier`, which ISO 14229-1 leaves
-            /// undefined for this byte.
-            ///
-            /// Retained from the wire so a decode/re-encode is byte-exact -- the same reason
-            /// `TesterPresentRequest` keeps a reserved sub-function value rather than
-            /// normalizing it. `0` for a response this crate constructs.
-            reserved_length_nibble: u8,
         }
 
         impl<'d> $resp<'d> {
@@ -354,7 +347,6 @@ macro_rules! upload_download_service {
                 }
                 Ok(Self {
                     max_number_of_block_length,
-                    reserved_length_nibble: 0,
                 })
             }
 
@@ -375,7 +367,6 @@ macro_rules! upload_download_service {
                 let nibble = self.max_number_of_block_length.len() as u8;
                 let length_format_identifier = LengthFormatIdentifier {
                     max_number_of_block_length: nibble,
-                    reserved_low_nibble: self.reserved_length_nibble,
                 };
                 let mut written =
                     write_u8(writer, length_format_identifier.into()).map_err(Error::io)?;
@@ -406,7 +397,6 @@ macro_rules! upload_download_service {
                 Ok((
                     Self {
                         max_number_of_block_length: &buf[1..total],
-                        reserved_length_nibble: length_format_identifier.reserved_low_nibble,
                     },
                     &buf[total..],
                 ))
@@ -603,19 +593,20 @@ macro_rules! upload_download_service {
             }
 
             #[test]
-            fn a_reserved_length_nibble_is_echoed_rather_than_zeroed() {
-                // The low nibble of the lengthFormatIdentifier is undefined in ISO 14229-1, so
-                // it is not this crate's to clear: `74 25 08 00` used to re-encode as
-                // `74 20 08 00`. That is the same loss `TesterPresentRequest` was fixed for.
-                let wire = [0x25, 0x08, 0x00];
-                let resp = <$resp as Decode>::decode_exact(&wire).unwrap();
+            fn a_reserved_length_nibble_is_zeroed_on_re_encode() {
+                // ISO 14229-1:2020 Tables 443 and 448 both give the lengthFormatIdentifier the
+                // range 0x00 to 0xF0 and state that bits 3 to 0 are "reserved by document, to be
+                // set to '0'" -- "the lower nibble shall be set to '0'". So `74 25 08 00` is a
+                // malformed byte, not a value to preserve: the block length is still read from
+                // the high nibble, but re-encoding emits the conformant `74 20 08 00`.
+                let resp = <$resp as Decode>::decode_exact(&[0x25, 0x08, 0x00]).unwrap();
                 assert_eq!(resp.max_number_of_block_length(), &[0x08, 0x00]);
 
                 let mut buf = [0u8; 8];
                 let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
-                assert_eq!(&buf[..written], &wire);
+                assert_eq!(&buf[..written], &[0x20, 0x08, 0x00]);
 
-                // A response the crate builds itself leaves the nibble clear.
+                // And a response the crate builds itself encodes the same way.
                 let fresh = $resp::new(&[0x08, 0x00]).unwrap();
                 let written = Encode::encode(&fresh, &mut buf.as_mut_slice()).unwrap();
                 assert_eq!(&buf[..written], &[0x20, 0x08, 0x00]);

@@ -27,7 +27,6 @@ macro_rules! byte_schema {
 
 byte_schema!(
     CommunicationControlType,
-    CommunicationType,
     DataFormatIdentifier,
     DtcSettingType,
     SecurityAccessType,

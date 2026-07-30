@@ -53,6 +53,13 @@ pub enum Error {
     /// The memory address value is out of the valid range.
     #[error("Invalid Memory Address: {0}")]
     InvalidMemoryAddress(u64),
+    /// The `addressAndLengthFormatIdentifier` byte declares a width ISO does not permit.
+    ///
+    /// ISO 14229-1:2020 Annex H Table H.1 marks the high nibble (`memorySize`) applicable for
+    /// 1 to 4 bytes and the low nibble (`memoryAddress`) for 1 to 5; a zero nibble or anything
+    /// wider is "not applicable". Tables 444 and 449 both put this on NRC 0x31, not 0x13.
+    #[error("Invalid addressAndLengthFormatIdentifier: {0:#04X}")]
+    InvalidAddressAndLengthFormatIdentifier(u8),
     /// A `u32` did not fit the three bytes of a DTC (i.e. exceeded `0x00FF_FFFF`).
     #[error("Invalid DTC record: {0:#010X} does not fit three bytes")]
     InvalidDtcRecord(u32),
@@ -92,13 +99,21 @@ impl Error {
     ///
     /// let frame = [0x11, 0x01, 0xAA]; // EcuReset with a trailing junk byte
     /// let err = Request::decode(&frame).expect_err("the trailing byte must be rejected");
-    /// let nack = NegativeResponse::new(UdsServiceType::EcuReset, err.negative_response_code());
+    /// let nrc = err.negative_response_code().expect("a malformed frame maps to an NRC");
+    /// let nack = NegativeResponse::new(UdsServiceType::EcuReset, nrc);
     /// assert_eq!(u8::from(nack.nrc()), 0x13);
     /// ```
     ///
+    /// Returns `None` for [`Error::IoError`]: a transport failure is not a protocol error, so
+    /// there is no NRC to send. Every other error maps to a code.
+    ///
     /// # Classification
     ///
-    /// Following ISO 14229-1:
+    /// This is a **default**, covering the lane ISO 14229-1 actually mandates — clause 8.7.5's
+    /// pseudo-code and the "shall" rows of Annex A.1. Clause 8.7.2 notes that "a specific NRC
+    /// is not guaranteed for all possible test pattern sequences", and several outcomes in
+    /// Tables 4 to 7 are specified only as "NRC = XX", so a server is free to answer
+    /// differently where its own tables allow:
     ///
     /// - **`0x13` `incorrectMessageLengthOrInvalidFormat`** — the frame itself is malformed:
     ///   too short, too long, or a declared width that does not fit.
@@ -118,21 +133,28 @@ impl Error {
     /// - **`0x31` `requestOutOfRange`** — a *parameter* (not a sub-function) carries a value
     ///   outside its permitted range. Note that `communicationType` is a parameter of
     ///   `CommunicationControl`, not its sub-function, so it lands here rather than on `0x12`.
-    /// - **`0x10` `generalReject`** — reserved for [`Error::IoError`]. A transport failure is
-    ///   not a protocol error and no other code fits; ISO designates `generalReject` for
-    ///   exactly the case where no other response code meets the implementation's needs.
     ///
-    /// The mapping never returns [`NegativeResponseCode::PositiveResponse`] or any reserved
-    /// code, so the result is always a legal NRC to put on the wire.
+    /// Two codes this mapping deliberately never returns:
+    ///
+    /// - **`0x10` `generalReject`** — Annex A.1 says it "shall only be implemented in the server
+    ///   if none of the negative response codes defined in this document meet the needs of the
+    ///   implementation. At no means shall this NRC be a general replacement". It also appears in
+    ///   none of the per-service NRC tables, so no service's `allowed_nack_codes` lists it.
+    /// - **`0x11` `serviceNotSupported`** — an unrecognised SID does not fail to decode; it
+    ///   becomes [`Request::Other`](crate::Request::Other) so a server can see the byte. Answering
+    ///   `0x11` is therefore the server's call, on a SID it does not implement.
+    ///
+    /// Every code this does return is a legal NRC to put on the wire: never
+    /// [`NegativeResponseCode::PositiveResponse`] and never a reserved value.
     #[must_use]
-    pub const fn negative_response_code(&self) -> NegativeResponseCode {
+    pub const fn negative_response_code(&self) -> Option<NegativeResponseCode> {
         match self {
             // The frame is malformed.
             Self::InsufficientData(_)
             | Self::TrailingBytes(_)
             | Self::InvalidWidth(_)
             | Self::IncorrectMessageLengthOrInvalidFormat => {
-                NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat
+                Some(NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat)
             }
 
             // The sub-function byte is not a defined value for the service.
@@ -143,17 +165,20 @@ impl Error {
             | Self::InvalidTesterPresentType(_)
             | Self::InvalidRoutineControlSubFunction(_)
             | Self::InvalidDtcSubfunctionType(_)
-            | Self::InvalidDtcSetting(_) => NegativeResponseCode::SubFunctionNotSupported,
+            | Self::InvalidDtcSetting(_) => Some(NegativeResponseCode::SubFunctionNotSupported),
 
             // A parameter value is outside its permitted range.
             Self::InvalidCommunicationType(_)
             | Self::InvalidMemoryAddress(_)
+            | Self::InvalidAddressAndLengthFormatIdentifier(_)
             | Self::InvalidDtcRecord(_)
             | Self::InvalidEncryptionCompressionMethod(_)
-            | Self::InvalidFileOperationMode(_) => NegativeResponseCode::RequestOutOfRange,
+            | Self::InvalidFileOperationMode(_) => Some(NegativeResponseCode::RequestOutOfRange),
 
-            // Transport failure: not a protocol error, so no specific NRC applies.
-            Self::IoError(_) => NegativeResponseCode::GeneralReject,
+            // Transport failure. ISO does not model this as an NRC at all: clause 7.4.1.6
+            // surfaces it to the server application as `A_Result = error`. There is no byte to
+            // put on the wire, because the wire is what failed.
+            Self::IoError(_) => None,
         }
     }
 }
@@ -296,11 +321,10 @@ mod nrc_mapping_tests {
                 0x31,
                 "a u32 wider than three DTC bytes",
             ),
-            // --- 0x10 generalReject: transport failure, no protocol NRC applies ---
             (
-                Error::IoError(embedded_io::ErrorKind::WriteZero),
-                0x10,
-                "I/O failure",
+                Error::InvalidAddressAndLengthFormatIdentifier(0x00),
+                0x31,
+                "addressAndLengthFormatIdentifier outside Table H.1",
             ),
         ]
         .into_iter()
@@ -309,7 +333,10 @@ mod nrc_mapping_tests {
     #[test]
     fn every_error_maps_to_its_iso_negative_response_code() {
         for (err, want, why) in cases() {
-            let got = u8::from(err.negative_response_code());
+            let nrc = err
+                .negative_response_code()
+                .expect("every case in this table is a protocol error, not a transport one");
+            let got = u8::from(nrc);
             assert_eq!(
                 got, want,
                 "{err:?} ({why}): got 0x{got:02X}, want 0x{want:02X}"
@@ -318,11 +345,16 @@ mod nrc_mapping_tests {
     }
 
     #[test]
-    fn mapping_only_produces_codes_the_iso_tables_allow() {
-        // A decode failure must never be reported as a positive response, and must never
-        // invent a reserved code — either would put an invalid NRC on the wire.
+    fn mapping_never_produces_a_positive_or_reserved_code() {
+        // This is deliberately narrower than "the codes the ISO tables allow": the per-service
+        // tables are a floor, not a ceiling (clause 9.4 — the A.1 codes "shall be used in
+        // addition to" them), so table membership is not the property to assert. What must hold
+        // is that a decode failure never reports a positive response and never invents a
+        // reserved code, either of which would put an illegal byte on the wire.
         for (err, _, why) in cases() {
-            let nrc = err.negative_response_code();
+            let nrc = err
+                .negative_response_code()
+                .expect("every case in this table maps to a code");
             assert_ne!(
                 nrc,
                 NegativeResponseCode::PositiveResponse,

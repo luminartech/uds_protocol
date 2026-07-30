@@ -2,7 +2,7 @@
 
 use automotive_wire_codec::{read_u8, write_all, write_u8, write_u16_be};
 
-use crate::shared::{fuse_sprmib, split_sprmib};
+use crate::shared::{SPRMIB_VALUE_MASK, fuse_sprmib, split_sprmib};
 use crate::{
     Decode, DtcExtDataRecordNumber, DtcFormatIdentifier, DtcRecord, DtcSeverityMask,
     DtcSnapshotRecordNumber, DtcStatusMask, DtcStoredDataRecordNumber, Encode, Error,
@@ -23,7 +23,7 @@ const READ_DTC_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 3] = [
 pub struct ReadDtcInfoRequest {
     /// Whether the server should suppress a positive response (SPRMIB).
     ///
-    /// ISO 14229-1:2020 Table 13 requires a server to support both values for every
+    /// ISO 14229-1:2020 Table 11 requires a server to support both values for every
     /// sub-function it supports, so this is independent of `dtc_subfunction`.
     pub suppress_positive_response: bool,
     /// The sub-function specifying what DTC information to report.
@@ -78,7 +78,7 @@ impl<'a> Decode<'a> for ReadDtcInfoRequest {
                 available: buf.len(),
             }));
         }
-        // Bit 7 is SPRMIB, not part of the sub-function value (ISO 14229-1:2020 Table 13).
+        // Bit 7 is SPRMIB, not part of the sub-function value (ISO 14229-1:2020 Table 11).
         let (suppress_positive_response, sub) = split_sprmib(buf[0]);
         let rest = &buf[1..];
         let (dtc_subfunction, rest) = match sub {
@@ -213,7 +213,7 @@ mod read_dtc_info_request_encode_tests {
 
     #[test]
     fn both_sprmib_values_round_trip_through_the_request_frame() {
-        // ISO 14229-1:2020 Table 13 requires that "values of both '0' and '1' shall be
+        // ISO 14229-1:2020 Table 11 requires that "values of both '0' and '1' shall be
         // supported for all SubFunction parameter values ... supported by the server for any
         // given service", and clause 12.3.2.2 introduces 0x19's sub-function table with
         // "(suppressPosRspMsgIndicationBit (bit 7) not shown)". A suppressed
@@ -504,6 +504,25 @@ pub enum ReadDtcInfoSubFunction {
 }
 
 impl ReadDtcInfoSubFunction {
+    /// Build the [`IsoSaeReserved`](Self::IsoSaeReserved) variant for a sub-function byte this
+    /// crate does not model.
+    ///
+    /// A tester needs this to originate a request for a report type the crate has not
+    /// implemented — `Self::IsoSaeReserved(byte)` is not writable outside this crate, because
+    /// the variant is `#[non_exhaustive]` to keep bit 7 out of it.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidDtcSubfunctionType`] if bit 7 is set. That bit is the
+    /// suppressPosRspMsgIndicationBit, not part of the sub-function value: pass it as the first
+    /// argument to [`ReadDtcInfoRequest::new`] instead. Letting it into the variant would make
+    /// `0x80` encode as a suppressed `0x00`.
+    pub const fn try_reserved(byte: u8) -> Result<Self, Error> {
+        if byte & !SPRMIB_VALUE_MASK != 0 {
+            return Err(Error::InvalidDtcSubfunctionType(byte));
+        }
+        Ok(Self::IsoSaeReserved(byte))
+    }
+
     /// Return the raw `u8` sub-function byte.
     #[must_use]
     pub const fn value(&self) -> u8 {
@@ -1514,7 +1533,9 @@ mod iter_tests {
             .take(8)
             .collect_bounded();
         assert_eq!((five.oks, five.errs), (1, 1));
-        let six: heapless_vec::Bounded<8> = WwhObdDtcSeverityIter::new(&[0u8; 6]).take(8).collect_bounded();
+        let six: heapless_vec::Bounded<8> = WwhObdDtcSeverityIter::new(&[0u8; 6])
+            .take(8)
+            .collect_bounded();
         assert_eq!((six.oks, six.errs), (1, 1));
     }
 
@@ -1566,7 +1587,11 @@ mod iter_tests {
                 (actual, Some(actual)),
                 "WwhObdDtcSeverityIter, {len} bytes"
             );
-            assert_eq!(actual, len.div_ceil(5), "WwhObdDtcSeverityIter count, {len} bytes");
+            assert_eq!(
+                actual,
+                len.div_ceil(5),
+                "WwhObdDtcSeverityIter count, {len} bytes"
+            );
         }
     }
 
