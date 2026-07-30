@@ -300,18 +300,26 @@ mod serde_cannot_bypass_validation {
             .is_err()
         );
         // A width outside Table H.1 is rejected too.
+        // The widths arrive as one addressAndLengthFormatIdentifier byte, so a width outside
+        // Table H.1 is rejected by that type before the request is built: 0x90 declares a
+        // 9-byte memorySize and a 0-byte memoryAddress, both "not applicable".
         assert!(
             serde_json::from_str::<RequestDownloadRequest>(
-                r#"{"data_format_identifier":0,"memory_address":16,"memory_address_length":9,"memory_size":16,"memory_size_length":0}"#
+                r#"{"data_format_identifier":0,"address_and_length_format_identifier":144,"memory_address":16,"memory_size":16}"#
             )
             .is_err()
         );
 
         // A wider-than-minimal declaration survives the round trip, so the ALFID a server was
-        // sent is the one it gets back.
-        let json = r#"{"data_format_identifier":17,"memory_address":6299648,"memory_address_length":3,"memory_size":65535,"memory_size_length":3}"#;
+        // sent is the one it gets back. 0x33 is three bytes each, for values needing two.
+        let json = r#"{"data_format_identifier":17,"address_and_length_format_identifier":51,"memory_address":6299648,"memory_size":65535}"#;
         let req: RequestDownloadRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.memory_address(), 0x0060_2000);
+        assert_eq!(
+            req.address_and_length_format_identifier(),
+            0x33,
+            "the declared widths must survive, not be re-derived as minimal"
+        );
         assert_eq!(serde_json::to_string(&req).unwrap(), json);
     }
 
@@ -319,9 +327,9 @@ mod serde_cannot_bypass_validation {
     fn no_crate_private_type_appears_in_the_serialized_form() {
         use uds_protocol::{RequestDownloadRequest, TesterPresentRequest};
 
-        // `ZeroSubFunction` is module-private and `MemoryFormatIdentifier` is `pub(crate)`, yet
-        // both used to be named components of the serialized shape — and of the generated
-        // OpenAPI schema, giving client generators a type downstream Rust cannot reference.
+        // `ZeroSubFunction` is module-private, yet it used to be a named component of the
+        // serialized shape — and of the generated OpenAPI schema, giving client generators a type
+        // downstream Rust cannot reference.
         let tester = serde_json::to_string(&TesterPresentRequest::new(false)).unwrap();
         assert!(
             !tester.contains("zero_sub_function"),
@@ -329,14 +337,21 @@ mod serde_cannot_bypass_validation {
         );
         assert!(tester.contains("sub_function"), "got {tester}");
 
+        // The transfer requests' widths were the other half of this: they were reached through a
+        // `pub(crate)` type, so the repr flattened them into two derived scalars. The type is now
+        // public and serializes as the single ISO-named byte it is on the wire, so the shape
+        // matches Table 441 instead of paraphrasing it.
         let download =
             RequestDownloadRequest::new(DataFormatIdentifier::NONE, 0x1234, 0x10).unwrap();
         let json = serde_json::to_string(&download).unwrap();
-        assert!(
-            !json.contains("address_and_length_format_identifier"),
-            "leaked a private field name: {json}"
+        assert_eq!(
+            json,
+            r#"{"data_format_identifier":0,"address_and_length_format_identifier":18,"memory_address":4660,"memory_size":16}"#
         );
-        assert!(json.contains("memory_address_length"), "got {json}");
+        assert!(
+            !json.contains("memory_address_length") && !json.contains("memory_size_length"),
+            "the widths are the format identifier byte, not separate fields: {json}"
+        );
     }
 
     #[test]

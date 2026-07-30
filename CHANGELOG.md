@@ -94,10 +94,28 @@ symmetrically, which still round-trips. See the module doc for where the line fa
   Table 484 mandates. 0x24 exists specifically for `ResumeFile` against an already-complete
   transfer.
 
-- `RequestDownloadRequest::new_with_widths` / `RequestUploadRequest::new_with_widths` let a client
-  choose the field widths. Table 441 makes the `addressAndLengthFormatIdentifier` a client choice,
-  not a function of the values, and `new` derives only minimal widths — so the crate could not
-  reproduce Table 462's own example, nor satisfy the bootloaders that mandate a fixed ALFID.
+- **Breaking:** `AddressAndLengthFormatIdentifier` is public, and
+  `RequestDownloadRequest::new_with_alfid` / `RequestUploadRequest::new_with_alfid` take one. Table
+  441 makes the `addressAndLengthFormatIdentifier` a client choice, not a function of the values,
+  and `new` derives only minimal widths — so the crate could not reproduce Table 462's own example
+  (three `memorySize` bytes for `0x00FFFF`), nor satisfy a bootloader that mandates a fixed ALFID.
+
+  A bootloader states that requirement as a byte, so the type is built from one:
+  `AddressAndLengthFormatIdentifier::try_from(0x44)?`. That replaces a five-parameter
+  `new_with_widths(dfi, address, address_len, size, size_len)` whose four numeric arguments
+  included two transposable width/value pairs, with no compiler help — the nibbles are
+  asymmetric (high is size, low is address), so a swap silently truncated.
+
+  `new` now derives its widths and **delegates** to `new_with_alfid`. The two used to be
+  independent code paths that disagreed: the same over-wide `memory_address` produced
+  `InvalidMemoryAddress` from one and `IncorrectMessageLengthOrInvalidFormat` from the other, so
+  one input yielded NRC `0x31` or `0x13` depending on which constructor a caller reached for.
+  Nothing tested it. New `Error::InvalidMemorySize` completes the pair, and both map to `0x31` as
+  Tables 444 and 449 require for a `memoryAddress`/`memorySize` that "is not valid".
+
+  This also changes the `serde` shape of both requests: the widths were two derived scalars
+  (`memory_address_length`, `memory_size_length`) and are now the single ISO-named
+  `address_and_length_format_identifier` byte, matching Table 441 rather than paraphrasing it.
 
 ### Fixed — encapsulation
 

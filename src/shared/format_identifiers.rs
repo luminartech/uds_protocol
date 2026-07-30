@@ -29,23 +29,99 @@ const BLOCK_LENGTH_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
 const COMPRESSION_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
 const ENCRYPTION_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
 
-/// Takes in the actual memory address to be used and the size of the memory to be used
-/// and computes how many bytes are needed to represent them
+/// How many bytes the `memoryAddress` and `memorySize` parameters occupy on the wire.
 ///
-/// Carried by the `addressAndLengthFormatIdentifier` byte of
+/// The `addressAndLengthFormatIdentifier` byte of
 /// [`RequestDownloadRequest`](crate::RequestDownloadRequest) and
 /// [`RequestUploadRequest`](crate::RequestUploadRequest), which share one message layout.
-/// Derived from the address and size rather than set by the caller, so it is not part of
-/// either type's public surface.
+/// The high nibble is the `memorySize` width and the low nibble the `memoryAddress` width, in
+/// bytes — so `0x44` declares four bytes each, and `0x12` one byte of size and two of address.
 ///
-/// See ISO-14229-1:2020, Table H.1 for format information
+/// ISO 14229-1:2020 Table 441 makes this a client choice rather than a function of the values, so
+/// it is a parameter rather than something derived: clause 11.3.1 blesses "a **fixed**
+/// addressAndLengthFormatIdentifier" with the unused bytes "padded with the value 0x00", and the
+/// standard's own examples are non-minimal (Table 462 declares three `memorySize` bytes for
+/// `0x00FFFF`, which needs two). Pass one to
+/// [`RequestDownloadRequest::new_with_alfid`](crate::RequestDownloadRequest::new_with_alfid);
+/// [`new`](crate::RequestDownloadRequest::new) derives the minimal one for you.
+///
+/// A bootloader that mandates a particular value states it as a byte, so build one the same way:
+///
+/// ```
+/// use uds_protocol::AddressAndLengthFormatIdentifier as Alfid;
+///
+/// let alfid = Alfid::try_from(0x44).expect("four bytes each is within Table H.1");
+/// assert_eq!(alfid.memory_size_length(), 4);
+/// assert_eq!(alfid.memory_address_length(), 4);
+/// assert_eq!(u8::from(alfid), 0x44);
+///
+/// // Annex H Table H.1 marks a zero nibble, and any size above 4, "not applicable".
+/// assert!(Alfid::try_from(0x40).is_err());
+/// assert!(Alfid::try_from(0x54).is_err());
+/// ```
+///
+/// See ISO 14229-1:2020 Annex H Table H.1 for the applicable widths.
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct MemoryFormatIdentifier {
-    pub memory_size_length: u8,
-    pub memory_address_length: u8,
+pub struct AddressAndLengthFormatIdentifier {
+    /// Width of `memorySize` in bytes: 1 to 4. Private so it cannot leave Table H.1's range.
+    memory_size_length: u8,
+    /// Width of `memoryAddress` in bytes: 1 to 5. Private for the same reason.
+    memory_address_length: u8,
 }
 
-impl TryFrom<u8> for MemoryFormatIdentifier {
+impl AddressAndLengthFormatIdentifier {
+    /// Build one from its two widths, in bytes.
+    ///
+    /// Arguments are in **wire order**: `memory_size_length` is the high nibble,
+    /// `memory_address_length` the low nibble. Both are `u8`, so the compiler cannot catch a
+    /// transposition — if you have the byte already, prefer `try_from`, which cannot be
+    /// transposed.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidAddressAndLengthFormatIdentifier`] carrying the byte the widths
+    /// would have formed if `memory_size_length` is outside 1 to 4 or `memory_address_length` is
+    /// outside 1 to 5, which Annex H Table H.1 marks "not applicable".
+    pub const fn new(memory_size_length: u8, memory_address_length: u8) -> Result<Self, Error> {
+        if !matches!(memory_size_length, 1..=MAX_MEMORY_SIZE_LENGTH)
+            || !matches!(memory_address_length, 1..=MAX_MEMORY_ADDRESS_LENGTH)
+        {
+            // Report the byte, not the nibble, so the message matches what a tester configures
+            // and what `try_from` would have been given. Nibbles wider than 4 bits are masked to
+            // keep the reported byte a faithful packing of the two.
+            return Err(Error::InvalidAddressAndLengthFormatIdentifier(
+                ((memory_size_length & LOW_NIBBLE_MASK) << 4)
+                    | (memory_address_length & LOW_NIBBLE_MASK),
+            ));
+        }
+        Ok(Self {
+            memory_size_length,
+            memory_address_length,
+        })
+    }
+
+    /// Width of the `memorySize` parameter in bytes, 1 to 4. The high nibble.
+    #[must_use]
+    pub const fn memory_size_length(self) -> u8 {
+        self.memory_size_length
+    }
+
+    /// Width of the `memoryAddress` parameter in bytes, 1 to 5. The low nibble.
+    #[must_use]
+    pub const fn memory_address_length(self) -> u8 {
+        self.memory_address_length
+    }
+}
+
+impl PartialEq<u8> for AddressAndLengthFormatIdentifier {
+    /// Wire equality: compares the packed byte, so `alfid == 0x44` reads as it does in the spec.
+    fn eq(&self, other: &u8) -> bool {
+        (self.memory_size_length << 4) | self.memory_address_length == *other
+    }
+}
+
+impl TryFrom<u8> for AddressAndLengthFormatIdentifier {
     type Error = Error;
     fn try_from(value: u8) -> Result<Self, Error> {
         // High nibble: bytes used for the memorySize parameter. Table H.1 marks 1 through 4
@@ -68,17 +144,16 @@ impl TryFrom<u8> for MemoryFormatIdentifier {
     }
 }
 
-impl From<MemoryFormatIdentifier> for u8 {
-    fn from(memory_format_identifier: MemoryFormatIdentifier) -> u8 {
-        (memory_format_identifier.memory_size_length << 4)
-            | memory_format_identifier.memory_address_length
+impl From<AddressAndLengthFormatIdentifier> for u8 {
+    fn from(alfid: AddressAndLengthFormatIdentifier) -> u8 {
+        (alfid.memory_size_length << 4) | alfid.memory_address_length
     }
 }
 
 /// The leading byte of a [`RequestDownloadResponse`](crate::RequestDownloadResponse) or
 /// [`RequestUploadResponse`](crate::RequestUploadResponse), which share one message layout.
 ///
-/// The format mirrors [`MemoryFormatIdentifier`]: a byte whose high nibble gives the byte
+/// The format mirrors [`AddressAndLengthFormatIdentifier`]: a byte whose high nibble gives the byte
 /// length of `max_number_of_block_length`, i.e. `0x20` means that field is 2 bytes long.
 /// Derived from the slice length when encoding, so it is not part of either response's
 /// public surface.
@@ -221,7 +296,7 @@ mod tests {
     use super::*;
     #[test]
     fn memory_format_identifier() {
-        let memory_format_identifier = MemoryFormatIdentifier::try_from(0x23).unwrap();
+        let memory_format_identifier = AddressAndLengthFormatIdentifier::try_from(0x23).unwrap();
         assert_eq!(memory_format_identifier.memory_size_length, 2);
         assert_eq!(memory_format_identifier.memory_address_length, 3);
 
@@ -232,7 +307,7 @@ mod tests {
     fn failed_memory_format_identifier() {
         // Tables 444 and 449 both put an invalid addressAndLengthFormatIdentifier on NRC 0x31
         // requestOutOfRange, not 0x13.
-        let memory_format_identifier = MemoryFormatIdentifier::try_from(0x00);
+        let memory_format_identifier = AddressAndLengthFormatIdentifier::try_from(0x00);
         assert!(matches!(
             memory_format_identifier,
             Err(Error::InvalidAddressAndLengthFormatIdentifier(0x00))
@@ -251,7 +326,7 @@ mod tests {
         for size_len in 1..=4u8 {
             for addr_len in 1..=5u8 {
                 let byte = (size_len << 4) | addr_len;
-                let mfi = MemoryFormatIdentifier::try_from(byte)
+                let mfi = AddressAndLengthFormatIdentifier::try_from(byte)
                     .unwrap_or_else(|e| panic!("Table H.1 lists {byte:#04X} as valid, got {e:?}"));
                 assert_eq!(mfi.memory_size_length, size_len, "for {byte:#04X}");
                 assert_eq!(mfi.memory_address_length, addr_len, "for {byte:#04X}");
@@ -266,7 +341,7 @@ mod tests {
         // and 5 (address).
         for byte in [0x00, 0x01, 0x10, 0x05, 0x50, 0x46, 0x55, 0xF5, 0x5F] {
             assert!(
-                MemoryFormatIdentifier::try_from(byte).is_err(),
+                AddressAndLengthFormatIdentifier::try_from(byte).is_err(),
                 "{byte:#04X} is not applicable per Table H.1 but was accepted"
             );
         }
@@ -343,7 +418,7 @@ mod tests {
                 addr_len in 1u8..=MAX_MEMORY_ADDRESS_LENGTH,
             ) {
                 let byte = (size_len << 4) | addr_len;
-                let mfi = MemoryFormatIdentifier::try_from(byte).unwrap();
+                let mfi = AddressAndLengthFormatIdentifier::try_from(byte).unwrap();
                 let back: u8 = mfi.into();
                 prop_assert_eq!(byte, back);
             }
