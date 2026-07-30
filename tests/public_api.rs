@@ -47,17 +47,92 @@ fn dtc_fault_detection_counter_record_is_constructible_downstream() {
 }
 
 #[test]
-fn every_non_exhaustive_payload_type_has_a_reachable_constructor() {
-    // One commit added `#[non_exhaustive]` to seven public structs with `pub` fields. Six had
-    // a constructor and one did not, which made it unbuildable outside the crate. Pin all
-    // seven so the next `#[non_exhaustive]` cannot reintroduce the gap silently.
-    let _ = SizePayload::new(0xC350, 0x7530);
-    let _ = NamePayload::new("/a");
-    let _ = SentDataPayload::new(&[0x02, 0x00]);
-    let _ = FileSizePayload::new(0xC350, 0x7530);
-    let _ = DirSizePayload::new(0x20);
-    let _ = PositionPayload::new(0x10);
-    let _ = DtcFaultDetectionCounterRecord::new(DtcRecord::new(0, 0, 0), 0);
+fn the_payload_data_bags_are_buildable_with_a_struct_literal() {
+    // These five carry no invariant: every field is `pub`, and their encoders derive the wire
+    // widths from the values, so no combination fails. The crate's rule is to encapsulate a
+    // request/response struct *iff* it bears an invariant, so these are plain data bags and a
+    // struct literal must work from out here. They were briefly `#[non_exhaustive]` purely for
+    // symmetry with the invariant-bearing types, which cost a downstream the struct literal
+    // (E0639) and bought nothing -- `DtcFaultDetectionCounterRecord` became unbuildable
+    // entirely and took two follow-up commits to repair.
+    let _ = SizePayload {
+        file_size_uncompressed: 0xC350,
+        file_size_compressed: 0x7530,
+    };
+    let _ = FileSizePayload {
+        file_size_uncompressed: 0xC350,
+        file_size_compressed: 0x7530,
+    };
+    let _ = DirSizePayload {
+        dir_info_length: 0x20,
+    };
+    let _ = PositionPayload {
+        file_position: 0x10,
+    };
+    let _ = DtcFaultDetectionCounterRecord {
+        dtc_record: DtcRecord::new(0, 0, 0),
+        dtc_fault_detection_counter: 0x2A,
+    };
+
+    // The convenience constructors stay, and agree with the literals.
+    assert_eq!(
+        SizePayload::new(0xC350, 0x7530),
+        SizePayload {
+            file_size_uncompressed: 0xC350,
+            file_size_compressed: 0x7530,
+        }
+    );
+}
+
+#[test]
+fn the_two_length_bounded_payloads_reject_an_unencodable_value() {
+    // These two are the ones that genuinely bear an invariant, so they keep both
+    // `#[non_exhaustive]` and a fallible constructor: the wire field carrying the length is one
+    // byte for `SentDataPayload` and two for `NamePayload`, and `encode` used to be the first
+    // thing to notice an over-long value. A struct literal here is correctly a compile error.
+    assert!(SentDataPayload::new(&[0u8; 255]).is_ok());
+    assert!(SentDataPayload::new(&[0u8; 256]).is_err());
+
+    let short = NamePayload::new("/a").expect("a two-character name fits");
+    assert_eq!(short.file_path_and_name, "/a");
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn serde_cannot_build_a_reserved_variant_that_aliases_a_named_one() {
+    // This is what the variant seals were supposed to prevent and did not: with a plain derived
+    // `Deserialize`, `{"IsoSaeReserved":1}` produced a value whose `value()` is 0x01 -- the same
+    // byte `Iso14229_1DtcFormat` encodes -- yet compared unequal to it. `#[non_exhaustive]` on
+    // the variant blocked the Rust struct literal and did nothing about serde, so it bought
+    // pattern-matching friction and no guarantee. Routing serde through `u8` is what actually
+    // closes it, for every byte, and it lets the variant be named and destructured again.
+    let round: DtcFormatIdentifier = serde_json::from_str("1").expect("a bare byte");
+    assert_eq!(round, DtcFormatIdentifier::Iso14229_1DtcFormat);
+    assert_eq!(serde_json::to_string(&round).unwrap(), "1");
+
+    // The old escape route no longer parses at all.
+    assert!(serde_json::from_str::<DtcFormatIdentifier>(r#"{"IsoSaeReserved":1}"#).is_err());
+
+    // Every byte survives the round trip through the classifier, so no aliasing state exists.
+    for byte in 0x00..=0xFFu8 {
+        let via_serde: DtcFormatIdentifier =
+            serde_json::from_str(&byte.to_string()).expect("every byte classifies");
+        assert_eq!(via_serde, DtcFormatIdentifier::from(byte));
+        assert_eq!(via_serde, byte, "PartialEq<u8> must be wire equality");
+    }
+}
+
+#[test]
+fn a_reserved_variant_is_nameable_and_destructurable_downstream() {
+    // The seal made both `IsoSaeReserved(b)` and `IsoSaeReserved(..)` E0603 out here, so a
+    // downstream could not even read the byte by matching -- only `value()` worked. For an
+    // audience new to Rust that is a compile error whose text says nothing about the way out.
+    let reserved = DtcFormatIdentifier::from(0xAA);
+    match reserved {
+        DtcFormatIdentifier::IsoSaeReserved(byte) => assert_eq!(byte, 0xAA),
+        other => panic!("0xAA should classify as reserved, got {other:?}"),
+    }
+    assert_eq!(DtcFormatIdentifier::IsoSaeReserved(0xAA), reserved);
 }
 
 #[test]

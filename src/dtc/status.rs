@@ -132,7 +132,7 @@ impl<'a> Decode<'a> for DtcStatusMask {
 ///
 /// A given server shall only support one `DtcFormatIdentifier`.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 #[repr(u8)]
@@ -154,7 +154,6 @@ pub enum DtcFormatIdentifier {
 
     /// Reserved for future usage
     /// 0x05 - 0xFF
-    #[non_exhaustive]
     IsoSaeReserved(u8),
 }
 
@@ -185,6 +184,15 @@ impl DtcFormatIdentifier {
             Self::SaeJ2012DaDtcFormat04 => 0x04,
             Self::IsoSaeReserved(value) => *value,
         }
+    }
+}
+
+impl PartialEq<u8> for DtcFormatIdentifier {
+    /// Wire equality: compares the byte this identifier encodes to. Variant equality is not the
+    /// same thing -- `IsoSaeReserved(0x01)` and `Iso14229_1DtcFormat` both encode `0x01` but are
+    /// different variants, so use this when the wire byte is what matters.
+    fn eq(&self, other: &u8) -> bool {
+        self.value() == *other
     }
 }
 
@@ -357,7 +365,7 @@ impl<'a> DecodeIter<'a> for DtcRecord {
 ///     * Requesting DTC status from a vehicle
 ///     * Clearing DTC information in the vehicle
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum FunctionalGroupIdentifier {
@@ -365,7 +373,6 @@ pub enum FunctionalGroupIdentifier {
     /// 0x34 to 0xCF
     /// 0xE0 to 0xFD
     /// 0xFF
-    #[non_exhaustive]
     IsoSaeReserved(u8),
     /// 0x33
     EmissionsSystemGroup,
@@ -403,6 +410,15 @@ impl From<u8> for FunctionalGroupIdentifier {
             0xD1..=0xDF => FunctionalGroupIdentifier::LegislativeSystemGroup(value),
             _ => FunctionalGroupIdentifier::IsoSaeReserved(value),
         }
+    }
+}
+
+impl PartialEq<u8> for FunctionalGroupIdentifier {
+    /// Wire equality: compares the byte this identifier encodes to. `LegislativeSystemGroup`
+    /// and `IsoSaeReserved` can carry the same byte as a named variant, so variant equality is
+    /// not wire equality.
+    fn eq(&self, other: &u8) -> bool {
+        u8::from(*self) == *other
     }
 }
 
