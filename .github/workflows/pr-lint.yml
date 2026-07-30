@@ -1,0 +1,98 @@
+# PR title/description linting lives in its own workflow so that label and
+# title/body edits re-run only these checks, not the whole verification suite.
+#
+# Squash-merge (see repo settings) uses the PR title as the commit message, so the
+# title - not the individual commits in the branch - is what lands on main and
+# feeds release-plz's changelog.
+name: PR Lint
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-lint-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  # release-plz's own PRs (branch prefix "release-plz-") are machine-generated and
+  # don't follow the human PR template - skip both lints for them.
+  pr-title-lint:
+    name: PR Title Lint
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.head_ref, 'release-plz-') }}
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # amannn/action-semantic-pull-request matches types case-sensitively, so both
+          # the lowercase (conventional-commit-spec) and capitalized forms are listed.
+          types: |
+            feat
+            Feat
+            fix
+            Fix
+            perf
+            Perf
+            docs
+            Docs
+            refactor
+            Refactor
+            revert
+            Revert
+            style
+            Style
+            test
+            Test
+            chore
+            Chore
+            ci
+            CI
+            build
+            Build
+
+  # PULL_REQUEST_TEMPLATE.md's "## Issue URL" and "## Testing" sections are meant to
+  # be filled in, not left as the template's placeholder comments.
+  pr-description-lint:
+    name: PR Description Lint
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.head_ref, 'release-plz-') }}
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const body = (context.payload.pull_request.body || "")
+              .replace(/<!--[\s\S]*?-->/g, "")
+              .trim();
+
+            function section(heading) {
+              const re = new RegExp(`##\\s*${heading}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, "i");
+              const match = body.match(re);
+              return match ? match[1].trim() : "";
+            }
+
+            // Empty, or still just the template's unfilled "Closes #<issue ID>" stub.
+            function isUnfilled(text) {
+              return !text || /^(closes|fixes|towards|resolves)?\s*#?<.*>\s*$/i.test(text);
+            }
+
+            const hasNoIssueLabel = context.payload.pull_request.labels
+              .some((label) => label.name === "No Issue");
+
+            const problems = [];
+            if (!hasNoIssueLabel && isUnfilled(section("Issue URL"))) {
+              problems.push(
+                '"## Issue URL" is empty - link the issue this PR addresses, ' +
+                'or apply the "No Issue" label if there truly isn\'t one.'
+              );
+            }
+            if (isUnfilled(section("Testing"))) {
+              problems.push('"## Testing" is empty - describe what you tested.');
+            }
+
+            if (problems.length > 0) {
+              core.setFailed(problems.join("\n"));
+            }
