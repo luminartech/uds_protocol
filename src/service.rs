@@ -301,3 +301,138 @@ impl core::fmt::Display for UdsServiceType {
         write!(f, "{self:?}")
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// Every service this crate models, paired with its request and response SID.
+    ///
+    /// Written out rather than derived from the conversions, so the table is an independent
+    /// statement of what ISO 14229-1 assigns and a transposed pair fails instead of agreeing
+    /// with itself. `NegativeResponse` and `UnsupportedDiagnosticService` are absent because
+    /// neither has a request SID.
+    const SERVICES: &[(UdsServiceType, u8, u8)] = &[
+        (UdsServiceType::DiagnosticSessionControl, 0x10, 0x50),
+        (UdsServiceType::EcuReset, 0x11, 0x51),
+        (UdsServiceType::ClearDiagnosticInfo, 0x14, 0x54),
+        (UdsServiceType::ReadDtcInfo, 0x19, 0x59),
+        (UdsServiceType::ReadDataByIdentifier, 0x22, 0x62),
+        (UdsServiceType::ReadMemoryByAddress, 0x23, 0x63),
+        (UdsServiceType::ReadScalingDataByIdentifier, 0x24, 0x64),
+        (UdsServiceType::SecurityAccess, 0x27, 0x67),
+        (UdsServiceType::CommunicationControl, 0x28, 0x68),
+        (UdsServiceType::Authentication, 0x29, 0x69),
+        (UdsServiceType::ReadDataByIdentifierPeriodic, 0x2A, 0x6A),
+        (UdsServiceType::DynamicallyDefinedDataIdentifier, 0x2C, 0x6C),
+        (UdsServiceType::WriteDataByIdentifier, 0x2E, 0x6E),
+        (UdsServiceType::InputOutputControlByIdentifier, 0x2F, 0x6F),
+        (UdsServiceType::RoutineControl, 0x31, 0x71),
+        (UdsServiceType::RequestDownload, 0x34, 0x74),
+        (UdsServiceType::RequestUpload, 0x35, 0x75),
+        (UdsServiceType::TransferData, 0x36, 0x76),
+        (UdsServiceType::RequestTransferExit, 0x37, 0x77),
+        (UdsServiceType::RequestFileTransfer, 0x38, 0x78),
+        (UdsServiceType::TesterPresent, 0x3E, 0x7E),
+        (UdsServiceType::AccessTimingParameters, 0x83, 0xC3),
+        (UdsServiceType::SecuredDataTransmission, 0x84, 0xC4),
+        (UdsServiceType::ControlDtcSetting, 0x85, 0xC5),
+        (UdsServiceType::ResponseOnEvent, 0x86, 0xC6),
+        (UdsServiceType::LinkControl, 0x87, 0xC7),
+        (UdsServiceType::WriteMemoryByAddress, 0x3D, 0x7D),
+    ];
+
+    #[test]
+    fn every_service_maps_to_the_sids_iso_assigns_it() {
+        for &(service, request_sid, response_sid) in SERVICES {
+            assert_eq!(
+                UdsServiceType::to_request_sid(service),
+                request_sid,
+                "{service:?} request SID"
+            );
+            assert_eq!(
+                UdsServiceType::to_response_sid(service),
+                response_sid,
+                "{service:?} response SID"
+            );
+            assert_eq!(
+                UdsServiceType::from_request_sid(request_sid),
+                service,
+                "request SID {request_sid:#04X}"
+            );
+            assert_eq!(
+                UdsServiceType::from_response_sid(response_sid),
+                service,
+                "response SID {response_sid:#04X}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_response_sid_is_the_request_sid_with_bit_6_set() {
+        // ISO 14229-1 derives every positive response SID by adding 0x40 to the request SID.
+        // Checking the rule as well as the table catches a single mistyped entry above, which a
+        // table compared only against itself would not.
+        for &(service, request_sid, response_sid) in SERVICES {
+            assert_eq!(
+                response_sid,
+                request_sid + 0x40,
+                "{service:?} breaks the +0x40 rule"
+            );
+        }
+    }
+
+    #[test]
+    fn the_two_services_without_a_request_sid_say_so() {
+        // Both have no request SID and return 0x7F, which is not a legal request SID -- it is the
+        // negative-response SID. Callers needing lossless round-tripping of an unmodeled service
+        // must use `Request::Other`, so this is pinned rather than left to be discovered.
+        assert_eq!(
+            UdsServiceType::to_request_sid(UdsServiceType::NegativeResponse),
+            0x7F
+        );
+        assert_eq!(
+            UdsServiceType::to_request_sid(UdsServiceType::UnsupportedDiagnosticService),
+            0x7F
+        );
+        assert_eq!(
+            UdsServiceType::from_response_sid(0x7F),
+            UdsServiceType::NegativeResponse
+        );
+    }
+
+    #[test]
+    fn every_unassigned_byte_classifies_as_unsupported() {
+        // The conversions are total: no byte panics, and anything outside the table above lands
+        // on `UnsupportedDiagnosticService` rather than being silently mapped to a real service.
+        // Written with `any` rather than collecting, so this compiles without `alloc`.
+        let is_request_sid = |b: u8| SERVICES.iter().any(|&(_, r, _)| r == b);
+        let is_response_sid = |b: u8| b == 0x7F || SERVICES.iter().any(|&(_, _, s)| s == b);
+
+        for byte in 0x00..=0xFFu8 {
+            let from_request = UdsServiceType::from_request_sid(byte);
+            if is_request_sid(byte) {
+                assert_ne!(
+                    from_request,
+                    UdsServiceType::UnsupportedDiagnosticService,
+                    "{byte:#04X} is an assigned request SID"
+                );
+            } else {
+                assert_eq!(
+                    from_request,
+                    UdsServiceType::UnsupportedDiagnosticService,
+                    "{byte:#04X} is unassigned and must not map to a service"
+                );
+            }
+
+            let from_response = UdsServiceType::from_response_sid(byte);
+            if !is_response_sid(byte) {
+                assert_eq!(
+                    from_response,
+                    UdsServiceType::UnsupportedDiagnosticService,
+                    "{byte:#04X} is unassigned and must not map to a service"
+                );
+            }
+        }
+    }
+}
