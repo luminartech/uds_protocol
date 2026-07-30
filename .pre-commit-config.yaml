@@ -52,6 +52,13 @@ repos:
     rev: 0.7.22
     hooks:
     - id: mdformat
+      # README.md is this crate's front page *and* its crate-level rustdoc, via
+      # `#![doc = include_str!(".../README.md")]`. mdformat escapes `[` and `]`, which
+      # turns every rustdoc intra-doc link in it into literal text: measured on the
+      # generated HTML, escaping drops the links to `Request`, `Response` and
+      # `UdsServiceType` from 3/3/2 to 1/1/1. Formatting prose is not worth silently
+      # breaking the published documentation.
+      exclude: ^README\.md$
       language_version: python3
       additional_dependencies:
           - linkify-it-py==1.0.3
