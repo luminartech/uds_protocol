@@ -55,15 +55,22 @@ jobs:
       # than being skipped with `alloc-feature: ''`. The crate core is
       # no_std + no-alloc; `alloc` only adds conveniences on top.
       #
-      # Partitioned by test name rather than by target kind. automotive_wire_codec
-      # splits on `kind(test)` because its property suites are integration tests;
-      # here they are `proptest!` blocks inside the lib, so a kind-based split
-      # puts them in the Unit Tests job and leaves the Property Tests job with
-      # nothing to run -- `cargo nextest` exits 4 on an empty selection, which is
-      # how the first attempt at this file failed CI. Selecting on the `prop_`
-      # prefix keeps each job's contents matching its name, and holds regardless
-      # of which target the property tests live in.
-      unit-test-filter: 'not test(~prop_)'
+      # The Unit Tests job runs everything, because it is the job that uploads
+      # coverage. automotive_wire_codec can afford a disjoint split -- its property
+      # suites are integration tests, so `kind(test)` cleanly separates them --
+      # but here the property tests are `proptest!` blocks inside the lib, and
+      # excluding them from the coverage job dropped
+      # shared/negative_response_code.rs from 64.6% to 8.0% line coverage and the
+      # total from 80.2% to 79.2%, because a proptest is the only thing that
+      # exercises that file. Coverage should describe the whole suite, so the
+      # split is overlapping rather than disjoint: Property Tests re-runs the four
+      # proptests under their own name for a readable signal, and costs 0.02s.
+      #
+      # Do not set this to a filter that can select nothing. `cargo nextest`
+      # exits 4 on an empty selection, which is how the first version of this file
+      # failed CI: `kind(test)` matched no tests, because `main` has no `tests/`
+      # directory yet.
+      unit-test-filter: 'all()'
       property-test-filter: 'test(~prop_)'
       # Comprehensive runs (nightly, merge queue, main) fuzz for 10 minutes.
       # Three targets: request decode, response decode, and round trip.
