@@ -28,7 +28,10 @@ macro_rules! byte_schema {
 byte_schema!(
     CommunicationControlType,
     DataFormatIdentifier,
+    DtcFormatIdentifier,
     DtcSettingType,
+    FileOperationMode,
+    FunctionalGroupIdentifier,
     SecurityAccessType,
     SubnetNumber,
 );
