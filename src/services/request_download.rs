@@ -1,10 +1,8 @@
 //! `RequestDownload` (0x34) service implementation
 
-use crate::shared::{
-    DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier, read_be_uint,
-    write_be_uint,
-};
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::shared::{DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{read_be_uint_into, write_all, write_be_uint, write_u8};
 
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -91,34 +89,38 @@ impl RequestDownloadRequest {
     }
 }
 impl Encode for RequestDownloadRequest {
-    fn encoded_size(&self) -> usize {
-        2 + self.address_and_length_format_identifier.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[
+        let mut written = write_all(
+            writer,
+            &[
                 self.data_format_identifier.into(),
                 self.address_and_length_format_identifier.into(),
-            ])
-            .map_err(Error::io)?;
+            ],
+        )
+        .map_err(Error::io)?;
 
         let addr_len = self
             .address_and_length_format_identifier
             .memory_address_length as usize;
         let size_len = self.address_and_length_format_identifier.memory_size_length as usize;
-        write_be_uint(u128::from(self.memory_address), addr_len, writer)?;
-        write_be_uint(u128::from(self.memory_size), size_len, writer)?;
+        written += write_be_uint(writer, u128::from(self.memory_address), addr_len)?;
+        written += write_be_uint(writer, u128::from(self.memory_size), size_len)?;
 
-        Ok(self.encoded_size())
+        Ok(written)
     }
 }
 
 impl<'a> Decode<'a> for RequestDownloadRequest {
-    #[allow(clippy::cast_possible_truncation)]
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 2 {
-            return Err(Error::InsufficientData(2));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 2,
+                available: buf.len(),
+            }));
         }
         let data_format_identifier = DataFormatIdentifier::from(buf[0]);
         let memory_identifier = MemoryFormatIdentifier::try_from(buf[1])?;
@@ -126,11 +128,14 @@ impl<'a> Decode<'a> for RequestDownloadRequest {
         let size_len = memory_identifier.memory_size_length as usize;
         let total = 2 + addr_len + size_len;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
 
-        let memory_address = read_be_uint(&buf[2..], addr_len)? as u64;
-        let memory_size = read_be_uint(&buf[2 + addr_len..], size_len)? as u32;
+        let (memory_address, rest) = read_be_uint_into::<u64>(&buf[2..], addr_len)?;
+        let (memory_size, _rest) = read_be_uint_into::<u32>(rest, size_len)?;
 
         Ok((
             Self {
@@ -172,9 +177,7 @@ impl<'d> RequestDownloadResponse<'d> {
 }
 
 impl Encode for RequestDownloadResponse<'_> {
-    fn encoded_size(&self) -> usize {
-        1 + self.max_number_of_block_length.len()
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         // The block-length field width is carried in a single nibble, so the slice
@@ -186,26 +189,30 @@ impl Encode for RequestDownloadResponse<'_> {
         let length_format_identifier = LengthFormatIdentifier {
             max_number_of_block_length: nibble,
         };
-        writer
-            .write_all(&[length_format_identifier.into()])
-            .map_err(Error::io)?;
-        writer
-            .write_all(self.max_number_of_block_length)
-            .map_err(Error::io)?;
-        Ok(self.encoded_size())
+        let mut written = write_u8(writer, length_format_identifier.into()).map_err(Error::io)?;
+        written += write_all(writer, self.max_number_of_block_length).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
 impl<'a> Decode<'a> for RequestDownloadResponse<'a> {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let length_format_identifier = LengthFormatIdentifier::from(buf[0]);
         let len = length_format_identifier.max_number_of_block_length as usize;
         let total = 1 + len;
         if buf.len() < total {
-            return Err(Error::InsufficientData(total));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: total,
+                available: buf.len(),
+            }));
         }
         Ok((
             Self {
@@ -307,7 +314,7 @@ mod tests {
         let mut vec = vec![];
         Encode::encode(&req, &mut vec).unwrap();
 
-        assert_eq!(vec.len(), req.encoded_size());
+        assert_eq!(vec.len(), req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 

@@ -59,6 +59,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "automotive-wire-codec"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3619f2db27c70d93c5390ce2e90482c26c99675a85392271d2bfe07451234f6"
+dependencies = [
+ "embedded-io",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -87,22 +96,6 @@ checksum = "e6cbbb8f56245b5a479b30a62cdc86d26e2f35c2b9f594bc4671654b03851380"
 dependencies = [
  "quote",
  "syn",
-]
-
-[[package]]
-name = "byteorder"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
-
-[[package]]
-name = "byteorder-embedded-io"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ed6bb9472871706c9b1f648ca527031e33d647a95706d6ab5659f22ca28d419"
-dependencies = [
- "byteorder",
- "embedded-io",
 ]
 
 [[package]]
@@ -529,8 +522,8 @@ dependencies = [
 name = "uds_protocol"
 version = "0.1.0"
 dependencies = [
+ "automotive-wire-codec",
  "bitmask-enum",
- "byteorder-embedded-io",
  "clap",
  "embedded-io",
  "proptest",

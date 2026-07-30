@@ -10,7 +10,8 @@
 //! as well as in other operation conditions defined by the vehicle manufacturer (e.g. limp home operation condition).
 
 use crate::shared::SuppressablePositiveResponse;
-use crate::{Decode, Encode, Error, NegativeResponseCode};
+use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
+use automotive_wire_codec::{write_u8, write_u16_be};
 
 /// `DiagnosticSessionType` is used to specify or describe the session type of the server
 ///
@@ -198,24 +199,24 @@ impl DiagnosticSessionControlRequest {
     }
 }
 impl Encode for DiagnosticSessionControlRequest {
-    fn encoded_size(&self) -> usize {
-        1
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.session_type);
-        writer
-            .write_all(&[u8::from(sub_function)])
-            .map_err(Error::io)?;
-        Ok(1)
+        write_u8(writer, u8::from(sub_function)).map_err(Error::io)
     }
 }
 
 impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.is_empty() {
-            return Err(Error::InsufficientData(1));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
         }
         let sub_function = SuppressablePositiveResponse::<DiagnosticSessionType>::try_from(buf[0])?;
         Ok((
@@ -258,28 +259,25 @@ impl DiagnosticSessionControlResponse {
     }
 }
 impl Encode for DiagnosticSessionControlResponse {
-    fn encoded_size(&self) -> usize {
-        5
-    }
+    type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        writer
-            .write_all(&[u8::from(self.session_type)])
-            .map_err(Error::io)?;
-        writer
-            .write_all(&self.p2_server_max.to_be_bytes())
-            .map_err(Error::io)?;
-        writer
-            .write_all(&self.p2_star_server_max.to_be_bytes())
-            .map_err(Error::io)?;
-        Ok(5)
+        let mut written = write_u8(writer, u8::from(self.session_type)).map_err(Error::io)?;
+        written += write_u16_be(writer, self.p2_server_max).map_err(Error::io)?;
+        written += write_u16_be(writer, self.p2_star_server_max).map_err(Error::io)?;
+        Ok(written)
     }
 }
 
 impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
+    type Error = crate::Error;
+
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
         if buf.len() < 5 {
-            return Err(Error::InsufficientData(5));
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 5,
+                available: buf.len(),
+            }));
         }
         let session_type = DiagnosticSessionType::try_from(buf[0])?;
         let p2_server_max = u16::from_be_bytes([buf[1], buf[2]]);
@@ -313,7 +311,7 @@ mod request {
         let mut buffer = Vec::new();
         Encode::encode(&req, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
-        assert_eq!(req.encoded_size(), 1);
+        assert_eq!(req.encoded_size().unwrap(), 1);
         assert_encode_size_agrees(&req);
     }
 }
@@ -337,7 +335,7 @@ mod response {
         let mut buffer = Vec::new();
         Encode::encode(&resp, &mut buffer).unwrap();
         assert_eq!(buffer, bytes);
-        assert_eq!(resp.encoded_size(), 5);
+        assert_eq!(resp.encoded_size().unwrap(), 5);
         assert_encode_size_agrees(&resp);
     }
 }

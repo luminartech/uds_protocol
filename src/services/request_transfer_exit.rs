@@ -1,5 +1,6 @@
 //! `RequestTransferExit` (0x37 / 0x77) service implementation.
 use crate::{Decode, Encode, Error, NegativeResponseCode};
+use automotive_wire_codec::write_all;
 
 macro_rules! transfer_exit_descriptor {
     ($name:ident, $doc:literal) => {
@@ -18,15 +19,15 @@ macro_rules! transfer_exit_descriptor {
             }
         }
         impl Encode for $name<'_> {
-            fn encoded_size(&self) -> usize {
-                self.parameter_record.len()
-            }
+            type Error = crate::Error;
+
             fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-                writer.write_all(self.parameter_record).map_err(Error::io)?;
-                Ok(self.parameter_record.len())
+                write_all(writer, self.parameter_record).map_err(Error::io)
             }
         }
         impl<'a> Decode<'a> for $name<'a> {
+            type Error = crate::Error;
+
             fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
                 Ok((
                     Self {

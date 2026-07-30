@@ -28,13 +28,6 @@ pub(crate) struct MemoryFormatIdentifier {
     pub memory_address_length: u8,
 }
 
-impl MemoryFormatIdentifier {
-    /// Get the total length of the `memory_size` and `memory_address` fields
-    pub fn len(self) -> usize {
-        self.memory_size_length as usize + self.memory_address_length as usize
-    }
-}
-
 impl TryFrom<u8> for MemoryFormatIdentifier {
     type Error = Error;
     // NRC::RequestOutOfRange if address_and_length_format_identifier is not valid
