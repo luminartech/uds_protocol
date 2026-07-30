@@ -47,6 +47,33 @@ It is based on the ISO 14229-1:2020 standard.
 edition. `UdsServiceType` still names it so a 2013-era service byte round-trips rather than
 becoming an unrecognized `Other`, but it is not part of the standard this crate targets.
 
+## Features
+
+Default is `std`. The crate is `no_std` and allocation-free at its core; everything below is
+additive.
+
+| Feature | Implies | What it gives you |
+|---------|---------|-------------------|
+| `std` *(default)* | `alloc` | `std::error::Error` for [`Error`], and `embedded_io`'s `std` layer. Turn it off for bare metal. |
+| `alloc` | — | The `alloc`-only conveniences. Nothing in the wire codec needs it; encoding and decoding work with borrowed slices alone. |
+| `serde` | — | `Serialize`/`Deserialize` on the request, response and parameter types. The only optional integration usable on a bare-metal target: it is wired as a core-only dependency and picks up serde's `alloc`/`std` layers only when this crate's own are on. |
+| `utoipa` | `std`, `serde` | `ToSchema` for `OpenAPI` generation. |
+| `clap` | `std` | `ValueEnum` on the sub-function enums, for building a CLI tester. |
+
+Two implications are worth knowing about:
+
+- **`utoipa` implies `serde`** because a `ToSchema` here describes the *`serde`* representation.
+  Several types serialize as a single protocol byte rather than as their Rust shape — a
+  `DataFormatIdentifier` is `33`, not `{"compression_method":2,"encryption_method":1}` — and the
+  schemas are written to match. Without `serde` the schema would describe a wire format that
+  build cannot produce.
+- **`utoipa` and `clap` imply `std`** because their derive macros expand to `std::`, `String` and
+  `Vec` paths inside this crate, which cannot compile under `#![no_std]`.
+
+With `serde` enabled, the types that carry a range invariant deserialize through the same
+classifier the wire decoder uses, so a hand-written payload cannot construct a value that would
+encode to an illegal byte.
+
 ## Integration
 
 `uds_protocol` is a synchronous, allocation-free codec. It owns no sockets, buffers, or

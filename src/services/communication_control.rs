@@ -831,12 +831,9 @@ mod response {
 ///
 /// This doc comment is the published schema description for `CommunicationControlRequest`,
 /// because its hand-written `PartialSchema` delegates here.
-#[cfg(any(feature = "serde", feature = "utoipa"))]
+#[cfg(feature = "serde")]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-// With `utoipa` but not `serde` these fields are never read: they exist to give the schema its
-// shape, which the derive reads at compile time rather than at run time.
-#[cfg_attr(not(feature = "serde"), allow(dead_code))]
 struct CommunicationControlRepr {
     suppress_positive_response: bool,
     control_type: CommunicationControlType,

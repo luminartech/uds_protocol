@@ -481,6 +481,14 @@ made the two gaps above possible.
   `--no-default-features --features alloc` combinations were ever built, so the optional
   integrations were never exercised in isolation.
 
+- **Breaking:** `utoipa` additionally implies `serde`. A `ToSchema` in this crate describes the
+  *`serde`* representation — several types serialize as a single protocol byte rather than as
+  their Rust shape, and their schemas are hand-written to match — so a `utoipa`-without-`serde`
+  build published a schema for a wire format it could not produce. Supporting that combination
+  also meant every type reachable only through a `serde` repr needed a second `cfg` predicate and
+  an `allow(dead_code)` to stay compilable in a configuration no one wants. The feature powerset
+  is 16 combinations rather than 20 as a result, all clean.
+
 - The `serde` feature now works on a bare-metal target. The dependency was declared with
   serde's default features on, which pulls `serde/std`, so
   `cargo build --no-default-features --features serde --target thumbv6m-none-eabi` failed even
