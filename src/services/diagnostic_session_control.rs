@@ -30,7 +30,7 @@ pub enum DiagnosticSessionType {
     /// Construct through [`DiagnosticSessionType::try_from`] so the raw byte is range-checked and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
     #[non_exhaustive]
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
     /// The `DefaultSession` (0x01) enables the standard diagnostic functionality
     /// - No `TesterPresent` messages are required to remain in this session
     /// - Any other diagnostic sessions are stopped upon successful entry into this session
@@ -63,7 +63,7 @@ impl From<DiagnosticSessionType> for u8 {
     #[allow(clippy::match_same_arms)]
     fn from(value: DiagnosticSessionType) -> Self {
         match value {
-            DiagnosticSessionType::ISOSAEReserved(value) => value,
+            DiagnosticSessionType::IsoSaeReserved(value) => value,
             DiagnosticSessionType::DefaultSession => 0x01,
             DiagnosticSessionType::ProgrammingSession => 0x02,
             DiagnosticSessionType::ExtendedDiagnosticSession => 0x03,
@@ -79,17 +79,17 @@ impl TryFrom<u8> for DiagnosticSessionType {
     #[allow(clippy::match_same_arms)]
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
+            0x00 => Ok(DiagnosticSessionType::IsoSaeReserved(value)),
             0x01 => Ok(DiagnosticSessionType::DefaultSession),
             0x02 => Ok(DiagnosticSessionType::ProgrammingSession),
             0x03 => Ok(DiagnosticSessionType::ExtendedDiagnosticSession),
             0x04 => Ok(DiagnosticSessionType::SafetySystemDiagnosticSession),
-            0x05..=0x3F => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
+            0x05..=0x3F => Ok(DiagnosticSessionType::IsoSaeReserved(value)),
             0x40..=0x5F => Ok(DiagnosticSessionType::VehicleManufacturerSpecificSession(
                 value,
             )),
             0x60..=0x7E => Ok(DiagnosticSessionType::SystemSupplierSpecificSession(value)),
-            0x7F => Ok(DiagnosticSessionType::ISOSAEReserved(value)),
+            0x7F => Ok(DiagnosticSessionType::IsoSaeReserved(value)),
             _ => Err(Error::InvalidDiagnosticSessionType(value)),
         }
     }
@@ -123,7 +123,7 @@ mod diagnostic_session_type_tests {
                 0x00 | 0x05..=0x3F | 0x7F => {
                     assert!(matches!(
                         msg_type,
-                        Ok(DiagnosticSessionType::ISOSAEReserved(_))
+                        Ok(DiagnosticSessionType::IsoSaeReserved(_))
                     ));
                 }
                 0x40..=0x5F => {

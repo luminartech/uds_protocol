@@ -2,9 +2,9 @@
 use crate::{
     Decode, Encode, Error, Incomplete,
     services::{
-        ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDTCSettingsRequest,
-        DiagnosticSessionControlRequest, EcuResetRequest, ReadDTCInfoRequest,
-        ReadDataByIdentifierRequest, RequestDownloadRequest, RequestFileTransferRequest,
+        ClearDiagnosticInfoRequest, CommunicationControlRequest, ControlDtcSettingRequest,
+        DiagnosticSessionControlRequest, EcuResetRequest, ReadDataByIdentifierRequest,
+        ReadDtcInfoRequest, RequestDownloadRequest, RequestFileTransferRequest,
         RequestTransferExitRequest, RoutineControlRequest, SecurityAccessRequest,
         TesterPresentRequest, TransferDataRequest, WriteDataByIdentifierRequest,
     },
@@ -25,7 +25,7 @@ pub enum Request<'a> {
     /// Communication control request.
     CommunicationControl(CommunicationControlRequest),
     /// Control DTC settings request.
-    ControlDTCSettings(ControlDTCSettingsRequest),
+    ControlDtcSetting(ControlDtcSettingRequest),
     /// Diagnostic session control request.
     DiagnosticSessionControl(DiagnosticSessionControlRequest),
     /// ECU reset request.
@@ -33,7 +33,7 @@ pub enum Request<'a> {
     /// Read data by identifier request.
     ReadDataByIdentifier(ReadDataByIdentifierRequest<'a>),
     /// Read DTC information request.
-    ReadDTCInfo(ReadDTCInfoRequest),
+    ReadDtcInfo(ReadDtcInfoRequest),
     /// Request download.
     RequestDownload(RequestDownloadRequest),
     /// Request file transfer.
@@ -72,7 +72,7 @@ impl<'a> Decode<'a> for Request<'a> {
                 available: buf.len(),
             }));
         }
-        let service = UdsServiceType::service_from_request_byte(buf[0]);
+        let service = UdsServiceType::from_request_sid(buf[0]);
         let payload = &buf[1..];
 
         let request = match service {
@@ -82,8 +82,8 @@ impl<'a> Decode<'a> for Request<'a> {
             UdsServiceType::CommunicationControl => Self::CommunicationControl(
                 <CommunicationControlRequest as Decode>::decode_exact(payload)?,
             ),
-            UdsServiceType::ControlDTCSettings => Self::ControlDTCSettings(
-                <ControlDTCSettingsRequest as Decode>::decode_exact(payload)?,
+            UdsServiceType::ControlDtcSetting => Self::ControlDtcSetting(
+                <ControlDtcSettingRequest as Decode>::decode_exact(payload)?,
             ),
             UdsServiceType::DiagnosticSessionControl => Self::DiagnosticSessionControl(
                 <DiagnosticSessionControlRequest as Decode>::decode_exact(payload)?,
@@ -94,8 +94,8 @@ impl<'a> Decode<'a> for Request<'a> {
             UdsServiceType::ReadDataByIdentifier => Self::ReadDataByIdentifier(
                 <ReadDataByIdentifierRequest as Decode>::decode_exact(payload)?,
             ),
-            UdsServiceType::ReadDTCInfo => {
-                Self::ReadDTCInfo(<ReadDTCInfoRequest as Decode>::decode_exact(payload)?)
+            UdsServiceType::ReadDtcInfo => {
+                Self::ReadDtcInfo(<ReadDtcInfoRequest as Decode>::decode_exact(payload)?)
             }
             UdsServiceType::RequestDownload => {
                 Self::RequestDownload(<RequestDownloadRequest as Decode>::decode_exact(payload)?)
@@ -136,17 +136,17 @@ impl Encode for Request<'_> {
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
         let sid = match self {
             Self::Other { sid, .. } => *sid,
-            other => other.service().request_service_to_byte(),
+            other => other.service().to_request_sid(),
         };
         let sid_len = write_u8(writer, sid).map_err(Error::io)?;
         let payload = match self {
             Self::ClearDiagnosticInfo(req) => req.encode(writer)?,
             Self::CommunicationControl(req) => req.encode(writer)?,
-            Self::ControlDTCSettings(req) => req.encode(writer)?,
+            Self::ControlDtcSetting(req) => req.encode(writer)?,
             Self::DiagnosticSessionControl(req) => req.encode(writer)?,
             Self::EcuReset(req) => req.encode(writer)?,
             Self::ReadDataByIdentifier(req) => req.encode(writer)?,
-            Self::ReadDTCInfo(req) => req.encode(writer)?,
+            Self::ReadDtcInfo(req) => req.encode(writer)?,
             Self::WriteDataByIdentifier(req) => req.encode(writer)?,
             Self::RequestDownload(req) => req.encode(writer)?,
             Self::RequestFileTransfer(req) => req.encode(writer)?,
@@ -167,7 +167,7 @@ impl Request<'_> {
     pub fn is_positive_response_suppressed(&self) -> bool {
         match self {
             Self::CommunicationControl(req) => req.suppress_positive_response(),
-            Self::ControlDTCSettings(req) => req.suppress_positive_response,
+            Self::ControlDtcSetting(req) => req.suppress_positive_response,
             Self::DiagnosticSessionControl(req) => req.suppress_positive_response,
             Self::EcuReset(req) => req.suppress_positive_response,
             Self::RoutineControl(req) => req.suppress_positive_response,
@@ -183,11 +183,11 @@ impl Request<'_> {
         match self {
             Self::ClearDiagnosticInfo(_) => UdsServiceType::ClearDiagnosticInfo,
             Self::CommunicationControl(_) => UdsServiceType::CommunicationControl,
-            Self::ControlDTCSettings(_) => UdsServiceType::ControlDTCSettings,
+            Self::ControlDtcSetting(_) => UdsServiceType::ControlDtcSetting,
             Self::DiagnosticSessionControl(_) => UdsServiceType::DiagnosticSessionControl,
             Self::EcuReset(_) => UdsServiceType::EcuReset,
             Self::ReadDataByIdentifier(_) => UdsServiceType::ReadDataByIdentifier,
-            Self::ReadDTCInfo(_) => UdsServiceType::ReadDTCInfo,
+            Self::ReadDtcInfo(_) => UdsServiceType::ReadDtcInfo,
             Self::RequestDownload(_) => UdsServiceType::RequestDownload,
             Self::RequestFileTransfer(_) => UdsServiceType::RequestFileTransfer,
             Self::RequestTransferExit(_) => UdsServiceType::RequestTransferExit,
@@ -196,7 +196,7 @@ impl Request<'_> {
             Self::TesterPresent(_) => UdsServiceType::TesterPresent,
             Self::TransferData(_) => UdsServiceType::TransferData,
             Self::WriteDataByIdentifier(_) => UdsServiceType::WriteDataByIdentifier,
-            Self::Other { sid, .. } => UdsServiceType::service_from_request_byte(*sid),
+            Self::Other { sid, .. } => UdsServiceType::from_request_sid(*sid),
         }
     }
 }
@@ -211,7 +211,7 @@ mod tests {
         // ECU reset is a fixed 1-byte payload; an extra trailing byte is a
         // malformed frame and must be rejected rather than silently dropped.
         let mut frame = [0u8; 3];
-        frame[0] = UdsServiceType::EcuReset.request_service_to_byte();
+        frame[0] = UdsServiceType::EcuReset.to_request_sid();
         frame[1] = u8::from(ResetType::HardReset);
         frame[2] = 0xAA; // trailing junk
         let result = Request::decode(&frame);

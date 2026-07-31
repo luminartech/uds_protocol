@@ -56,7 +56,7 @@ pub enum UdsServiceType {
     /// Enable or disable the detection of any or all errors.
     /// This is important when diagnostic work is performed in the car,
     /// which can cause an anomalous behavior of individual devices.
-    ControlDTCSettings,
+    ControlDtcSetting,
     /// Request the server to start or stop sending responses when a specified event occurs.
     ResponseOnEvent,
     /// The Service Link Control is used to set the baud rate of the diagnostic access.
@@ -98,7 +98,7 @@ pub enum UdsServiceType {
     /// These DTCs can be read via this service.
     ///  In addition to the errors themselves,
     /// additional diagnostic information is stored.
-    ReadDTCInfo,
+    ReadDtcInfo,
     // ========================================================================
     // Input / Output Control
     /// Substitute or control an input/output signal using a DID.
@@ -141,9 +141,11 @@ pub enum UdsServiceType {
 }
 
 impl UdsServiceType {
-    /// Map a request-message service byte to the corresponding [`UdsServiceType`].
+    /// Map a request-message service identifier (SID) byte to its [`UdsServiceType`].
+    ///
+    /// Unrecognised bytes map to [`UdsServiceType::UnsupportedDiagnosticService`].
     #[must_use]
-    pub fn service_from_request_byte(value: u8) -> Self {
+    pub fn from_request_sid(value: u8) -> Self {
         match value {
             0x10 => Self::DiagnosticSessionControl,
             0x11 => Self::EcuReset,
@@ -153,7 +155,7 @@ impl UdsServiceType {
             0x3E => Self::TesterPresent,
             0x83 => Self::AccessTimingParameters,
             0x84 => Self::SecuredDataTransmission,
-            0x85 => Self::ControlDTCSettings,
+            0x85 => Self::ControlDtcSetting,
             0x86 => Self::ResponseOnEvent,
             0x87 => Self::LinkControl,
             0x22 => Self::ReadDataByIdentifier,
@@ -164,7 +166,7 @@ impl UdsServiceType {
             0x2E => Self::WriteDataByIdentifier,
             0x3D => Self::WriteMemoryByAddress,
             0x14 => Self::ClearDiagnosticInfo,
-            0x19 => Self::ReadDTCInfo,
+            0x19 => Self::ReadDtcInfo,
             0x2F => Self::InputOutputControlByIdentifier,
             0x31 => Self::RoutineControl,
             0x34 => Self::RequestDownload,
@@ -176,9 +178,16 @@ impl UdsServiceType {
         }
     }
 
-    /// Return the request-message service byte for this service type.
+    /// Return the request-message service identifier (SID) byte for this service type.
+    ///
+    /// # Caveat
+    ///
+    /// [`UdsServiceType::NegativeResponse`] and
+    /// [`UdsServiceType::UnsupportedDiagnosticService`] have no request SID and both return
+    /// `0x7F`, which is not a valid request SID. To re-encode an unmodeled request without
+    /// loss, use [`Request::Other`](crate::Request::Other), which echoes the raw byte.
     #[must_use]
-    pub fn request_service_to_byte(self) -> u8 {
+    pub fn to_request_sid(self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x10,
             Self::EcuReset => 0x11,
@@ -188,7 +197,7 @@ impl UdsServiceType {
             Self::TesterPresent => 0x3E,
             Self::AccessTimingParameters => 0x83,
             Self::SecuredDataTransmission => 0x84,
-            Self::ControlDTCSettings => 0x85,
+            Self::ControlDtcSetting => 0x85,
             Self::ResponseOnEvent => 0x86,
             Self::LinkControl => 0x87,
             Self::ReadDataByIdentifier => 0x22,
@@ -199,7 +208,7 @@ impl UdsServiceType {
             Self::WriteDataByIdentifier => 0x2E,
             Self::WriteMemoryByAddress => 0x3D,
             Self::ClearDiagnosticInfo => 0x14,
-            Self::ReadDTCInfo => 0x19,
+            Self::ReadDtcInfo => 0x19,
             Self::InputOutputControlByIdentifier => 0x2F,
             Self::RoutineControl => 0x31,
             Self::RequestDownload => 0x34,
@@ -210,9 +219,11 @@ impl UdsServiceType {
             _ => 0x7F,
         }
     }
-    /// Map a positive-response service byte to the corresponding [`UdsServiceType`].
+    /// Map a positive-response service identifier (SID) byte to its [`UdsServiceType`].
+    ///
+    /// Unrecognised bytes map to [`UdsServiceType::UnsupportedDiagnosticService`].
     #[must_use]
-    pub fn response_from_byte(value: u8) -> Self {
+    pub fn from_response_sid(value: u8) -> Self {
         match value {
             0x50 => Self::DiagnosticSessionControl,
             0x51 => Self::EcuReset,
@@ -222,7 +233,7 @@ impl UdsServiceType {
             0x7E => Self::TesterPresent,
             0xC3 => Self::AccessTimingParameters,
             0xC4 => Self::SecuredDataTransmission,
-            0xC5 => Self::ControlDTCSettings,
+            0xC5 => Self::ControlDtcSetting,
             0xC6 => Self::ResponseOnEvent,
             0xC7 => Self::LinkControl,
             0x62 => Self::ReadDataByIdentifier,
@@ -233,7 +244,7 @@ impl UdsServiceType {
             0x6E => Self::WriteDataByIdentifier,
             0x7D => Self::WriteMemoryByAddress,
             0x54 => Self::ClearDiagnosticInfo,
-            0x59 => Self::ReadDTCInfo,
+            0x59 => Self::ReadDtcInfo,
             0x6F => Self::InputOutputControlByIdentifier,
             0x71 => Self::RoutineControl,
             0x74 => Self::RequestDownload,
@@ -246,9 +257,12 @@ impl UdsServiceType {
         }
     }
 
-    /// Return the positive-response service byte for this service type.
+    /// Return the positive-response service identifier (SID) byte for this service type.
+    ///
+    /// [`UdsServiceType::UnsupportedDiagnosticService`] has no response SID and returns
+    /// `0x7F`; see [`Response::Other`](crate::Response::Other) for lossless pass-through.
     #[must_use]
-    pub fn response_to_byte(self) -> u8 {
+    pub fn to_response_sid(self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x50,
             Self::EcuReset => 0x51,
@@ -258,7 +272,7 @@ impl UdsServiceType {
             Self::TesterPresent => 0x7E,
             Self::AccessTimingParameters => 0xC3,
             Self::SecuredDataTransmission => 0xC4,
-            Self::ControlDTCSettings => 0xC5,
+            Self::ControlDtcSetting => 0xC5,
             Self::ResponseOnEvent => 0xC6,
             Self::LinkControl => 0xC7,
             Self::ReadDataByIdentifier => 0x62,
@@ -269,7 +283,7 @@ impl UdsServiceType {
             Self::WriteDataByIdentifier => 0x6E,
             Self::WriteMemoryByAddress => 0x7D,
             Self::ClearDiagnosticInfo => 0x54,
-            Self::ReadDTCInfo => 0x59,
+            Self::ReadDtcInfo => 0x59,
             Self::InputOutputControlByIdentifier => 0x6F,
             Self::RoutineControl => 0x71,
             Self::RequestDownload => 0x74,
@@ -285,5 +299,140 @@ impl UdsServiceType {
 impl core::fmt::Display for UdsServiceType {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{self:?}")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// Every service this crate models, paired with its request and response SID.
+    ///
+    /// Written out rather than derived from the conversions, so the table is an independent
+    /// statement of what ISO 14229-1 assigns and a transposed pair fails instead of agreeing
+    /// with itself. `NegativeResponse` and `UnsupportedDiagnosticService` are absent because
+    /// neither has a request SID.
+    const SERVICES: &[(UdsServiceType, u8, u8)] = &[
+        (UdsServiceType::DiagnosticSessionControl, 0x10, 0x50),
+        (UdsServiceType::EcuReset, 0x11, 0x51),
+        (UdsServiceType::ClearDiagnosticInfo, 0x14, 0x54),
+        (UdsServiceType::ReadDtcInfo, 0x19, 0x59),
+        (UdsServiceType::ReadDataByIdentifier, 0x22, 0x62),
+        (UdsServiceType::ReadMemoryByAddress, 0x23, 0x63),
+        (UdsServiceType::ReadScalingDataByIdentifier, 0x24, 0x64),
+        (UdsServiceType::SecurityAccess, 0x27, 0x67),
+        (UdsServiceType::CommunicationControl, 0x28, 0x68),
+        (UdsServiceType::Authentication, 0x29, 0x69),
+        (UdsServiceType::ReadDataByIdentifierPeriodic, 0x2A, 0x6A),
+        (UdsServiceType::DynamicallyDefinedDataIdentifier, 0x2C, 0x6C),
+        (UdsServiceType::WriteDataByIdentifier, 0x2E, 0x6E),
+        (UdsServiceType::InputOutputControlByIdentifier, 0x2F, 0x6F),
+        (UdsServiceType::RoutineControl, 0x31, 0x71),
+        (UdsServiceType::RequestDownload, 0x34, 0x74),
+        (UdsServiceType::RequestUpload, 0x35, 0x75),
+        (UdsServiceType::TransferData, 0x36, 0x76),
+        (UdsServiceType::RequestTransferExit, 0x37, 0x77),
+        (UdsServiceType::RequestFileTransfer, 0x38, 0x78),
+        (UdsServiceType::TesterPresent, 0x3E, 0x7E),
+        (UdsServiceType::AccessTimingParameters, 0x83, 0xC3),
+        (UdsServiceType::SecuredDataTransmission, 0x84, 0xC4),
+        (UdsServiceType::ControlDtcSetting, 0x85, 0xC5),
+        (UdsServiceType::ResponseOnEvent, 0x86, 0xC6),
+        (UdsServiceType::LinkControl, 0x87, 0xC7),
+        (UdsServiceType::WriteMemoryByAddress, 0x3D, 0x7D),
+    ];
+
+    #[test]
+    fn every_service_maps_to_the_sids_iso_assigns_it() {
+        for &(service, request_sid, response_sid) in SERVICES {
+            assert_eq!(
+                UdsServiceType::to_request_sid(service),
+                request_sid,
+                "{service:?} request SID"
+            );
+            assert_eq!(
+                UdsServiceType::to_response_sid(service),
+                response_sid,
+                "{service:?} response SID"
+            );
+            assert_eq!(
+                UdsServiceType::from_request_sid(request_sid),
+                service,
+                "request SID {request_sid:#04X}"
+            );
+            assert_eq!(
+                UdsServiceType::from_response_sid(response_sid),
+                service,
+                "response SID {response_sid:#04X}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_response_sid_is_the_request_sid_with_bit_6_set() {
+        // ISO 14229-1 derives every positive response SID by adding 0x40 to the request SID.
+        // Checking the rule as well as the table catches a single mistyped entry above, which a
+        // table compared only against itself would not.
+        for &(service, request_sid, response_sid) in SERVICES {
+            assert_eq!(
+                response_sid,
+                request_sid + 0x40,
+                "{service:?} breaks the +0x40 rule"
+            );
+        }
+    }
+
+    #[test]
+    fn the_two_services_without_a_request_sid_say_so() {
+        // Both have no request SID and return 0x7F, which is not a legal request SID -- it is the
+        // negative-response SID. Callers needing lossless round-tripping of an unmodeled service
+        // must use `Request::Other`, so this is pinned rather than left to be discovered.
+        assert_eq!(
+            UdsServiceType::to_request_sid(UdsServiceType::NegativeResponse),
+            0x7F
+        );
+        assert_eq!(
+            UdsServiceType::to_request_sid(UdsServiceType::UnsupportedDiagnosticService),
+            0x7F
+        );
+        assert_eq!(
+            UdsServiceType::from_response_sid(0x7F),
+            UdsServiceType::NegativeResponse
+        );
+    }
+
+    #[test]
+    fn every_unassigned_byte_classifies_as_unsupported() {
+        // The conversions are total: no byte panics, and anything outside the table above lands
+        // on `UnsupportedDiagnosticService` rather than being silently mapped to a real service.
+        // Written with `any` rather than collecting, so this compiles without `alloc`.
+        let is_request_sid = |b: u8| SERVICES.iter().any(|&(_, r, _)| r == b);
+        let is_response_sid = |b: u8| b == 0x7F || SERVICES.iter().any(|&(_, _, s)| s == b);
+
+        for byte in 0x00..=0xFFu8 {
+            let from_request = UdsServiceType::from_request_sid(byte);
+            if is_request_sid(byte) {
+                assert_ne!(
+                    from_request,
+                    UdsServiceType::UnsupportedDiagnosticService,
+                    "{byte:#04X} is an assigned request SID"
+                );
+            } else {
+                assert_eq!(
+                    from_request,
+                    UdsServiceType::UnsupportedDiagnosticService,
+                    "{byte:#04X} is unassigned and must not map to a service"
+                );
+            }
+
+            let from_response = UdsServiceType::from_response_sid(byte);
+            if !is_response_sid(byte) {
+                assert_eq!(
+                    from_response,
+                    UdsServiceType::UnsupportedDiagnosticService,
+                    "{byte:#04X} is unassigned and must not map to a service"
+                );
+            }
+        }
     }
 }

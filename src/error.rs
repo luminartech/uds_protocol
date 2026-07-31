@@ -72,7 +72,7 @@ pub enum Error {
     /// The routine-control sub-function byte is not a valid [`RoutineControlSubFunction`](crate::RoutineControlSubFunction).
     #[error("Invalid Routine Control Sub-Function: {0}")]
     InvalidRoutineControlSubFunction(u8),
-    /// The DTC-setting byte is not a valid [`DtcSettings`](crate::DtcSettings) value.
+    /// The DTC-setting byte is not a valid [`DtcSettingType`](crate::DtcSettingType) value.
     #[error("Invalid DTC Setting: {0}")]
     InvalidDtcSetting(u8),
     /// The value is reserved for legislative use and must not be used.

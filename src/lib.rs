@@ -16,12 +16,12 @@ pub use automotive_wire_codec::{Decode, DecodeIter, Encode};
 
 mod dtc;
 pub use dtc::{
-    CLEAR_ALL_DTCS, DTCExtDataRecordNumber, DTCFormatIdentifier, DTCRecord, DTCSeverityMask,
-    DTCSnapshotRecordNumber, DTCStatusMask, DTCStoredDataRecordNumber, FunctionalGroupIdentifier,
+    CLEAR_ALL_DTCS, DtcExtDataRecordNumber, DtcFormatIdentifier, DtcRecord, DtcSeverityMask,
+    DtcSnapshotRecordNumber, DtcStatusMask, DtcStoredDataRecordNumber, FunctionalGroupIdentifier,
 };
 
 mod shared;
-pub use shared::{DataFormatIdentifier, NegativeResponseCode, UDSIdentifier, UDSRoutineIdentifier};
+pub use shared::{DataFormatIdentifier, NegativeResponseCode, UdsIdentifier, UdsRoutineIdentifier};
 
 mod request;
 pub use request::Request;
@@ -36,18 +36,18 @@ mod services;
 pub use services::{
     ClearDiagnosticInfoRequest, ClearDiagnosticInfoResponse, CommunicationControlRequest,
     CommunicationControlResponse, CommunicationControlType, CommunicationType,
-    ControlDTCSettingsRequest, ControlDTCSettingsResponse, DiagnosticSessionControlRequest,
+    ControlDtcSettingRequest, ControlDtcSettingResponse, DiagnosticSessionControlRequest,
     DiagnosticSessionControlResponse, DiagnosticSessionType, DirSizePayload, DtcAndStatusIter,
-    DtcFaultDetectionIter, DtcSettings, DtcSeverityAndStatusIter, EcuResetRequest,
-    EcuResetResponse, FileOperationMode, FileSizePayload, NamePayload, NegativeResponse,
-    PositionPayload, ReadDTCInfoRequest, ReadDTCInfoResponse, ReadDTCInfoSubFunction,
-    ReadDataByIdentifierRequest, ReadDataByIdentifierResponse, RequestDownloadRequest,
-    RequestDownloadResponse, RequestFileTransferRequest, RequestFileTransferResponse,
-    RequestTransferExitRequest, RequestTransferExitResponse, ResetType, RoutineControlRequest,
-    RoutineControlResponse, RoutineControlSubFunction, SecurityAccessLevel, SecurityAccessRequest,
-    SecurityAccessResponse, SecurityAccessType, SentDataPayload, SizePayload, TesterPresentRequest,
-    TesterPresentResponse, TransferDataRequest, TransferDataResponse, WriteDataByIdentifierRequest,
-    WriteDataByIdentifierResponse,
+    DtcFaultDetectionCounterRecord, DtcFaultDetectionIter, DtcSettingType,
+    DtcSeverityAndStatusIter, EcuResetRequest, EcuResetResponse, FileOperationMode,
+    FileSizePayload, NamePayload, NegativeResponse, PositionPayload, ReadDataByIdentifierRequest,
+    ReadDataByIdentifierResponse, ReadDtcInfoRequest, ReadDtcInfoResponse, ReadDtcInfoSubFunction,
+    RequestDownloadRequest, RequestDownloadResponse, RequestFileTransferRequest,
+    RequestFileTransferResponse, RequestTransferExitRequest, RequestTransferExitResponse,
+    ResetType, RoutineControlRequest, RoutineControlResponse, RoutineControlSubFunction,
+    SecurityAccessLevel, SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType,
+    SentDataPayload, SizePayload, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
+    TransferDataResponse, WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
 };
 
 #[cfg(test)]
@@ -121,6 +121,18 @@ mod no_std_api_tests {
     }
 
     #[test]
+    fn fault_detection_counter_record_is_nameable_from_crate_root() {
+        // `DtcFaultDetectionCounterRecord` is the `Item` of `DtcFaultDetectionIter`. Without a
+        // crate-root path, callers can iterate but cannot name the type — no `Vec<T>`, no struct
+        // field, no helper signature. This pins the re-export.
+        let data = [0x01, 0x02, 0x03, 0x2A];
+        let record: DtcFaultDetectionCounterRecord =
+            DtcFaultDetectionIter::new(&data).next().unwrap().unwrap();
+        assert_eq!(u32::from(record.dtc_record), 0x01_0203);
+        assert_eq!(record.dtc_fault_detection_counter, 0x2A);
+    }
+
+    #[test]
     fn request_frame_roundtrip_prepends_sid() {
         // EcuReset request: SID=0x11, sub=0x01
         let wire = [0x11, 0x01];
@@ -155,7 +167,7 @@ mod no_std_api_tests {
 
     #[test]
     fn read_dtc_info_response_frame_roundtrip() {
-        // ReadDTCInfo response: SID=0x59, sub=0x02, mask=0xFF, then DTC records
+        // ReadDtcInfo response: SID=0x59, sub=0x02, mask=0xFF, then DTC records
         let wire = [0x59, 0x02, 0xFF, 0x01, 0x02, 0x03, 0x0A];
         let (resp, _) = Response::decode(&wire).unwrap();
         let mut buf = [0u8; 16];
@@ -166,12 +178,12 @@ mod no_std_api_tests {
     #[test]
     fn read_dtc_info_request_encodes_through_public_api() {
         // Public-surface construction: types reached via crate root, not shared::/services::.
-        let req = ReadDTCInfoRequest::new(ReadDTCInfoSubFunction::ReportDTC_ByStatusMask(
-            DTCStatusMask::from(0xFF),
+        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcByStatusMask(
+            DtcStatusMask::from(0xFF),
         ));
         let mut buf = [0u8; 8];
         let written = req.encode_to_slice(&mut buf).unwrap();
-        // sub=0x02 ReportDTC_ByStatusMask, mask=0xFF
+        // sub=0x02 ReportDtcByStatusMask, mask=0xFF
         assert_eq!(&buf[..written], &[0x02, 0xFF]);
         assert_eq!(written, req.encoded_size().unwrap());
     }

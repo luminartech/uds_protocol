@@ -25,7 +25,7 @@ impl NegativeResponse {
     #[must_use]
     pub fn new(request_service: UdsServiceType, nrc: NegativeResponseCode) -> Self {
         Self {
-            request_service_sid: request_service.request_service_to_byte(),
+            request_service_sid: request_service.to_request_sid(),
             nrc,
         }
     }
@@ -37,7 +37,7 @@ impl NegativeResponse {
     /// from [`request_service_sid`](Self::request_service_sid) and is what gets re-encoded.
     #[must_use]
     pub fn request_service(&self) -> UdsServiceType {
-        UdsServiceType::service_from_request_byte(self.request_service_sid)
+        UdsServiceType::from_request_sid(self.request_service_sid)
     }
 
     /// The raw echoed request-service byte, exactly as received on the wire.
@@ -103,10 +103,7 @@ mod tests {
         let (nr, rest) = <NegativeResponse as Decode>::decode(&wire).unwrap();
         assert!(rest.is_empty());
         assert_eq!(nr.request_service_sid(), 0x40);
-        assert_eq!(
-            nr.request_service(),
-            UdsServiceType::service_from_request_byte(0x40)
-        );
+        assert_eq!(nr.request_service(), UdsServiceType::from_request_sid(0x40));
         let mut buf = [0u8; 2];
         let n = Encode::encode(&nr, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..n], &wire);

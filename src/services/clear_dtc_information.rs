@@ -1,5 +1,5 @@
 //! `ClearDiagnosticInformation` (0x14) service implementation
-use crate::{CLEAR_ALL_DTCS, DTCRecord, Decode, Encode, Incomplete, NegativeResponseCode};
+use crate::{CLEAR_ALL_DTCS, Decode, DtcRecord, Encode, Incomplete, NegativeResponseCode};
 use automotive_wire_codec::write_u8;
 
 /// Positive response to `ClearDiagnosticInformation`. Carries no payload.
@@ -49,7 +49,7 @@ const CLEAR_DIAG_INFO_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] = [
 #[non_exhaustive]
 pub struct ClearDiagnosticInfoRequest {
     /// Can be either a DTC group (such as chassis/powertrain) or a single DTC
-    pub group_of_dtc: DTCRecord,
+    pub group_of_dtc: DtcRecord,
     /// Used to address a specific memory location of user-defined DTC memory
     pub memory_selection: u8,
 }
@@ -57,7 +57,7 @@ pub struct ClearDiagnosticInfoRequest {
 impl ClearDiagnosticInfoRequest {
     /// Create a request to clear a specific DTC group from the given memory location.
     #[must_use]
-    pub const fn new(group_of_dtc: DTCRecord, memory_selection: u8) -> Self {
+    pub const fn new(group_of_dtc: DtcRecord, memory_selection: u8) -> Self {
         Self {
             group_of_dtc,
             memory_selection,
@@ -94,7 +94,7 @@ impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), crate::Error> {
-        let (group_of_dtc, buf) = <DTCRecord as Decode>::decode(buf)?;
+        let (group_of_dtc, buf) = <DtcRecord as Decode>::decode(buf)?;
         if buf.is_empty() {
             return Err(crate::Error::InsufficientData(Incomplete {
                 needed: 4,

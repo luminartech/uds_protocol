@@ -22,7 +22,7 @@ pub enum ResetType {
     /// range-checked (`0x00..=0x7F`) and can never collide with the SPRMIB bit.
     #[cfg_attr(feature = "clap", clap(skip))]
     #[non_exhaustive]
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
     /// This `SubFunction` identifies a "hard reset" condition which simulates the power-on/start-up sequence
     /// typically performed after a server has been previously disconnected from its power supply (i.e. battery).
     /// The performed action is implementation specific and not defined by the spec.
@@ -74,7 +74,7 @@ impl From<ResetType> for u8 {
     #[allow(clippy::match_same_arms)]
     fn from(value: ResetType) -> Self {
         match value {
-            ResetType::ISOSAEReserved(val) => val,
+            ResetType::IsoSaeReserved(val) => val,
             ResetType::HardReset => 0x01,
             ResetType::KeyOffOnReset => 0x02,
             ResetType::SoftReset => 0x03,
@@ -91,16 +91,16 @@ impl TryFrom<u8> for ResetType {
     #[allow(clippy::match_same_arms)]
     fn try_from(value: u8) -> Result<Self, Error> {
         match value {
-            0x00 => Ok(Self::ISOSAEReserved(0)),
+            0x00 => Ok(Self::IsoSaeReserved(0)),
             0x01 => Ok(Self::HardReset),
             0x02 => Ok(Self::KeyOffOnReset),
             0x03 => Ok(Self::SoftReset),
             0x04 => Ok(Self::EnableRapidPowerShutDown),
             0x05 => Ok(Self::DisableRapidPowerShutDown),
-            0x06..=0x3F => Ok(Self::ISOSAEReserved(value)),
+            0x06..=0x3F => Ok(Self::IsoSaeReserved(value)),
             0x40..=0x5F => Ok(Self::VehicleManufacturerSpecific(value)),
             0x60..=0x7E => Ok(Self::SystemSupplierSpecific(value)),
-            0x7F => Ok(Self::ISOSAEReserved(value)),
+            0x7F => Ok(Self::IsoSaeReserved(value)),
             _ => Err(Error::InvalidEcuResetType(value)),
         }
     }
@@ -118,7 +118,7 @@ mod reset_type_tests {
             match i {
                 0x00 => assert!(matches!(
                     reset_type,
-                    Ok::<ResetType, Error>(ResetType::ISOSAEReserved(_)),
+                    Ok::<ResetType, Error>(ResetType::IsoSaeReserved(_)),
                 )),
                 0x01 => assert!(matches!(
                     reset_type,
@@ -142,7 +142,7 @@ mod reset_type_tests {
                 )),
                 0x06..=0x3F => assert!(matches!(
                     reset_type,
-                    Ok::<ResetType, Error>(ResetType::ISOSAEReserved(_)),
+                    Ok::<ResetType, Error>(ResetType::IsoSaeReserved(_)),
                 )),
                 0x40..=0x5F => assert!(matches!(
                     reset_type,
@@ -154,7 +154,7 @@ mod reset_type_tests {
                 )),
                 0x7F => assert!(matches!(
                     reset_type,
-                    Ok::<ResetType, Error>(ResetType::ISOSAEReserved(_)),
+                    Ok::<ResetType, Error>(ResetType::IsoSaeReserved(_)),
                 )),
                 _ => assert!(matches!(
                     reset_type,
@@ -166,7 +166,7 @@ mod reset_type_tests {
 
     #[test]
     fn reset_type_to_all_u8_values() {
-        assert_eq!(u8::from(ResetType::ISOSAEReserved(0)), 0x00);
+        assert_eq!(u8::from(ResetType::IsoSaeReserved(0)), 0x00);
         assert_eq!(u8::from(ResetType::HardReset), 0x01);
         assert_eq!(u8::from(ResetType::KeyOffOnReset), 0x02);
         assert_eq!(u8::from(ResetType::SoftReset), 0x03);

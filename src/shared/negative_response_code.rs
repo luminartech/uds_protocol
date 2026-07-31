@@ -10,7 +10,7 @@ pub enum NegativeResponseCode {
     PositiveResponse,
     /// This range of values is reserved for future definition.
     #[cfg_attr(feature = "clap", clap(skip))]
-    ISOSAEReserved(u8),
+    IsoSaeReserved(u8),
     /// This response code indicates that the requested action has been rejected by the server.
     /// The `GeneralReject` response code shall only be implemented in the server if none of the negative response codes meet the needs of the implementation.
     /// This response code shall not be used as a general replacement for other response codes defined.
@@ -91,9 +91,9 @@ pub enum NegativeResponseCode {
     /// therefore it is not listed in the list of applicable response codes of the diagnostic services.
     ServiceNotSupportedInActiveSession,
     /// This response code indicates that the requested action will not be taken because the server prerequisite condition for RPM is not met (current RPM is above a pre-programmed maximum threshold).
-    RPMTooHigh,
+    RpmTooHigh,
     /// This response code indicates that the requested action will not be taken because the server prerequisite condition for RPM is not met (current RPM is below a pre-programmed minimum threshold).
-    RPMTooLow,
+    RpmTooLow,
     /// This is required for those actuator tests which cannot be actuated while the Engine is running.
     /// This is different from RPM too high negative response and needs to be allowed.
     EngineIsRunning,
@@ -154,7 +154,7 @@ impl From<NegativeResponseCode> for u8 {
     fn from(value: NegativeResponseCode) -> Self {
         match value {
             NegativeResponseCode::PositiveResponse => 0x00,
-            NegativeResponseCode::ISOSAEReserved(value) => value,
+            NegativeResponseCode::IsoSaeReserved(value) => value,
             NegativeResponseCode::GeneralReject => 0x10,
             NegativeResponseCode::ServiceNotSupported => 0x11,
             NegativeResponseCode::SubFunctionNotSupported => 0x12,
@@ -177,8 +177,8 @@ impl From<NegativeResponseCode> for u8 {
             NegativeResponseCode::RequestCorrectlyReceivedResponsePending => 0x78,
             NegativeResponseCode::SubFunctionNotSupportedInActiveSession => 0x7E,
             NegativeResponseCode::ServiceNotSupportedInActiveSession => 0x7F,
-            NegativeResponseCode::RPMTooHigh => 0x81,
-            NegativeResponseCode::RPMTooLow => 0x82,
+            NegativeResponseCode::RpmTooHigh => 0x81,
+            NegativeResponseCode::RpmTooLow => 0x82,
             NegativeResponseCode::EngineIsRunning => 0x83,
             NegativeResponseCode::EngineIsNotRunning => 0x84,
             NegativeResponseCode::EngineRunTimeTooLow => 0x85,
@@ -205,39 +205,39 @@ impl From<u8> for NegativeResponseCode {
     fn from(value: u8) -> Self {
         match value {
             0x00 => Self::PositiveResponse,
-            0x01..=0x0F => Self::ISOSAEReserved(value),
+            0x01..=0x0F => Self::IsoSaeReserved(value),
             0x10 => Self::GeneralReject,
             0x11 => Self::ServiceNotSupported,
             0x12 => Self::SubFunctionNotSupported,
             0x13 => Self::IncorrectMessageLengthOrInvalidFormat,
             0x14 => Self::ResponseTooLong,
-            0x15..=0x20 => Self::ISOSAEReserved(value),
+            0x15..=0x20 => Self::IsoSaeReserved(value),
             0x21 => Self::BusyRepeatRequest,
             0x22 => Self::ConditionsNotCorrect,
-            0x23 => Self::ISOSAEReserved(value),
+            0x23 => Self::IsoSaeReserved(value),
             0x24 => Self::RequestSequenceError,
-            0x25..=0x30 => Self::ISOSAEReserved(value),
+            0x25..=0x30 => Self::IsoSaeReserved(value),
             0x31 => Self::RequestOutOfRange,
-            0x32 => Self::ISOSAEReserved(value),
+            0x32 => Self::IsoSaeReserved(value),
             0x33 => Self::SecurityAccessDenied,
             0x34 => Self::AuthenticationRequired,
             0x35 => Self::InvalidKey,
             0x36 => Self::ExceedNumberOfAttempts,
             0x37 => Self::RequiredTimeDelayNotExpired,
             0x38..=0x4F => Self::ExtendedDataLinkSecurityReserved(value),
-            0x50..=0x6F => Self::ISOSAEReserved(value),
+            0x50..=0x6F => Self::IsoSaeReserved(value),
             0x70 => Self::UploadDownloadNotAccepted,
             0x71 => Self::TransferDataSuspended,
             0x72 => Self::GeneralProgrammingFailure,
             0x73 => Self::WrongBlockSequenceCounter,
-            0x74..=0x77 => Self::ISOSAEReserved(value),
+            0x74..=0x77 => Self::IsoSaeReserved(value),
             0x78 => Self::RequestCorrectlyReceivedResponsePending,
-            0x79..=0x7D => Self::ISOSAEReserved(value),
+            0x79..=0x7D => Self::IsoSaeReserved(value),
             0x7E => Self::SubFunctionNotSupportedInActiveSession,
             0x7F => Self::ServiceNotSupportedInActiveSession,
-            0x80 => Self::ISOSAEReserved(value),
-            0x81 => Self::RPMTooHigh,
-            0x82 => Self::RPMTooLow,
+            0x80 => Self::IsoSaeReserved(value),
+            0x81 => Self::RpmTooHigh,
+            0x82 => Self::RpmTooLow,
             0x83 => Self::EngineIsRunning,
             0x84 => Self::EngineIsNotRunning,
             0x85 => Self::EngineRunTimeTooLow,
@@ -249,14 +249,14 @@ impl From<u8> for NegativeResponseCode {
             0x8B => Self::ThrottleOrPedalTooLow,
             0x8C => Self::TransmissionRangeNotInNeutral,
             0x8D => Self::TransmissionRangeNotInGear,
-            0x8E => Self::ISOSAEReserved(value),
+            0x8E => Self::IsoSaeReserved(value),
             0x8F => Self::BrakeSwitchNotClosed,
             0x90 => Self::ShifterLeverNotInPark,
             0x91 => Self::TorqueConverterClutchLocked,
             0x92 => Self::VoltageTooHigh,
             0x93 => Self::VoltageTooLow,
             0x94..=0xFE => Self::ReservedForSpecificConditionsNotMet(value),
-            0xFF => Self::ISOSAEReserved(value),
+            0xFF => Self::IsoSaeReserved(value),
         }
     }
 }
