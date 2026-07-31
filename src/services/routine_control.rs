@@ -40,12 +40,20 @@ impl From<RoutineControlSubFunction> for u8 {
 
 impl TryFrom<u8> for RoutineControlSubFunction {
     type Error = Error;
+
+    /// ISO 14229-1:2020 Table 426 defines `0x01`-`0x03` and reserves everything else, with no
+    /// vehicle-manufacturer or system-supplier range — so unlike most sub-function enums in
+    /// this crate there is nothing legitimate to model beyond the three named values.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidRoutineControlSubFunction`] for any other value, which maps to
+    /// [`NegativeResponseCode::SubFunctionNotSupported`] as Table 430 requires.
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0x01 => Ok(RoutineControlSubFunction::StartRoutine),
             0x02 => Ok(RoutineControlSubFunction::StopRoutine),
             0x03 => Ok(RoutineControlSubFunction::RequestRoutineResults),
-            _ => Err(Error::IncorrectMessageLengthOrInvalidFormat),
+            _ => Err(Error::InvalidRoutineControlSubFunction(value)),
         }
     }
 }
@@ -227,6 +235,29 @@ mod test {
             use crate::test_util::assert_impl_serde;
             assert_impl_serde::<RoutineControlRequest<'_>>();
             assert_impl_serde::<RoutineControlResponse<'_>>();
+        }
+    }
+
+    #[test]
+    fn an_unsupported_sub_function_is_answered_with_sub_function_not_supported() {
+        // ISO 14229-1:2020 Table 426 defines only 0x01-0x03; 0x00 and 0x04-0x7F are
+        // ISOSAEReserved. Table 430 requires NRC 0x12 for a sub-function that "is either
+        // generally not supported or is not supported for the requested RoutineIdentifier".
+        // Reporting IncorrectMessageLengthOrInvalidFormat sent 0x13 instead, for a request
+        // whose length was perfectly correct -- and disagreed with ControlDTCSetting, the only
+        // other service that validates its sub-function.
+        for byte in [0x00u8, 0x04, 0x10, 0x7F] {
+            let err = crate::Request::decode(&[0x31, byte, 0xF0, 0x0F])
+                .expect_err("a reserved routineControlType must be rejected");
+            assert!(
+                matches!(err, Error::InvalidRoutineControlSubFunction(got) if got == byte),
+                "wrong error for sub-function {byte:#04X}: {err:?}"
+            );
+            assert_eq!(
+                err.negative_response_code(),
+                NegativeResponseCode::SubFunctionNotSupported,
+                "wrong NRC for sub-function {byte:#04X}"
+            );
         }
     }
 

@@ -38,16 +38,17 @@ pub use services::{
     CommunicationControlResponse, CommunicationControlType, CommunicationType,
     ControlDtcSettingRequest, ControlDtcSettingResponse, DiagnosticSessionControlRequest,
     DiagnosticSessionControlResponse, DiagnosticSessionType, DirSizePayload, DtcAndStatusIter,
-    DtcFaultDetectionCounterRecord, DtcFaultDetectionIter, DtcSettingType,
-    DtcSeverityAndStatusIter, EcuResetRequest, EcuResetResponse, FileOperationMode,
-    FileSizePayload, NamePayload, NegativeResponse, PositionPayload, ReadDataByIdentifierRequest,
-    ReadDataByIdentifierResponse, ReadDtcInfoRequest, ReadDtcInfoResponse, ReadDtcInfoSubFunction,
-    RequestDownloadRequest, RequestDownloadResponse, RequestFileTransferRequest,
-    RequestFileTransferResponse, RequestTransferExitRequest, RequestTransferExitResponse,
-    ResetType, RoutineControlRequest, RoutineControlResponse, RoutineControlSubFunction,
-    SecurityAccessLevel, SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType,
-    SentDataPayload, SizePayload, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
+    DtcFaultDetectionCounterRecord, DtcFaultDetectionIter, DtcSettingType, EcuResetRequest,
+    EcuResetResponse, FileOperationMode, FileSizePayload, NamePayload, NegativeResponse,
+    PositionPayload, ReadDataByIdentifierRequest, ReadDataByIdentifierResponse, ReadDtcInfoRequest,
+    ReadDtcInfoResponse, ReadDtcInfoSubFunction, RequestDownloadRequest, RequestDownloadResponse,
+    RequestFileTransferRequest, RequestFileTransferResponse, RequestTransferExitRequest,
+    RequestTransferExitResponse, RequestUploadRequest, RequestUploadResponse, ResetType,
+    RoutineControlRequest, RoutineControlResponse, RoutineControlSubFunction, SecurityAccessLevel,
+    SecurityAccessRequest, SecurityAccessResponse, SecurityAccessType, SentDataPayload,
+    SizePayload, SubnetNumber, TesterPresentRequest, TesterPresentResponse, TransferDataRequest,
     TransferDataResponse, WriteDataByIdentifierRequest, WriteDataByIdentifierResponse,
+    WwhObdDtcSeverityIter,
 };
 
 #[cfg(test)]
@@ -166,6 +167,56 @@ mod no_std_api_tests {
     }
 
     #[test]
+    fn request_upload_frames_roundtrip() {
+        // RequestUpload request: SID=0x35, DFI=0x00, ALFID=0x12 (size 1 byte, addr 2 bytes),
+        // addr=0xBEEF, size=0x10
+        let wire = [0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10];
+        let (req, _) = Request::decode(&wire).unwrap();
+        assert_eq!(req.service(), UdsServiceType::RequestUpload);
+        assert!(matches!(req, Request::RequestUpload(_)));
+        let mut buf = [0u8; 16];
+        let written = req.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..written], &wire);
+        assert_eq!(written, req.encoded_size().unwrap());
+
+        // Positive response: SID=0x75, LFID=0x20 (2-byte block length), 0x0800
+        let wire = [0x75, 0x20, 0x08, 0x00];
+        let (resp, _) = Response::decode(&wire).unwrap();
+        assert_eq!(resp.service(), UdsServiceType::RequestUpload);
+        match resp {
+            Response::RequestUpload(ref up) => {
+                assert_eq!(up.max_number_of_block_length, &[0x08, 0x00]);
+            }
+            other => panic!("expected RequestUpload, got {other:?}"),
+        }
+        let written = resp.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
+    fn request_upload_is_distinct_from_request_download() {
+        // Same payload, different SID: the two must not collapse into one variant.
+        let payload = [0x00, 0x12, 0xBE, 0xEF, 0x10];
+        let mut down = [0x34u8; 6];
+        down[1..].copy_from_slice(&payload);
+        let mut up = [0x35u8; 6];
+        up[1..].copy_from_slice(&payload);
+
+        let (d, _) = Request::decode(&down).unwrap();
+        let (u, _) = Request::decode(&up).unwrap();
+        assert!(matches!(d, Request::RequestDownload(_)));
+        assert!(matches!(u, Request::RequestUpload(_)));
+        assert_eq!(d.service(), UdsServiceType::RequestDownload);
+        assert_eq!(u.service(), UdsServiceType::RequestUpload);
+
+        let mut buf = [0u8; 8];
+        let n = d.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..n], &down);
+        let n = u.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..n], &up);
+    }
+
+    #[test]
     fn read_dtc_info_response_frame_roundtrip() {
         // ReadDtcInfo response: SID=0x59, sub=0x02, mask=0xFF, then DTC records
         let wire = [0x59, 0x02, 0xFF, 0x01, 0x02, 0x03, 0x0A];
@@ -178,9 +229,10 @@ mod no_std_api_tests {
     #[test]
     fn read_dtc_info_request_encodes_through_public_api() {
         // Public-surface construction: types reached via crate root, not shared::/services::.
-        let req = ReadDtcInfoRequest::new(ReadDtcInfoSubFunction::ReportDtcByStatusMask(
-            DtcStatusMask::from(0xFF),
-        ));
+        let req = ReadDtcInfoRequest::new(
+            false,
+            ReadDtcInfoSubFunction::ReportDtcByStatusMask(DtcStatusMask::from(0xFF)),
+        );
         let mut buf = [0u8; 8];
         let written = req.encode_to_slice(&mut buf).unwrap();
         // sub=0x02 ReportDtcByStatusMask, mask=0xFF
@@ -224,5 +276,65 @@ mod no_std_api_tests {
             }),
             &[0xAA, 0xBB],
         );
+    }
+
+    #[test]
+    fn wire_primitives_are_const_constructible() {
+        // These are the types a caller puts in a `const` table: DTC constants, record
+        // numbers, and the format identifier. Each must be reachable in const context.
+        const DTC: DtcRecord = DtcRecord::new(0x01, 0x02, 0x03);
+        const SNAPSHOT: DtcSnapshotRecordNumber = DtcSnapshotRecordNumber::new(0x02);
+        const EXT_DATA: DtcExtDataRecordNumber = DtcExtDataRecordNumber::new(0x90);
+        const STORED: DtcStoredDataRecordNumber = match DtcStoredDataRecordNumber::new(0x02) {
+            Ok(number) => number,
+            Err(_) => panic!("0x02 is not reserved"),
+        };
+        const DFI: DataFormatIdentifier = match DataFormatIdentifier::new(0x01, 0x02) {
+            Ok(dfi) => dfi,
+            Err(_) => panic!("both nibbles are in range"),
+        };
+
+        assert_eq!(u32::from(DTC), 0x01_0203);
+        assert_eq!(SNAPSHOT.value(), 0x02);
+        assert_eq!(EXT_DATA.value(), 0x90);
+        assert_eq!(STORED.value(), 0x02);
+        assert_eq!(u8::from(DFI), 0x12);
+    }
+
+    #[test]
+    fn sid_conversions_and_negative_responses_are_const() {
+        // The SID map is the crate's most reusable lookup; a server dispatch table wants it
+        // in const context. `NegativeResponse::new` builds on it, so it follows.
+        const SID: u8 = UdsServiceType::EcuReset.to_request_sid();
+        const SERVICE: UdsServiceType = UdsServiceType::from_request_sid(0x11);
+        const RESP_SID: u8 = UdsServiceType::EcuReset.to_response_sid();
+        const RESP_SERVICE: UdsServiceType = UdsServiceType::from_response_sid(0x51);
+        const NACK: NegativeResponse = NegativeResponse::new(
+            UdsServiceType::EcuReset,
+            NegativeResponseCode::ConditionsNotCorrect,
+        );
+
+        assert_eq!(SID, 0x11);
+        assert_eq!(SERVICE, UdsServiceType::EcuReset);
+        assert_eq!(RESP_SID, 0x51);
+        assert_eq!(RESP_SERVICE, UdsServiceType::EcuReset);
+        assert_eq!(NACK.request_service_sid(), 0x11);
+    }
+
+    #[test]
+    fn transfer_setup_requests_are_const_constructible() {
+        const DOWNLOAD: RequestDownloadRequest =
+            match RequestDownloadRequest::new(DataFormatIdentifier::NONE, 0x1234, 0x10) {
+                Ok(req) => req,
+                Err(_) => panic!("address fits in 5 bytes"),
+            };
+        const UPLOAD: RequestUploadRequest =
+            match RequestUploadRequest::new(DataFormatIdentifier::NONE, 0x1234, 0x10) {
+                Ok(req) => req,
+                Err(_) => panic!("address fits in 5 bytes"),
+            };
+
+        assert_eq!(DOWNLOAD.memory_address(), 0x1234);
+        assert_eq!(UPLOAD.memory_size(), 0x10);
     }
 }

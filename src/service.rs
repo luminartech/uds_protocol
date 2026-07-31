@@ -145,7 +145,7 @@ impl UdsServiceType {
     ///
     /// Unrecognised bytes map to [`UdsServiceType::UnsupportedDiagnosticService`].
     #[must_use]
-    pub fn from_request_sid(value: u8) -> Self {
+    pub const fn from_request_sid(value: u8) -> Self {
         match value {
             0x10 => Self::DiagnosticSessionControl,
             0x11 => Self::EcuReset,
@@ -187,7 +187,7 @@ impl UdsServiceType {
     /// `0x7F`, which is not a valid request SID. To re-encode an unmodeled request without
     /// loss, use [`Request::Other`](crate::Request::Other), which echoes the raw byte.
     #[must_use]
-    pub fn to_request_sid(self) -> u8 {
+    pub const fn to_request_sid(self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x10,
             Self::EcuReset => 0x11,
@@ -223,7 +223,7 @@ impl UdsServiceType {
     ///
     /// Unrecognised bytes map to [`UdsServiceType::UnsupportedDiagnosticService`].
     #[must_use]
-    pub fn from_response_sid(value: u8) -> Self {
+    pub const fn from_response_sid(value: u8) -> Self {
         match value {
             0x50 => Self::DiagnosticSessionControl,
             0x51 => Self::EcuReset,
@@ -262,7 +262,7 @@ impl UdsServiceType {
     /// [`UdsServiceType::UnsupportedDiagnosticService`] has no response SID and returns
     /// `0x7F`; see [`Response::Other`](crate::Response::Other) for lossless pass-through.
     #[must_use]
-    pub fn to_response_sid(self) -> u8 {
+    pub const fn to_response_sid(self) -> u8 {
         match self {
             Self::DiagnosticSessionControl => 0x50,
             Self::EcuReset => 0x51,

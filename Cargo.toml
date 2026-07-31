@@ -20,11 +20,16 @@ authors = [
 
 [features]
 default = ["std"]
-std = ["alloc", "embedded-io/std", "thiserror/std"]
-alloc = ["embedded-io/alloc"]
-serde = ["dep:serde", "dep:serde_bytes"]
-utoipa = ["dep:utoipa"]
-clap = ["dep:clap"]
+std = ["alloc", "embedded-io/std", "thiserror/std", "serde?/std"]
+alloc = ["embedded-io/alloc", "serde?/alloc"]
+# `serde` is the only optional integration usable on a bare-metal target. It is wired as a
+# core-only dependency (`default-features = false`) and picks up serde's `alloc`/`std` layers
+# only when this crate's own `alloc`/`std` features are on, via weak `serde?/..` features.
+serde = ["dep:serde"]
+# `utoipa` and `clap` both imply `std`. Their derive macros expand to `std::`, `String` and
+# `Vec` paths inside this crate, which cannot compile under `#![no_std]`.
+utoipa = ["std", "dep:utoipa"]
+clap = ["std", "dep:clap"]
 
 [dependencies]
 automotive-wire-codec = { version = "0.3", default-features = false }
@@ -32,8 +37,7 @@ bitmask-enum = "2"
 embedded-io = { version = "0.7", default-features = false }
 thiserror = { version = "2", default-features = false }
 # Optional dependencies
-serde = { version = "1", optional = true, features = ["derive"] }
-serde_bytes = { version = "0.11", optional = true }
+serde = { version = "1", optional = true, default-features = false, features = ["derive"] }
 utoipa = { version = "5", optional = true }
 clap = { version = "4", optional = true, features = ["derive"] }
 

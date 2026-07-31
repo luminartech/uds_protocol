@@ -11,7 +11,110 @@ pre-1.0 crates).
 
 These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
 
-### Changed (API consistency pass)
+### Added
+
+- `NegativeResponse::new_with_sid(request_service_sid, nrc)`, the construction-side counterpart
+  to `Request::Other { sid }`. `new()` routes through `to_request_sid()`, which collapses every
+  unmodeled service to `0x7F`, so a server that decoded `Request::Other { sid: 0x40 }` could not
+  answer `serviceNotSupported` echoing `0x40` — despite this type already preserving such bytes
+  losslessly on decode.
+
+- `Request::decode` and `Response::decode` now document that the returned remainder is **always
+  empty**. A UDS frame is not self-delimiting, so one buffer is one frame and every payload is
+  decoded with `decode_exact`; feeding concatenated frames (or `DecodeIter`) will treat the whole
+  buffer as a single frame.
+
+- `RequestUpload` (0x35 / 0x75) is now modeled, via `RequestUploadRequest` and
+  `RequestUploadResponse` plus `Request::RequestUpload` / `Response::RequestUpload`. It was the
+  conspicuous gap in the transfer story: `RequestDownload`, `TransferData` and
+  `RequestTransferExit` were all modeled, so the download flow was complete while the
+  structurally identical upload flow decoded only to `Request::Other`. ISO 14229-1 gives the
+  two services the same message layout, so both pairs are now generated from one macro in
+  `services/upload_download.rs` — a fix to the address/size width derivation cannot land on one
+  service and miss the other. The two NRC tables are kept separate so they can diverge later.
+
+- `Error::negative_response_code()` maps any decode error to the `NegativeResponseCode` a server
+  should answer with, following ISO 14229-1: `0x13` for a malformed frame, `0x12` for an
+  unsupported sub-function byte, `0x31` for an out-of-range parameter, and `0x10` only for
+  `IoError`. Three `Error` variants documented their NRC in prose and eighteen said nothing, so
+  every server had to re-derive the mapping against a `#[non_exhaustive]` enum.
+
+- `Request::allowed_nack_codes()` dispatches to the per-service tables from a decoded
+  `Request`, alongside the existing `service()` and `is_positive_response_suppressed()`. All 15
+  request types already exposed the associated function, but reaching it from a `Request`
+  required matching every variant. Returns an empty slice for `Request::Other`, meaning "NRC set
+  unknown" rather than "no codes apply".
+
+- `RequestDownloadRequest::data_format_identifier()`, plus
+  `DataFormatIdentifier::compression_method()` and `DataFormatIdentifier::encryption_method()`.
+  The DFI was previously write-only: a server could decode a download request but had no way to
+  read the compression or encryption method it had been asked to use.
+
+- `TesterPresentRequest::sub_function()` and `TesterPresentResponse::sub_function()`.
+
+- **Breaking:** New `Error::TrailingBytes` variant, produced when a decode leaves unconsumed
+  bytes in the input. Both `Error::InsufficientData` and `Error::TrailingBytes` map to
+  NRC `0x13` (`IncorrectMessageLengthOrInvalidFormat`).
+
+- `DtcRecord::high_byte()`, `middle_byte()` and `low_byte()`. The fields are private and the type
+  had no accessors at all, so a decoded DTC could only be inspected by round-tripping through
+  `u32` — awkward given ISO 14229-1 Annex D.1 assigns the high byte its own meaning (system
+  group). All three are `const fn`.
+
+### Changed
+
+- **Breaking:** `ClearDiagnosticInfoRequest::memory_selection` is now `Option<u8>`, and the
+  constructors are split accordingly: `new(group_of_dtc)` / `clear_all()` for the ordinary case,
+  `new_with_memory_selection(group_of_dtc, selection)` / `clear_all_in_memory(selection)` when
+  addressing user-defined DTC memory. ISO 14229-1:2020 Table 296 marks `MemorySelection` `U`
+  (user option), so it is absent from the wire unless the client is targeting user-defined
+  memory — the crate previously required it, which meant the plain 3-byte request (the only
+  form in the 2013 edition, and the one in the standard's own Table 300 flow example) failed to
+  decode with `InsufficientData`, while every encode emitted a spurious 4th byte.
+
+- **Breaking:** `SecurityAccessLevel::value` now takes `&self` instead of `self`, matching the
+  other twenty accessors in the crate. No call-site change is needed: the type is `Copy`.
+
+- `DtcRecord::new`, `DtcSnapshotRecordNumber::new`, `DtcExtDataRecordNumber::new`,
+  `DtcStoredDataRecordNumber::new`, `DataFormatIdentifier::new`, `NegativeResponse::new`,
+  `NegativeResponse::request_service`, `RequestDownloadRequest::new`, `RequestUploadRequest::new`
+  and all four `UdsServiceType` SID conversions (`from_request_sid`, `to_request_sid`,
+  `from_response_sid`, `to_response_sid`) are now `const fn`. The crate was otherwise uniformly
+  `const fn new`, and the gaps fell exactly on the primitives a caller wants in a `const` table:
+  DTC constants, record numbers, the format identifier, and the SID map a server dispatch table
+  is built from. `NegativeResponse::new` was blocked only because `to_request_sid` was not const.
+
+- The DTC iterators now implement `size_hint` (exact) and
+  [`FusedIterator`](core::iter::FusedIterator). They deliberately do **not** implement
+  `ExactSizeIterator`: its `len()` would have to count items yielded, which exceeds the
+  complete-record count when a partial tail is present, contradicting the inherent `len()`.
+  Documented on each type.
+
+- **Breaking:** `DtcSeverityAndStatusIter` -> `WwhObdDtcSeverityIter`, and
+  `ReadDtcInfoResponse::severity_and_status_iter` -> `wwh_obd_dtc_severity_iter`. The old name pointed at
+  the wrong variant: it reads as "the severity iterator" but only handles the 5-byte records of
+  `WwhObdDtcByMaskRecord` (0x42), while the 0x08/0x09 `DtcSeverityList` records are 6 bytes with
+  an extra functional-unit byte. The `DtcSeverityList` doc previously had to carry a warning that
+  the iterator did not apply to it.
+
+- **Breaking:** `DataFormatIdentifier::new` now takes its arguments in **wire order** —
+  `new(compression_method, encryption_method)`, compression being the high nibble. It previously
+  took encryption first, contradicting both the wire layout and the type's own doc comment, and
+  since both parameters are `u8` the compiler could not catch a transposition. **Review any
+  call site passing two different non-zero values.** `From<u8>` is unaffected and remains the
+  usual path. Added `DataFormatIdentifier::NONE` for the common no-compression/no-encryption case.
+
+- **Breaking:** `CommunicationControlRequest::suppress_positive_response()` is now a public
+  field, matching the other six suppressable requests. The type stays encapsulated, but because
+  of the `control_type`/`node_id` invariant — `node_id` must be present exactly when
+  `control_type` is an enhanced-address variant — not because of SPRMIB, which is independent and
+  fused onto the sub-function byte only at the wire boundary. `control_type()` remains a getter.
+
+- **Breaking:** `ReadDataByIdentifierResponse::records()` is now the public field `records`,
+  matching every other opaque response slice. It carries no invariant.
+
+- `CommunicationControlResponse::control_type` (public) and `NegativeResponse`'s private fields
+  are both deliberate and now documented, so the remaining asymmetry is not read as an oversight.
 
 - **Breaking:** Acronyms in type and variant names now follow the Rust API guideline
   ([C-CASE](https://rust-lang.github.io/api-guidelines/naming.html)): `Dtc`, `Uds`, `Ecu`,
@@ -51,8 +154,8 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
     `Iso26021_2Values`. (`non_camel_case_types` permits `_` between digits, so no `allow`
     is needed.) Trailing sequence numbers do lose theirs:
     `SAE_J2012_DA_DTCFormat_00` -> `SaeJ2012DaDtcFormat00`.
-  - `FunctionalGroupIdentifier::VODBSystem` -> `VobdSystem`. The old name was a
-    transposition typo; ISO 14229-1 Table D.1 names 0xFE `VOBDSystem`.
+  - `FunctionalGroupIdentifier::VODBSystem` -> `VobdSystem`, which also corrects a typo —
+    see *Fixed* below.
 
   All three `#[allow(non_camel_case_types)]` attributes in the crate are now gone.
 
@@ -71,57 +174,129 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   `NegativeResponse`/`UnsupportedDiagnosticService`, and point at `Request::Other` /
   `Response::Other` for lossless pass-through of unmodeled services.
 
-- **Breaking:** `#[non_exhaustive]` added to eleven public types that ISO will grow into, so
-  that later additions are not breaking changes: `ReadDtcInfoSubFunction`, `FileOperationMode`,
-  `DtcExtDataRecordNumber`, `DtcSnapshotRecordNumber`, `DtcFaultDetectionCounterRecord`,
-  `SizePayload`, `NamePayload`, `SentDataPayload`, `FileSizePayload`, `DirSizePayload`,
-  `PositionPayload`. Downstream `match` statements over these need a wildcard arm, and the
-  seven structs must be built through `new()` rather than a struct literal.
-  `ReadDtcInfoSubFunction` is the important one: it has sub-functions the crate does not model
-  yet, so adding one post-tag would otherwise have been breaking.
+- **Breaking:** `Error::InsufficientData` now carries an `automotive_wire_codec::Incomplete`
+  (with `needed` and `available` byte counts) instead of a bare `usize`.
+
+- `automotive-wire-codec` is now a public dependency: its `Incomplete` and `TrailingBytes`
+  types are re-exported at the crate root (`uds_protocol::{Incomplete, TrailingBytes}`) and
+  are considered part of `uds_protocol`'s public API. A semver-major release of
+  `automotive-wire-codec` is therefore a breaking change for `uds_protocol`.
+
+- **Breaking:** `uds_protocol::{Decode, DecodeIter, Encode}` are now re-exports of the
+  `automotive-wire-codec` 0.3 traits (previously crate-local traits). This is the underlying
+  cause of most of the other breaking changes in this release.
+
+- **Breaking:** `Encode::encoded_size` is now `Result<usize, Self::Error>` (previously infallible
+  `usize`), via the codec trait's correct-by-construction counting-sink default. Crate-local
+  `encoded_size` overrides have been removed; callers must handle/unwrap the `Result`.
+
+- **Breaking:** Added `Error::InvalidWidth`, produced when a wire-declared variable-width field
+  requests a byte width the target type cannot hold. The underlying `automotive_wire_codec::InvalidWidth`
+  fragment is also re-exported at the crate root (alongside `Incomplete` and `TrailingBytes`).
+
+- **Breaking:** `decode_exact` trailing-bytes now surface as `Error::TrailingBytes` instead of
+  `Error::IncorrectMessageLengthOrInvalidFormat` (both still map to NRC 0x13).
+
+- This release remains a semver-major bump.
 
 ### Fixed
+
+- Documentation corrections across the shared format identifiers and DTC record numbers:
+  `DataFormatIdentifier` named only `RequestDownloadRequest` (it is also used by
+  `RequestUploadRequest` and four `RequestFileTransferRequest` variants) and pointed at a
+  `data_format_identifier` *field* that is now private behind an accessor; the same staleness
+  affected `MemoryFormatIdentifier` and `LengthFormatIdentifier`. `DtcStoredDataRecordNumber`
+  described itself as a `DTCSnapshot` record, and its `new()` had an empty summary line and a
+  malformed `Error::ReservedForLegislativeUse` link. `DtcSettingType` was the only type whose doc
+  comment sat after its derives. Two redundant intra-doc link targets in
+  `communication_control.rs` are gone, so `cargo doc --document-private-items` is now clean.
+
+- **Breaking:** `ReadDtcInfoResponse::decode` now rejects a record list whose length is not a
+  whole number of records, with `Error::IncorrectMessageLengthOrInvalidFormat` (NRC `0x13`).
+  It previously passed the tail through verbatim, so a malformed frame decoded successfully and
+  only failed later, during iteration. This is the same strictness the crate already applies to
+  trailing bytes everywhere else. All four record-carrying variants are checked at their own
+  width: `DtcList` and `DtcFaultDetectionCounterList` at 4 bytes, `DtcSeverityList` at 6,
+  `WwhObdDtcByMaskRecord` at 5. Empty record lists remain valid — a server with no matching DTCs
+  answers with the header and no records. Iterators reached from a decoded response therefore
+  never see a partial tail; a hand-constructed variant still can, so they keep their `Result`
+  item type.
+
+- **All three DTC iterators looped forever on a partial trailing record.** `next()` returned
+  `Some(Err(..))` without advancing, so the error was yielded indefinitely: `for` loops and
+  `count()` hung, and `collect::<Vec<Result<_, _>>>()` allocated without bound. Reachable from
+  untrusted wire input, because `ReadDtcInfoResponse::decode` passes the record tail through
+  verbatim without checking that it divides evenly:
+
+  ```rust
+  let (resp, _) = Response::decode(&[0x59, 0x02, 0xFF, 0x01, 0x02])?; // 2 leftover bytes
+  for r in resp.dtc_and_status_iter().unwrap() { /* never returns */ }
+  ```
+
+  `collect_all()` was the only safe path, and only incidentally —
+  `collect::<Result<Vec, _>>()` short-circuits on the first error. The fuzz targets missed it
+  because they call `decode` and never drive the iterators. Each iterator now consumes the
+  partial tail, reporting the error exactly once and terminating.
+
+- **Breaking:** `TesterPresentRequest` no longer rewrites reserved sub-function bytes.
+  `[0x3E, 0x01]` decoded and re-encoded as `[0x3E, 0x00]`: the reserved value was parsed and
+  then discarded. The normalization was deliberate, but it left the service inconsistent with
+  its own response type, which retains the same values, and with every other service
+  (`ResetType::IsoSaeReserved`, `DiagnosticSessionType::IsoSaeReserved`, ...). The value is now
+  retained in a private field — callers still cannot mint a reserved value, `new(suppress)`
+  keeps its signature and its `0x00` encoding — so a server can report
+  `subFunctionNotSupported` naming the byte it actually received.
+
+- `TesterPresentResponse::new()` is now `const`, the last `new()` in the crate that was not.
+
+- The README service table was missing rows for `DynamicallyDefinedDataIdentifier` (0x2C) and
+  `AccessTimingParameter` (0x83), both enumerated in `UdsServiceType`, and named two services
+  differently from the code (`ECUReset`, `ControlDTCSetting`). The table's 27 rows now match the
+  27 request SIDs in `UdsServiceType` exactly.
+
+- **Breaking:** The `utoipa` and `clap` features now imply `std`. Neither compiled without it:
+  their derive macros expand to `std::`, `String` and `Vec` paths inside this crate, so
+  `cargo build --no-default-features --features utoipa` failed with 318 resolution errors, as
+  did the `clap` equivalent. Only the `--all-features` / `--no-default-features` /
+  `--no-default-features --features alloc` combinations were ever built, so the optional
+  integrations were never exercised in isolation.
+
+- The `serde` feature now works on a bare-metal target. The dependency was declared with
+  serde's default features on, which pulls `serde/std`, so
+  `cargo build --no-default-features --features serde --target thumbv6m-none-eabi` failed even
+  though every host-side build passed — a host build proves nothing here, because the host has
+  `std` available for serde to compile against regardless of this crate being `#![no_std]`.
+  serde is now wired `default-features = false`, picking up its `alloc` and `std` layers
+  through weak `serde?/alloc` and `serde?/std` features only when this crate's own `alloc`/`std`
+  features are enabled.
+
+- `FunctionalGroupIdentifier::VODBSystem` is now `VobdSystem`. Beyond the casing change, the
+  old name transposed the letters: ISO 14229-1 Table D.1 names functional group `0xFE`
+  `VOBDSystem` (vehicle OBD system).
 
 - `DtcFaultDetectionCounterRecord` is now exported from the crate root. It is the `Item` of
   the public `DtcFaultDetectionIter`, but had no public path, so callers could iterate it and
   read its fields yet could not name the type — no `Vec<T>`, no struct field, no function
   signature. Its two `pub` fields are also documented now; `missing_docs` had never fired on
   an unreachable type.
+
 - Four private type aliases no longer appear in public signatures, where rustdoc rendered them
   as unlinkable names: `DTCFaultDetectionCounter`, `MemorySelection` and
   `DTCReadinessGroupIdentifier` (all `= u8`) are spelled `u8` with the meaning moved into the
   field and variant docs, and `DTCStatusAvailabilityMask` (`= DtcStatusMask`) is spelled
   `DtcStatusMask` with its "bits on = supported by server" semantics moved onto the four
   `status_availability_mask` fields. This closes the `TODO` above sub-function `0x18`.
-- `RequestTransferExitRequest` and `RequestTransferExitResponse` now derive `serde` and
-  `utoipa` support like every other public request/response type. Enabling the `serde` feature
-  previously left these two types unserializable.
 
 ### Removed
 
 - The `serde_bytes` optional dependency. The `serde` feature activated it, but the crate never
   referenced it.
 
-### Changed
-
-- **Breaking:** `Error::InsufficientData` now carries an `automotive_wire_codec::Incomplete`
-  (with `needed` and `available` byte counts) instead of a bare `usize`.
-- `automotive-wire-codec` is now a public dependency: its `Incomplete` and `TrailingBytes`
-  types are re-exported at the crate root (`uds_protocol::{Incomplete, TrailingBytes}`) and
-  are considered part of `uds_protocol`'s public API. A semver-major release of
-  `automotive-wire-codec` is therefore a breaking change for `uds_protocol`.
-
-### Added
-
-- **Breaking:** New `Error::TrailingBytes` variant, produced when a decode leaves unconsumed
-  bytes in the input. Both `Error::InsufficientData` and `Error::TrailingBytes` map to
-  NRC `0x13` (`IncorrectMessageLengthOrInvalidFormat`).
-
-### Removed
-
 - The `byteorder-embedded-io` dependency, superseded by `automotive-wire-codec`.
+
 - **Breaking:** `param_length_u16`/`param_length_u32`/`param_length_u64`/`param_length_u128` have
   been removed. Use `automotive_wire_codec::minimal_be_len` instead.
+
 - **Breaking:** `uds_protocol`'s `Encode`/`Decode` implementations for the primitive numeric types
   (`u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, f32, f64`) have been removed. Now that
   `Encode`/`Decode` are re-exports of `automotive-wire-codec`'s traits, implementing them on
@@ -131,17 +306,13 @@ These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
   `read_be_uint`/`write_be_uint`/`read_be_uint_into` for variable-width fields) re-exported from
   `automotive_wire_codec`.
 
-### Changed (migration to `automotive-wire-codec` 0.3)
+### CI
 
-- **Breaking:** `uds_protocol::{Decode, DecodeIter, Encode}` are now re-exports of the
-  `automotive-wire-codec` 0.3 traits (previously crate-local traits). This is the underlying
-  cause of most of the other breaking changes in this release.
-- **Breaking:** `Encode::encoded_size` is now `Result<usize, Self::Error>` (previously infallible
-  `usize`), via the codec trait's correct-by-construction counting-sink default. Crate-local
-  `encoded_size` overrides have been removed; callers must handle/unwrap the `Result`.
-- **Breaking:** Added `Error::InvalidWidth`, produced when a wire-declared variable-width field
-  requests a byte width the target type cannot hold. The underlying `automotive_wire_codec::InvalidWidth`
-  fragment is also re-exported at the crate root (alongside `Incomplete` and `TrailingBytes`).
-- **Breaking:** `decode_exact` trailing-bytes now surface as `Error::TrailingBytes` instead of
-  `Error::IncorrectMessageLengthOrInvalidFormat` (both still map to NRC 0x13).
-- This release remains a semver-major bump.
+- New `features` job running `cargo hack check --feature-powerset --no-dev-deps` (20
+  combinations). The previous matrix only ever built `--all-features`,
+  `--no-default-features`, and `--no-default-features --features alloc`, which is why the
+  `utoipa`/`clap` breakage went unnoticed.
+- The bare-metal job now also builds `serde` and `alloc,serde` for `thumbv6m-none-eabi`, the only
+  place the serde `default-features` defect was observable.
+- Publication is now gated on `no-std` and `features` in addition to the existing jobs. A tag
+  could previously publish a crate whose `no_std` build or feature graph was broken.

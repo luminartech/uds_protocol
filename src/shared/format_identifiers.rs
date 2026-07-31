@@ -3,9 +3,24 @@ use crate::Error;
 const LOW_NIBBLE_MASK: u8 = 0b0000_1111;
 const HIGH_NIBBLE_MASK: u8 = 0b1111_0000;
 
+/// Largest value that fits in a single nibble.
+const NIBBLE_MAX: u8 = 0x0F;
+
 /// Address and length format identifier
 const MEMORY_SIZE_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
 const MEMORY_ADDRESS_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
+
+/// Widest `memorySize` the `addressAndLengthFormatIdentifier` may declare, in bytes.
+///
+/// ISO 14229-1:2020 Annex H Table H.1 marks high-nibble values 1 through 4 applicable
+/// (manageable size 256 bytes through 4 GB) and everything else "not applicable".
+pub(crate) const MAX_MEMORY_SIZE_LENGTH: u8 = 4;
+
+/// Widest `memoryAddress` the `addressAndLengthFormatIdentifier` may declare, in bytes.
+///
+/// Table H.1 marks low-nibble values 1 through 5 applicable (addressable memory 256 bytes
+/// through 1024 GB - 1).
+pub(crate) const MAX_MEMORY_ADDRESS_LENGTH: u8 = 5;
 
 /// Length format identifier
 const BLOCK_LENGTH_NIBBLE_MASK: u8 = HIGH_NIBBLE_MASK;
@@ -17,7 +32,11 @@ const ENCRYPTION_NIBBLE_MASK: u8 = LOW_NIBBLE_MASK;
 /// Takes in the actual memory address to be used and the size of the memory to be used
 /// and computes how many bytes are needed to represent them
 ///
-/// Decoded from the `address_and_length_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
+/// Carried by the `addressAndLengthFormatIdentifier` byte of
+/// [`RequestDownloadRequest`](crate::RequestDownloadRequest) and
+/// [`RequestUploadRequest`](crate::RequestUploadRequest), which share one message layout.
+/// Derived from the address and size rather than set by the caller, so it is not part of
+/// either type's public surface.
 ///
 /// See ISO-14229-1:2020, Table H.1 for format information
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -30,26 +49,23 @@ pub(crate) struct MemoryFormatIdentifier {
 
 impl TryFrom<u8> for MemoryFormatIdentifier {
     type Error = Error;
-    // NRC::RequestOutOfRange if address_and_length_format_identifier is not valid
     fn try_from(value: u8) -> Result<Self, Error> {
+        // High nibble: bytes used for the memorySize parameter. Table H.1 marks 1 through 4
+        // applicable (manageable size 256 bytes to 4 GB); 0 and 5..=15 are "not applicable".
         let memory_size_length = (value & MEMORY_SIZE_NIBBLE_MASK) >> 4;
+        // Low nibble: bytes used for the memoryAddress parameter. Table H.1 marks 1 through 5
+        // applicable (addressable memory 256 bytes to 1024 GB - 1).
         let memory_address_length = value & MEMORY_ADDRESS_NIBBLE_MASK;
 
-        match memory_size_length {
-            1..4 => (),
-            _ => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
+        if !matches!(memory_size_length, 1..=MAX_MEMORY_SIZE_LENGTH) {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
         }
-        match memory_address_length {
-            1..5 => (),
-            _ => return Err(Error::IncorrectMessageLengthOrInvalidFormat),
+        if !matches!(memory_address_length, 1..=MAX_MEMORY_ADDRESS_LENGTH) {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
         }
         Ok(Self {
-            // get the low nibble of address_and_length_format_identifier
-            // Memory size length is 1 through 4 bytes (manageable size: 256 bytes to 4GB)
             memory_size_length,
-            // get the high nibble of address_and_length_format_identifier
-            // Memory address is 1 through 5 bytes (addressable memory: 256 bytes - 1024GB)
-            memory_address_length: value & MEMORY_ADDRESS_NIBBLE_MASK,
+            memory_address_length,
         })
     }
 }
@@ -61,10 +77,13 @@ impl From<MemoryFormatIdentifier> for u8 {
     }
 }
 
-/// Decoded from the `length_format_identifier` field of the [`RequestDownloadResponse`] struct.
-/// The format is similar to the `address_and_length_format_identifier` field in the [`RequestDownloadRequest`] struct.
-/// Specifically, it is a byte where the high nibble represents the byte length of the `max_number_of_block_length` field,
-/// i.e, a value of `0x20` indicates that the `max_number_of_block_length` field is 2 bytes long.
+/// The leading byte of a [`RequestDownloadResponse`](crate::RequestDownloadResponse) or
+/// [`RequestUploadResponse`](crate::RequestUploadResponse), which share one message layout.
+///
+/// The format mirrors [`MemoryFormatIdentifier`]: a byte whose high nibble gives the byte
+/// length of `max_number_of_block_length`, i.e. `0x20` means that field is 2 bytes long.
+/// Derived from the slice length when encoding, so it is not part of either response's
+/// public surface.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -85,11 +104,18 @@ impl From<LengthFormatIdentifier> for u8 {
     }
 }
 
-/// Used by [`crate::RequestDownloadRequest`] for the compression method (high nibble) and encrypting method (low nibble)
-/// - 0x00 is no compression or encryption, which is the default
+/// The compression method (high nibble) and encryption method (low nibble) a client asks the
+/// server to use for a transfer.
 ///
-/// Decoded from the `data_format_identifier` field of the [`crate::RequestDownloadRequest`] struct
-/// Values other than 0x00 are Vehicle Manufacturer specific according to ISO-14229-1:2020
+/// - `0x00` for both means no compression and no encryption, which is the default; prefer
+///   [`DataFormatIdentifier::NONE`].
+/// - Values other than `0x00` are Vehicle Manufacturer specific according to ISO-14229-1:2020.
+///
+/// Supplied to [`RequestDownloadRequest::new`](crate::RequestDownloadRequest::new) and
+/// [`RequestUploadRequest::new`](crate::RequestUploadRequest::new), and read back with
+/// [`RequestDownloadRequest::data_format_identifier`](crate::RequestDownloadRequest::data_format_identifier).
+/// Also carried by the `AddFile`, `ReplaceFile`, `ReadFile` and `ResumeFile` variants of
+/// [`RequestFileTransferRequest`](crate::RequestFileTransferRequest).
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -101,25 +127,56 @@ pub struct DataFormatIdentifier {
 }
 
 impl DataFormatIdentifier {
+    /// No compression and no encryption — the `0x00` byte, and the overwhelmingly common case.
+    pub const NONE: Self = Self {
+        compression_method: 0,
+        encryption_method: 0,
+    };
+
     /// Build a `DataFormatIdentifier` from its compression and encryption method nibbles.
     ///
-    /// `0x00` for both means no compression and no encryption (the default). Both values
-    /// occupy a single nibble on the wire.
+    /// Arguments are in **wire order**: compression is the high nibble, encryption the low
+    /// nibble. `0x00` for both means no compression and no encryption — prefer
+    /// [`DataFormatIdentifier::NONE`] for that. Each value occupies a single nibble.
+    ///
+    /// Both parameters are `u8`, so the compiler cannot catch a transposition; if you are
+    /// converting a byte you already have, use `DataFormatIdentifier::from(byte)` instead.
     ///
     /// # Errors
     /// Returns [`Error::InvalidEncryptionCompressionMethod`] if either value does not fit
     /// in a nibble (i.e. is greater than `0x0F`).
-    pub fn new(encryption_method: u8, compression_method: u8) -> Result<Self, Error> {
+    // Written as explicit range checks rather than a `?` on a helper: `?` is not permitted in
+    // a `const fn`, and const construction is what lets callers put a `DataFormatIdentifier`
+    // in a `const` table.
+    pub const fn new(compression_method: u8, encryption_method: u8) -> Result<Self, Error> {
+        if compression_method > NIBBLE_MAX {
+            return Err(Error::InvalidEncryptionCompressionMethod(
+                compression_method,
+            ));
+        }
+        if encryption_method > NIBBLE_MAX {
+            return Err(Error::InvalidEncryptionCompressionMethod(encryption_method));
+        }
         Ok(Self {
-            encryption_method: Self::check_value(encryption_method)?,
-            compression_method: Self::check_value(compression_method)?,
+            encryption_method,
+            compression_method,
         })
     }
-    fn check_value(value: u8) -> Result<u8, Error> {
-        match value {
-            0..=15 => Ok(value),
-            _ => Err(Error::InvalidEncryptionCompressionMethod(value)),
-        }
+
+    /// The compression method nibble (the high nibble on the wire).
+    ///
+    /// `0x00` means no compression. Other values are vehicle-manufacturer specific.
+    #[must_use]
+    pub const fn compression_method(&self) -> u8 {
+        self.compression_method
+    }
+
+    /// The encryption method nibble (the low nibble on the wire).
+    ///
+    /// `0x00` means no encryption. Other values are vehicle-manufacturer specific.
+    #[must_use]
+    pub const fn encryption_method(&self) -> u8 {
+        self.encryption_method
     }
 }
 impl From<u8> for DataFormatIdentifier {
@@ -169,6 +226,35 @@ mod tests {
     }
 
     #[test]
+    fn every_alfid_legal_per_table_h1_is_accepted() {
+        // ISO 14229-1:2020 Annex H Table H.1 runs from 0x11 to 0x45: the high nibble
+        // (memorySize) is applicable for 1..=4 bytes and the low nibble (memoryAddress) for
+        // 1..=5. Anything outside that is "not applicable" and must be rejected.
+        for size_len in 1..=4u8 {
+            for addr_len in 1..=5u8 {
+                let byte = (size_len << 4) | addr_len;
+                let mfi = MemoryFormatIdentifier::try_from(byte)
+                    .unwrap_or_else(|e| panic!("Table H.1 lists {byte:#04X} as valid, got {e:?}"));
+                assert_eq!(mfi.memory_size_length, size_len, "for {byte:#04X}");
+                assert_eq!(mfi.memory_address_length, addr_len, "for {byte:#04X}");
+                assert_eq!(u8::from(mfi), byte, "round trip for {byte:#04X}");
+            }
+        }
+    }
+
+    #[test]
+    fn alfid_nibbles_outside_table_h1_are_rejected() {
+        // A zero nibble is "not applicable" on either side, and the widths stop at 4 (size)
+        // and 5 (address).
+        for byte in [0x00, 0x01, 0x10, 0x05, 0x50, 0x46, 0x55, 0xF5, 0x5F] {
+            assert!(
+                MemoryFormatIdentifier::try_from(byte).is_err(),
+                "{byte:#04X} is not applicable per Table H.1 but was accepted"
+            );
+        }
+    }
+
+    #[test]
     fn length_format_identifier() {
         let length_format_identifier = LengthFormatIdentifier::from(0xF0);
         assert_eq!(length_format_identifier.max_number_of_block_length, 15);
@@ -192,6 +278,19 @@ mod tests {
             data_format_identifier,
             Err(Error::InvalidEncryptionCompressionMethod(0x1F))
         ));
+
+        // Arguments are in wire order: compression is the high nibble.
+        let dfi = DataFormatIdentifier::new(0x02, 0x01).unwrap();
+        assert_eq!(dfi.compression_method(), 0x02);
+        assert_eq!(dfi.encryption_method(), 0x01);
+        assert_eq!(
+            u8::from(dfi),
+            0x21,
+            "compression must land in the high nibble"
+        );
+
+        assert_eq!(u8::from(DataFormatIdentifier::NONE), 0x00);
+        assert_eq!(DataFormatIdentifier::NONE, DataFormatIdentifier::from(0x00));
     }
 
     mod prop {
@@ -217,8 +316,11 @@ mod tests {
 
             #[test]
             fn prop_memory_format_identifier_roundtrip(
-                size_len in 1u8..=3,
-                addr_len in 1u8..=4,
+                // The full range Annex H Table H.1 declares applicable. Narrowing these to
+                // what the decoder happened to accept is what previously let an off-by-one in
+                // the range checks sit underneath a passing property test.
+                size_len in 1u8..=MAX_MEMORY_SIZE_LENGTH,
+                addr_len in 1u8..=MAX_MEMORY_ADDRESS_LENGTH,
             ) {
                 let byte = (size_len << 4) | addr_len;
                 let mfi = MemoryFormatIdentifier::try_from(byte).unwrap();

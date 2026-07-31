@@ -204,12 +204,31 @@ pub struct DtcRecord {
 impl DtcRecord {
     /// Create a `DtcRecord` from its three component bytes.
     #[must_use]
-    pub fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
+    pub const fn new(high_byte: u8, middle_byte: u8, low_byte: u8) -> Self {
         Self {
             high_byte,
             middle_byte,
             low_byte,
         }
+    }
+
+    /// The high byte, which ISO 14229-1 Annex D.1 uses to identify the system group
+    /// (powertrain, body, chassis, network).
+    #[must_use]
+    pub const fn high_byte(&self) -> u8 {
+        self.high_byte
+    }
+
+    /// The middle byte of the DTC number.
+    #[must_use]
+    pub const fn middle_byte(&self) -> u8 {
+        self.middle_byte
+    }
+
+    /// The low byte of the DTC number, which carries the failure type.
+    #[must_use]
+    pub const fn low_byte(&self) -> u8 {
+        self.low_byte
     }
 }
 
@@ -431,19 +450,21 @@ impl<'a> Decode<'a> for DtcSeverityMask {
     }
 }
 
-/// Indicates the number of the specific `DTCSnapshot` data record requested
-/// Setting to 0xFF will return all `DTCStoredDataRecords` at once
+/// Identifies which `DTCStoredDataRecord` is being requested.
+///
+/// Setting to `0xFF` will return all `DTCStoredDataRecords` at once.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DtcStoredDataRecordNumber(u8);
 
-// create a constructor for DtcStoredDataRecordNumber
 impl DtcStoredDataRecordNumber {
+    /// Create a `DtcStoredDataRecordNumber` from a raw byte, rejecting the values ISO 14229-1
+    /// reserves.
     ///
     /// # Errors
-    /// Will return `Err(Error::ReservedForLegislativeUse()` if the record number == 0x00 or 0xF0
-    pub fn new(record_number: u8) -> Result<Self, Error> {
+    /// Returns [`Error::ReservedForLegislativeUse`] if the record number is `0x00` or `0xF0`.
+    pub const fn new(record_number: u8) -> Result<Self, Error> {
         if record_number == 0 || record_number == 0xF0 {
             return Err(Error::ReservedForLegislativeUse(record_number));
         }
@@ -550,6 +571,22 @@ mod encode_param_tests {
 #[cfg(test)]
 mod dtc_status_tests {
     use super::*;
+
+    #[test]
+    fn dtc_record_exposes_its_three_wire_bytes() {
+        // A decoded DtcRecord has to be inspectable byte-wise: D.1 assigns meaning to the
+        // high byte (system group) separately from the middle and low bytes.
+        let record = DtcRecord::from(0x12_3456);
+        assert_eq!(record.high_byte(), 0x12);
+        assert_eq!(record.middle_byte(), 0x34);
+        assert_eq!(record.low_byte(), 0x56);
+    }
+
+    #[test]
+    fn dtc_record_byte_accessors_are_usable_in_const_context() {
+        const HIGH: u8 = CLEAR_ALL_DTCS.high_byte();
+        assert_eq!(HIGH, 0xFF);
+    }
 
     #[test]
     fn status_mask() {
