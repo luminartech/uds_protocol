@@ -19,9 +19,10 @@ fn size_param_width(a: u128, b: u128) -> usize {
 ///////////////////////////////////////// - Request - ///////////////////////////////////////////////////
 /// Mode of operation for file transfer requests
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
+#[non_exhaustive]
 pub enum FileOperationMode {
     /// ISO/SAE reserved (`0x00`, `0x07–0xFF`).
     IsoSaeReserved(u8),
@@ -41,33 +42,50 @@ pub enum FileOperationMode {
     ResumeFile = 0x06,
 }
 
-impl From<FileOperationMode> for u8 {
-    fn from(value: FileOperationMode) -> Self {
-        match value {
-            FileOperationMode::IsoSaeReserved(value) => value,
-            FileOperationMode::AddFile => 0x01,
-            FileOperationMode::DeleteFile => 0x02,
-            FileOperationMode::ReplaceFile => 0x03,
-            FileOperationMode::ReadFile => 0x04,
-            FileOperationMode::ReadDir => 0x05,
-            FileOperationMode::ResumeFile => 0x06,
+impl FileOperationMode {
+    /// The raw `modeOfOperation` byte. `const`, unlike `u8::from(mode)`.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        match self {
+            Self::IsoSaeReserved(value) => *value,
+            Self::AddFile => 0x01,
+            Self::DeleteFile => 0x02,
+            Self::ReplaceFile => 0x03,
+            Self::ReadFile => 0x04,
+            Self::ReadDir => 0x05,
+            Self::ResumeFile => 0x06,
         }
     }
 }
 
-impl TryFrom<u8> for FileOperationMode {
-    type Error = Error;
+impl From<FileOperationMode> for u8 {
+    fn from(value: FileOperationMode) -> Self {
+        value.value()
+    }
+}
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
+/// Total, because every byte classifies: Table 485 defines `0x01` to `0x06` and everything else
+/// is `ISOSAEReserved`, which this enum represents rather than rejects. This was a `TryFrom`
+/// whose every arm returned `Ok`, i.e. a fallible signature that could not fail.
+impl From<u8> for FileOperationMode {
+    fn from(value: u8) -> Self {
         match value {
-            0x01 => Ok(Self::AddFile),
-            0x02 => Ok(Self::DeleteFile),
-            0x03 => Ok(Self::ReplaceFile),
-            0x04 => Ok(Self::ReadFile),
-            0x05 => Ok(Self::ReadDir),
-            0x06 => Ok(Self::ResumeFile),
-            0x00 | 0x07..=0xFF => Ok(Self::IsoSaeReserved(value)),
+            0x01 => Self::AddFile,
+            0x02 => Self::DeleteFile,
+            0x03 => Self::ReplaceFile,
+            0x04 => Self::ReadFile,
+            0x05 => Self::ReadDir,
+            0x06 => Self::ResumeFile,
+            0x00 | 0x07..=0xFF => Self::IsoSaeReserved(value),
         }
+    }
+}
+
+impl PartialEq<u8> for FileOperationMode {
+    /// Wire equality: compares the byte this mode encodes to, so a reserved value and the named
+    /// variant carrying the same byte compare equal to that byte.
+    fn eq(&self, other: &u8) -> bool {
+        self.value() == *other
     }
 }
 
@@ -140,26 +158,48 @@ impl SizePayload {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct NamePayload<'a> {
-    /// 0x01 - 0x06, the type of operation to be applied to the file or directory specified in `file_path_and_name`
-    pub mode_of_operation: FileOperationMode,
-
     /// The path and name of the file or directory on the server.
     ///
     /// The on-wire length prefix is derived from this field during encoding, so it can
-    /// never disagree with the name it describes.
-    pub file_path_and_name: &'a str,
+    /// never disagree with the name it describes. Private because that prefix is two bytes
+    /// wide, which bounds the name; read it back with
+    /// [`NamePayload::file_path_and_name`](Self::file_path_and_name).
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            borrow,
+            deserialize_with = "crate::shared::bounded::str_within_u16_len"
+        )
+    )]
+    file_path_and_name: &'a str,
 }
 
 impl<'a> NamePayload<'a> {
     /// Build a name payload. The on-wire length prefix is computed from
     /// `file_path_and_name` at encode time.
-    #[must_use]
-    pub const fn new(mode_of_operation: FileOperationMode, file_path_and_name: &'a str) -> Self {
-        Self {
-            mode_of_operation,
-            file_path_and_name,
+    ///
+    /// The `modeOfOperation` byte is **not** part of this payload: it is the
+    /// [`RequestFileTransferRequest`] variant, which writes it. Carrying it here as well let the
+    /// two disagree — and the field won, so `AddFile(NamePayload::new(DeleteFile, ..), dfi, size)`
+    /// silently encoded a `DeleteFile` request and dropped the format identifier and both sizes.
+    ///
+    /// # Errors
+    /// Returns [`Error::IncorrectMessageLengthOrInvalidFormat`] if the name is longer than
+    /// `u16::MAX` bytes, which is the widest the on-wire `filePathAndNameLength` field can
+    /// declare. This is the invariant that earns this type its `#[non_exhaustive]`.
+    pub const fn new(file_path_and_name: &'a str) -> Result<Self, Error> {
+        if file_path_and_name.len() > u16::MAX as usize {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
         }
+        Ok(Self { file_path_and_name })
+    }
+
+    /// The path and name of the file or directory on the server.
+    #[must_use]
+    pub const fn file_path_and_name(&self) -> &'a str {
+        self.file_path_and_name
     }
 }
 
@@ -231,6 +271,21 @@ const REQUEST_FILE_TRANSFER_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 7] =
 ];
 
 impl RequestFileTransferRequest<'_> {
+    /// The `modeOfOperation` this request performs, derived from the variant.
+    ///
+    /// This *is* the variant rather than a stored field, so the two can never disagree.
+    #[must_use]
+    pub const fn mode_of_operation(&self) -> FileOperationMode {
+        match self {
+            Self::AddFile(..) => FileOperationMode::AddFile,
+            Self::DeleteFile(_) => FileOperationMode::DeleteFile,
+            Self::ReplaceFile(..) => FileOperationMode::ReplaceFile,
+            Self::ReadFile(..) => FileOperationMode::ReadFile,
+            Self::ReadDir(_) => FileOperationMode::ReadDir,
+            Self::ResumeFile(..) => FileOperationMode::ResumeFile,
+        }
+    }
+
     /// Get the allowed [`NegativeResponseCode`] variants for this request.
     #[must_use]
     pub fn allowed_nack_codes() -> &'static [NegativeResponseCode] {
@@ -256,6 +311,7 @@ impl RequestFileTransferRequest<'_> {
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub struct SentDataPayload<'a> {
     /// This parameter is used by the requestFileTransfer positive response message to inform the client how many
     /// data bytes (maxNumberOfBlockLength) to include in each `TransferData` request message from the client or how
@@ -273,17 +329,44 @@ pub struct SentDataPayload<'a> {
     /// affect the memory address of where the subsequent transferData request data would be written.
     /// If the modeOfOperation parameter equals to 0x02 (`DeleteFile`) this parameter shall be not be included in the
     /// response message.
-    pub max_number_of_block_length: &'a [u8],
+    ///
+    /// Private because the `lengthFormatIdentifier` that declares its length is one byte wide,
+    /// which bounds it; read it back with
+    /// [`SentDataPayload::max_number_of_block_length`](Self::max_number_of_block_length).
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            borrow,
+            deserialize_with = "crate::shared::bounded::bytes_within_u8_len"
+        )
+    )]
+    max_number_of_block_length: &'a [u8],
 }
 
 impl<'a> SentDataPayload<'a> {
     /// Build a sent-data payload. The on-wire `lengthFormatIdentifier` is derived from
     /// the length of `max_number_of_block_length` at encode time.
-    #[must_use]
-    pub const fn new(max_number_of_block_length: &'a [u8]) -> Self {
-        Self {
-            max_number_of_block_length,
+    ///
+    /// # Errors
+    /// Returns [`Error::IncorrectMessageLengthOrInvalidFormat`] if the slice is longer than
+    /// 255 bytes. The wire field that carries its length is one byte, so a longer slice was
+    /// constructible here and then failed in `encode` — the same construct-then-fail asymmetry
+    /// that `RequestDownloadResponse::new` was made fallible to close. This is the invariant
+    /// that earns this type its `#[non_exhaustive]`.
+    pub const fn new(max_number_of_block_length: &'a [u8]) -> Result<Self, Error> {
+        if max_number_of_block_length.len() > u8::MAX as usize {
+            return Err(Error::IncorrectMessageLengthOrInvalidFormat);
         }
+        Ok(Self {
+            max_number_of_block_length,
+        })
+    }
+
+    /// How many data bytes to include in each `TransferData` message, as the raw big-endian
+    /// bytes the server sent.
+    #[must_use]
+    pub const fn max_number_of_block_length(&self) -> &'a [u8] {
+        self.max_number_of_block_length
     }
 }
 
@@ -456,8 +539,7 @@ impl Encode for NamePayload<'_> {
         let name = self.file_path_and_name.as_bytes();
         let name_len =
             u16::try_from(name.len()).map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
-        let mut written = write_u8(writer, u8::from(self.mode_of_operation)).map_err(Error::io)?;
-        written += write_u16_be(writer, name_len).map_err(Error::io)?;
+        let mut written = write_u16_be(writer, name_len).map_err(Error::io)?;
         written += write_all(writer, name).map_err(Error::io)?;
         Ok(written)
     }
@@ -467,30 +549,23 @@ impl<'a> Decode<'a> for NamePayload<'a> {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        if buf.len() < 3 {
+        if buf.len() < 2 {
             return Err(Error::InsufficientData(Incomplete {
-                needed: 3,
+                needed: 2,
                 available: buf.len(),
             }));
         }
-        let mode_of_operation = FileOperationMode::try_from(buf[0])?;
-        let name_len = u16::from_be_bytes([buf[1], buf[2]]) as usize;
-        let total = 3 + name_len;
+        let name_len = u16::from_be_bytes([buf[0], buf[1]]) as usize;
+        let total = 2 + name_len;
         if buf.len() < total {
             return Err(Error::InsufficientData(Incomplete {
                 needed: total,
                 available: buf.len(),
             }));
         }
-        let file_path_and_name = core::str::from_utf8(&buf[3..total])
+        let file_path_and_name = core::str::from_utf8(&buf[2..total])
             .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
-        Ok((
-            Self {
-                mode_of_operation,
-                file_path_and_name,
-            },
-            &buf[total..],
-        ))
+        Ok((Self { file_path_and_name }, &buf[total..]))
     }
 }
 
@@ -690,21 +765,22 @@ impl Encode for RequestFileTransferRequest<'_> {
     type Error = crate::Error;
 
     fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut len;
+        // The mode byte comes from the variant, so it cannot disagree with the payload.
+        let mut len = write_u8(writer, self.mode_of_operation().value()).map_err(Error::io)?;
         match self {
             Self::AddFile(name, dfi, size)
             | Self::ReplaceFile(name, dfi, size)
             | Self::ResumeFile(name, dfi, size) => {
-                len = name.encode(writer)?;
+                len += name.encode(writer)?;
                 len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
                 len += size.encode(writer)?;
             }
             Self::ReadFile(name, dfi) => {
-                len = name.encode(writer)?;
+                len += name.encode(writer)?;
                 len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
             }
             Self::DeleteFile(name) | Self::ReadDir(name) => {
-                len = name.encode(writer)?;
+                len += name.encode(writer)?;
             }
         }
         Ok(len)
@@ -715,8 +791,15 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
     type Error = crate::Error;
 
     fn decode(buf: &'a [u8]) -> Result<(Self, &'a [u8]), Error> {
-        let (name, rest) = NamePayload::decode(buf)?;
-        match name.mode_of_operation {
+        let [mode, tail @ ..] = buf else {
+            return Err(Error::InsufficientData(Incomplete {
+                needed: 1,
+                available: buf.len(),
+            }));
+        };
+        let mode_of_operation = FileOperationMode::from(*mode);
+        let (name, rest) = NamePayload::decode(tail)?;
+        match mode_of_operation {
             FileOperationMode::DeleteFile => Ok((Self::DeleteFile(name), rest)),
             FileOperationMode::ReadDir => Ok((Self::ReadDir(name), rest)),
             FileOperationMode::ReadFile => {
@@ -800,7 +883,7 @@ impl<'a> Decode<'a> for RequestFileTransferResponse<'a> {
                 available: buf.len(),
             }));
         }
-        let mode = FileOperationMode::try_from(buf[0])?;
+        let mode = FileOperationMode::from(buf[0]);
         let rest = &buf[1..];
         match mode {
             FileOperationMode::DeleteFile => Ok((Self::DeleteFile(mode), rest)),
@@ -885,26 +968,23 @@ mod request_tests {
     #[test]
     fn test_file_operation_mode() {
         use FileOperationMode::*;
-        assert_eq!(AddFile, FileOperationMode::try_from(0x01).unwrap());
-        assert_eq!(DeleteFile, FileOperationMode::try_from(0x02).unwrap());
-        assert_eq!(ReplaceFile, FileOperationMode::try_from(0x03).unwrap());
-        assert_eq!(ReadFile, FileOperationMode::try_from(0x04).unwrap());
-        assert_eq!(ReadDir, FileOperationMode::try_from(0x05).unwrap());
-        assert_eq!(ResumeFile, FileOperationMode::try_from(0x06).unwrap());
-        assert_eq!(
-            IsoSaeReserved(0x07),
-            FileOperationMode::try_from(0x07).unwrap()
-        );
+        assert_eq!(AddFile, FileOperationMode::from(0x01));
+        assert_eq!(DeleteFile, FileOperationMode::from(0x02));
+        assert_eq!(ReplaceFile, FileOperationMode::from(0x03));
+        assert_eq!(ReadFile, FileOperationMode::from(0x04));
+        assert_eq!(ReadDir, FileOperationMode::from(0x05));
+        assert_eq!(ResumeFile, FileOperationMode::from(0x06));
+        assert_eq!(IsoSaeReserved(0x07), FileOperationMode::from(0x07));
     }
 
-    fn name_payload(mode: FileOperationMode, path: &str) -> NamePayload<'_> {
-        NamePayload::new(mode, path)
+    fn name_payload(path: &str) -> NamePayload<'_> {
+        NamePayload::new(path).expect("test names are far shorter than u16::MAX")
     }
 
     #[test]
     fn name_payload_roundtrip() {
         let path = "/tmp/foo.bin";
-        let n = name_payload(FileOperationMode::AddFile, path);
+        let n = name_payload(path);
         let mut buf = [0u8; 64];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, n.encoded_size().unwrap());
@@ -948,20 +1028,56 @@ mod request_tests {
     }
 
     #[test]
+    fn the_mode_byte_comes_from_the_variant() {
+        // `NamePayload` used to carry its own `mode_of_operation`, and the field won over the
+        // variant: an `AddFile` request built with a `DeleteFile` payload encoded as DeleteFile
+        // and silently dropped the format identifier and both sizes. With the field gone the
+        // variant is the single source of the byte, so that state is unrepresentable.
+        let req = RequestFileTransferRequest::AddFile(
+            name_payload("/a"),
+            DataFormatIdentifier::NONE,
+            SizePayload::new(1, 1),
+        );
+        assert_eq!(req.mode_of_operation(), FileOperationMode::AddFile);
+
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(
+            &buf[..written],
+            &[0x01, 0x00, 0x02, b'/', b'a', 0x00, 0x01, 0x01, 0x01],
+            "mode 0x01, name length 0x0002, \"/a\", DFI, then a 1-byte size pair"
+        );
+
+        // ...and every variant reports the byte the spec assigns it (Table 485).
+        for (req, byte) in [
+            (
+                RequestFileTransferRequest::DeleteFile(name_payload("/a")),
+                0x02,
+            ),
+            (
+                RequestFileTransferRequest::ReadDir(name_payload("/a")),
+                0x05,
+            ),
+        ] {
+            assert_eq!(req.mode_of_operation().value(), byte);
+        }
+    }
+
+    #[test]
     fn name_payload_length_prefix_matches_name() {
         // The 2-byte length prefix is always exactly the UTF-8 length of the name.
-        let n = NamePayload::new(FileOperationMode::DeleteFile, "abc");
+        let n = name_payload("abc");
         let mut buf = [0u8; 16];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
-        // mode=0x02, length=0x0003, "abc"
-        assert_eq!(&buf[..written], &[0x02, 0x00, 0x03, b'a', b'b', b'c']);
+        // length=0x0003, "abc" — the modeOfOperation byte belongs to the request, not here.
+        assert_eq!(&buf[..written], &[0x00, 0x03, b'a', b'b', b'c']);
     }
 
     #[test]
     fn add_file_request_roundtrip() {
         let path = "test.txt";
         let req = RequestFileTransferRequest::AddFile(
-            name_payload(FileOperationMode::AddFile, path),
+            name_payload(path),
             DataFormatIdentifier::from(0x00),
             SizePayload::new(0x1234, 0x1234),
         );
@@ -977,10 +1093,7 @@ mod request_tests {
     #[test]
     fn delete_file_request_roundtrip() {
         let path = "/var/tmp/delete_file.bin";
-        let req = RequestFileTransferRequest::DeleteFile(name_payload(
-            FileOperationMode::DeleteFile,
-            path,
-        ));
+        let req = RequestFileTransferRequest::DeleteFile(name_payload(path));
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, req.encoded_size().unwrap());
@@ -994,7 +1107,7 @@ mod request_tests {
     fn read_file_request_roundtrip() {
         let path = "/etc/passwd";
         let req = RequestFileTransferRequest::ReadFile(
-            name_payload(FileOperationMode::ReadFile, path),
+            name_payload(path),
             DataFormatIdentifier::from(0x11),
         );
         let mut buf = [0u8; 64];
@@ -1009,8 +1122,7 @@ mod request_tests {
     #[test]
     fn read_dir_request_roundtrip() {
         let path = "/var/log";
-        let req =
-            RequestFileTransferRequest::ReadDir(name_payload(FileOperationMode::ReadDir, path));
+        let req = RequestFileTransferRequest::ReadDir(name_payload(path));
         let mut buf = [0u8; 64];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         let (decoded, _) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
@@ -1022,7 +1134,7 @@ mod request_tests {
     fn resume_file_request_roundtrip() {
         let path = "/big/file.bin";
         let req = RequestFileTransferRequest::ResumeFile(
-            name_payload(FileOperationMode::ResumeFile, path),
+            name_payload(path),
             DataFormatIdentifier::from(0x00),
             SizePayload::new(0xDEAD_BEEF, 0xDEAD_BEEF),
         );
@@ -1040,7 +1152,7 @@ mod response_tests {
     use crate::test_util::assert_encode_size_agrees;
 
     fn sent_data(block: &[u8]) -> SentDataPayload<'_> {
-        SentDataPayload::new(block)
+        SentDataPayload::new(block).expect("test blocks are far shorter than u8::MAX")
     }
 
     #[test]

@@ -14,8 +14,13 @@ const NO_SUBFUNCTION_VALUE: u8 = 0x00;
 ///
 /// The range of values is only 7 of the 8 bits, with bit 7 being used as the
 /// Suppress Positive Response (SPR) Message Indication Bit.
+//
+// `serde(try_from = "u8", into = "u8")` is what keeps a deserialized value inside 0x00..=0x7F:
+// it routes through the `TryFrom<u8>` below, the same classifier `decode` uses. The two public
+// types then just rename the field, so no mirror struct is needed to enforce the range -- the
+// invariant is single-field, and `serde`/`utoipa` can both express that directly.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ZeroSubFunction {
     /// Request and response. Indicates that no value beside the SPR Message Indication Bit is supported by this service.
@@ -70,6 +75,17 @@ pub struct TesterPresentRequest {
     /// sub-function, so conformant traffic always carries `0x00`; this is kept private so a
     /// caller cannot mint a reserved value, but is retained on decode so that a reserved byte
     /// re-encodes unchanged. Read it back with [`TesterPresentRequest::sub_function`].
+    ///
+    /// Serialized as `sub_function`: a byte in `0x00..=0x7F`.
+    //
+    // The `rename` plus `value_type` is what keeps the private enum out of both the wire format
+    // and the schema. Two mirror structs used to do this; the invariant is single-field, so a
+    // field attribute expresses it directly.
+    #[cfg_attr(feature = "serde", serde(rename = "sub_function"))]
+    #[cfg_attr(
+        feature = "utoipa",
+        schema(rename = "sub_function", value_type = u8, minimum = 0, maximum = 0x7F)
+    )]
     zero_sub_function: ZeroSubFunction,
 }
 
@@ -144,6 +160,12 @@ impl<'a> Decode<'a> for TesterPresentRequest {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct TesterPresentResponse {
+    /// The echoed sub-function byte. Serialized as `sub_function`; see the request's field.
+    #[cfg_attr(feature = "serde", serde(rename = "sub_function"))]
+    #[cfg_attr(
+        feature = "utoipa",
+        schema(rename = "sub_function", value_type = u8, minimum = 0, maximum = 0x7F)
+    )]
     zero_sub_function: ZeroSubFunction,
 }
 

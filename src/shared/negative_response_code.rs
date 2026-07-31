@@ -74,7 +74,18 @@ pub enum NegativeResponseCode {
     /// This response code indicates that the server detected an error in the sequence of `BlockSequenceCounter` values.
     /// Note that the repetition of a `TransferDataRequest` message with a `BlockSequenceCounter` equal to the one included in the previous `TransferDataRequest` message shall be accepted by the server.
     WrongBlockSequenceCounter,
-    /// This response code indicates that the server detected an error in the sequence of `BlockSequenceCounter` values.
+    /// The request was received correctly and all its parameters were valid, but the server has
+    /// not finished the requested action and is not yet ready to accept another request.
+    ///
+    /// The server sends a final positive or negative response once the service completes, and
+    /// may repeat this code until then. It affects the application-layer timing parameters
+    /// (it extends P2\*), and per ISO 14229-1:2020 Annex A.1 the server "shall always send a
+    /// final response (positive or negative) independent of the
+    /// `suppressPosRspMsgIndicationBit` value" once it has used this code.
+    ///
+    /// Typically used while writing or erasing flash, when the programming routine cannot
+    /// service the bus. Generally supported by every service, which is why it is not listed in
+    /// the individual services' `allowed_nack_codes`.
     RequestCorrectlyReceivedResponsePending,
     /// This response code indicates that the requested action will not be taken because the server does not support the requested sub-function in the session currently active.
     /// Within the programmingSession negative response code 0x12 (subFunctionNotSupported) may optionally be reported instead of negative response code 0x7F (subFunctionNotSupportedInActiveSession).
@@ -149,54 +160,65 @@ pub enum NegativeResponseCode {
     ReservedForSpecificConditionsNotMet(u8),
 }
 
-impl From<NegativeResponseCode> for u8 {
+impl NegativeResponseCode {
+    /// The raw NRC byte.
+    ///
+    /// `const`, unlike `u8::from(nrc)`, so a server dispatch table built in a `const`
+    /// context can read the code back out.
+    #[must_use]
     #[allow(clippy::match_same_arms)]
-    fn from(value: NegativeResponseCode) -> Self {
-        match value {
-            NegativeResponseCode::PositiveResponse => 0x00,
-            NegativeResponseCode::IsoSaeReserved(value) => value,
-            NegativeResponseCode::GeneralReject => 0x10,
-            NegativeResponseCode::ServiceNotSupported => 0x11,
-            NegativeResponseCode::SubFunctionNotSupported => 0x12,
-            NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat => 0x13,
-            NegativeResponseCode::ResponseTooLong => 0x14,
-            NegativeResponseCode::BusyRepeatRequest => 0x21,
-            NegativeResponseCode::ConditionsNotCorrect => 0x22,
-            NegativeResponseCode::RequestSequenceError => 0x24,
-            NegativeResponseCode::RequestOutOfRange => 0x31,
-            NegativeResponseCode::SecurityAccessDenied => 0x33,
-            NegativeResponseCode::AuthenticationRequired => 0x34,
-            NegativeResponseCode::InvalidKey => 0x35,
-            NegativeResponseCode::ExceedNumberOfAttempts => 0x36,
-            NegativeResponseCode::RequiredTimeDelayNotExpired => 0x37,
-            NegativeResponseCode::ExtendedDataLinkSecurityReserved(value) => value,
-            NegativeResponseCode::UploadDownloadNotAccepted => 0x70,
-            NegativeResponseCode::TransferDataSuspended => 0x71,
-            NegativeResponseCode::GeneralProgrammingFailure => 0x72,
-            NegativeResponseCode::WrongBlockSequenceCounter => 0x73,
-            NegativeResponseCode::RequestCorrectlyReceivedResponsePending => 0x78,
-            NegativeResponseCode::SubFunctionNotSupportedInActiveSession => 0x7E,
-            NegativeResponseCode::ServiceNotSupportedInActiveSession => 0x7F,
-            NegativeResponseCode::RpmTooHigh => 0x81,
-            NegativeResponseCode::RpmTooLow => 0x82,
-            NegativeResponseCode::EngineIsRunning => 0x83,
-            NegativeResponseCode::EngineIsNotRunning => 0x84,
-            NegativeResponseCode::EngineRunTimeTooLow => 0x85,
-            NegativeResponseCode::TemperatureTooHigh => 0x86,
-            NegativeResponseCode::TemperatureTooLow => 0x87,
-            NegativeResponseCode::VehicleSpeedTooHigh => 0x88,
-            NegativeResponseCode::VehicleSpeedTooLow => 0x89,
-            NegativeResponseCode::ThrottleOrPedalTooHigh => 0x8A,
-            NegativeResponseCode::ThrottleOrPedalTooLow => 0x8B,
-            NegativeResponseCode::TransmissionRangeNotInNeutral => 0x8C,
-            NegativeResponseCode::TransmissionRangeNotInGear => 0x8D,
-            NegativeResponseCode::BrakeSwitchNotClosed => 0x8F,
-            NegativeResponseCode::ShifterLeverNotInPark => 0x90,
-            NegativeResponseCode::TorqueConverterClutchLocked => 0x91,
-            NegativeResponseCode::VoltageTooHigh => 0x92,
-            NegativeResponseCode::VoltageTooLow => 0x93,
-            NegativeResponseCode::ReservedForSpecificConditionsNotMet(value) => value,
+    pub const fn value(&self) -> u8 {
+        match self {
+            Self::PositiveResponse => 0x00,
+            Self::IsoSaeReserved(value) => *value,
+            Self::GeneralReject => 0x10,
+            Self::ServiceNotSupported => 0x11,
+            Self::SubFunctionNotSupported => 0x12,
+            Self::IncorrectMessageLengthOrInvalidFormat => 0x13,
+            Self::ResponseTooLong => 0x14,
+            Self::BusyRepeatRequest => 0x21,
+            Self::ConditionsNotCorrect => 0x22,
+            Self::RequestSequenceError => 0x24,
+            Self::RequestOutOfRange => 0x31,
+            Self::SecurityAccessDenied => 0x33,
+            Self::AuthenticationRequired => 0x34,
+            Self::InvalidKey => 0x35,
+            Self::ExceedNumberOfAttempts => 0x36,
+            Self::RequiredTimeDelayNotExpired => 0x37,
+            Self::ExtendedDataLinkSecurityReserved(value) => *value,
+            Self::UploadDownloadNotAccepted => 0x70,
+            Self::TransferDataSuspended => 0x71,
+            Self::GeneralProgrammingFailure => 0x72,
+            Self::WrongBlockSequenceCounter => 0x73,
+            Self::RequestCorrectlyReceivedResponsePending => 0x78,
+            Self::SubFunctionNotSupportedInActiveSession => 0x7E,
+            Self::ServiceNotSupportedInActiveSession => 0x7F,
+            Self::RpmTooHigh => 0x81,
+            Self::RpmTooLow => 0x82,
+            Self::EngineIsRunning => 0x83,
+            Self::EngineIsNotRunning => 0x84,
+            Self::EngineRunTimeTooLow => 0x85,
+            Self::TemperatureTooHigh => 0x86,
+            Self::TemperatureTooLow => 0x87,
+            Self::VehicleSpeedTooHigh => 0x88,
+            Self::VehicleSpeedTooLow => 0x89,
+            Self::ThrottleOrPedalTooHigh => 0x8A,
+            Self::ThrottleOrPedalTooLow => 0x8B,
+            Self::TransmissionRangeNotInNeutral => 0x8C,
+            Self::TransmissionRangeNotInGear => 0x8D,
+            Self::BrakeSwitchNotClosed => 0x8F,
+            Self::ShifterLeverNotInPark => 0x90,
+            Self::TorqueConverterClutchLocked => 0x91,
+            Self::VoltageTooHigh => 0x92,
+            Self::VoltageTooLow => 0x93,
+            Self::ReservedForSpecificConditionsNotMet(value) => *value,
         }
+    }
+}
+
+impl From<NegativeResponseCode> for u8 {
+    fn from(value: NegativeResponseCode) -> Self {
+        value.value()
     }
 }
 

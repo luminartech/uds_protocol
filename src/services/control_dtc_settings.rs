@@ -7,7 +7,7 @@ use automotive_wire_codec::{write_all, write_u8};
 ///
 /// Used by [`ControlDtcSettingRequest`] to instruct the server.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -208,20 +208,16 @@ impl<'a> Decode<'a> for ControlDtcSettingResponse {
 mod request {
     use super::*;
     use crate::{Decode, Encode, NegativeResponseCode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::{vec, vec::Vec};
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn simple_request() {
         let req = ControlDtcSettingRequest::new(true, DtcSettingType::On);
-        let mut buffer = Vec::new();
-        let written = Encode::encode(&req, &mut buffer).unwrap();
-        assert_eq!(buffer, vec![0x81]);
-        assert_eq!(written, buffer.len());
-        assert_eq!(req.encoded_size().unwrap(), buffer.len());
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(&req, &mut buffer.as_mut_slice()).unwrap();
+        assert_eq!(&buffer[..written], &[0x81]);
+        assert_eq!(req.encoded_size().unwrap(), written);
 
-        let (parsed, _) = <ControlDtcSettingRequest as Decode>::decode(&buffer).unwrap();
+        let (parsed, _) = <ControlDtcSettingRequest as Decode>::decode(&buffer[..written]).unwrap();
         assert_eq!(parsed.setting, DtcSettingType::On);
         assert!(parsed.suppress_positive_response);
         assert_encode_size_agrees(&req);
@@ -263,7 +259,7 @@ mod request {
             );
             assert_eq!(
                 err.negative_response_code(),
-                NegativeResponseCode::SubFunctionNotSupported
+                Some(NegativeResponseCode::SubFunctionNotSupported)
             );
         }
     }
@@ -324,20 +320,17 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::{vec, vec::Vec};
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let req = ControlDtcSettingResponse::new(DtcSettingType::On);
-        let mut buffer = Vec::new();
-        let written = Encode::encode(&req, &mut buffer).unwrap();
-        assert_eq!(buffer, vec![0x01]);
-        assert_eq!(written, buffer.len());
-        assert_eq!(req.encoded_size().unwrap(), buffer.len());
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(&req, &mut buffer.as_mut_slice()).unwrap();
+        assert_eq!(&buffer[..written], &[0x01]);
+        assert_eq!(req.encoded_size().unwrap(), written);
 
-        let (parsed, _) = <ControlDtcSettingResponse as Decode>::decode(&buffer).unwrap();
+        let (parsed, _) =
+            <ControlDtcSettingResponse as Decode>::decode(&buffer[..written]).unwrap();
         assert_eq!(parsed.setting, DtcSettingType::On);
         assert_encode_size_agrees(&req);
     }

@@ -132,7 +132,7 @@ impl<'a> Decode<'a> for DtcStatusMask {
 ///
 /// A given server shall only support one `DtcFormatIdentifier`.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 #[repr(u8)]
@@ -167,6 +167,32 @@ impl From<u8> for DtcFormatIdentifier {
             0x04 => DtcFormatIdentifier::SaeJ2012DaDtcFormat04,
             val => DtcFormatIdentifier::IsoSaeReserved(val),
         }
+    }
+}
+
+impl DtcFormatIdentifier {
+    /// The raw format-identifier byte.
+    ///
+    /// `const`, unlike `u8::from(identifier)`, so a `const` table can read it back out.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        match self {
+            Self::SaeJ2012DaDtcFormat00 => 0x00,
+            Self::Iso14229_1DtcFormat => 0x01,
+            Self::SaeJ1939_73DtcFormat => 0x02,
+            Self::Iso11992_4DtcFormat => 0x03,
+            Self::SaeJ2012DaDtcFormat04 => 0x04,
+            Self::IsoSaeReserved(value) => *value,
+        }
+    }
+}
+
+impl PartialEq<u8> for DtcFormatIdentifier {
+    /// Wire equality: compares the byte this identifier encodes to. Variant equality is not the
+    /// same thing -- `IsoSaeReserved(0x01)` and `Iso14229_1DtcFormat` both encode `0x01` but are
+    /// different variants, so use this when the wire byte is what matters.
+    fn eq(&self, other: &u8) -> bool {
+        self.value() == *other
     }
 }
 
@@ -212,33 +238,74 @@ impl DtcRecord {
         }
     }
 
-    /// The high byte, which ISO 14229-1 Annex D.1 uses to identify the system group
-    /// (powertrain, body, chassis, network).
+    /// The most significant of the three DTC bytes.
+    ///
+    /// What it means depends on the server's [`DtcFormatIdentifier`]: ISO 14229-1 itself
+    /// specifies no decoding method for the three bytes (clause 12.3.2.3), deferring to
+    /// whichever of SAE J2012-DA, ISO 11992-4, SAE J1939-73 or ISO 15031-6 the format
+    /// identifier names.
+    ///
+    /// Annex D.1 Table D.1 does assign meaning, but to whole 3-byte `groupOfDTC` *values*, not
+    /// to this byte in isolation — and its powertrain/chassis/body/network rows are explicitly
+    /// "to be determined by vehicle manufacturer". The one byte-level assignment it makes is to
+    /// the *low* byte: for `0xFFFF00`-`0xFFFFFE` that byte is a
+    /// [`FunctionalGroupIdentifier`].
     #[must_use]
     pub const fn high_byte(&self) -> u8 {
         self.high_byte
     }
 
-    /// The middle byte of the DTC number.
+    /// The middle of the three DTC bytes. See [`high_byte`](Self::high_byte) for why this
+    /// crate does not ascribe a meaning to it.
     #[must_use]
     pub const fn middle_byte(&self) -> u8 {
         self.middle_byte
     }
 
-    /// The low byte of the DTC number, which carries the failure type.
+    /// The least significant of the three DTC bytes.
+    ///
+    /// In SAE J2012-DA format this is the failure type byte, and for a `groupOfDTC` in
+    /// `0xFFFF00`-`0xFFFFFE` it is a
+    /// [`FunctionalGroupIdentifier`] (ISO 14229-1:2020 Annex
+    /// D.1 Table D.1). Neither reading is universal — see [`high_byte`](Self::high_byte).
     #[must_use]
     pub const fn low_byte(&self) -> u8 {
         self.low_byte
     }
 }
 
-impl From<u32> for DtcRecord {
-    fn from(value: u32) -> Self {
-        Self {
+impl TryFrom<u32> for DtcRecord {
+    type Error = Error;
+
+    /// A DTC is three bytes, so only the low 24 bits of a `u32` are a valid DTC.
+    ///
+    /// This is `TryFrom` rather than `From` because masking the top byte away silently would
+    /// make `0xFF01_0203` and `0x0001_0203` the same record — a caller who has a DTC in a `u32`
+    /// from elsewhere and one byte too many would get a wrong DTC with no signal.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidDtcRecord`] if `value` exceeds `0x00FF_FFFF`.
+    fn try_from(value: u32) -> Result<Self, Error> {
+        if value > 0x00FF_FFFF {
+            return Err(Error::InvalidDtcRecord(value));
+        }
+        #[allow(clippy::cast_possible_truncation)]
+        Ok(Self {
             high_byte: ((value >> 16) & 0xFF) as u8,
             middle_byte: ((value >> 8) & 0xFF) as u8,
             low_byte: (value & 0xFF) as u8,
-        }
+        })
+    }
+}
+
+impl DtcRecord {
+    /// The three DTC bytes as the low 24 bits of a `u32`, big-endian.
+    ///
+    /// `const`, unlike `u32::from(record)`: trait methods are not callable in a `const fn` on
+    /// stable, so a `const` table of DTC values needs this.
+    #[must_use]
+    pub const fn to_u32(&self) -> u32 {
+        ((self.high_byte as u32) << 16) | ((self.middle_byte as u32) << 8) | self.low_byte as u32
     }
 }
 
@@ -298,7 +365,7 @@ impl<'a> DecodeIter<'a> for DtcRecord {
 ///     * Requesting DTC status from a vehicle
 ///     * Clearing DTC information in the vehicle
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum FunctionalGroupIdentifier {
@@ -343,6 +410,15 @@ impl From<u8> for FunctionalGroupIdentifier {
             0xD1..=0xDF => FunctionalGroupIdentifier::LegislativeSystemGroup(value),
             _ => FunctionalGroupIdentifier::IsoSaeReserved(value),
         }
+    }
+}
+
+impl PartialEq<u8> for FunctionalGroupIdentifier {
+    /// Wire equality: compares the byte this identifier encodes to. `LegislativeSystemGroup`
+    /// and `IsoSaeReserved` can carry the same byte as a named variant, so variant equality is
+    /// not wire equality.
+    fn eq(&self, other: &u8) -> bool {
+        u8::from(*self) == *other
     }
 }
 
@@ -459,26 +535,43 @@ impl<'a> Decode<'a> for DtcSeverityMask {
 pub struct DtcStoredDataRecordNumber(u8);
 
 impl DtcStoredDataRecordNumber {
-    /// Create a `DtcStoredDataRecordNumber` from a raw byte, rejecting the values ISO 14229-1
-    /// reserves.
+    /// Create a `DtcStoredDataRecordNumber` from a raw byte. Every byte is accepted.
     ///
-    /// # Errors
-    /// Returns [`Error::ReservedForLegislativeUse`] if the record number is `0x00` or `0xF0`.
-    pub const fn new(record_number: u8) -> Result<Self, Error> {
-        if record_number == 0 || record_number == 0xF0 {
-            return Err(Error::ReservedForLegislativeUse(record_number));
-        }
-        Ok(Self(record_number))
+    /// Total, like [`DtcSnapshotRecordNumber::new`](crate::DtcSnapshotRecordNumber::new) and
+    /// [`DtcExtDataRecordNumber::new`](crate::DtcExtDataRecordNumber::new), because decoding is
+    /// deliberately liberal and `From<u8>` already accepted anything — so a fallible `new`
+    /// promised a guarantee the type did not actually hold. Use
+    /// [`is_reserved`](Self::is_reserved) when you need the check.
+    ///
+    /// Clause 12.3.3.2 reserves `0x00` for legislated purposes, makes `0x01`-`0xFE` available
+    /// for vehicle-manufacturer use, and gives `0xFF` the meaning "report all stored records".
+    /// Note that `0xF0` is *not* reserved here — that belongs to the
+    /// [`DtcSnapshotRecordNumber`](crate::DtcSnapshotRecordNumber) space, which the spec says
+    /// does not share an address space with this one.
+    #[must_use]
+    pub const fn new(record_number: u8) -> Self {
+        Self(record_number)
+    }
+
+    /// Whether this record number is the `0x00` that clause 12.3.3.2 reserves for legislated
+    /// purposes, and which a client therefore should not request.
+    #[must_use]
+    pub const fn is_reserved(&self) -> bool {
+        self.0 == 0
     }
 
     /// Return the raw record-number byte.
     ///
-    /// A value obtained from [`From<u8>`](Self::from) or [`Decode`] may be a reserved
-    /// `0x00`/`0xF0` that [`new`](Self::new) would reject — decoding is deliberately liberal
-    /// so responses from foreign implementations can still be inspected.
+    /// May be the reserved `0x00`; check [`is_reserved`](Self::is_reserved) if that matters.
     #[must_use]
     pub const fn value(&self) -> u8 {
         self.0
+    }
+}
+
+impl PartialEq<u8> for DtcStoredDataRecordNumber {
+    fn eq(&self, other: &u8) -> bool {
+        self.value() == *other
     }
 }
 
@@ -517,7 +610,7 @@ mod encode_param_tests {
 
     #[test]
     fn encode_stored_data_record_number() {
-        let n = DtcStoredDataRecordNumber::new(0x05).unwrap();
+        let n = DtcStoredDataRecordNumber::new(0x05);
         let mut buf = [0u8; 4];
         let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(written, 1);
@@ -526,16 +619,23 @@ mod encode_param_tests {
     }
 
     #[test]
-    fn stored_data_record_number_construction_is_strict_parsing_is_liberal() {
-        // TX: constructing a reserved value is rejected.
-        assert!(matches!(
-            DtcStoredDataRecordNumber::new(0xF0),
-            Err(Error::ReservedForLegislativeUse(0xF0))
-        ));
-        // RX: a reserved value from a foreign implementation still decodes, and value()
-        // lets the caller inspect it.
-        let (decoded, _) = <DtcStoredDataRecordNumber as Decode>::decode(&[0xF0]).unwrap();
-        assert_eq!(decoded.value(), 0xF0);
+    fn stored_data_record_number_accepts_every_byte_and_flags_the_reserved_one() {
+        // ISO 14229-1:2020 clause 12.3.3.2 reserves only 0x00 for this parameter: "DTCStoredData
+        // records in range of 0x01 through 0xFE shall be available for vehicle manufacturer
+        // specific usage", and 0xFF requests all records. 0xF0 belongs to the *snapshot*
+        // record-number space and used to be rejected here by a check copied from there.
+        for byte in [0x00u8, 0x01, 0xF0, 0xFE, 0xFF] {
+            let number = DtcStoredDataRecordNumber::new(byte);
+            assert_eq!(number.value(), byte);
+            assert_eq!(number, byte, "PartialEq<u8> must agree with value()");
+            assert_eq!(number, DtcStoredDataRecordNumber::from(byte));
+            assert_eq!(number.is_reserved(), byte == 0x00, "for {byte:#04X}");
+        }
+
+        // Decoding is liberal for the same reason `new` is total: a response from a foreign
+        // implementation must still be inspectable.
+        let (decoded, _) = <DtcStoredDataRecordNumber as Decode>::decode(&[0x00]).unwrap();
+        assert!(decoded.is_reserved());
     }
 
     #[test]
@@ -576,7 +676,7 @@ mod dtc_status_tests {
     fn dtc_record_exposes_its_three_wire_bytes() {
         // A decoded DtcRecord has to be inspectable byte-wise: D.1 assigns meaning to the
         // high byte (system group) separately from the middle and low bytes.
-        let record = DtcRecord::from(0x12_3456);
+        let record = DtcRecord::try_from(0x12_3456).unwrap();
         assert_eq!(record.high_byte(), 0x12);
         assert_eq!(record.middle_byte(), 0x34);
         assert_eq!(record.low_byte(), 0x56);

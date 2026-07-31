@@ -7,9 +7,14 @@
 //! bytes. Both pairs are generated from one macro so the wire codec has a single source of
 //! truth; a fix to the width-derivation logic cannot land on one service and miss the other.
 
-use crate::shared::{DataFormatIdentifier, LengthFormatIdentifier, MemoryFormatIdentifier};
+use crate::shared::{
+    AddressAndLengthFormatIdentifier, DataFormatIdentifier, LengthFormatIdentifier,
+};
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 use automotive_wire_codec::{read_be_uint_into, write_all, write_be_uint, write_u8};
+
+/// Widest `maxNumberOfBlockLength` a `lengthFormatIdentifier` nibble can declare, in bytes.
+const MAX_BLOCK_LENGTH_BYTES: usize = 0x0F;
 
 /// Permitted NRCs for `RequestDownload` (0x34).
 const REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
@@ -36,10 +41,13 @@ const REQUEST_UPLOAD_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
 macro_rules! upload_download_service {
     (
         request: $req:ident,
+        request_serde_repr: $repr:ident,
+        request_serde_repr_name: $repr_str:literal,
         response: $resp:ident,
         nrcs: $nrcs:ident,
         request_doc: $req_doc:literal,
         response_doc: $resp_doc:literal,
+        block_length_accessor_doc: $block_accessor_doc:literal,
         verb: $verb:literal,
         tests: $test_mod:ident,
     ) => {
@@ -49,7 +57,7 @@ macro_rules! upload_download_service {
         /// `address_and_length_format_identifier` value.
         /// See ISO-14229-1:2020, Table H.1 for format information.
         #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-        #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+        #[cfg_attr(feature = "serde", serde(try_from = $repr_str, into = $repr_str))]
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         #[non_exhaustive]
         pub struct $req {
@@ -58,7 +66,7 @@ macro_rules! upload_download_service {
             data_format_identifier: DataFormatIdentifier,
             /// 7-4: length (# of bytes) of `memory_size` param, 3-0: length (# of bytes) of
             /// `memory_address` param
-            address_and_length_format_identifier: MemoryFormatIdentifier,
+            address_and_length_format_identifier: AddressAndLengthFormatIdentifier,
             /// Starting address of the server memory. The on-wire byte width is derived from
             /// this value (max 5 bytes), so it is private to keep it in sync with the format
             /// identifier.
@@ -70,10 +78,17 @@ macro_rules! upload_download_service {
         }
 
         impl $req {
-            #[doc = concat!("Create a new `", stringify!($req), "`")]
+            #[doc = concat!("Create a new `", stringify!($req), "` with the narrowest widths that")]
+            /// hold the given values.
+            ///
+            /// This is the common case. Use
+            #[doc = concat!("[`new_with_alfid`](", stringify!($req), "::new_with_alfid)")]
+            /// when the server mandates a particular `addressAndLengthFormatIdentifier`.
             ///
             /// # Errors
-            /// Returns an error if `memory_address` exceeds 5 bytes (> `0xFF_FFFF_FFFF`).
+            /// Returns [`Error::InvalidMemoryAddress`] if `memory_address` needs more than the
+            /// 5 bytes the format identifier's low nibble can declare (i.e. exceeds
+            /// `0xFF_FFFF_FFFF`). `memory_size` is a `u32`, so it always fits four.
             #[allow(clippy::cast_possible_truncation)]
             pub const fn new(
                 data_format_identifier: DataFormatIdentifier,
@@ -83,24 +98,76 @@ macro_rules! upload_download_service {
                 if memory_address > 0xFF_FFFF_FFFF {
                     return Err(Error::InvalidMemoryAddress(memory_address));
                 }
-                // A length of 0 produces an invalid `MemoryFormatIdentifier` (the nibbles
-                // must be >=1 per ISO-14229), so clamp to at least one byte even when the
-                // address or size is 0. Written as `if` rather than `.max(1)` because
-                // `Ord::max` is not callable in a `const fn`.
+                // A width of 0 is "not applicable" in Table H.1, so clamp to one byte even when
+                // the value is 0. Written as `if` rather than `.max(1)` because `Ord::max` is not
+                // callable in a `const fn`.
                 let address_bytes = (u64::BITS - memory_address.leading_zeros()).div_ceil(8) as u8;
                 let memory_address_length = if address_bytes == 0 { 1 } else { address_bytes };
                 let size_bytes = (u32::BITS - memory_size.leading_zeros()).div_ceil(8) as u8;
                 let memory_size_length = if size_bytes == 0 { 1 } else { size_bytes };
-                let address_and_length_format_identifier = MemoryFormatIdentifier {
+                // Delegate rather than build the value here, so there is exactly one path that
+                // decides whether a (value, width) pair is acceptable. These two used to be
+                // independent, and disagreed: the same over-wide address produced
+                // `InvalidMemoryAddress` from one and `IncorrectMessageLengthOrInvalidFormat`
+                // from the other, i.e. NRC 0x31 versus 0x13 for one input.
+                match AddressAndLengthFormatIdentifier::new(
                     memory_size_length,
                     memory_address_length,
-                };
+                ) {
+                    Ok(alfid) => Self::new_with_alfid(
+                        data_format_identifier,
+                        alfid,
+                        memory_address,
+                        memory_size,
+                    ),
+                    Err(e) => Err(e),
+                }
+            }
+
+            #[doc = concat!("Create a `", stringify!($req), "` with a caller-chosen")]
+            /// `addressAndLengthFormatIdentifier`.
+            ///
+            /// ISO 14229-1:2020 Table 441 makes the format identifier a client choice rather than
+            /// a function of the values, and clause 11.3.1 blesses "a **fixed**
+            /// addressAndLengthFormatIdentifier" with the unused bytes "padded with the value
+            /// 0x00". The standard's own examples are non-minimal — Table 462 declares three
+            /// `memorySize` bytes for `0x00FFFF`, which needs two — so [`new`](Self::new), which
+            /// always derives the narrowest widths, cannot reproduce them. This can.
+            ///
+            /// # Errors
+            /// Returns [`Error::InvalidMemoryAddress`] or [`Error::InvalidMemorySize`] if the
+            /// value does not fit the width `alfid` declares for it, which would otherwise
+            /// truncate it on the wire. Both map to NRC `0x31`, as Tables 444 and 449 require for
+            /// a `memoryAddress`/`memorySize` that "is not valid".
+            pub const fn new_with_alfid(
+                data_format_identifier: DataFormatIdentifier,
+                alfid: AddressAndLengthFormatIdentifier,
+                memory_address: u64,
+                memory_size: u32,
+            ) -> Result<Self, Error> {
+                // A width of n bytes holds values below 1 << (8 * n). Shifted and compared as
+                // u128 so the widest case cannot overflow.
+                if (memory_address as u128) >= (1u128 << (8 * alfid.memory_address_length() as u32))
+                {
+                    return Err(Error::InvalidMemoryAddress(memory_address));
+                }
+                if (memory_size as u128) >= (1u128 << (8 * alfid.memory_size_length() as u32)) {
+                    return Err(Error::InvalidMemorySize(memory_size));
+                }
                 Ok(Self {
                     data_format_identifier,
-                    address_and_length_format_identifier,
+                    address_and_length_format_identifier: alfid,
                     memory_address,
                     memory_size,
                 })
+            }
+
+            /// The widths this request declares for `memoryAddress` and `memorySize`.
+            #[must_use]
+            pub const fn address_and_length_format_identifier(
+                &self,
+            ) -> AddressAndLengthFormatIdentifier {
+                self.address_and_length_format_identifier
             }
 
             /// The compression and encryption methods the client asked the server to use.
@@ -132,6 +199,80 @@ macro_rules! upload_download_service {
             }
         }
 
+        /// A transfer-setup request: a data-format identifier, a memory address and a memory
+        /// size, plus the byte width each of the latter two is declared with on the wire.
+        ///
+        /// A width that would truncate its value is rejected rather than silently corrupting the
+        /// address on the wire, and the crate-private `addressAndLengthFormatIdentifier` that
+        /// packs the two widths never surfaces here.
+        ///
+        /// This doc comment is the published schema description for the request type, because its
+        /// hand-written `PartialSchema` delegates here. It deliberately uses plain `///` lines:
+        /// utoipa's derive reads only literal doc attributes, so a `#[doc = concat!(..)]` naming
+        /// the specific service is dropped from the schema -- which is what left this description
+        /// missing its verb.
+        #[cfg(feature = "serde")]
+        #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+        #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+        struct $repr {
+            data_format_identifier: DataFormatIdentifier,
+            address_and_length_format_identifier: AddressAndLengthFormatIdentifier,
+            memory_address: u64,
+            memory_size: u32,
+        }
+
+        #[cfg(feature = "serde")]
+        impl TryFrom<$repr> for $req {
+            type Error = Error;
+
+            fn try_from(repr: $repr) -> Result<Self, Error> {
+                Self::new_with_alfid(
+                    repr.data_format_identifier,
+                    repr.address_and_length_format_identifier,
+                    repr.memory_address,
+                    repr.memory_size,
+                )
+            }
+        }
+
+        #[cfg(feature = "serde")]
+        impl From<$req> for $repr {
+            fn from(request: $req) -> Self {
+                Self {
+                    data_format_identifier: request.data_format_identifier,
+                    address_and_length_format_identifier: request
+                        .address_and_length_format_identifier,
+                    memory_address: request.memory_address,
+                    memory_size: request.memory_size,
+                }
+            }
+        }
+
+        #[cfg(feature = "utoipa")]
+        impl utoipa::PartialSchema for $req {
+            fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+                <$repr as utoipa::PartialSchema>::schema()
+            }
+        }
+
+        #[cfg(feature = "utoipa")]
+        impl utoipa::ToSchema for $req {
+            fn name() -> std::borrow::Cow<'static, str> {
+                std::borrow::Cow::Borrowed(stringify!($req))
+            }
+
+            /// See the note on `CommunicationControlRequest::schemas`: a hand-written `ToSchema`
+            /// must forward this or its `$ref`s dangle.
+            fn schemas(
+                schemas: &mut Vec<(
+                    String,
+                    utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+                )>,
+            ) {
+                <$repr as utoipa::ToSchema>::schemas(schemas);
+            }
+        }
+
         impl Encode for $req {
             type Error = crate::Error;
 
@@ -147,9 +288,10 @@ macro_rules! upload_download_service {
 
                 let addr_len = self
                     .address_and_length_format_identifier
-                    .memory_address_length as usize;
-                let size_len =
-                    self.address_and_length_format_identifier.memory_size_length as usize;
+                    .memory_address_length() as usize;
+                let size_len = self
+                    .address_and_length_format_identifier
+                    .memory_size_length() as usize;
                 written += write_be_uint(writer, u128::from(self.memory_address), addr_len)?;
                 written += write_be_uint(writer, u128::from(self.memory_size), size_len)?;
 
@@ -168,9 +310,9 @@ macro_rules! upload_download_service {
                     }));
                 }
                 let data_format_identifier = DataFormatIdentifier::from(buf[0]);
-                let memory_identifier = MemoryFormatIdentifier::try_from(buf[1])?;
-                let addr_len = memory_identifier.memory_address_length as usize;
-                let size_len = memory_identifier.memory_size_length as usize;
+                let memory_identifier = AddressAndLengthFormatIdentifier::try_from(buf[1])?;
+                let addr_len = memory_identifier.memory_address_length() as usize;
+                let size_len = memory_identifier.memory_size_length() as usize;
                 let total = 2 + addr_len + size_len;
                 if buf.len() < total {
                     return Err(Error::InsufficientData(Incomplete {
@@ -200,22 +342,42 @@ macro_rules! upload_download_service {
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         #[non_exhaustive]
         pub struct $resp<'d> {
-            /// Maximum number of bytes per [`TransferDataRequest`](crate::TransferDataRequest).
+            /// The `maxNumberOfBlockLength` bytes, as sent. See the accessor of the same name for
+            /// what the value means for this service -- it differs between download and upload.
             ///
-            /// The on-wire `lengthFormatIdentifier` nibble is derived from this slice's length
-            /// at encode time, so the declared length can never disagree with the bytes present.
+            /// The on-wire `lengthFormatIdentifier` nibble is derived from this slice's length,
+            /// so the declared length can never disagree with the bytes present. That nibble
+            /// holds at most `0x0F`, which is why the slice is private and
+            #[doc = concat!("[`", stringify!($resp), "::new`] is fallible.")]
             #[cfg_attr(feature = "serde", serde(borrow))]
-            pub max_number_of_block_length: &'d [u8],
+            max_number_of_block_length: &'d [u8],
         }
 
         impl<'d> $resp<'d> {
             #[doc = concat!("Create a new `", stringify!($resp), "`. The `lengthFormatIdentifier`")]
             /// is derived from `max_number_of_block_length` during encoding.
-            #[must_use]
-            pub const fn new(max_number_of_block_length: &'d [u8]) -> Self {
-                Self {
-                    max_number_of_block_length,
+            ///
+            /// # Errors
+            /// Returns [`Error::IncorrectMessageLengthOrInvalidFormat`] if the slice is longer
+            /// than 15 bytes, which is the widest a single nibble can declare. The check used to
+            /// live in `encode`, so a too-long slice was accepted here and failed later — the
+            /// same construct-then-fail-to-encode asymmetry the transfer requests had.
+            pub const fn new(max_number_of_block_length: &'d [u8]) -> Result<Self, Error> {
+                if max_number_of_block_length.len() > MAX_BLOCK_LENGTH_BYTES {
+                    return Err(Error::IncorrectMessageLengthOrInvalidFormat);
                 }
+                Ok(Self {
+                    max_number_of_block_length,
+                })
+            }
+
+            #[doc = $block_accessor_doc]
+            ///
+            /// The raw big-endian bytes the server sent, so a value wider than `u64` is not
+            /// truncated. Its length is the `lengthFormatIdentifier` nibble, at most 15 bytes.
+            #[must_use]
+            pub const fn max_number_of_block_length(&self) -> &'d [u8] {
+                self.max_number_of_block_length
             }
         }
 
@@ -223,12 +385,9 @@ macro_rules! upload_download_service {
             type Error = crate::Error;
 
             fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-                // The block-length field width is carried in a single nibble, so the slice
-                // can be at most 0x0F bytes long.
-                let nibble = u8::try_from(self.max_number_of_block_length.len())
-                    .ok()
-                    .filter(|n| *n <= 0x0F)
-                    .ok_or(Error::IncorrectMessageLengthOrInvalidFormat)?;
+                // `new` already bounded this to a nibble, so the cast cannot truncate.
+                #[allow(clippy::cast_possible_truncation)]
+                let nibble = self.max_number_of_block_length.len() as u8;
                 let length_format_identifier = LengthFormatIdentifier {
                     max_number_of_block_length: nibble,
                 };
@@ -286,12 +445,12 @@ macro_rules! upload_download_service {
                 assert_eq!(u8::from(req.data_format_identifier), 0);
                 assert_eq!(u8::from(req.address_and_length_format_identifier), 0x14);
                 assert_eq!(
-                    req.address_and_length_format_identifier.memory_size_length,
+                    req.address_and_length_format_identifier.memory_size_length(),
                     1
                 );
                 assert_eq!(
                     req.address_and_length_format_identifier
-                        .memory_address_length,
+                        .memory_address_length(),
                     4
                 );
 
@@ -317,11 +476,11 @@ macro_rules! upload_download_service {
                 let req = $req::new(0x00.into(), 0, 0).unwrap();
                 assert_eq!(
                     req.address_and_length_format_identifier
-                        .memory_address_length,
+                        .memory_address_length(),
                     1
                 );
                 assert_eq!(
-                    req.address_and_length_format_identifier.memory_size_length,
+                    req.address_and_length_format_identifier.memory_size_length(),
                     1
                 );
 
@@ -375,6 +534,81 @@ macro_rules! upload_download_service {
             }
 
             #[test]
+            fn explicit_widths_can_reproduce_the_spec_example_alfid() {
+                // ISO 14229-1:2020 Table 441 makes the addressAndLengthFormatIdentifier a
+                // client choice, not a function of the values. Table 462's own example declares
+                // 3 bytes of memorySize for the value 0x00FFFF, which needs only 2 -- so `new`,
+                // which always derives minimal widths, cannot produce that frame. Real
+                // bootloaders commonly mandate a fixed ALFID (often 0x44) and answer
+                // requestOutOfRange otherwise.
+                let req = $req::new_with_alfid(
+                    DataFormatIdentifier::from(0x11),
+                    AddressAndLengthFormatIdentifier::new(3, 3).unwrap(),
+                    0x0060_2000,
+                    0x0000_FFFF,
+                )
+                .unwrap();
+                let mut buf = [0u8; 16];
+                let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                assert_eq!(
+                    &buf[..written],
+                    &[0x11, 0x33, 0x60, 0x20, 0x00, 0x00, 0xFF, 0xFF],
+                );
+
+                let decoded = <$req as Decode>::decode_exact(&buf[..written]).unwrap();
+                assert_eq!(
+                    decoded, req,
+                    "a wider-than-minimal width must survive decode"
+                );
+            }
+
+            #[test]
+            fn explicit_widths_reject_a_value_that_does_not_fit() {
+                // A declared width narrower than the value would silently truncate on the wire.
+                // Both of these are NRC 0x31 per Tables 444 and 449, and they name which
+                // parameter was at fault rather than collapsing to one length error.
+                let two_byte_address = AddressAndLengthFormatIdentifier::new(1, 2).unwrap();
+                assert!(matches!(
+                    $req::new_with_alfid(
+                        DataFormatIdentifier::NONE,
+                        two_byte_address,
+                        0x1_0000,
+                        1
+                    ),
+                    Err(Error::InvalidMemoryAddress(0x1_0000))
+                ));
+                let two_byte_size = AddressAndLengthFormatIdentifier::new(2, 1).unwrap();
+                assert!(matches!(
+                    $req::new_with_alfid(DataFormatIdentifier::NONE, two_byte_size, 1, 0x1_0000),
+                    Err(Error::InvalidMemorySize(0x1_0000))
+                ));
+
+                // ...and the widths themselves must be ones Table H.1 permits. That check now
+                // lives on the format identifier, so it cannot be reached with a bad width.
+                assert!(AddressAndLengthFormatIdentifier::new(1, 0).is_err());
+                assert!(AddressAndLengthFormatIdentifier::new(1, 6).is_err());
+                assert!(AddressAndLengthFormatIdentifier::new(5, 1).is_err());
+            }
+
+            #[test]
+            fn both_constructors_reject_an_over_wide_address_the_same_way() {
+                // These were independent code paths that disagreed: the same over-wide address
+                // produced InvalidMemoryAddress from `new` and IncorrectMessageLengthOrInvalidFormat
+                // from the explicit-width constructor -- NRC 0x31 versus 0x13 for one input.
+                // `new` now derives its widths and delegates, so there is one decision.
+                let too_wide = 0x1_0000_0000_0000u64;
+                let widest = AddressAndLengthFormatIdentifier::new(4, 5).unwrap();
+                assert!(matches!(
+                    $req::new(DataFormatIdentifier::NONE, too_wide, 0x10),
+                    Err(Error::InvalidMemoryAddress(a)) if a == too_wide
+                ));
+                assert!(matches!(
+                    $req::new_with_alfid(DataFormatIdentifier::NONE, widest, too_wide, 0x10),
+                    Err(Error::InvalidMemoryAddress(a)) if a == too_wide
+                ));
+            }
+
+            #[test]
             fn the_widest_legal_address_and_size_round_trip() {
                 // Annex H Table H.1 permits a 4-byte memorySize and a 5-byte memoryAddress
                 // (ALFID 0x45), which `new` derives for these values. The decoder used to
@@ -407,20 +641,46 @@ macro_rules! upload_download_service {
             #[test]
             fn response_encode_size_agrees() {
                 let block = [0x10u8, 0x00, 0x00];
-                let resp = $resp::new(&block);
+                let resp = $resp::new(&block).unwrap();
                 assert_encode_size_agrees(&resp);
+            }
+
+            #[test]
+            fn a_reserved_length_nibble_is_zeroed_on_re_encode() {
+                // ISO 14229-1:2020 Tables 443 and 448 both give the lengthFormatIdentifier the
+                // range 0x00 to 0xF0 and state that bits 3 to 0 are "reserved by document, to be
+                // set to '0'" -- "the lower nibble shall be set to '0'". So `74 25 08 00` is a
+                // malformed byte, not a value to preserve: the block length is still read from
+                // the high nibble, but re-encoding emits the conformant `74 20 08 00`.
+                let resp = <$resp as Decode>::decode_exact(&[0x25, 0x08, 0x00]).unwrap();
+                assert_eq!(resp.max_number_of_block_length(), &[0x08, 0x00]);
+
+                let mut buf = [0u8; 8];
+                let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+                assert_eq!(&buf[..written], &[0x20, 0x08, 0x00]);
+
+                // And a response the crate builds itself encodes the same way.
+                let fresh = $resp::new(&[0x08, 0x00]).unwrap();
+                let written = Encode::encode(&fresh, &mut buf.as_mut_slice()).unwrap();
+                assert_eq!(&buf[..written], &[0x20, 0x08, 0x00]);
+            }
+
+            #[test]
+            fn a_block_length_wider_than_a_nibble_is_rejected_at_construction() {
+                assert!($resp::new(&[0u8; 16]).is_err());
+                assert!($resp::new(&[0u8; 15]).is_ok());
             }
 
             #[test]
             fn response_round_trips() {
                 let block = [0x02u8, 0x00];
-                let resp = $resp::new(&block);
+                let resp = $resp::new(&block).unwrap();
                 let mut buf = [0u8; 8];
                 let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
                 assert_eq!(&buf[..n], &[0x20, 0x02, 0x00]);
                 let (decoded, rest) = <$resp as Decode>::decode(&buf[..n]).unwrap();
                 assert!(rest.is_empty());
-                assert_eq!(decoded.max_number_of_block_length, &block);
+                assert_eq!(decoded.max_number_of_block_length(), &block);
             }
 
             #[test]
@@ -478,20 +738,26 @@ macro_rules! upload_download_service {
 
 upload_download_service! {
     request: RequestDownloadRequest,
+    request_serde_repr: RequestDownloadRepr,
+    request_serde_repr_name: "RequestDownloadRepr",
     response: RequestDownloadResponse,
     nrcs: REQUEST_DOWNLOAD_NEGATIVE_RESPONSE_CODES,
     request_doc: "A request to the server for it to download data from the client.\n\nA positive response ([`RequestDownloadResponse`]) is sent once the server has taken all necessary actions and is ready to receive the data.",
     response_doc: "Zero-alloc positive response to a [`RequestDownloadRequest`], indicating the server is ready to receive data. Borrows from the caller.",
+    block_length_accessor_doc: "How many bytes to put in each [`TransferDataRequest`](crate::TransferDataRequest), including its service identifier and data parameters.\n\nThis is the server\u{2019}s **receive** buffer size, so it constrains what the *client sends*. ISO 14229-1:2020 Table 443: the server \"is required to accept transferData requests that are equal in length to its reported maxNumberOfBlockLength\", and it is server-specific whether shorter ones are accepted at all. The last request in a block may have to be shorter.\n\nTable 443 also forbids a server from writing pad bytes that were not in the `TransferData` message, since that would shift the memory address the next request writes to.",
     verb: "downloaded",
     tests: request_download_tests,
 }
 
 upload_download_service! {
     request: RequestUploadRequest,
+    request_serde_repr: RequestUploadRepr,
+    request_serde_repr_name: "RequestUploadRepr",
     response: RequestUploadResponse,
     nrcs: REQUEST_UPLOAD_NEGATIVE_RESPONSE_CODES,
     request_doc: "A request to the server for it to upload data to the client.\n\nA positive response ([`RequestUploadResponse`]) is sent once the server is ready to transmit; the client then drives the transfer with [`TransferDataRequest`](crate::TransferDataRequest), reading the data out of each positive response, and finishes with [`RequestTransferExitRequest`](crate::RequestTransferExitRequest).",
     response_doc: "Zero-alloc positive response to a [`RequestUploadRequest`], indicating the server is ready to transmit data. Borrows from the caller.",
+    block_length_accessor_doc: "How many bytes the server will put in each [`TransferDataResponse`](crate::TransferDataResponse), including its service identifier and data parameters.\n\nNote the direction. Despite sharing a name with [`RequestDownloadResponse::max_number_of_block_length`](crate::RequestDownloadResponse::max_number_of_block_length), this constrains the *server\u{2019}s responses* rather than the client\u{2019}s requests, and reports the server\u{2019}s **send** buffer rather than its receive buffer. ISO 14229-1:2020 Table 448 also puts the obligation on the other party: the *client* \"is required to accept transferData responses that are equal in length to the reported maxNumberOfBlockLength\", and it is server-specific whether any shorter ones are sent. The last response in a block may be shorter.\n\nTable 448 states no pad-byte prohibition; that is the download side\u{2019}s concern, because nothing here is written to server memory.",
     verb: "uploaded",
     tests: request_upload_tests,
 }

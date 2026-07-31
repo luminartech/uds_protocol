@@ -18,7 +18,7 @@ use super::service::UdsServiceType;
 ///
 /// Variable-length payloads are stored as raw `&'a [u8]` slices that can be
 /// further parsed on demand.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Request<'a> {
     /// Clear diagnostic information request.
@@ -194,11 +194,26 @@ impl Request<'_> {
         }
     }
 
-    /// The [`NegativeResponseCode`]s this request's service is allowed to be answered with.
+    /// The [`NegativeResponseCode`]s ISO 14229-1 **lists** for this request's service.
     ///
     /// Each request type also exposes this as an associated function (e.g.
     /// [`EcuResetRequest::allowed_nack_codes`]); this dispatches to it for a decoded
     /// [`Request`], so a server does not have to re-match every variant to reach it.
+    ///
+    /// # This is a floor, not a ceiling — do not use it as a validation whitelist
+    ///
+    /// Clause 9.4: the Annex A.1 codes "shall be used **in addition to** the negative response
+    /// codes specified in each service description", and A.1 itself says a server "may also
+    /// utilise additional and applicable negative response codes … as defined by the vehicle
+    /// manufacturer". A.1 deliberately keeps the generally-supported codes out of the
+    /// per-service tables and says so per code — including `0x78`
+    /// [`RequestCorrectlyReceivedResponsePending`](NegativeResponseCode::RequestCorrectlyReceivedResponsePending),
+    /// which appears in **none** of these tables and is one of the most common codes in real
+    /// traffic. A client that rejected any NRC absent from this slice would reject every
+    /// `ResponsePending` it ever saw.
+    ///
+    /// Read it as "the codes the standard tabulates for this service", which is useful for
+    /// building a tester UI or a conformance report, and not as the set a server may send.
     ///
     /// Returns an empty slice for [`Request::Other`], which covers services the crate does not
     /// model. That means "the NRC set is unknown", not "no codes apply" — consult ISO 14229-1
@@ -305,29 +320,77 @@ mod tests {
 
     #[test]
     fn allowed_nack_codes_dispatches_for_every_modeled_variant() {
-        // Every one of the 15 request types has an inherent `allowed_nack_codes()`, but
+        // Every one of the 16 request types has an inherent `allowed_nack_codes()`, but
         // without this dispatcher a caller holding a *decoded* `Request` had to re-match all
-        // 15 variants to reach it — on a `#[non_exhaustive]` enum they cannot match
+        // 16 variants to reach it — on a `#[non_exhaustive]` enum they cannot match
         // exhaustively. Frames are minimal-but-valid for each service.
-        let frames: [&[u8]; 16] = [
-            &[0x14, 0xFF, 0xFF, 0xFF, 0x00], // ClearDiagnosticInfo (groupOfDTC + memorySelection)
-            &[0x28, 0x00, 0x01],             // CommunicationControl
-            &[0x85, 0x01],                   // ControlDtcSetting
-            &[0x10, 0x01],                   // DiagnosticSessionControl
-            &[0x11, 0x01],                   // EcuReset
-            &[0x22, 0xF1, 0x90],             // ReadDataByIdentifier
-            &[0x19, 0x02, 0xFF],             // ReadDtcInfo
-            &[0x34, 0x00, 0x12, 0xBE, 0xEF, 0x10], // RequestDownload
-            &[0x38, 0x02, 0x00, 0x01, b'a'], // RequestFileTransfer
-            &[0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10], // RequestUpload
-            &[0x37],                         // RequestTransferExit
-            &[0x31, 0x01, 0xFF, 0x00],       // RoutineControl
-            &[0x27, 0x01, 0xAA],             // SecurityAccess
-            &[0x3E, 0x00],                   // TesterPresent
-            &[0x36, 0x01, 0xAA],             // TransferData
-            &[0x2E, 0xF1, 0x90, 0x01],       // WriteDataByIdentifier
+        //
+        // Each frame is paired with the inherent table it must dispatch to. Asserting only
+        // `!is_empty()` made the test vacuous: every modeled service has a non-empty table, so
+        // any arm could return any *other* service's set and still pass.
+        //
+        // Two pairs remain indistinguishable, and that is correct rather than a gap: ISO gives
+        // CommunicationControl and ControlDTCSetting the same four codes, and Tables 444 and 449
+        // give RequestDownload and RequestUpload the same six. Swapping either pair's arms is
+        // unobservable because the answer is the same, so there is nothing here to pin.
+        let frames: [(&[u8], &'static [NegativeResponseCode]); 16] = [
+            (
+                &[0x14, 0xFF, 0xFF, 0xFF, 0x00],
+                ClearDiagnosticInfoRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x28, 0x00, 0x01],
+                CommunicationControlRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x85, 0x01],
+                ControlDtcSettingRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x10, 0x01],
+                DiagnosticSessionControlRequest::allowed_nack_codes(),
+            ),
+            (&[0x11, 0x01], EcuResetRequest::allowed_nack_codes()),
+            (
+                &[0x22, 0xF1, 0x90],
+                ReadDataByIdentifierRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x19, 0x02, 0xFF],
+                ReadDtcInfoRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x34, 0x00, 0x12, 0xBE, 0xEF, 0x10],
+                RequestDownloadRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x38, 0x02, 0x00, 0x01, b'a'],
+                RequestFileTransferRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10],
+                RequestUploadRequest::allowed_nack_codes(),
+            ),
+            (&[0x37], RequestTransferExitRequest::allowed_nack_codes()),
+            (
+                &[0x31, 0x01, 0xFF, 0x00],
+                RoutineControlRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x27, 0x01, 0xAA],
+                SecurityAccessRequest::allowed_nack_codes(),
+            ),
+            (&[0x3E, 0x00], TesterPresentRequest::allowed_nack_codes()),
+            (
+                &[0x36, 0x01, 0xAA],
+                TransferDataRequest::allowed_nack_codes(),
+            ),
+            (
+                &[0x2E, 0xF1, 0x90, 0x01],
+                WriteDataByIdentifierRequest::allowed_nack_codes(),
+            ),
         ];
-        for frame in frames {
+        for (frame, expected) in frames {
             let (req, _) = Request::decode(frame).unwrap_or_else(|e| {
                 panic!("frame {frame:02X?} should decode, got {e:?}");
             });
@@ -335,9 +398,10 @@ mod tests {
                 !matches!(req, Request::Other { .. }),
                 "frame {frame:02X?} decoded to Other; the table needs updating"
             );
-            assert!(
-                !req.allowed_nack_codes().is_empty(),
-                "{:?} returned no NRCs",
+            assert_eq!(
+                req.allowed_nack_codes(),
+                expected,
+                "{:?} dispatched to the wrong NRC table",
                 req.service()
             );
         }

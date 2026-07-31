@@ -10,8 +10,8 @@ use automotive_wire_codec::{write_all, write_u8, write_u16_be};
 /// Conversions from `u8` to `CommunicationControlType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum CommunicationControlType {
@@ -59,6 +59,27 @@ pub enum CommunicationControlType {
 }
 
 impl CommunicationControlType {
+    /// The raw sub-function byte, without the SPRMIB bit.
+    ///
+    /// `const` so [`CommunicationControlRequest::new`] and
+    /// [`new_with_node_id`](CommunicationControlRequest::new_with_node_id) can be `const` too:
+    /// they need the byte for their error payload, and `u8::from` is a trait method, which is
+    /// not callable in a `const fn` on stable.
+    #[must_use]
+    pub const fn value(&self) -> u8 {
+        match self {
+            Self::EnableRxAndTx => 0x00,
+            Self::EnableRxAndDisableTx => 0x01,
+            Self::DisableRxAndEnableTx => 0x02,
+            Self::DisableRxAndTx => 0x03,
+            Self::EnableRxAndDisableTxWithEnhancedAddressInfo => 0x04,
+            Self::EnableRxAndTxWithEnhancedAddressInfo => 0x05,
+            Self::IsoSaeReserved(value)
+            | Self::VehicleManufacturerSpecific(value)
+            | Self::SystemSupplierSpecific(value) => *value,
+        }
+    }
+
     /// Returns `true` if this control type requires an enhanced-address node identifier.
     #[must_use]
     pub const fn is_extended_address_variant(&self) -> bool {
@@ -71,19 +92,8 @@ impl CommunicationControlType {
 }
 
 impl From<CommunicationControlType> for u8 {
-    #[allow(clippy::match_same_arms)]
     fn from(value: CommunicationControlType) -> Self {
-        match value {
-            CommunicationControlType::EnableRxAndTx => 0x00,
-            CommunicationControlType::EnableRxAndDisableTx => 0x01,
-            CommunicationControlType::DisableRxAndEnableTx => 0x02,
-            CommunicationControlType::DisableRxAndTx => 0x03,
-            CommunicationControlType::EnableRxAndDisableTxWithEnhancedAddressInfo => 0x04,
-            CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo => 0x05,
-            CommunicationControlType::IsoSaeReserved(val) => val,
-            CommunicationControlType::VehicleManufacturerSpecific(val) => val,
-            CommunicationControlType::SystemSupplierSpecific(val) => val,
-        }
+        value.value()
     }
 }
 
@@ -182,7 +192,7 @@ mod communication_control_type_tests {
 /// See ISO 14229-1:2020 Annex B Table B.1. The low nibble of the same byte is the
 /// [`CommunicationType`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum SubnetNumber {
@@ -213,6 +223,12 @@ impl SubnetNumber {
     }
 }
 
+impl From<SubnetNumber> for u8 {
+    fn from(subnet: SubnetNumber) -> Self {
+        subnet.value()
+    }
+}
+
 impl TryFrom<u8> for SubnetNumber {
     type Error = Error;
 
@@ -236,9 +252,18 @@ impl TryFrom<u8> for SubnetNumber {
 /// Note:
 ///
 /// Conversions from `u8` to `CommunicationType` are fallible and will return an [`Error`] if the value is not a valid `CommunicationType`
+///
+/// Serializes as its variant name (`"Normal"`), not as a number — unlike the other single-byte
+/// types in this crate.
+//
+// That is deliberate, and the reason belongs here rather than in the rustdoc, because utoipa
+// publishes the rustdoc as the schema description. There is nothing to smuggle: the four variants
+// are in bijection with 0x00..=0x03 and TryFrom<u8> accepts all four. Routing serde through the
+// byte would be *worse*, because TryFrom<u8> reads bits 1-0 of a whole communicationType byte and
+// masks the rest -- so deserializing 17 would silently yield Normal and re-serialize as 1.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum CommunicationType {
@@ -360,7 +385,13 @@ const COMMUNICATION_CONTROL_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 4] =
 
 /// Request for the server to change communication behavior
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(
+    feature = "serde",
+    serde(
+        try_from = "CommunicationControlRepr",
+        into = "CommunicationControlRepr"
+    )
+)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct CommunicationControlRequest {
@@ -384,15 +415,13 @@ impl CommunicationControlRequest {
     /// Returns [`Error::InvalidCommunicationControlType`] if `control_type` is an
     /// enhanced-address variant — those require a node identifier and must be built
     /// with [`new_with_node_id`](Self::new_with_node_id).
-    pub fn new(
+    pub const fn new(
         suppress_positive_response: bool,
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
     ) -> Result<Self, Error> {
         if control_type.is_extended_address_variant() {
-            return Err(Error::InvalidCommunicationControlType(u8::from(
-                control_type,
-            )));
+            return Err(Error::InvalidCommunicationControlType(control_type.value()));
         }
         Ok(Self {
             suppress_positive_response,
@@ -409,16 +438,14 @@ impl CommunicationControlRequest {
     /// Returns [`Error::InvalidCommunicationControlType`] if `control_type` is not an
     /// enhanced-address variant — a node identifier is only carried by the
     /// `*WithEnhancedAddressInfo` variants.
-    pub fn new_with_node_id(
+    pub const fn new_with_node_id(
         suppress_positive_response: bool,
         control_type: CommunicationControlType,
         communication_type: CommunicationType,
         node_id: u16,
     ) -> Result<Self, Error> {
         if !control_type.is_extended_address_variant() {
-            return Err(Error::InvalidCommunicationControlType(u8::from(
-                control_type,
-            )));
+            return Err(Error::InvalidCommunicationControlType(control_type.value()));
         }
         Ok(Self {
             suppress_positive_response,
@@ -779,10 +806,7 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let bytes: [u8; 1] = [0x01];
@@ -792,10 +816,92 @@ mod response {
             CommunicationControlType::EnableRxAndDisableTx
         );
 
-        let mut buffer = Vec::new();
-        let written = Encode::encode(&res, &mut buffer).unwrap();
-        assert_eq!(written, 1);
-        assert_eq!(buffer.len(), written);
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(&res, &mut buffer.as_mut_slice()).unwrap();
+        assert_eq!(&buffer[..written], &bytes);
         assert_encode_size_agrees(&res);
+    }
+}
+
+/// A `CommunicationControl` (0x28) request.
+///
+/// `node_id` must be present exactly when `control_type` is one of the two enhanced-address
+/// variants (`0x04`, `0x05`) and absent otherwise; a payload that breaks that rule is rejected
+/// rather than encoded into a frame this crate's own decoder would refuse.
+///
+/// This doc comment is the published schema description for `CommunicationControlRequest`,
+/// because its hand-written `PartialSchema` delegates here.
+#[cfg(feature = "serde")]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+struct CommunicationControlRepr {
+    suppress_positive_response: bool,
+    control_type: CommunicationControlType,
+    communication_type: CommunicationType,
+    subnet: SubnetNumber,
+    node_id: Option<u16>,
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<CommunicationControlRepr> for CommunicationControlRequest {
+    type Error = Error;
+
+    fn try_from(repr: CommunicationControlRepr) -> Result<Self, Error> {
+        let request = match repr.node_id {
+            Some(node_id) => CommunicationControlRequest::new_with_node_id(
+                repr.suppress_positive_response,
+                repr.control_type,
+                repr.communication_type,
+                node_id,
+            )?,
+            None => CommunicationControlRequest::new(
+                repr.suppress_positive_response,
+                repr.control_type,
+                repr.communication_type,
+            )?,
+        };
+        Ok(request.with_subnet(repr.subnet))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<CommunicationControlRequest> for CommunicationControlRepr {
+    fn from(request: CommunicationControlRequest) -> Self {
+        Self {
+            suppress_positive_response: request.suppress_positive_response,
+            control_type: request.control_type(),
+            communication_type: request.communication_type(),
+            subnet: request.subnet(),
+            node_id: request.node_id(),
+        }
+    }
+}
+
+#[cfg(feature = "utoipa")]
+impl utoipa::PartialSchema for CommunicationControlRequest {
+    fn schema() -> utoipa::openapi::RefOr<utoipa::openapi::schema::Schema> {
+        <CommunicationControlRepr as utoipa::PartialSchema>::schema()
+    }
+}
+
+#[cfg(feature = "utoipa")]
+impl utoipa::ToSchema for CommunicationControlRequest {
+    fn name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("CommunicationControlRequest")
+    }
+
+    /// Register the child schemas this one `$ref`s.
+    ///
+    /// `ToSchema::schemas` defaults to a no-op, and the derive is what normally overrides it. A
+    /// hand-written impl that only implements `schema()` therefore emits `$ref`s to types the
+    /// document never defines, which every client generator either rejects or degrades to an
+    /// untyped object -- strictly worse than the derived schema it replaced.
+    fn schemas(
+        schemas: &mut Vec<(
+            String,
+            utoipa::openapi::RefOr<utoipa::openapi::schema::Schema>,
+        )>,
+    ) {
+        <CommunicationControlRepr as utoipa::ToSchema>::schemas(schemas);
     }
 }

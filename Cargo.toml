@@ -28,7 +28,14 @@ alloc = ["embedded-io/alloc", "serde?/alloc"]
 serde = ["dep:serde"]
 # `utoipa` and `clap` both imply `std`. Their derive macros expand to `std::`, `String` and
 # `Vec` paths inside this crate, which cannot compile under `#![no_std]`.
-utoipa = ["std", "dep:utoipa"]
+#
+# `utoipa` additionally implies `serde`, because a `ToSchema` describes this crate's *serde*
+# representation: several types serialize as a single protocol byte rather than as their Rust
+# shape, and their schemas are written to match. A `utoipa`-without-`serde` build would therefore
+# publish a schema for a wire format that build cannot produce. It also cost real complexity —
+# every type reachable only through a serde repr needed a second cfg predicate and a
+# `allow(dead_code)` to stay compilable in a configuration nobody wants.
+utoipa = ["std", "serde", "dep:utoipa"]
 clap = ["std", "dep:clap"]
 
 [dependencies]
@@ -43,3 +50,5 @@ clap = { version = "4", optional = true, features = ["derive"] }
 
 [dev-dependencies]
 proptest = "1"
+# Only used by the integration tests that check `serde` cannot bypass a type's validation.
+serde_json = "1"

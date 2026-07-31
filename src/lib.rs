@@ -21,7 +21,10 @@ pub use dtc::{
 };
 
 mod shared;
-pub use shared::{DataFormatIdentifier, NegativeResponseCode, UdsIdentifier, UdsRoutineIdentifier};
+pub use shared::{
+    AddressAndLengthFormatIdentifier, DataFormatIdentifier, NegativeResponseCode, UdsIdentifier,
+    UdsRoutineIdentifier,
+};
 
 mod request;
 pub use request::Request;
@@ -54,8 +57,6 @@ pub use services::{
 #[cfg(test)]
 mod no_std_api_tests {
     use super::*;
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
     #[test]
     fn encode_decode_tester_present_roundtrip() {
@@ -107,18 +108,29 @@ mod no_std_api_tests {
         assert_eq!(req.service(), UdsServiceType::EcuReset);
     }
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn dtc_and_status_iter_roundtrip() {
         // 2 DTC records: (0x01,0x02,0x03, status=0x0A), (0x04,0x05,0x06, status=0x0B)
+        //
+        // Deliberately not gated on `alloc`, and written with `next()` rather than `collect()`
+        // for that reason. While this was gated, mutating the status byte to a constant left
+        // `--no-default-features` fully green — so the assertion below existed but did not
+        // protect the config the crate targets first.
         let data = [0x01, 0x02, 0x03, 0x0A, 0x04, 0x05, 0x06, 0x0B];
-        let iter = DtcAndStatusIter::new(&data);
+        let mut iter = DtcAndStatusIter::new(&data);
         assert_eq!(iter.len(), 2);
 
-        let records: Vec<_> = iter.map(|r| r.unwrap()).collect();
-        assert_eq!(records.len(), 2);
-        assert_eq!(u32::from(records[0].0), 0x01_0203);
-        assert_eq!(u32::from(records[1].0), 0x04_0506);
+        let (dtc, status) = iter.next().unwrap().unwrap();
+        assert_eq!(u32::from(dtc), 0x01_0203);
+        // The status byte matters as much as the DTC: 0x02 and 0x0A-0x0E are the most-used
+        // sub-functions, and nothing asserted it, so "every DTC reports status 0x00" passed.
+        assert_eq!(status.bits(), 0x0A);
+
+        let (dtc, status) = iter.next().unwrap().unwrap();
+        assert_eq!(u32::from(dtc), 0x04_0506);
+        assert_eq!(status.bits(), 0x0B);
+
+        assert!(iter.next().is_none());
     }
 
     #[test]
@@ -185,7 +197,7 @@ mod no_std_api_tests {
         assert_eq!(resp.service(), UdsServiceType::RequestUpload);
         match resp {
             Response::RequestUpload(ref up) => {
-                assert_eq!(up.max_number_of_block_length, &[0x08, 0x00]);
+                assert_eq!(up.max_number_of_block_length(), &[0x08, 0x00]);
             }
             other => panic!("expected RequestUpload, got {other:?}"),
         }
@@ -285,20 +297,59 @@ mod no_std_api_tests {
         const DTC: DtcRecord = DtcRecord::new(0x01, 0x02, 0x03);
         const SNAPSHOT: DtcSnapshotRecordNumber = DtcSnapshotRecordNumber::new(0x02);
         const EXT_DATA: DtcExtDataRecordNumber = DtcExtDataRecordNumber::new(0x90);
-        const STORED: DtcStoredDataRecordNumber = match DtcStoredDataRecordNumber::new(0x02) {
-            Ok(number) => number,
-            Err(_) => panic!("0x02 is not reserved"),
-        };
+        const STORED: DtcStoredDataRecordNumber = DtcStoredDataRecordNumber::new(0x02);
         const DFI: DataFormatIdentifier = match DataFormatIdentifier::new(0x01, 0x02) {
             Ok(dfi) => dfi,
             Err(_) => panic!("both nibbles are in range"),
         };
 
-        assert_eq!(u32::from(DTC), 0x01_0203);
+        // Getting the byte back out must be const too, or a `const` dispatch table can be
+        // built but not read. These four had only a non-const `From`, so each of these lines
+        // was previously an E0015.
+        const DTC_U32: u32 = DTC.to_u32();
+        const DFI_BYTE: u8 = DFI.value();
+        const NRC_BYTE: u8 = NegativeResponseCode::ConditionsNotCorrect.value();
+        const FORMAT_BYTE: u8 = DtcFormatIdentifier::Iso14229_1DtcFormat.value();
+        const CONTROL_BYTE: u8 = CommunicationControlType::DisableRxAndTx.value();
+
+        assert_eq!(DTC_U32, 0x01_0203);
+        assert_eq!(u32::from(DTC), DTC_U32);
         assert_eq!(SNAPSHOT.value(), 0x02);
         assert_eq!(EXT_DATA.value(), 0x90);
         assert_eq!(STORED.value(), 0x02);
-        assert_eq!(u8::from(DFI), 0x12);
+        assert_eq!(DFI_BYTE, 0x12);
+        assert_eq!(u8::from(DFI), DFI_BYTE);
+        assert_eq!(NRC_BYTE, 0x22);
+        assert_eq!(FORMAT_BYTE, 0x01);
+        assert_eq!(CONTROL_BYTE, 0x03);
+    }
+
+    #[test]
+    fn communication_control_requests_are_const_constructible() {
+        // Both constructors were the crate's only non-`const` `new`s. The blocker was
+        // `u8::from(control_type)` in their error payload, which an inherent `const fn value()`
+        // on the enum removes.
+        const REQ: CommunicationControlRequest = match CommunicationControlRequest::new(
+            false,
+            CommunicationControlType::DisableRxAndTx,
+            CommunicationType::NormalAndNetworkManagement,
+        ) {
+            Ok(req) => req,
+            Err(_) => panic!("DisableRxAndTx takes no node id"),
+        };
+        const WITH_ID: CommunicationControlRequest =
+            match CommunicationControlRequest::new_with_node_id(
+                false,
+                CommunicationControlType::EnableRxAndTxWithEnhancedAddressInfo,
+                CommunicationType::Normal,
+                0x000A,
+            ) {
+                Ok(req) => req,
+                Err(_) => panic!("the enhanced variant requires a node id"),
+            };
+
+        assert_eq!(REQ.control_type(), CommunicationControlType::DisableRxAndTx);
+        assert_eq!(WITH_ID.node_id(), Some(0x000A));
     }
 
     #[test]

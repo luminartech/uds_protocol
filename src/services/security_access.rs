@@ -9,8 +9,11 @@ use automotive_wire_codec::{write_all, write_u8};
 /// A request fuses the suppress-positive-response flag into bit 7 of this byte at the wire
 /// boundary, so a level with bit 7 already set would be ambiguous. Constraining construction
 /// here makes that collision unrepresentable rather than something to catch at encode time.
+/// Serializes as the wire byte and validates on the way back in, so `serde` cannot construct a
+/// level `new` would have rejected.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SecurityAccessLevel(u8);
 
@@ -34,6 +37,23 @@ impl SecurityAccessLevel {
     }
 }
 
+impl TryFrom<u8> for SecurityAccessLevel {
+    type Error = Error;
+
+    /// # Errors
+    /// Returns [`Error::InvalidSecurityAccessType`] if `value >= 0x80`; see
+    /// [`SecurityAccessLevel::new`].
+    fn try_from(value: u8) -> Result<Self, Error> {
+        Self::new(value)
+    }
+}
+
+impl From<SecurityAccessLevel> for u8 {
+    fn from(level: SecurityAccessLevel) -> Self {
+        level.0
+    }
+}
+
 /// Security Access Type allows for multiple different security challenges within an ECU.
 ///
 /// The Security Access Type is used to determine both the sub function,
@@ -44,7 +64,7 @@ impl SecurityAccessLevel {
 /// Conversions from `u8` to `SecurityAccessType` are fallible and will return an [`Error`] if the
 /// Suppress Positive Response bit is set.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum SecurityAccessType {
@@ -371,8 +391,6 @@ impl<'a> Decode<'a> for SecurityAccessResponse<'a> {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees, test_util::assert_impl_eq};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
     #[test]
     fn derive_contract() {
@@ -386,7 +404,6 @@ mod request {
         }
     }
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn request_seed() {
         let bytes: [u8; 6] = [
@@ -401,9 +418,11 @@ mod request {
         );
         assert_eq!(req.request_data, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
-        let mut buf = Vec::new();
-        let written = Encode::encode(&req, &mut buf).unwrap();
-        assert_eq!(written, bytes.len());
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        // The bytes, not just the count: the two halves of this test were otherwise
+        // disconnected, so swapping what `encode` writes went unnoticed.
+        assert_eq!(&buf[..written], &bytes);
         assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
@@ -413,10 +432,7 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn response_send() {
         let bytes: [u8; 6] = [
@@ -431,9 +447,9 @@ mod response {
         );
         assert_eq!(resp.security_seed, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
-        let mut buf = Vec::new();
-        let written = Encode::encode(&resp, &mut buf).unwrap();
-        assert_eq!(written, bytes.len());
+        let mut buf = [0u8; 16];
+        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        assert_eq!(&buf[..written], &bytes);
         assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
     }

@@ -1,3 +1,6 @@
+#[cfg(feature = "utoipa")]
+mod byte_schema;
+
 mod diagnostic_identifier;
 pub use diagnostic_identifier::{UdsIdentifier, UdsRoutineIdentifier};
 
@@ -6,9 +9,12 @@ pub use negative_response_code::NegativeResponseCode;
 
 mod suppressable_positive_response;
 pub(crate) use suppressable_positive_response::{
-    SuppressablePositiveResponse, fuse_sprmib, split_sprmib,
+    SPRMIB_VALUE_MASK, SuppressablePositiveResponse, fuse_sprmib, split_sprmib,
 };
 
+#[cfg(feature = "serde")]
+pub(crate) mod bounded;
+
 mod format_identifiers;
-pub use format_identifiers::DataFormatIdentifier;
-pub(crate) use format_identifiers::{LengthFormatIdentifier, MemoryFormatIdentifier};
+pub(crate) use format_identifiers::LengthFormatIdentifier;
+pub use format_identifiers::{AddressAndLengthFormatIdentifier, DataFormatIdentifier};

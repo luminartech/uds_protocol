@@ -163,7 +163,17 @@ pub struct RoutineControlResponse<'d> {
     pub sub_function: RoutineControlSubFunction,
     /// The 16-bit routine identifier echoed from the request.
     pub routine_id: u16,
-    /// Optional routine status bytes (may be empty).
+    /// Everything the server sent after the routine identifier — bytes `#5` onward of
+    /// ISO 14229-1:2020 Table 428. May be empty.
+    ///
+    /// Note that this is **not** only the `routineStatusRecord`. Table 428 places an optional
+    /// `routineInfo` byte at `#5`, immediately before the status record, and whether it is
+    /// present is vehicle-manufacturer defined — nothing on the wire distinguishes the two
+    /// layouts, so this crate cannot split them for you. If the server you are talking to sends
+    /// `routineInfo`, it is the first byte here and the status record starts at index 1.
+    ///
+    /// `routineInfo` itself is vehicle-manufacturer specific (Table 429); it exists so generic
+    /// test equipment can handle all implemented routines uniformly.
     #[cfg_attr(feature = "serde", serde(borrow))]
     pub status_record: &'d [u8],
 }
@@ -239,6 +249,30 @@ mod test {
     }
 
     #[test]
+    fn status_record_covers_routine_info_as_well() {
+        // ISO 14229-1:2020 Table 428 puts an optional `routineInfo` byte at #5, before the
+        // routineStatusRecord, with presence left to the vehicle manufacturer. Nothing on the
+        // wire distinguishes "routineInfo + status" from "status only", so `status_record`
+        // deliberately spans both and the field docs say so. Pinned here because a future
+        // reader might otherwise "fix" it into a wrong split.
+        let wire = [0x71, 0x01, 0xF0, 0x0F, 0xAA, 0x32];
+        let (resp, _) = crate::Response::decode(&wire).unwrap();
+        let crate::Response::RoutineControl(inner) = resp else {
+            panic!("expected a RoutineControl response, got {resp:?}");
+        };
+        assert_eq!(inner.routine_id, 0xF00F);
+        assert_eq!(
+            inner.status_record,
+            &[0xAA, 0x32],
+            "routineInfo must stay in the slice rather than being silently dropped"
+        );
+
+        let mut buf = [0u8; 8];
+        let written = resp.encode_to_slice(&mut buf).unwrap();
+        assert_eq!(&buf[..written], &wire);
+    }
+
+    #[test]
     fn an_unsupported_sub_function_is_answered_with_sub_function_not_supported() {
         // ISO 14229-1:2020 Table 426 defines only 0x01-0x03; 0x00 and 0x04-0x7F are
         // ISOSAEReserved. Table 430 requires NRC 0x12 for a sub-function that "is either
@@ -255,7 +289,7 @@ mod test {
             );
             assert_eq!(
                 err.negative_response_code(),
-                NegativeResponseCode::SubFunctionNotSupported,
+                Some(NegativeResponseCode::SubFunctionNotSupported),
                 "wrong NRC for sub-function {byte:#04X}"
             );
         }

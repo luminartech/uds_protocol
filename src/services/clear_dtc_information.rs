@@ -185,14 +185,16 @@ mod request {
         let (req, rest) =
             <ClearDiagnosticInfoRequest as Decode>::decode(&[0x01, 0x02, 0x03, 0x2A]).unwrap();
         assert_eq!(req.memory_selection, Some(0x2A));
-        assert_eq!(req.group_of_dtc, DtcRecord::from(0x01_0203));
+        assert_eq!(req.group_of_dtc, DtcRecord::try_from(0x01_0203).unwrap());
         assert!(rest.is_empty());
     }
 
     #[test]
     fn a_request_with_a_memory_selection_encodes_four_bytes() {
-        let req =
-            ClearDiagnosticInfoRequest::new_with_memory_selection(DtcRecord::from(0x01_0203), 0x2A);
+        let req = ClearDiagnosticInfoRequest::new_with_memory_selection(
+            DtcRecord::try_from(0x01_0203).unwrap(),
+            0x2A,
+        );
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &[0x01, 0x02, 0x03, 0x2A]);

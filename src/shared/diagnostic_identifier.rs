@@ -5,7 +5,7 @@
 /// The identifiers listed here are defined and should be implemented by the vehicle manufacturer/system supplier.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[cfg_attr(feature = "clap", derive(clap::ValueEnum, clap::Parser))]
+#[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum UdsIdentifier {
@@ -35,7 +35,7 @@ pub enum UdsIdentifier {
     PeriodicDataIdentifier(u16),
     /// Dynamically defined data identifier (`0xF300–0xF3FF`).
     #[cfg_attr(feature = "clap", clap(skip))]
-    DynamicallyDefinedDataIdentifier(u16),
+    DynamicallyDefineDataIdentifier(u16),
     /// OBD data identifier (`0xF400–0xF5FF`, `0xF700–0xF7FF`).
     #[cfg_attr(feature = "clap", clap(skip))]
     ObdDataIdentifier(u16),
@@ -190,7 +190,7 @@ impl From<u16> for UdsIdentifier {
             0xF1A0..=0xF1EF => Self::IdentificationOptionVehicleManufacturerSpecific(value),
             0xF1F0..=0xF1FF => Self::IdentificationOptionSystemSupplierSpecific(value),
             0xF200..=0xF2FF => Self::PeriodicDataIdentifier(value),
-            0xF300..=0xF3FF => Self::DynamicallyDefinedDataIdentifier(value),
+            0xF300..=0xF3FF => Self::DynamicallyDefineDataIdentifier(value),
             0xF400..=0xF5FF => Self::ObdDataIdentifier(value),
             0xF600..=0xF6FF => Self::ObdMonitorDataIdentifier(value),
             0xF700..=0xF7FF => Self::ObdDataIdentifier(value),
@@ -223,7 +223,7 @@ impl From<UdsIdentifier> for u16 {
             UdsIdentifier::IdentificationOptionVehicleManufacturerSpecific(v) => v,
             UdsIdentifier::IdentificationOptionSystemSupplierSpecific(v) => v,
             UdsIdentifier::PeriodicDataIdentifier(v) => v,
-            UdsIdentifier::DynamicallyDefinedDataIdentifier(v) => v,
+            UdsIdentifier::DynamicallyDefineDataIdentifier(v) => v,
             UdsIdentifier::ObdDataIdentifier(v) => v,
             UdsIdentifier::ObdMonitorDataIdentifier(v) => v,
             UdsIdentifier::ObdInfoTypeDataIdentifier(v) => v,

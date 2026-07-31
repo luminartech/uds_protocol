@@ -53,33 +53,38 @@ pub enum Error {
     /// The memory address value is out of the valid range.
     #[error("Invalid Memory Address: {0}")]
     InvalidMemoryAddress(u64),
+    /// The memory size does not fit the width the `addressAndLengthFormatIdentifier` declares
+    /// for it, so encoding it would truncate the value on the wire.
+    ///
+    /// Tables 444 and 449 put a `memorySize` that "is not valid" on NRC 0x31, like
+    /// [`Error::InvalidMemoryAddress`].
+    #[error("Invalid Memory Size: {0}")]
+    InvalidMemorySize(u32),
+    /// The `addressAndLengthFormatIdentifier` byte declares a width ISO does not permit.
+    ///
+    /// ISO 14229-1:2020 Annex H Table H.1 marks the high nibble (`memorySize`) applicable for
+    /// 1 to 4 bytes and the low nibble (`memoryAddress`) for 1 to 5; a zero nibble or anything
+    /// wider is "not applicable". Tables 444 and 449 both put this on NRC 0x31, not 0x13.
+    #[error("Invalid addressAndLengthFormatIdentifier: {0:#04X}")]
+    InvalidAddressAndLengthFormatIdentifier(u8),
+    /// A `u32` did not fit the three bytes of a DTC (i.e. exceeded `0x00FF_FFFF`).
+    #[error("Invalid DTC record: {0:#010X} does not fit three bytes")]
+    InvalidDtcRecord(u32),
     /// The encryption or compression method byte is not recognised.
     #[error("Invalid Encryption/Compression Method: {0}")]
     InvalidEncryptionCompressionMethod(u8),
-    /// A payload was expected but the stream contained no data.
-    #[error("Data required but found none")]
-    NoDataAvailable,
     /// The `RequestFileTransfer` `modeOfOperation` byte is not valid.
     #[error("Invalid FileTransfer modeOfOperation (server will send requestOutOfRange): {0}")]
     InvalidFileOperationMode(u8),
-    /// The `fileSizeParameterLength` / `fileSizeOrDirInfoParameterLength` value is outside 1–16.
-    #[error("Invalid fileSizeParameterLength (valid range: 1..=16): {0}")]
-    InvalidFileSizeParameterLength(u16),
     /// The `ReadDTCInformation` sub-function byte is not valid.
     #[error("Invalid DTC Subfunction Type: {0}")]
     InvalidDtcSubfunctionType(u8),
-    /// The DTC format identifier byte is not recognised.
-    #[error("Invalid DTC Format Identifier: {0}")]
-    InvalidDtcFormatIdentifier(u8),
     /// The routine-control sub-function byte is not a valid [`RoutineControlSubFunction`](crate::RoutineControlSubFunction).
     #[error("Invalid Routine Control Sub-Function: {0}")]
     InvalidRoutineControlSubFunction(u8),
     /// The DTC-setting byte is not a valid [`DtcSettingType`](crate::DtcSettingType) value.
     #[error("Invalid DTC Setting: {0}")]
     InvalidDtcSetting(u8),
-    /// The value is reserved for legislative use and must not be used.
-    #[error("Reserved for legislative use: {0}")]
-    ReservedForLegislativeUse(u8),
 }
 
 impl Error {
@@ -100,39 +105,64 @@ impl Error {
     /// use uds_protocol::{Decode, NegativeResponse, Request, UdsServiceType};
     ///
     /// let frame = [0x11, 0x01, 0xAA]; // EcuReset with a trailing junk byte
-    /// if let Err(err) = Request::decode(&frame) {
-    ///     let nack = NegativeResponse::new(UdsServiceType::EcuReset, err.negative_response_code());
-    ///     assert_eq!(u8::from(nack.nrc()), 0x13);
-    /// }
+    /// let err = Request::decode(&frame).expect_err("the trailing byte must be rejected");
+    /// let nrc = err.negative_response_code().expect("a malformed frame maps to an NRC");
+    /// let nack = NegativeResponse::new(UdsServiceType::EcuReset, nrc);
+    /// assert_eq!(u8::from(nack.nrc()), 0x13);
     /// ```
+    ///
+    /// Returns `None` for [`Error::IoError`]: a transport failure is not a protocol error, so
+    /// there is no NRC to send. Every other error maps to a code.
     ///
     /// # Classification
     ///
-    /// Following ISO 14229-1:
+    /// This is a **default**, covering the lane ISO 14229-1 actually mandates — clause 8.7.5's
+    /// pseudo-code and the "shall" rows of Annex A.1. Clause 8.7.2 notes that "a specific NRC
+    /// is not guaranteed for all possible test pattern sequences", and several outcomes in
+    /// Tables 4 to 7 are specified only as "NRC = XX", so a server is free to answer
+    /// differently where its own tables allow:
     ///
     /// - **`0x13` `incorrectMessageLengthOrInvalidFormat`** — the frame itself is malformed:
     ///   too short, too long, or a declared width that does not fit.
     /// - **`0x12` `subFunctionNotSupported`** — the *sub-function* byte is not a value this
-    ///   service defines. Applies to the services whose sub-function the crate validates:
-    ///   `0x10`, `0x11`, `0x19`, `0x27`, `0x28`, `0x31`, `0x3E`, `0x85`.
+    ///   service defines.
+    ///
+    ///   Only two services reject a reserved sub-function at decode and so produce this code
+    ///   themselves: `0x31` `RoutineControl` (Table 426 defines no manufacturer range, so
+    ///   anything outside `0x01`-`0x03` is invalid) and `0x85` `ControlDTCSetting`.
+    ///
+    ///   The others — `0x10`, `0x11`, `0x19`, `0x27`, `0x28`, `0x3E` — model the whole
+    ///   `0x00..=0x7F` space, so a reserved byte decodes into an `IsoSaeReserved`-style variant
+    ///   and round-trips unchanged rather than failing. That is deliberate: it lets a server see
+    ///   the byte it was actually sent. **Answering `0x12` for those is the server's job**, not
+    ///   this mapping's: match on the sub-function and use
+    ///   [`NegativeResponseCode::SubFunctionNotSupported`] for a value you do not implement.
     /// - **`0x31` `requestOutOfRange`** — a *parameter* (not a sub-function) carries a value
     ///   outside its permitted range. Note that `communicationType` is a parameter of
     ///   `CommunicationControl`, not its sub-function, so it lands here rather than on `0x12`.
-    /// - **`0x10` `generalReject`** — reserved for [`Error::IoError`]. A transport failure is
-    ///   not a protocol error and no other code fits; ISO designates `generalReject` for
-    ///   exactly the case where no other response code meets the implementation's needs.
     ///
-    /// The mapping never returns [`NegativeResponseCode::PositiveResponse`] or any reserved
-    /// code, so the result is always a legal NRC to put on the wire.
+    /// Two codes this mapping deliberately never returns:
+    ///
+    /// - **`0x10` `generalReject`** — Annex A.1 says it "shall only be implemented in the server
+    ///   if none of the negative response codes defined in this document meet the needs of the
+    ///   implementation. At no means shall this NRC be a general replacement". It also appears in
+    ///   none of the per-service NRC tables, so no service's `allowed_nack_codes` lists it.
+    /// - **`0x11` `serviceNotSupported`** — an unrecognised SID does not fail to decode; it
+    ///   becomes [`Request::Other`](crate::Request::Other) so a server can see the byte. Answering
+    ///   `0x11` is therefore the server's call, on a SID it does not implement.
+    ///
+    /// Every code this does return is a legal NRC to put on the wire: never
+    /// [`NegativeResponseCode::PositiveResponse`] and never a reserved value.
     #[must_use]
-    pub const fn negative_response_code(&self) -> NegativeResponseCode {
+    pub const fn negative_response_code(&self) -> Option<NegativeResponseCode> {
         match self {
             // The frame is malformed.
             Self::InsufficientData(_)
             | Self::TrailingBytes(_)
             | Self::InvalidWidth(_)
-            | Self::IncorrectMessageLengthOrInvalidFormat
-            | Self::NoDataAvailable => NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
+            | Self::IncorrectMessageLengthOrInvalidFormat => {
+                Some(NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat)
+            }
 
             // The sub-function byte is not a defined value for the service.
             Self::InvalidDiagnosticSessionType(_)
@@ -142,19 +172,21 @@ impl Error {
             | Self::InvalidTesterPresentType(_)
             | Self::InvalidRoutineControlSubFunction(_)
             | Self::InvalidDtcSubfunctionType(_)
-            | Self::InvalidDtcSetting(_) => NegativeResponseCode::SubFunctionNotSupported,
+            | Self::InvalidDtcSetting(_) => Some(NegativeResponseCode::SubFunctionNotSupported),
 
             // A parameter value is outside its permitted range.
             Self::InvalidCommunicationType(_)
             | Self::InvalidMemoryAddress(_)
+            | Self::InvalidMemorySize(_)
+            | Self::InvalidAddressAndLengthFormatIdentifier(_)
+            | Self::InvalidDtcRecord(_)
             | Self::InvalidEncryptionCompressionMethod(_)
-            | Self::InvalidFileOperationMode(_)
-            | Self::InvalidFileSizeParameterLength(_)
-            | Self::InvalidDtcFormatIdentifier(_)
-            | Self::ReservedForLegislativeUse(_) => NegativeResponseCode::RequestOutOfRange,
+            | Self::InvalidFileOperationMode(_) => Some(NegativeResponseCode::RequestOutOfRange),
 
-            // Transport failure: not a protocol error, so no specific NRC applies.
-            Self::IoError(_) => NegativeResponseCode::GeneralReject,
+            // Transport failure. ISO does not model this as an NRC at all: clause 7.4.1.6
+            // surfaces it to the server application as `A_Result = error`. There is no byte to
+            // put on the wire, because the wire is what failed.
+            Self::IoError(_) => None,
         }
     }
 }
@@ -238,11 +270,6 @@ mod nrc_mapping_tests {
                 0x13,
                 "explicit length/format",
             ),
-            (
-                Error::NoDataAvailable,
-                0x13,
-                "payload expected, none present",
-            ),
             // --- 0x12 subFunctionNotSupported: the sub-function byte is not a known value ---
             (
                 Error::InvalidDiagnosticSessionType(0x99),
@@ -298,25 +325,19 @@ mod nrc_mapping_tests {
                 "0x38 modeOfOperation",
             ),
             (
-                Error::InvalidFileSizeParameterLength(0x99),
+                Error::InvalidDtcRecord(0xFF01_0203),
                 0x31,
-                "0x38 length parameter",
+                "a u32 wider than three DTC bytes",
             ),
             (
-                Error::InvalidDtcFormatIdentifier(0x99),
+                Error::InvalidAddressAndLengthFormatIdentifier(0x00),
                 0x31,
-                "DTC format identifier",
+                "addressAndLengthFormatIdentifier outside Table H.1",
             ),
             (
-                Error::ReservedForLegislativeUse(0x99),
+                Error::InvalidMemorySize(0x1_0000),
                 0x31,
-                "legislative reserved value",
-            ),
-            // --- 0x10 generalReject: transport failure, no protocol NRC applies ---
-            (
-                Error::IoError(embedded_io::ErrorKind::WriteZero),
-                0x10,
-                "I/O failure",
+                "memorySize wider than its declared width",
             ),
         ]
         .into_iter()
@@ -325,7 +346,10 @@ mod nrc_mapping_tests {
     #[test]
     fn every_error_maps_to_its_iso_negative_response_code() {
         for (err, want, why) in cases() {
-            let got = u8::from(err.negative_response_code());
+            let nrc = err
+                .negative_response_code()
+                .expect("every case in this table is a protocol error, not a transport one");
+            let got = u8::from(nrc);
             assert_eq!(
                 got, want,
                 "{err:?} ({why}): got 0x{got:02X}, want 0x{want:02X}"
@@ -334,11 +358,16 @@ mod nrc_mapping_tests {
     }
 
     #[test]
-    fn mapping_only_produces_codes_the_iso_tables_allow() {
-        // A decode failure must never be reported as a positive response, and must never
-        // invent a reserved code — either would put an invalid NRC on the wire.
+    fn mapping_never_produces_a_positive_or_reserved_code() {
+        // This is deliberately narrower than "the codes the ISO tables allow": the per-service
+        // tables are a floor, not a ceiling (clause 9.4 — the A.1 codes "shall be used in
+        // addition to" them), so table membership is not the property to assert. What must hold
+        // is that a decode failure never reports a positive response and never invents a
+        // reserved code, either of which would put an illegal byte on the wire.
         for (err, _, why) in cases() {
-            let nrc = err.negative_response_code();
+            let nrc = err
+                .negative_response_code()
+                .expect("every case in this table maps to a code");
             assert_ne!(
                 nrc,
                 NegativeResponseCode::PositiveResponse,
