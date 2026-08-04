@@ -9,6 +9,7 @@ use crate::{
         SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
         WriteDataByIdentifierRequest,
     },
+    shared::split_sprmib,
 };
 use automotive_wire_codec::{write_all, write_u8};
 
@@ -179,18 +180,71 @@ impl Encode for Request<'_> {
 
 impl Request<'_> {
     /// Whether the positive response for this request is suppressed (SPRMIB).
+    ///
+    /// Only services ISO 14229-1 gives a sub-function can suppress a positive response, because
+    /// the suppressPosRspMsgIndicationBit is bit 7 of that sub-function byte. For a service with
+    /// no sub-function the answer is a definite `Some(false)`.
+    ///
+    /// # `None` means the question has no answer, not that it was not asked
+    ///
+    /// Returns `None` in exactly three situations, all of which are genuinely unanswerable
+    /// rather than merely unmodeled:
+    ///
+    /// - The service identifier is not one ISO 14229-1 assigns — the vendor-specific case. The
+    ///   crate has no basis for an answer, and a caller who needs one has to supply it from the
+    ///   application that originated the request.
+    /// - The service has a sub-function but the payload is empty, so the byte holding the SPRMIB
+    ///   is not present. Such a frame is malformed for its service; either way there is no bit
+    ///   to report.
+    /// - The service identifier is `0x83`, whose service the 2020 edition withdrew. See
+    ///   [`UdsServiceType::has_sub_function`] for why that answer is deferred to the caller
+    ///   rather than taken from the 2013 edition.
+    ///
+    /// A service this crate enumerates but does not model still gets a real answer, because
+    /// whether it carries a sub-function is a fact of the standard: see
+    /// [`UdsServiceType::has_sub_function`]. So a `0x2C`
+    /// [`DynamicallyDefineDataIdentifier`](UdsServiceType::DynamicallyDefineDataIdentifier)
+    /// request reports its SPRMIB even though it decodes to [`Request::Other`].
+    ///
+    /// # Why this is `Option` when [`Request::allowed_nack_codes`] is not
+    ///
+    /// `allowed_nack_codes` reports "unknown" as an empty slice and documents it, which works
+    /// because no service has an empty table of listed codes — the sentinel cannot be confused
+    /// with a real answer. `false` has no such property: fourteen services genuinely have no
+    /// sub-function, so a bare `bool` cannot distinguish them from a service the crate knows
+    /// nothing about. That distinction has teeth at a layer boundary. ISO 14229-2 clause 10.3
+    /// gates `tP3_Client_Phys` on this bit, and whether a response is expected decides whether
+    /// `tP_Client` starts at all — so answering `false` for a fire-and-forget vendor request
+    /// costs three transmissions of a request nobody wanted answered, per Table 9 retries.
     #[must_use]
-    pub fn is_positive_response_suppressed(&self) -> bool {
+    pub fn is_positive_response_suppressed(&self) -> Option<bool> {
         match self {
-            Self::CommunicationControl(req) => req.suppress_positive_response,
-            Self::ControlDtcSetting(req) => req.suppress_positive_response,
-            Self::DiagnosticSessionControl(req) => req.suppress_positive_response,
-            Self::EcuReset(req) => req.suppress_positive_response,
-            Self::ReadDtcInfo(req) => req.suppress_positive_response,
-            Self::RoutineControl(req) => req.suppress_positive_response,
-            Self::SecurityAccess(req) => req.suppress_positive_response,
-            Self::TesterPresent(req) => req.suppress_positive_response,
-            _ => false,
+            Self::CommunicationControl(req) => Some(req.suppress_positive_response),
+            Self::ControlDtcSetting(req) => Some(req.suppress_positive_response),
+            Self::DiagnosticSessionControl(req) => Some(req.suppress_positive_response),
+            Self::EcuReset(req) => Some(req.suppress_positive_response),
+            Self::ReadDtcInfo(req) => Some(req.suppress_positive_response),
+            Self::RoutineControl(req) => Some(req.suppress_positive_response),
+            Self::SecurityAccess(req) => Some(req.suppress_positive_response),
+            Self::TesterPresent(req) => Some(req.suppress_positive_response),
+            // The modeled services ISO gives no sub-function. Spelled out rather than folded
+            // into a wildcard: a wildcard is what made every unrecognized service silently
+            // report `false`, and it would do the same to the next variant added here.
+            Self::ClearDiagnosticInfo(_)
+            | Self::ReadDataByIdentifier(_)
+            | Self::RequestDownload(_)
+            | Self::RequestFileTransfer(_)
+            | Self::RequestTransferExit(_)
+            | Self::RequestUpload(_)
+            | Self::TransferData(_)
+            | Self::WriteDataByIdentifier(_) => Some(false),
+            Self::Other { data, .. } => {
+                if self.service().has_sub_function()? {
+                    data.first().copied().map(|byte| split_sprmib(byte).0)
+                } else {
+                    Some(false)
+                }
+            }
         }
     }
 
@@ -288,10 +342,62 @@ mod tests {
     #[test]
     fn suppression_forwards_to_inner_request() {
         let suppressed = Request::EcuReset(EcuResetRequest::new(true, ResetType::HardReset));
-        assert!(suppressed.is_positive_response_suppressed());
+        assert_eq!(suppressed.is_positive_response_suppressed(), Some(true));
 
         let not_suppressed = Request::EcuReset(EcuResetRequest::new(false, ResetType::HardReset));
-        assert!(!not_suppressed.is_positive_response_suppressed());
+        assert_eq!(
+            not_suppressed.is_positive_response_suppressed(),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn suppression_is_read_from_the_sub_function_of_an_unmodeled_service() {
+        // 0x2C DynamicallyDefineDataIdentifier is enumerated but unmodeled, so it decodes to
+        // `Other`. It does have a sub-function, so bit 7 of the first payload byte is its
+        // SPRMIB and the crate can answer even though it does not model the payload.
+        // Sub-function 0x01 defineByIdentifier, with and without the bit.
+        let (suppressed, _) = Request::decode(&[0x2C, 0x81, 0xF3, 0x00]).unwrap();
+        assert!(matches!(suppressed, Request::Other { .. }));
+        assert_eq!(suppressed.is_positive_response_suppressed(), Some(true));
+
+        let (not_suppressed, _) = Request::decode(&[0x2C, 0x01, 0xF3, 0x00]).unwrap();
+        assert_eq!(
+            not_suppressed.is_positive_response_suppressed(),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn an_unmodeled_service_without_a_sub_function_is_never_suppressed() {
+        // 0x23 ReadMemoryByAddress is enumerated but unmodeled, and ISO gives it no
+        // sub-function -- so there is no SPRMIB anywhere in the frame and the answer is a
+        // definite `Some(false)`, whatever the payload bytes happen to be. 0xAA has bit 7 set,
+        // which would read as "suppressed" if the payload were mistaken for a sub-function.
+        let (req, _) = Request::decode(&[0x23, 0xAA, 0xBB]).unwrap();
+        assert!(matches!(req, Request::Other { .. }));
+        assert_eq!(req.is_positive_response_suppressed(), Some(false));
+    }
+
+    #[test]
+    fn suppression_is_unknown_for_a_vendor_specific_service() {
+        // 0x40 is not in the ISO request table, so it is presumably vendor-specific and the
+        // crate has no basis for an answer. This is the case the `Option` exists for: reporting
+        // `false` here made a fire-and-forget vendor request look response-expected, so a
+        // session layer started tP_Client, timed out, and retried it twice.
+        let (req, _) = Request::decode(&[0x40, 0xAA, 0xBB]).unwrap();
+        assert!(matches!(req, Request::Other { .. }));
+        assert_eq!(req.is_positive_response_suppressed(), None);
+    }
+
+    #[test]
+    fn suppression_is_unknown_when_the_sub_function_byte_is_absent() {
+        // 0x2C has a sub-function, but this frame carries no payload -- so the byte the SPRMIB
+        // lives in is not on the wire. The frame is malformed for the service; either way there
+        // is no bit to report, so the answer is unknown rather than `Some(false)`.
+        let (req, _) = Request::decode(&[0x2C]).unwrap();
+        assert!(matches!(req, Request::Other { data, .. } if data.is_empty()));
+        assert_eq!(req.is_positive_response_suppressed(), None);
     }
 
     #[test]
@@ -312,10 +418,102 @@ mod tests {
         let wire = [0x31, 0x81, 0xFF, 0x00, 0xAA];
         let (req, rest) = Request::decode(&wire).unwrap();
         assert!(rest.is_empty());
-        assert!(req.is_positive_response_suppressed());
+        assert_eq!(req.is_positive_response_suppressed(), Some(true));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &wire);
+    }
+
+    /// One minimal-but-valid frame per modeled service, paired with the NRC table that service
+    /// must dispatch to.
+    ///
+    /// Shared by `allowed_nack_codes_dispatches_for_every_modeled_variant` and
+    /// `every_modeled_variant_agrees_with_the_sub_function_table` so the two cannot drift apart.
+    /// A function rather than a `const`, because `allowed_nack_codes` is not a `const fn`.
+    ///
+    /// Every service that has a sub-function has bit 7 of that byte SET. That is load-bearing
+    /// for the sub-function assertion: with the bit clear every service answers `Some(false)`,
+    /// so a flipped table entry would go unnoticed. Setting it changes neither which service a
+    /// frame decodes to nor its NRC table, so the NRC assertions are indifferent to it.
+    ///
+    /// Two pairs are deliberately indistinguishable, and that is correct rather than a gap: ISO
+    /// gives `CommunicationControl` and `ControlDTCSetting` the same four codes, and Tables 444
+    /// and 449 give `RequestDownload` and `RequestUpload` the same six. Swapping either pair's
+    /// rows is unobservable because the answer is the same.
+    fn modeled_frames() -> [(&'static [u8], &'static [NegativeResponseCode]); 16] {
+        [
+            // ClearDiagnosticInfo, no sub-function
+            (
+                &[0x14, 0xFF, 0xFF, 0xFF, 0x00],
+                ClearDiagnosticInfoRequest::allowed_nack_codes(),
+            ),
+            // CommunicationControl, EnableRxAndTx + SPRMIB
+            (
+                &[0x28, 0x80, 0x01],
+                CommunicationControlRequest::allowed_nack_codes(),
+            ),
+            // ControlDtcSetting, On + SPRMIB
+            (
+                &[0x85, 0x81],
+                ControlDtcSettingRequest::allowed_nack_codes(),
+            ),
+            // DiagnosticSessionControl, DefaultSession + SPRMIB
+            (
+                &[0x10, 0x81],
+                DiagnosticSessionControlRequest::allowed_nack_codes(),
+            ),
+            // EcuReset, HardReset + SPRMIB
+            (&[0x11, 0x81], EcuResetRequest::allowed_nack_codes()),
+            // ReadDataByIdentifier, no sub-function
+            (
+                &[0x22, 0xF1, 0x90],
+                ReadDataByIdentifierRequest::allowed_nack_codes(),
+            ),
+            // ReadDtcInfo, ReportDtcByStatusMask + SPRMIB
+            (
+                &[0x19, 0x82, 0xFF],
+                ReadDtcInfoRequest::allowed_nack_codes(),
+            ),
+            // RequestDownload, no sub-function
+            (
+                &[0x34, 0x00, 0x12, 0xBE, 0xEF, 0x10],
+                RequestDownloadRequest::allowed_nack_codes(),
+            ),
+            // RequestFileTransfer, no sub-function
+            (
+                &[0x38, 0x02, 0x00, 0x01, b'a'],
+                RequestFileTransferRequest::allowed_nack_codes(),
+            ),
+            // RequestUpload, no sub-function
+            (
+                &[0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10],
+                RequestUploadRequest::allowed_nack_codes(),
+            ),
+            // RequestTransferExit, no sub-function
+            (&[0x37], RequestTransferExitRequest::allowed_nack_codes()),
+            // RoutineControl, StartRoutine + SPRMIB
+            (
+                &[0x31, 0x81, 0xFF, 0x00],
+                RoutineControlRequest::allowed_nack_codes(),
+            ),
+            // SecurityAccess, RequestSeed + SPRMIB
+            (
+                &[0x27, 0x81, 0xAA],
+                SecurityAccessRequest::allowed_nack_codes(),
+            ),
+            // TesterPresent, ZeroSubFunction + SPRMIB
+            (&[0x3E, 0x80], TesterPresentRequest::allowed_nack_codes()),
+            // TransferData, no sub-function
+            (
+                &[0x36, 0x01, 0xAA],
+                TransferDataRequest::allowed_nack_codes(),
+            ),
+            // WriteDataByIdentifier, no sub-function
+            (
+                &[0x2E, 0xF1, 0x90, 0x01],
+                WriteDataByIdentifierRequest::allowed_nack_codes(),
+            ),
+        ]
     }
 
     #[test]
@@ -328,68 +526,7 @@ mod tests {
         // Each frame is paired with the inherent table it must dispatch to. Asserting only
         // `!is_empty()` made the test vacuous: every modeled service has a non-empty table, so
         // any arm could return any *other* service's set and still pass.
-        //
-        // Two pairs remain indistinguishable, and that is correct rather than a gap: ISO gives
-        // CommunicationControl and ControlDTCSetting the same four codes, and Tables 444 and 449
-        // give RequestDownload and RequestUpload the same six. Swapping either pair's arms is
-        // unobservable because the answer is the same, so there is nothing here to pin.
-        let frames: [(&[u8], &'static [NegativeResponseCode]); 16] = [
-            (
-                &[0x14, 0xFF, 0xFF, 0xFF, 0x00],
-                ClearDiagnosticInfoRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x28, 0x00, 0x01],
-                CommunicationControlRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x85, 0x01],
-                ControlDtcSettingRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x10, 0x01],
-                DiagnosticSessionControlRequest::allowed_nack_codes(),
-            ),
-            (&[0x11, 0x01], EcuResetRequest::allowed_nack_codes()),
-            (
-                &[0x22, 0xF1, 0x90],
-                ReadDataByIdentifierRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x19, 0x02, 0xFF],
-                ReadDtcInfoRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x34, 0x00, 0x12, 0xBE, 0xEF, 0x10],
-                RequestDownloadRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x38, 0x02, 0x00, 0x01, b'a'],
-                RequestFileTransferRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10],
-                RequestUploadRequest::allowed_nack_codes(),
-            ),
-            (&[0x37], RequestTransferExitRequest::allowed_nack_codes()),
-            (
-                &[0x31, 0x01, 0xFF, 0x00],
-                RoutineControlRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x27, 0x01, 0xAA],
-                SecurityAccessRequest::allowed_nack_codes(),
-            ),
-            (&[0x3E, 0x00], TesterPresentRequest::allowed_nack_codes()),
-            (
-                &[0x36, 0x01, 0xAA],
-                TransferDataRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x2E, 0xF1, 0x90, 0x01],
-                WriteDataByIdentifierRequest::allowed_nack_codes(),
-            ),
-        ];
+        let frames = modeled_frames();
         for (frame, expected) in frames {
             let (req, _) = Request::decode(frame).unwrap_or_else(|e| {
                 panic!("frame {frame:02X?} should decode, got {e:?}");
@@ -403,6 +540,49 @@ mod tests {
                 expected,
                 "{:?} dispatched to the wrong NRC table",
                 req.service()
+            );
+        }
+    }
+
+    #[test]
+    fn every_modeled_variant_agrees_with_the_sub_function_table() {
+        // `has_sub_function` and the match in `is_positive_response_suppressed` are two copies
+        // of one ISO fact, and nothing else stops them from drifting. This ties them together as
+        // a biconditional: the table says a service has a sub-function exactly when the dispatch
+        // reports a set SPRMIB for a frame that sets one.
+        //
+        // `modeled_frames` sets the SPRMIB on every service that has one, which is what makes
+        // the equality below meaningful in both directions.
+        for (frame, _) in modeled_frames() {
+            let (req, _) = Request::decode(frame).unwrap_or_else(|e| {
+                panic!("frame {frame:02X?} should decode, got {e:?}");
+            });
+            assert!(
+                !matches!(req, Request::Other { .. }),
+                "frame {frame:02X?} decoded to Other; the table needs updating"
+            );
+            let service = req.service();
+            if service.has_sub_function() == Some(true) {
+                assert!(
+                    frame[1] & 0x80 != 0,
+                    "frame {frame:02X?} for {service:?} does not set bit 7 of the sub-function \
+                     byte; `modeled_frames` must set the SPRMIB on every sub-function service, \
+                     or this test cannot detect a flipped sub-function table entry"
+                );
+            }
+            let suppressed = req.is_positive_response_suppressed();
+            assert!(
+                suppressed.is_some(),
+                "{service:?} is modeled, so its SPRMIB is never unknown"
+            );
+            // The frames set the SPRMIB wherever the service has a sub-function to set it in, so
+            // the two must be equal: `Some(true)` for the eight services that have one,
+            // `Some(false)` for the eight that do not. Any table entry flipped either way breaks
+            // this.
+            assert_eq!(
+                suppressed,
+                service.has_sub_function(),
+                "{service:?}: dispatch and sub-function table disagree"
             );
         }
     }

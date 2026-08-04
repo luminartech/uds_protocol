@@ -299,6 +299,69 @@ impl UdsServiceType {
             _ => 0x7F,
         }
     }
+
+    /// Whether ISO 14229-1 gives this service a sub-function byte, and therefore whether its
+    /// request can carry a suppressPosRspMsgIndicationBit (SPRMIB) in bit 7 of that byte.
+    ///
+    /// This is a fact about the standard rather than about this crate's coverage, so it is
+    /// answered for all 26 services the 2020 edition defines and not only the 16 this crate
+    /// models.
+    ///
+    /// # `None` means this crate cannot say
+    ///
+    /// Three variants have no answer, and `None` for them is a different report from
+    /// `Some(false)` — keeping the two apart is the whole point of
+    /// [`Request::is_positive_response_suppressed`](crate::Request::is_positive_response_suppressed)
+    /// returning an `Option`:
+    ///
+    /// - [`UdsServiceType::UnsupportedDiagnosticService`], where every SID ISO 14229-1 does not
+    ///   assign lands — including the vendor-specific range. This is the case that matters in
+    ///   practice.
+    /// - [`UdsServiceType::NegativeResponse`], which is not a request service at all.
+    /// - [`UdsServiceType::AccessTimingParameters`]. The 2020 edition, which this crate targets,
+    ///   withdrew the service; the variant is retained only so a pre-2020 `0x83`/`0xC3` byte
+    ///   round-trips as itself. Whether an earlier edition gave it a sub-function is not a fact
+    ///   this table draws from — every other entry is checked against the 2020 text alone — so
+    ///   the answer is deferred to the caller rather than asserted here.
+    #[must_use]
+    pub const fn has_sub_function(self) -> Option<bool> {
+        match self {
+            // Services whose first request byte is a sub-function, so bit 7 is the SPRMIB.
+            Self::Authentication
+            | Self::CommunicationControl
+            | Self::ControlDtcSetting
+            | Self::DiagnosticSessionControl
+            | Self::DynamicallyDefineDataIdentifier
+            | Self::EcuReset
+            | Self::LinkControl
+            | Self::ReadDtcInfo
+            | Self::ResponseOnEvent
+            | Self::RoutineControl
+            | Self::SecurityAccess
+            | Self::TesterPresent => Some(true),
+            // Services with no sub-function. Several lead with an enumerated parameter
+            // (`transmissionMode`, `modeOfOperation`, `controlOptionRecord`) that ISO does not
+            // label a sub-function, so bit 7 of that byte is data rather than a SPRMIB.
+            Self::ClearDiagnosticInfo
+            | Self::InputOutputControlByIdentifier
+            | Self::ReadDataByIdentifier
+            | Self::ReadDataByIdentifierPeriodic
+            | Self::ReadMemoryByAddress
+            | Self::ReadScalingDataByIdentifier
+            | Self::RequestDownload
+            | Self::RequestFileTransfer
+            | Self::RequestTransferExit
+            | Self::RequestUpload
+            | Self::SecuredDataTransmission
+            | Self::TransferData
+            | Self::WriteDataByIdentifier
+            | Self::WriteMemoryByAddress => Some(false),
+            // No answer: not a request service, or not a service in the 2020 edition.
+            Self::AccessTimingParameters
+            | Self::NegativeResponse
+            | Self::UnsupportedDiagnosticService => None,
+        }
+    }
 }
 
 impl core::fmt::Display for UdsServiceType {
@@ -311,45 +374,93 @@ impl core::fmt::Display for UdsServiceType {
 mod test {
     use super::*;
 
-    /// Every service this crate models, paired with its request and response SID.
+    /// Every service this crate models, paired with its request and response SID, and whether
+    /// ISO 14229-1 gives it a sub-function byte.
     ///
     /// Written out rather than derived from the conversions, so the table is an independent
     /// statement of what ISO 14229-1 assigns and a transposed pair fails instead of agreeing
     /// with itself. `NegativeResponse` and `UnsupportedDiagnosticService` are absent because
-    /// neither has a request SID.
-    const SERVICES: &[(UdsServiceType, u8, u8)] = &[
-        (UdsServiceType::DiagnosticSessionControl, 0x10, 0x50),
-        (UdsServiceType::EcuReset, 0x11, 0x51),
-        (UdsServiceType::ClearDiagnosticInfo, 0x14, 0x54),
-        (UdsServiceType::ReadDtcInfo, 0x19, 0x59),
-        (UdsServiceType::ReadDataByIdentifier, 0x22, 0x62),
-        (UdsServiceType::ReadMemoryByAddress, 0x23, 0x63),
-        (UdsServiceType::ReadScalingDataByIdentifier, 0x24, 0x64),
-        (UdsServiceType::SecurityAccess, 0x27, 0x67),
-        (UdsServiceType::CommunicationControl, 0x28, 0x68),
-        (UdsServiceType::Authentication, 0x29, 0x69),
-        (UdsServiceType::ReadDataByIdentifierPeriodic, 0x2A, 0x6A),
-        (UdsServiceType::DynamicallyDefineDataIdentifier, 0x2C, 0x6C),
-        (UdsServiceType::WriteDataByIdentifier, 0x2E, 0x6E),
-        (UdsServiceType::InputOutputControlByIdentifier, 0x2F, 0x6F),
-        (UdsServiceType::RoutineControl, 0x31, 0x71),
-        (UdsServiceType::RequestDownload, 0x34, 0x74),
-        (UdsServiceType::RequestUpload, 0x35, 0x75),
-        (UdsServiceType::TransferData, 0x36, 0x76),
-        (UdsServiceType::RequestTransferExit, 0x37, 0x77),
-        (UdsServiceType::RequestFileTransfer, 0x38, 0x78),
-        (UdsServiceType::TesterPresent, 0x3E, 0x7E),
-        (UdsServiceType::AccessTimingParameters, 0x83, 0xC3),
-        (UdsServiceType::SecuredDataTransmission, 0x84, 0xC4),
-        (UdsServiceType::ControlDtcSetting, 0x85, 0xC5),
-        (UdsServiceType::ResponseOnEvent, 0x86, 0xC6),
-        (UdsServiceType::LinkControl, 0x87, 0xC7),
-        (UdsServiceType::WriteMemoryByAddress, 0x3D, 0x7D),
+    /// neither has a request SID; both are covered by
+    /// `the_variants_that_are_not_a_2020_request_service_report_no_sub_function`.
+    const SERVICES: &[(UdsServiceType, u8, u8, Option<bool>)] = &[
+        (
+            UdsServiceType::DiagnosticSessionControl,
+            0x10,
+            0x50,
+            Some(true),
+        ),
+        (UdsServiceType::EcuReset, 0x11, 0x51, Some(true)),
+        (UdsServiceType::ClearDiagnosticInfo, 0x14, 0x54, Some(false)),
+        (UdsServiceType::ReadDtcInfo, 0x19, 0x59, Some(true)),
+        (
+            UdsServiceType::ReadDataByIdentifier,
+            0x22,
+            0x62,
+            Some(false),
+        ),
+        (UdsServiceType::ReadMemoryByAddress, 0x23, 0x63, Some(false)),
+        (
+            UdsServiceType::ReadScalingDataByIdentifier,
+            0x24,
+            0x64,
+            Some(false),
+        ),
+        (UdsServiceType::SecurityAccess, 0x27, 0x67, Some(true)),
+        (UdsServiceType::CommunicationControl, 0x28, 0x68, Some(true)),
+        (UdsServiceType::Authentication, 0x29, 0x69, Some(true)),
+        (
+            UdsServiceType::ReadDataByIdentifierPeriodic,
+            0x2A,
+            0x6A,
+            Some(false),
+        ),
+        (
+            UdsServiceType::DynamicallyDefineDataIdentifier,
+            0x2C,
+            0x6C,
+            Some(true),
+        ),
+        (
+            UdsServiceType::WriteDataByIdentifier,
+            0x2E,
+            0x6E,
+            Some(false),
+        ),
+        (
+            UdsServiceType::InputOutputControlByIdentifier,
+            0x2F,
+            0x6F,
+            Some(false),
+        ),
+        (UdsServiceType::RoutineControl, 0x31, 0x71, Some(true)),
+        (UdsServiceType::RequestDownload, 0x34, 0x74, Some(false)),
+        (UdsServiceType::RequestUpload, 0x35, 0x75, Some(false)),
+        (UdsServiceType::TransferData, 0x36, 0x76, Some(false)),
+        (UdsServiceType::RequestTransferExit, 0x37, 0x77, Some(false)),
+        (UdsServiceType::RequestFileTransfer, 0x38, 0x78, Some(false)),
+        (UdsServiceType::TesterPresent, 0x3E, 0x7E, Some(true)),
+        // Withdrawn in the 2020 edition; see `has_sub_function`.
+        (UdsServiceType::AccessTimingParameters, 0x83, 0xC3, None),
+        (
+            UdsServiceType::SecuredDataTransmission,
+            0x84,
+            0xC4,
+            Some(false),
+        ),
+        (UdsServiceType::ControlDtcSetting, 0x85, 0xC5, Some(true)),
+        (UdsServiceType::ResponseOnEvent, 0x86, 0xC6, Some(true)),
+        (UdsServiceType::LinkControl, 0x87, 0xC7, Some(true)),
+        (
+            UdsServiceType::WriteMemoryByAddress,
+            0x3D,
+            0x7D,
+            Some(false),
+        ),
     ];
 
     #[test]
     fn every_service_maps_to_the_sids_iso_assigns_it() {
-        for &(service, request_sid, response_sid) in SERVICES {
+        for &(service, request_sid, response_sid, _) in SERVICES {
             assert_eq!(
                 UdsServiceType::to_request_sid(service),
                 request_sid,
@@ -378,7 +489,7 @@ mod test {
         // ISO 14229-1 derives every positive response SID by adding 0x40 to the request SID.
         // Checking the rule as well as the table catches a single mistyped entry above, which a
         // table compared only against itself would not.
-        for &(service, request_sid, response_sid) in SERVICES {
+        for &(service, request_sid, response_sid, _) in SERVICES {
             assert_eq!(
                 response_sid,
                 request_sid + 0x40,
@@ -407,12 +518,53 @@ mod test {
     }
 
     #[test]
+    fn every_service_reports_the_sub_function_iso_gives_it() {
+        // The fourth column is an independent statement of the standard, not something derived
+        // from `has_sub_function` -- so a mistyped arm in the implementation fails here rather
+        // than agreeing with itself. Only the 12 services with a sub-function can carry a
+        // SPRMIB, which is what `Request::is_positive_response_suppressed` depends on.
+        for &(service, request_sid, _, has_sub_function) in SERVICES {
+            assert_eq!(
+                service.has_sub_function(),
+                has_sub_function,
+                "{service:?} (request SID {request_sid:#04X})"
+            );
+        }
+    }
+
+    #[test]
+    fn the_variants_that_are_not_a_2020_request_service_report_no_sub_function() {
+        // None of these three is a request service in the edition this crate targets, so "does
+        // it have a sub-function" has no answer.
+        //
+        // `UnsupportedDiagnosticService` is the one that matters most: it is where every SID ISO
+        // does not assign lands, and returning `None` there is what lets a caller tell a
+        // vendor-specific service apart from one that genuinely has no sub-function.
+        assert_eq!(UdsServiceType::NegativeResponse.has_sub_function(), None);
+        assert_eq!(
+            UdsServiceType::UnsupportedDiagnosticService.has_sub_function(),
+            None
+        );
+        assert_eq!(
+            UdsServiceType::from_request_sid(0x40).has_sub_function(),
+            None,
+            "0x40 is unassigned"
+        );
+        // 0x83 is enumerated -- the variant exists so a 2013-era byte round-trips -- but the
+        // 2020 edition withdrew the service, so this crate has no basis for an answer.
+        assert_eq!(
+            UdsServiceType::AccessTimingParameters.has_sub_function(),
+            None
+        );
+    }
+
+    #[test]
     fn every_unassigned_byte_classifies_as_unsupported() {
         // The conversions are total: no byte panics, and anything outside the table above lands
         // on `UnsupportedDiagnosticService` rather than being silently mapped to a real service.
         // Written with `any` rather than collecting, so this compiles without `alloc`.
-        let is_request_sid = |b: u8| SERVICES.iter().any(|&(_, r, _)| r == b);
-        let is_response_sid = |b: u8| b == 0x7F || SERVICES.iter().any(|&(_, _, s)| s == b);
+        let is_request_sid = |b: u8| SERVICES.iter().any(|&(_, r, _, _)| r == b);
+        let is_response_sid = |b: u8| b == 0x7F || SERVICES.iter().any(|&(_, _, s, _)| s == b);
 
         for byte in 0x00..=0xFFu8 {
             let from_request = UdsServiceType::from_request_sid(byte);
