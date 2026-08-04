@@ -235,6 +235,37 @@ made the two gaps above possible.
   the crate's front page are now real links, and the re-export list no longer says the codec
   traits are re-exported "eventually" — they already are.
 
+### Fixed — SPRMIB reporting
+
+`Request::is_positive_response_suppressed` returned `bool`, and its match fell through
+`_ => false` for everything it did not name. Every `Request::Other` therefore reported "not
+suppressed", which is indistinguishable from the correct answer for a service that genuinely has
+no sub-function. For a vendor-specific service sent fire-and-forget that is wrong on the wire: a
+session layer reads it as response-expected, starts `tP_Client`, times out, and ISO 14229-2
+Table 9 retries the request twice.
+
+**Breaking:** the method now returns `Option<bool>`. `None` means the question has no answer —
+either the service identifier is not one ISO 14229-1 assigns, or the service has a sub-function
+but the frame carries no payload byte to read it from. Callers who cannot supply the answer
+themselves should treat `None` as response-expected, which is the old behaviour, but the choice
+is now theirs to make explicitly.
+
+Services this crate enumerates but does not model still get a real answer, because whether a
+service carries a sub-function is a fact of the standard rather than of this crate's coverage.
+The new `UdsServiceType::has_sub_function` states it for all 26 services the 2020 edition
+defines, so a `0x2C` `DynamicallyDefineDataIdentifier` request reports its SPRMIB even though it
+decodes to `Request::Other`.
+
+`AccessTimingParameters` (`0x83`) is the one enumerated variant that reports `None`. The 2020
+edition withdrew the service, and the variant is retained only so a 2013-era `0x83`/`0xC3` byte
+round-trips as itself — so answering from the 2013 edition would state a fact the rest of the
+table is not drawn from. Every value in that table was checked against the ISO 14229-1:2020 text
+rather than inferred from this crate's existing behaviour.
+
+`Request::allowed_nack_codes` keeps reporting "unknown" as an empty slice and is unchanged: no
+service has an empty table of listed codes, so that sentinel cannot be mistaken for a real
+answer. `false` had no such property, which is the reason only one of the two moved to `Option`.
+
 ### Added
 
 - `NegativeResponse::new_with_sid(request_service_sid, nrc)`, the construction-side counterpart
