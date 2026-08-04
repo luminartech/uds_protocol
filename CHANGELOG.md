@@ -256,11 +256,13 @@ The new `UdsServiceType::has_sub_function` states it for all 26 services the 202
 defines, so a `0x2C` `DynamicallyDefineDataIdentifier` request reports its SPRMIB even though it
 decodes to `Request::Other`.
 
-`AccessTimingParameters` (`0x83`) is the one enumerated variant that reports `None`. The 2020
-edition withdrew the service, and the variant is retained only so a 2013-era `0x83`/`0xC3` byte
-round-trips as itself — so answering from the 2013 edition would state a fact the rest of the
-table is not drawn from. Every value in that table was checked against the ISO 14229-1:2020 text
-rather than inferred from this crate's existing behaviour.
+`AccessTimingParameters` (`0x83`) is the only variant with an ISO-assigned request SID that
+reports `None`; the other two, `NegativeResponse` and `UnsupportedDiagnosticService`, are not
+assigned request services at all. The 2020 edition withdrew `AccessTimingParameters`, and the
+variant is retained only so a 2013-era `0x83`/`0xC3` byte round-trips as itself — so answering
+from the 2013 edition would state a fact the rest of the table is not drawn from. Every value in
+that table was checked against the ISO 14229-1:2020 text rather than inferred from this crate's
+existing behaviour.
 
 `Request::allowed_nack_codes` keeps reporting "unknown" as an empty slice and is unchanged: no
 service has an empty table of listed codes, so that sentinel cannot be mistaken for a real

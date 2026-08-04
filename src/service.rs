@@ -319,10 +319,10 @@ impl UdsServiceType {
     ///   practice.
     /// - [`UdsServiceType::NegativeResponse`], which is not a request service at all.
     /// - [`UdsServiceType::AccessTimingParameters`]. The 2020 edition, which this crate targets,
-    ///   withdrew the service; the variant is retained only so a 2013-era `0x83`/`0xC3` byte
-    ///   round-trips as itself. The 2013 edition did give it a sub-function, but reporting that
-    ///   here would state a fact from an edition the rest of this table is not drawn from, so
-    ///   the answer is deferred to the caller.
+    ///   withdrew the service; the variant is retained only so a pre-2020 `0x83`/`0xC3` byte
+    ///   round-trips as itself. Whether an earlier edition gave it a sub-function is not a fact
+    ///   this table draws from — every other entry is checked against the 2020 text alone — so
+    ///   the answer is deferred to the caller rather than asserted here.
     #[must_use]
     pub const fn has_sub_function(self) -> Option<bool> {
         match self {

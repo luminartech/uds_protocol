@@ -562,6 +562,14 @@ mod tests {
                 "frame {frame:02X?} decoded to Other; the table needs updating"
             );
             let service = req.service();
+            if service.has_sub_function() == Some(true) {
+                assert!(
+                    frame[1] & 0x80 != 0,
+                    "frame {frame:02X?} for {service:?} does not set bit 7 of the sub-function \
+                     byte; `modeled_frames` must set the SPRMIB on every sub-function service, \
+                     or this test cannot detect a flipped sub-function table entry"
+                );
+            }
             let suppressed = req.is_positive_response_suppressed();
             assert!(
                 suppressed.is_some(),
