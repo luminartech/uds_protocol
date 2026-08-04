@@ -37,6 +37,42 @@ fn a_tester_can_still_request_an_unmodeled_read_dtc_information_sub_function() {
 }
 
 #[test]
+fn a_session_layer_can_tell_not_suppressed_from_cannot_say() {
+    // The distinction this method exists to make, checked from outside the crate. ISO 14229-2
+    // clause 10.3 gates tP3_Client_Phys on the SPRMIB, and whether a response is expected
+    // decides whether tP_Client starts at all -- so a caller has to be able to reach all three
+    // answers, not just the two a `bool` could express.
+    use uds_protocol::{Decode, Request, UdsServiceType};
+
+    // Modeled, has a sub-function, bit clear: a definite "expect a response".
+    let (modeled, _) = Request::decode(&[0x11, 0x01]).expect("EcuReset hard reset");
+    assert_eq!(modeled.is_positive_response_suppressed(), Some(false));
+
+    // Modeled, has a sub-function, bit set: a definite "do not wait".
+    let (suppressed, _) = Request::decode(&[0x11, 0x81]).expect("EcuReset with SPRMIB");
+    assert_eq!(suppressed.is_positive_response_suppressed(), Some(true));
+
+    // Enumerated but unmodeled: still answerable, because the sub-function is a fact of the
+    // standard even where the payload is not modeled.
+    let (unmodeled, _) = Request::decode(&[0x2C, 0x81, 0xF3, 0x00]).expect("DDDI with SPRMIB");
+    assert_eq!(unmodeled.is_positive_response_suppressed(), Some(true));
+
+    // Vendor-specific: unknown, and the caller must supply the answer itself.
+    let (vendor, _) = Request::decode(&[0x40, 0xAA]).expect("unassigned SIDs pass through");
+    assert_eq!(vendor.is_positive_response_suppressed(), None);
+
+    // The fact behind all of the above is reachable on its own, for a caller building a
+    // dispatch table rather than inspecting a decoded frame. It is `const`, so it can be one.
+    const ECU_RESET: Option<bool> = UdsServiceType::EcuReset.has_sub_function();
+    assert_eq!(ECU_RESET, Some(true));
+    assert_eq!(UdsServiceType::TransferData.has_sub_function(), Some(false));
+    assert_eq!(
+        UdsServiceType::from_request_sid(0x40).has_sub_function(),
+        None
+    );
+}
+
+#[test]
 fn dtc_fault_detection_counter_record_is_constructible_downstream() {
     // This is the `Item` type of a public iterator and is re-exported at the crate root so
     // callers can name it. Without a constructor, `#[non_exhaustive]` made the only way to
