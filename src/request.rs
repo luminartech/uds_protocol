@@ -345,7 +345,10 @@ mod tests {
         assert_eq!(suppressed.is_positive_response_suppressed(), Some(true));
 
         let not_suppressed = Request::EcuReset(EcuResetRequest::new(false, ResetType::HardReset));
-        assert_eq!(not_suppressed.is_positive_response_suppressed(), Some(false));
+        assert_eq!(
+            not_suppressed.is_positive_response_suppressed(),
+            Some(false)
+        );
     }
 
     #[test]
@@ -359,7 +362,10 @@ mod tests {
         assert_eq!(suppressed.is_positive_response_suppressed(), Some(true));
 
         let (not_suppressed, _) = Request::decode(&[0x2C, 0x01, 0xF3, 0x00]).unwrap();
-        assert_eq!(not_suppressed.is_positive_response_suppressed(), Some(false));
+        assert_eq!(
+            not_suppressed.is_positive_response_suppressed(),
+            Some(false)
+        );
     }
 
     #[test]
@@ -418,6 +424,98 @@ mod tests {
         assert_eq!(&buf[..written], &wire);
     }
 
+    /// One minimal-but-valid frame per modeled service, paired with the NRC table that service
+    /// must dispatch to.
+    ///
+    /// Shared by `allowed_nack_codes_dispatches_for_every_modeled_variant` and
+    /// `every_modeled_variant_agrees_with_the_sub_function_table` so the two cannot drift apart.
+    /// A function rather than a `const`, because `allowed_nack_codes` is not a `const fn`.
+    ///
+    /// Every service that has a sub-function has bit 7 of that byte SET. That is load-bearing
+    /// for the sub-function assertion: with the bit clear every service answers `Some(false)`,
+    /// so a flipped table entry would go unnoticed. Setting it changes neither which service a
+    /// frame decodes to nor its NRC table, so the NRC assertions are indifferent to it.
+    ///
+    /// Two pairs are deliberately indistinguishable, and that is correct rather than a gap: ISO
+    /// gives `CommunicationControl` and `ControlDTCSetting` the same four codes, and Tables 444
+    /// and 449 give `RequestDownload` and `RequestUpload` the same six. Swapping either pair's
+    /// rows is unobservable because the answer is the same.
+    fn modeled_frames() -> [(&'static [u8], &'static [NegativeResponseCode]); 16] {
+        [
+            // ClearDiagnosticInfo, no sub-function
+            (
+                &[0x14, 0xFF, 0xFF, 0xFF, 0x00],
+                ClearDiagnosticInfoRequest::allowed_nack_codes(),
+            ),
+            // CommunicationControl, EnableRxAndTx + SPRMIB
+            (
+                &[0x28, 0x80, 0x01],
+                CommunicationControlRequest::allowed_nack_codes(),
+            ),
+            // ControlDtcSetting, On + SPRMIB
+            (
+                &[0x85, 0x81],
+                ControlDtcSettingRequest::allowed_nack_codes(),
+            ),
+            // DiagnosticSessionControl, DefaultSession + SPRMIB
+            (
+                &[0x10, 0x81],
+                DiagnosticSessionControlRequest::allowed_nack_codes(),
+            ),
+            // EcuReset, HardReset + SPRMIB
+            (&[0x11, 0x81], EcuResetRequest::allowed_nack_codes()),
+            // ReadDataByIdentifier, no sub-function
+            (
+                &[0x22, 0xF1, 0x90],
+                ReadDataByIdentifierRequest::allowed_nack_codes(),
+            ),
+            // ReadDtcInfo, ReportDtcByStatusMask + SPRMIB
+            (
+                &[0x19, 0x82, 0xFF],
+                ReadDtcInfoRequest::allowed_nack_codes(),
+            ),
+            // RequestDownload, no sub-function
+            (
+                &[0x34, 0x00, 0x12, 0xBE, 0xEF, 0x10],
+                RequestDownloadRequest::allowed_nack_codes(),
+            ),
+            // RequestFileTransfer, no sub-function
+            (
+                &[0x38, 0x02, 0x00, 0x01, b'a'],
+                RequestFileTransferRequest::allowed_nack_codes(),
+            ),
+            // RequestUpload, no sub-function
+            (
+                &[0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10],
+                RequestUploadRequest::allowed_nack_codes(),
+            ),
+            // RequestTransferExit, no sub-function
+            (&[0x37], RequestTransferExitRequest::allowed_nack_codes()),
+            // RoutineControl, StartRoutine + SPRMIB
+            (
+                &[0x31, 0x81, 0xFF, 0x00],
+                RoutineControlRequest::allowed_nack_codes(),
+            ),
+            // SecurityAccess, RequestSeed + SPRMIB
+            (
+                &[0x27, 0x81, 0xAA],
+                SecurityAccessRequest::allowed_nack_codes(),
+            ),
+            // TesterPresent, ZeroSubFunction + SPRMIB
+            (&[0x3E, 0x80], TesterPresentRequest::allowed_nack_codes()),
+            // TransferData, no sub-function
+            (
+                &[0x36, 0x01, 0xAA],
+                TransferDataRequest::allowed_nack_codes(),
+            ),
+            // WriteDataByIdentifier, no sub-function
+            (
+                &[0x2E, 0xF1, 0x90, 0x01],
+                WriteDataByIdentifierRequest::allowed_nack_codes(),
+            ),
+        ]
+    }
+
     #[test]
     fn allowed_nack_codes_dispatches_for_every_modeled_variant() {
         // Every one of the 16 request types has an inherent `allowed_nack_codes()`, but
@@ -428,68 +526,7 @@ mod tests {
         // Each frame is paired with the inherent table it must dispatch to. Asserting only
         // `!is_empty()` made the test vacuous: every modeled service has a non-empty table, so
         // any arm could return any *other* service's set and still pass.
-        //
-        // Two pairs remain indistinguishable, and that is correct rather than a gap: ISO gives
-        // CommunicationControl and ControlDTCSetting the same four codes, and Tables 444 and 449
-        // give RequestDownload and RequestUpload the same six. Swapping either pair's arms is
-        // unobservable because the answer is the same, so there is nothing here to pin.
-        let frames: [(&[u8], &'static [NegativeResponseCode]); 16] = [
-            (
-                &[0x14, 0xFF, 0xFF, 0xFF, 0x00],
-                ClearDiagnosticInfoRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x28, 0x00, 0x01],
-                CommunicationControlRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x85, 0x01],
-                ControlDtcSettingRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x10, 0x01],
-                DiagnosticSessionControlRequest::allowed_nack_codes(),
-            ),
-            (&[0x11, 0x01], EcuResetRequest::allowed_nack_codes()),
-            (
-                &[0x22, 0xF1, 0x90],
-                ReadDataByIdentifierRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x19, 0x02, 0xFF],
-                ReadDtcInfoRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x34, 0x00, 0x12, 0xBE, 0xEF, 0x10],
-                RequestDownloadRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x38, 0x02, 0x00, 0x01, b'a'],
-                RequestFileTransferRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x35, 0x00, 0x12, 0xBE, 0xEF, 0x10],
-                RequestUploadRequest::allowed_nack_codes(),
-            ),
-            (&[0x37], RequestTransferExitRequest::allowed_nack_codes()),
-            (
-                &[0x31, 0x01, 0xFF, 0x00],
-                RoutineControlRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x27, 0x01, 0xAA],
-                SecurityAccessRequest::allowed_nack_codes(),
-            ),
-            (&[0x3E, 0x00], TesterPresentRequest::allowed_nack_codes()),
-            (
-                &[0x36, 0x01, 0xAA],
-                TransferDataRequest::allowed_nack_codes(),
-            ),
-            (
-                &[0x2E, 0xF1, 0x90, 0x01],
-                WriteDataByIdentifierRequest::allowed_nack_codes(),
-            ),
-        ];
+        let frames = modeled_frames();
         for (frame, expected) in frames {
             let (req, _) = Request::decode(frame).unwrap_or_else(|e| {
                 panic!("frame {frame:02X?} should decode, got {e:?}");
@@ -503,6 +540,41 @@ mod tests {
                 expected,
                 "{:?} dispatched to the wrong NRC table",
                 req.service()
+            );
+        }
+    }
+
+    #[test]
+    fn every_modeled_variant_agrees_with_the_sub_function_table() {
+        // `has_sub_function` and the match in `is_positive_response_suppressed` are two copies
+        // of one ISO fact, and nothing else stops them from drifting. This ties them together as
+        // a biconditional: the table says a service has a sub-function exactly when the dispatch
+        // reports a set SPRMIB for a frame that sets one.
+        //
+        // `modeled_frames` sets the SPRMIB on every service that has one, which is what makes
+        // the equality below meaningful in both directions.
+        for (frame, _) in modeled_frames() {
+            let (req, _) = Request::decode(frame).unwrap_or_else(|e| {
+                panic!("frame {frame:02X?} should decode, got {e:?}");
+            });
+            assert!(
+                !matches!(req, Request::Other { .. }),
+                "frame {frame:02X?} decoded to Other; the table needs updating"
+            );
+            let service = req.service();
+            let suppressed = req.is_positive_response_suppressed();
+            assert!(
+                suppressed.is_some(),
+                "{service:?} is modeled, so its SPRMIB is never unknown"
+            );
+            // The frames set the SPRMIB wherever the service has a sub-function to set it in, so
+            // the two must be equal: `Some(true)` for the eight services that have one,
+            // `Some(false)` for the eight that do not. Any table entry flipped either way breaks
+            // this.
+            assert_eq!(
+                suppressed,
+                service.has_sub_function(),
+                "{service:?}: dispatch and sub-function table disagree"
             );
         }
     }
