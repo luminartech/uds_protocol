@@ -9,6 +9,7 @@ use crate::{
         SecurityAccessRequest, TesterPresentRequest, TransferDataRequest,
         WriteDataByIdentifierRequest,
     },
+    shared::split_sprmib,
 };
 use automotive_wire_codec::{write_all, write_u8};
 
@@ -179,18 +180,71 @@ impl Encode for Request<'_> {
 
 impl Request<'_> {
     /// Whether the positive response for this request is suppressed (SPRMIB).
+    ///
+    /// Only services ISO 14229-1 gives a sub-function can suppress a positive response, because
+    /// the suppressPosRspMsgIndicationBit is bit 7 of that sub-function byte. For a service with
+    /// no sub-function the answer is a definite `Some(false)`.
+    ///
+    /// # `None` means the question has no answer, not that it was not asked
+    ///
+    /// Returns `None` in exactly three situations, all of which are genuinely unanswerable
+    /// rather than merely unmodeled:
+    ///
+    /// - The service identifier is not one ISO 14229-1 assigns — the vendor-specific case. The
+    ///   crate has no basis for an answer, and a caller who needs one has to supply it from the
+    ///   application that originated the request.
+    /// - The service has a sub-function but the payload is empty, so the byte holding the SPRMIB
+    ///   is not present. Such a frame is malformed for its service; either way there is no bit
+    ///   to report.
+    /// - The service identifier is `0x83`, whose service the 2020 edition withdrew. See
+    ///   [`UdsServiceType::has_sub_function`] for why that answer is deferred to the caller
+    ///   rather than taken from the 2013 edition.
+    ///
+    /// A service this crate enumerates but does not model still gets a real answer, because
+    /// whether it carries a sub-function is a fact of the standard: see
+    /// [`UdsServiceType::has_sub_function`]. So a `0x2C`
+    /// [`DynamicallyDefineDataIdentifier`](UdsServiceType::DynamicallyDefineDataIdentifier)
+    /// request reports its SPRMIB even though it decodes to [`Request::Other`].
+    ///
+    /// # Why this is `Option` when [`Request::allowed_nack_codes`] is not
+    ///
+    /// `allowed_nack_codes` reports "unknown" as an empty slice and documents it, which works
+    /// because no service has an empty table of listed codes — the sentinel cannot be confused
+    /// with a real answer. `false` has no such property: fourteen services genuinely have no
+    /// sub-function, so a bare `bool` cannot distinguish them from a service the crate knows
+    /// nothing about. That distinction has teeth at a layer boundary. ISO 14229-2 clause 10.3
+    /// gates `tP3_Client_Phys` on this bit, and whether a response is expected decides whether
+    /// `tP_Client` starts at all — so answering `false` for a fire-and-forget vendor request
+    /// costs three transmissions of a request nobody wanted answered, per Table 9 retries.
     #[must_use]
-    pub fn is_positive_response_suppressed(&self) -> bool {
+    pub fn is_positive_response_suppressed(&self) -> Option<bool> {
         match self {
-            Self::CommunicationControl(req) => req.suppress_positive_response,
-            Self::ControlDtcSetting(req) => req.suppress_positive_response,
-            Self::DiagnosticSessionControl(req) => req.suppress_positive_response,
-            Self::EcuReset(req) => req.suppress_positive_response,
-            Self::ReadDtcInfo(req) => req.suppress_positive_response,
-            Self::RoutineControl(req) => req.suppress_positive_response,
-            Self::SecurityAccess(req) => req.suppress_positive_response,
-            Self::TesterPresent(req) => req.suppress_positive_response,
-            _ => false,
+            Self::CommunicationControl(req) => Some(req.suppress_positive_response),
+            Self::ControlDtcSetting(req) => Some(req.suppress_positive_response),
+            Self::DiagnosticSessionControl(req) => Some(req.suppress_positive_response),
+            Self::EcuReset(req) => Some(req.suppress_positive_response),
+            Self::ReadDtcInfo(req) => Some(req.suppress_positive_response),
+            Self::RoutineControl(req) => Some(req.suppress_positive_response),
+            Self::SecurityAccess(req) => Some(req.suppress_positive_response),
+            Self::TesterPresent(req) => Some(req.suppress_positive_response),
+            // The modeled services ISO gives no sub-function. Spelled out rather than folded
+            // into a wildcard: a wildcard is what made every unrecognized service silently
+            // report `false`, and it would do the same to the next variant added here.
+            Self::ClearDiagnosticInfo(_)
+            | Self::ReadDataByIdentifier(_)
+            | Self::RequestDownload(_)
+            | Self::RequestFileTransfer(_)
+            | Self::RequestTransferExit(_)
+            | Self::RequestUpload(_)
+            | Self::TransferData(_)
+            | Self::WriteDataByIdentifier(_) => Some(false),
+            Self::Other { data, .. } => {
+                if self.service().has_sub_function()? {
+                    data.first().copied().map(|byte| split_sprmib(byte).0)
+                } else {
+                    Some(false)
+                }
+            }
         }
     }
 
@@ -288,10 +342,56 @@ mod tests {
     #[test]
     fn suppression_forwards_to_inner_request() {
         let suppressed = Request::EcuReset(EcuResetRequest::new(true, ResetType::HardReset));
-        assert!(suppressed.is_positive_response_suppressed());
+        assert_eq!(suppressed.is_positive_response_suppressed(), Some(true));
 
         let not_suppressed = Request::EcuReset(EcuResetRequest::new(false, ResetType::HardReset));
-        assert!(!not_suppressed.is_positive_response_suppressed());
+        assert_eq!(not_suppressed.is_positive_response_suppressed(), Some(false));
+    }
+
+    #[test]
+    fn suppression_is_read_from_the_sub_function_of_an_unmodeled_service() {
+        // 0x2C DynamicallyDefineDataIdentifier is enumerated but unmodeled, so it decodes to
+        // `Other`. It does have a sub-function, so bit 7 of the first payload byte is its
+        // SPRMIB and the crate can answer even though it does not model the payload.
+        // Sub-function 0x01 defineByIdentifier, with and without the bit.
+        let (suppressed, _) = Request::decode(&[0x2C, 0x81, 0xF3, 0x00]).unwrap();
+        assert!(matches!(suppressed, Request::Other { .. }));
+        assert_eq!(suppressed.is_positive_response_suppressed(), Some(true));
+
+        let (not_suppressed, _) = Request::decode(&[0x2C, 0x01, 0xF3, 0x00]).unwrap();
+        assert_eq!(not_suppressed.is_positive_response_suppressed(), Some(false));
+    }
+
+    #[test]
+    fn an_unmodeled_service_without_a_sub_function_is_never_suppressed() {
+        // 0x23 ReadMemoryByAddress is enumerated but unmodeled, and ISO gives it no
+        // sub-function -- so there is no SPRMIB anywhere in the frame and the answer is a
+        // definite `Some(false)`, whatever the payload bytes happen to be. 0xAA has bit 7 set,
+        // which would read as "suppressed" if the payload were mistaken for a sub-function.
+        let (req, _) = Request::decode(&[0x23, 0xAA, 0xBB]).unwrap();
+        assert!(matches!(req, Request::Other { .. }));
+        assert_eq!(req.is_positive_response_suppressed(), Some(false));
+    }
+
+    #[test]
+    fn suppression_is_unknown_for_a_vendor_specific_service() {
+        // 0x40 is not in the ISO request table, so it is presumably vendor-specific and the
+        // crate has no basis for an answer. This is the case the `Option` exists for: reporting
+        // `false` here made a fire-and-forget vendor request look response-expected, so a
+        // session layer started tP_Client, timed out, and retried it twice.
+        let (req, _) = Request::decode(&[0x40, 0xAA, 0xBB]).unwrap();
+        assert!(matches!(req, Request::Other { .. }));
+        assert_eq!(req.is_positive_response_suppressed(), None);
+    }
+
+    #[test]
+    fn suppression_is_unknown_when_the_sub_function_byte_is_absent() {
+        // 0x2C has a sub-function, but this frame carries no payload -- so the byte the SPRMIB
+        // lives in is not on the wire. The frame is malformed for the service; either way there
+        // is no bit to report, so the answer is unknown rather than `Some(false)`.
+        let (req, _) = Request::decode(&[0x2C]).unwrap();
+        assert!(matches!(req, Request::Other { data, .. } if data.is_empty()));
+        assert_eq!(req.is_positive_response_suppressed(), None);
     }
 
     #[test]
@@ -312,7 +412,7 @@ mod tests {
         let wire = [0x31, 0x81, 0xFF, 0x00, 0xAA];
         let (req, rest) = Request::decode(&wire).unwrap();
         assert!(rest.is_empty());
-        assert!(req.is_positive_response_suppressed());
+        assert_eq!(req.is_positive_response_suppressed(), Some(true));
         let mut buf = [0u8; 8];
         let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..written], &wire);

@@ -220,8 +220,8 @@ mod read_dtc_info_request_encode_tests {
         // reportDTCByStatusMask used to be rejected with TrailingBytes, because the raw 0x82
         // fell through to IsoSaeReserved, which consumes no payload.
         for (wire, suppressed) in [
-            ([0x19, 0x02, 0xFF].as_slice(), false),
-            ([0x19, 0x82, 0xFF].as_slice(), true),
+            ([0x19, 0x02, 0xFF].as_slice(), Some(false)),
+            ([0x19, 0x82, 0xFF].as_slice(), Some(true)),
         ] {
             let (req, _) = crate::Request::decode(wire).unwrap();
             assert_eq!(
