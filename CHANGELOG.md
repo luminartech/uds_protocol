@@ -9,6 +9,241 @@ pre-1.0 crates).
 
 ## [Unreleased]
 
+## [0.1.0](https://github.com/luminartech/uds_protocol/compare/v0.0.2...v0.1.0) - 2026-08-10
+
+### Added
+
+- state whether each ISO service has a sub-function
+- let clients choose the transfer field widths, document routineInfo
+- derive serde/utoipa for the RequestTransferExit types
+- \[**breaking**\] add #[non_exhaustive] to the remaining growable public types
+- model RequestUpload (0x35 / 0x75)
+- dispatch allowed_nack_codes from the Request enum
+- map decode errors to the NRC a server should return
+- expose the data format identifier on RequestDownloadRequest
+- absorb codec width-helper errors into Error
+- \[**breaking**\] restructure Error around automotive-wire-codec Incomplete/TrailingBytes
+- named ReadDataByIdentifierResponse type for Response symmetry
+- named ClearDiagnosticInfoResponse type for Response symmetry
+- allowed_nack_codes for RequestFileTransfer, RequestTransferExit, TransferData
+- allowed_nack_codes for ControlDTCSettings, ReadDTCInfo, RoutineControl
+- Eq + const new on ReadDTCInfo types; Eq on DTCFormatIdentifier
+- derive Eq across RequestFileTransfer types
+- derive Eq on ControlDTCSettingsResponse
+- serde/utoipa on WriteDataByIdentifier request/response
+- serde/utoipa on SecurityAccess request/response
+- serde/utoipa on RoutineControl request/response
+- serde + Eq on RequestDownload request/response
+- non_exhaustive on ReadDataByIdentifierRequest; document serde+utoipa carve-out
+- full derive block on TransferData request/response
+- *(ci)* Initial CI impl.
+
+### Changed
+
+- \[**breaking**\] take an addressAndLengthFormatIdentifier instead of two loose widths
+- replace the TesterPresent serde reprs with three field attributes
+- \[**breaking**\] seal only what bears an invariant, and make the seals hold
+- \[**breaking**\] seal the reserved variants that could alias a named one
+- \[**breaking**\] remove two duplicated-state traps
+- make byte extraction const, and add PartialEq to the frame types
+- \[**breaking**\] close the remaining API-shape gaps
+- finish the const-fn, accessor and rustdoc consistency pass
+- \[**breaking**\] wire-order DataFormatIdentifier::new, document decode remainders
+- \[**breaking**\] make encapsulation follow one predictable rule
+- \[**breaking**\] rename DtcSeverityAndStatusIter to WwhObdDtcSeverityIter
+- \[**breaking**\] apply C-CASE acronym convention to all type and variant names
+- \[**breaking**\] give UdsServiceType symmetric SID conversion names
+- derive encode byte counts from codec write helpers
+- \[**breaking**\] migrate to automotive-wire-codec 0.3 traits
+- \[**breaking**\] use codec width helpers, remove param_length\_\*
+- encode returns counted bytes, not self.encoded_size()
+- standardize newtype accessor on const value()
+
+### Documentation
+
+- stop has_sub_function's None bullet from citing an unsourced 2013 fact
+- record the SPRMIB reporting change
+- give maxNumberOfBlockLength the meaning each service actually assigns it
+- drop two redundant explicit link targets
+- correct claims that were not true, including my own
+- self-review fixes — consolidate CHANGELOG, widen iterator tests
+- changelog + test polish for wire-codec 0.3 migration
+- update for reshaped API surface
+- document NegativeResponse echoed-service normalization edge
+- document the modeled vs pass-through service coverage boundary
+- document runtime-agnostic integration model and borrow semantics
+- document the Decode remainder / borrow contract
+
+### Fixed
+
+- *(lint)* move const above statements; finalize changelog for single 0.1.0
+- \[**breaking**\] report unknown SPRMIB as None instead of not-suppressed
+- \[**breaking**\] encapsulate the three length-bounded borrowed fields
+- make the generated OpenAPI document correct, and test that it is
+- \[**breaking**\] undo four changes the churn audit found wrong
+- \[**breaking**\] route the composite requests' serde through their constructors
+- \[**breaking**\] stop serde from bypassing byte-range validation
+- \[**breaking**\] decode the subnet nibble of CommunicationControl's communicationType
+- \[**breaking**\] complete ControlDTCSetting's request model
+- \[**breaking**\] align three services' error and length handling with the spec
+- give DtcFaultDetectionCounterRecord a constructor
+- \[**breaking**\] add the mandatory DTCFormatIdentifier to the DTC count response
+- \[**breaking**\] handle SPRMIB and MemorySelection in ReadDTCInformation
+- \[**breaking**\] model ECUReset's powerDownTime as conditional
+- accept every addressAndLengthFormatIdentifier ISO permits
+- \[**breaking**\] model ClearDiagnosticInformation's memorySelection as optional
+- \[**breaking**\] reject misaligned DTC record lists at decode
+- stop the DTC iterators looping forever on a partial record
+- \[**breaking**\] stop TesterPresentRequest rewriting reserved sub-function bytes
+- \[**breaking**\] make the optional-integration features compile standalone
+- make DTCFaultDetectionCounterRecord reachable from the crate root
+- *(ci)* let the coverage job run the property tests it was excluding
+- rename test bindings to satisfy clippy::similar_names
+- address final-review findings (strict ClearDiagnosticInfo decode test, docs, fmt)
+- fix plan clippy gate to match CI (no -D warnings / --all-targets)
+- fix clippy doc_markdown warnings introduced by no_std refactor
+- fix rustdoc unresolved intra-doc link warnings
+- fix serde Deserialize on borrowed file-transfer enums and a dead import
+- fix bug with payload size of ProtocolRoutinePayload
+
+### Other
+
+- Update cargo lock and .gitignore
+- .gitignore omniscient files
+- ignore semantic search config
+- cargo fmt
+- Make SecurityAccess levels SPRMIB-safe by construction; fix decode comment
+- cargo fmt... --all
+- add tooling to .gitignore
+- Flatten remaining non-invariant request/response data bags
+- Flatten suppressable request structs into public data bags
+- Address PR review doc/test nits
+- Preserve the raw echoed SID in NegativeResponse for lossless round-trips
+- Apply mdformat to markdown (README + planning/spec docs)
+- Apply rustfmt to review-fix edits
+- Harmonize len()/is_empty() across the DTC iterators
+- Add value() to DTCStoredDataRecordNumber for RX inspection
+- Document ReadDTCInfo partial coverage and the severity-list record format
+- Drop misleading repr(u16) from UDSRoutineIdentifier; prove totality
+- Align RoutineControl response accessor name with the request
+- Unify field visibility: encapsulate iff invariant-bearing
+- Carry the offending byte on an invalid DtcSettings value
+- Tidy UdsServiceType: dedupe doc, align byte-converter receivers
+- Remove dead DTC code
+- Make the simple service constructors const fn
+- Add #[non_exhaustive] to the four outlier request/response structs
+- Document why the ReadDataByIdentifier response stays raw
+- Derive file-transfer length prefixes from the data
+- Expose DataFormatIdentifier from the crate root
+- Make CommunicationControl constructors fallible
+- Fix clippy pedantic lints in tests under stricter rebased CI gate
+- remove dead InvalidDiagnosticIdentifierPayload error variant
+- remove unused PENDING constant (use NegativeResponseCode instead)
+- ControlDTCSettings onto SuppressablePositiveResponse; remove SUCCESS const
+- descriptors carry the optional parameter record
+- bidirectional Dids backing; drop last Tx suffix
+- RoutineControl req/resp: typed u16 routine_id + opaque record
+- typed u16 identifier + opaque data
+- Other carries raw sid for lossless pass-through; add Response::service()
+- rebuild UDSIdentifier as faithful total From<u16>; drop identifier-enum codecs
+- also check actual bytes consumed
+- relocate single-service enums into their service modules
+- extract dtc/ domain module from shared/
+- rename common/ module to shared/ (no behavior change)
+- add implementation plan for the pre-merge API interrogation
+- expand interrogation design doc with implementation-detail resolutions
+- add pre-merge public-API interrogation resolutions design doc
+- add Decode for DTC params and ReadDTCInfoRequest; wrap Request::ReadDTCInfo
+- wrap RoutineControl in descriptors; round-trip SPRMIB via SuppressablePositiveResponse
+- wrap WriteDataByIdentifier request/response in their descriptor types
+- merge identical signed/unsigned primitive codec macros
+- dedup variable-length big-endian integer codec into util helpers
+- rename bidirectional descriptor types: drop misleading Tx/Rx suffixes
+- add Phase 2 implementation plan (API consistency)
+- add API consistency Phase 2 design doc
+- add crate-root integration tests for completed descriptor types
+- add Decode for WriteDataByIdentifierResponse (2-byte round-trip)
+- implement Encode for ReadDTCInfoSubFunction and ReadDTCInfoRequest
+- add Encode to DTC parameter types; fix FunctionalGroupIdentifier::value panic
+- make crate-root re-exports explicit (drop glob re-exports)
+- add Phase 1 implementation plan (API exposure & consistency)
+- add API exposure & consistency design doc
+- drop unused Vec import in request_download tests
+- gate Vec-using tests behind alloc so the no_std test matrix compiles
+- correct README scope: embedded-first no_std codec
+- move service-coverage docs into published README docs
+- assert encode/encoded_size agreement across all services
+- add symmetric Other escape hatch; drop UdsResponse + ServiceNotImplemented
+- move is_positive_response_suppressed off the Encode trait
+- remove Identifier machinery; add direct codec to UDS identifiers
+- delete protocol_definitions module (ProtocolIdentifier/PayloadTx)
+- remove orphaned DiagnosticDefinition trait and UdsSpec
+- de-genericize RoutineControl to raw-bytes RoutineControl\*Tx types
+- de-genericize WriteDataByIdentifier to raw bytes + u16 response
+- de-genericize ReadDataByIdentifierRequestTx to &[u16]
+- add encode/encoded_size agreement test helper
+- add no_std API alignment implementation plan
+- elevate C-developer simplicity to a first-class principle in spec
+- add no_std API alignment design spec
+- reject trailing bytes when decoding Request/Response
+- forward is_positive_response_suppressed in Request
+- make DiagnosticDefinition lifetime-generic
+- restore allowed_nack_codes on WriteDataByIdentifierRequest
+- clamp RequestDownload memory lengths to at least one byte
+- preserve error kind in From<std::io::Error>
+- simplify Identifier encode conversion
+- make crate buildable on bare-metal no_std targets
+- clean up dead code and add missing docs after trait removal
+- update all tests to use Encode/Decode traits
+- remove deprecated WireFormat traits and old Vec-based types
+- deprecate old WireFormat traits and add no_std API tests
+- add alloc-gated convenience methods on no_std types
+- add RequestRx/ResponseRx enums and DiagnosticDefinitionTx trait
+- add zero-copy RX types and lazy iterators for DTC responses
+- add zero-alloc TX types for variable-length services
+- implement Encode + Decode for fixed-size services and primitives
+- add Encode/Decode/DecodeIter traits and fix deps for no_std
+- Switch to using byteorder-embedded-io
+- prepare error type and dependencies for no_std
+- Fix clippy::cast_possible_truncation in file size validation
+- Run cargo fmt
+- More thinking about the error.
+- Fix errors.
+- Revert file.
+- Re-add TODO.
+- Revert inclusion of 0 as valid.
+- Revert bit masking changes.
+- Revert file.
+- Fix token.
+- Correct comment. Address review comments.
+- Pre-commit.
+- Address review comments.
+- Fix fuzz test errors.
+- Fix fuzzing. Fix semver checks.
+- Adjust release process.
+- Add publish workflow.
+- Fix fuzz test.
+- Fix CI errors.
+- cargo fmt
+- replace uds_protocol_derive proc-macro crate with macro_rules
+- make enums non_exhaustive to prevent breaking api changes
+- check msrv on CI
+- Updates for first crates.io release
+- Remove reference to internal issue
+- unify dependencies
+- Fix bug parsing optional value in EcuResetResponse
+- Add tests to verify sprmib functionality
+- Routine payloads are separate from DIDs. Add support
+- Document public functions
+- Fix trait impl sites
+- Address issues with base traits
+- standardize doc comments
+- Standardize doc comments in services module
+- Remove redundant dtc type, internal protocol type
+- Add exception for clippy line count
+- cargo fmt
+- Add not implemented error for diagnostic definition request & response
+
 ### Fixed — wire-format conformance
 
 Found by a review pass that checked the crate against the ISO 14229-1:2020 text rather than
