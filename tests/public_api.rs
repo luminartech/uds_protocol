@@ -44,6 +44,10 @@ fn a_session_layer_can_tell_not_suppressed_from_cannot_say() {
     // answers, not just the two a `bool` could express.
     use uds_protocol::{Decode, Request, UdsServiceType};
 
+    // The fact behind all of the above is reachable on its own, for a caller building a
+    // dispatch table rather than inspecting a decoded frame. It is `const`, so it can be one.
+    const ECU_RESET: Option<bool> = UdsServiceType::EcuReset.has_sub_function();
+
     // Modeled, has a sub-function, bit clear: a definite "expect a response".
     let (modeled, _) = Request::decode(&[0x11, 0x01]).expect("EcuReset hard reset");
     assert_eq!(modeled.is_positive_response_suppressed(), Some(false));
@@ -61,9 +65,6 @@ fn a_session_layer_can_tell_not_suppressed_from_cannot_say() {
     let (vendor, _) = Request::decode(&[0x40, 0xAA]).expect("unassigned SIDs pass through");
     assert_eq!(vendor.is_positive_response_suppressed(), None);
 
-    // The fact behind all of the above is reachable on its own, for a caller building a
-    // dispatch table rather than inspecting a decoded frame. It is `const`, so it can be one.
-    const ECU_RESET: Option<bool> = UdsServiceType::EcuReset.has_sub_function();
     assert_eq!(ECU_RESET, Some(true));
     assert_eq!(UdsServiceType::TransferData.has_sub_function(), Some(false));
     assert_eq!(

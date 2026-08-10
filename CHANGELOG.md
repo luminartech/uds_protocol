@@ -9,8 +9,6 @@ pre-1.0 crates).
 
 ## [Unreleased]
 
-These changes require at least a 0.1.0 -> 0.2.0 bump before the next release.
-
 ### Fixed — wire-format conformance
 
 Found by a review pass that checked the crate against the ISO 14229-1:2020 text rather than
@@ -149,11 +147,6 @@ symmetrically, which still round-trips. See the module doc for where the line fa
   `max_number_of_block_length` is behind an accessor. Its length becomes a single nibble, so it
   cannot exceed 15 bytes — a check that lived in `encode`, leaving a 16-byte slice constructible
   and only then unencodable, reachable through the public field as well.
-
-- **Breaking:** `LengthFormatIdentifier` no longer zeroes the low nibble of the
-  `lengthFormatIdentifier`, which ISO 14229-1 leaves undefined: `74 25 08 00` used to re-encode as
-  `74 20 08 00`. Same reasoning as the earlier `TesterPresentRequest` fix. Its property test had
-  generated `high_nibble << 4`, so the low nibble was always zero and the property held trivially.
 
 - **Breaking:** `NamePayload` no longer carries `mode_of_operation` — that is the
   `RequestFileTransferRequest` variant, and nothing kept the two in step. The field won, so
