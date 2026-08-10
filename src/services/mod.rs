@@ -4,7 +4,7 @@ pub use clear_dtc_information::{ClearDiagnosticInfoRequest, ClearDiagnosticInfoR
 mod communication_control;
 pub use communication_control::{
     CommunicationControlRequest, CommunicationControlResponse, CommunicationControlType,
-    CommunicationType,
+    CommunicationType, SubnetNumber,
 };
 
 mod control_dtc_settings;
@@ -28,12 +28,14 @@ pub use read_data_by_identifier::{ReadDataByIdentifierRequest, ReadDataByIdentif
 
 mod read_dtc_information;
 pub use read_dtc_information::{
-    DtcAndStatusIter, DtcFaultDetectionCounterRecord, DtcFaultDetectionIter,
-    DtcSeverityAndStatusIter, ReadDtcInfoRequest, ReadDtcInfoResponse, ReadDtcInfoSubFunction,
+    DtcAndStatusIter, DtcFaultDetectionCounterRecord, DtcFaultDetectionIter, ReadDtcInfoRequest,
+    ReadDtcInfoResponse, ReadDtcInfoSubFunction, WwhObdDtcSeverityIter,
 };
 
-mod request_download;
-pub use request_download::{RequestDownloadRequest, RequestDownloadResponse};
+mod upload_download;
+pub use upload_download::{
+    RequestDownloadRequest, RequestDownloadResponse, RequestUploadRequest, RequestUploadResponse,
+};
 
 mod request_file_transfer;
 pub use request_file_transfer::{

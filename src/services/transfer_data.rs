@@ -149,8 +149,6 @@ impl<'a> Decode<'a> for TransferDataResponse<'a> {
 mod request {
     use super::*;
     use crate::{Decode, Encode, NegativeResponseCode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
     #[test]
     fn test_allowed_nack_codes() {
@@ -179,15 +177,14 @@ mod request {
         assert_eq!(req.data, &[0x01, 0x02, 0x03, 0x04]);
     }
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn read_request() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
         let (req, _) = <TransferDataRequest as Decode>::decode(&bytes).unwrap();
 
-        let mut written_bytes = Vec::new();
-        let written = Encode::encode(&req, &mut written_bytes).unwrap();
-        assert_eq!(written, written_bytes.len());
+        let mut written_bytes = [0u8; 16];
+        let written = Encode::encode(&req, &mut written_bytes.as_mut_slice()).unwrap();
+        assert_eq!(&written_bytes[..written], &bytes);
         assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
@@ -197,18 +194,15 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn simple_response() {
         let bytes = [0x01, 0x02, 0x03, 0x04];
         let (resp, _) = <TransferDataResponse as Decode>::decode(&bytes).unwrap();
 
-        let mut written_bytes = Vec::new();
-        let written = Encode::encode(&resp, &mut written_bytes).unwrap();
-        assert_eq!(written, written_bytes.len());
+        let mut written_bytes = [0u8; 16];
+        let written = Encode::encode(&resp, &mut written_bytes.as_mut_slice()).unwrap();
+        assert_eq!(&written_bytes[..written], &bytes);
         assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);
     }

@@ -6,6 +6,7 @@ use automotive_wire_codec::write_u8;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum DtcExtDataRecordNumber {
     /// ISO/SAE reserved record numbers (`0x00`, `0xF0-0xFD`).
     IsoSaeReserved(u8),
@@ -36,7 +37,7 @@ pub enum DtcExtDataRecordNumber {
 impl DtcExtDataRecordNumber {
     /// Create a new `DtcExtDataRecordNumber` from a raw byte, mapping it to the correct variant.
     #[must_use]
-    pub fn new(value: u8) -> Self {
+    pub const fn new(value: u8) -> Self {
         match value {
             0x00 | 0xF0..=0xFD => Self::IsoSaeReserved(value),
             0x01..=0x8F => Self::VehicleManufacturer(value),

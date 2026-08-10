@@ -5,9 +5,16 @@ use crate::Encode;
 /// Assert that an [`Encode`] value writes exactly `encoded_size()` bytes — both the
 /// returned count AND the number of bytes actually consumed from the writer.
 ///
-/// Guards against `encode` and `encoded_size` drifting, and against `encode` returning
-/// a count that disagrees with how many bytes it actually wrote — either corrupts callers
-/// that pre-size a buffer from `encoded_size()`.
+/// **This says nothing about *which* bytes get written.** `encoded_size` is a provided method on
+/// [`Encode`] that counts by encoding into a sink, and no type in this crate overrides it, so
+/// every quantity compared here is derived from `encode` itself; the upstream `debug_assert!`
+/// inside `encoded_size` already catches a count that disagrees with the bytes written. What is
+/// left is a real but narrow guarantee: that `encode` is deterministic across two invocations,
+/// that its count matches a write into a real slice, and that the value fits the helper's buffer.
+///
+/// A call to this is therefore **not** byte-correctness coverage. Assert the expected bytes at
+/// the call site as well — the absence of that is what let a swapped pair of encoded fields, and
+/// a transposed pair of format-identifier nibbles, pass the whole suite.
 pub(crate) fn assert_encode_size_agrees<T: Encode>(value: &T)
 where
     T::Error: core::fmt::Debug,

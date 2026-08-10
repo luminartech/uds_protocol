@@ -9,6 +9,7 @@ use automotive_wire_codec::write_u8;
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum DtcSnapshotRecordNumber {
     /// Reserved for Legislative purposes
     Reserved(u8),
@@ -23,7 +24,7 @@ impl DtcSnapshotRecordNumber {
     /// (`0x00`/`0xF0`), `All` (`0xFF`), or `Number`. Every byte is accepted (decoding is
     /// deliberately liberal); no value is rejected.
     #[must_use]
-    pub fn new(record_number: u8) -> Self {
+    pub const fn new(record_number: u8) -> Self {
         match record_number {
             0x00 | 0xF0 => Self::Reserved(record_number),
             0xFF => Self::All,

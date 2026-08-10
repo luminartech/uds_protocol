@@ -13,8 +13,13 @@ use automotive_wire_codec::{write_all, write_u16_be};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct ReadDataByIdentifierResponse<'a> {
+    /// The raw `[DID][data record]…` bytes, to be parsed caller-side.
+    ///
+    /// Public: an opaque byte blob with no invariant to uphold, matching every other
+    /// response that carries one (`RequestDownloadResponse::max_number_of_block_length`,
+    /// `TransferDataResponse::data`, `RequestTransferExitResponse::parameter_record`, ...).
     #[cfg_attr(feature = "serde", serde(borrow))]
-    records: &'a [u8],
+    pub records: &'a [u8],
 }
 
 impl<'a> ReadDataByIdentifierResponse<'a> {
@@ -22,12 +27,6 @@ impl<'a> ReadDataByIdentifierResponse<'a> {
     #[must_use]
     pub const fn new(records: &'a [u8]) -> Self {
         Self { records }
-    }
-
-    /// The raw `[DID][data record]…` bytes, to be parsed caller-side.
-    #[must_use]
-    pub const fn records(&self) -> &'a [u8] {
-        self.records
     }
 }
 
@@ -217,7 +216,7 @@ mod test {
         let raw = [0xF1, 0x90, 0x01, 0x02];
         let (resp, remaining) = <ReadDataByIdentifierResponse as Decode>::decode(&raw).unwrap();
         assert!(remaining.is_empty());
-        assert_eq!(resp.records(), &raw);
+        assert_eq!(resp.records, &raw);
         let mut buf = [0u8; 8];
         let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
         assert_eq!(&buf[..n], &raw);

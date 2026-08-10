@@ -237,9 +237,17 @@ impl<'a> Decode<'a> for DiagnosticSessionControlRequest {
 pub struct DiagnosticSessionControlResponse {
     /// The session type that is now active.
     pub session_type: DiagnosticSessionType,
-    /// P2 server max timing parameter (milliseconds).
+    /// `P2Server_max`: how long the client should wait for a response, at 1 ms per count.
+    ///
+    /// The stored value *is* the millisecond count (ISO 14229-1:2020 Table 29).
     pub p2_server_max: u16,
-    /// P2* (enhanced) server max timing parameter (milliseconds × 10).
+    /// `P2*Server_max`: the enhanced timeout that applies after a
+    /// [`NegativeResponseCode::RequestCorrectlyReceivedResponsePending`], at **10 ms per
+    /// count**.
+    ///
+    /// Multiply by 10 to get milliseconds: Table 29 gives this parameter a resolution of 10 ms,
+    /// so the stored value is milliseconds ÷ 10 and the maximum is 655 350 ms. Reading it as a
+    /// raw millisecond count under-waits by a factor of ten.
     pub p2_star_server_max: u16,
 }
 
@@ -297,10 +305,7 @@ impl<'a> Decode<'a> for DiagnosticSessionControlResponse {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn test_diagnostic_session_control_request() {
         let bytes: [u8; 1] = [0x02];
@@ -308,9 +313,9 @@ mod request {
         assert!(!req.suppress_positive_response);
         assert_eq!(req.session_type, DiagnosticSessionType::ProgrammingSession);
 
-        let mut buffer = Vec::new();
-        Encode::encode(&req, &mut buffer).unwrap();
-        assert_eq!(buffer, bytes);
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(&req, &mut buffer.as_mut_slice()).unwrap();
+        assert_eq!(&buffer[..written], &bytes);
         assert_eq!(req.encoded_size().unwrap(), 1);
         assert_encode_size_agrees(&req);
     }
@@ -320,10 +325,7 @@ mod request {
 mod response {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn test_diagnostic_session_control_response() {
         let bytes = [0x02, 0x11, 0x22, 0x33, 0x44];
@@ -332,9 +334,9 @@ mod response {
         assert_eq!(resp.p2_server_max, 0x1122);
         assert_eq!(resp.p2_star_server_max, 0x3344);
 
-        let mut buffer = Vec::new();
-        Encode::encode(&resp, &mut buffer).unwrap();
-        assert_eq!(buffer, bytes);
+        let mut buffer = [0u8; 8];
+        let written = Encode::encode(&resp, &mut buffer.as_mut_slice()).unwrap();
+        assert_eq!(&buffer[..written], &bytes);
         assert_eq!(resp.encoded_size().unwrap(), 5);
         assert_encode_size_agrees(&resp);
     }
