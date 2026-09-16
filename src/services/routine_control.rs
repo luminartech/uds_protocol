@@ -4,7 +4,7 @@
 //! However, some routines may have side effects or require certain preconditions to be met.
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{write_all, write_u8, write_u16_be};
+use automotive_wire_codec::{write_bytes, write_u8, write_u16_be};
 
 /// What type of routine control to perform for a [`RoutineControlRequest`].
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
@@ -115,12 +115,12 @@ impl<'d> RoutineControlRequest<'d> {
 impl Encode for RoutineControlRequest<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.sub_function);
-        let mut written = write_u8(writer, u8::from(sub_function)).map_err(Error::io)?;
-        written += write_u16_be(writer, self.routine_id).map_err(Error::io)?;
-        written += write_all(writer, self.option_record).map_err(Error::io)?;
+        let mut written = write_u8(writer, u8::from(sub_function))?;
+        written += write_u16_be(writer, self.routine_id)?;
+        written += write_bytes(writer, self.option_record)?;
         Ok(written)
     }
 }
@@ -197,10 +197,10 @@ impl<'d> RoutineControlResponse<'d> {
 impl Encode for RoutineControlResponse<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut written = write_u8(writer, u8::from(self.sub_function)).map_err(Error::io)?;
-        written += write_u16_be(writer, self.routine_id).map_err(Error::io)?;
-        written += write_all(writer, self.status_record).map_err(Error::io)?;
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        let mut written = write_u8(writer, u8::from(self.sub_function))?;
+        written += write_u16_be(writer, self.routine_id)?;
+        written += write_bytes(writer, self.status_record)?;
         Ok(written)
     }
 }
@@ -304,7 +304,7 @@ mod test {
             &[0xAA],
         );
         let mut buf = [0u8; 8];
-        let n = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let n = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..n], &[0x81, 0xFF, 0x00, 0xAA]); // 0x81 = StartRoutine | SPRMIB
         let (d, rest) = <RoutineControlRequest as Decode>::decode(&buf[..n]).unwrap();
         assert!(rest.is_empty());
@@ -325,7 +325,8 @@ mod test {
         let resp =
             RoutineControlResponse::new(RoutineControlSubFunction::StartRoutine, 0xFF00, &[0x10]);
         let mut buf = [0u8; 8];
-        let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let n =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..n], &[0x01, 0xFF, 0x00, 0x10]);
         let (d, _) = <RoutineControlResponse as Decode>::decode(&buf[..n]).unwrap();
         assert_eq!(d.sub_function, RoutineControlSubFunction::StartRoutine);

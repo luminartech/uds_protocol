@@ -201,10 +201,10 @@ impl DiagnosticSessionControlRequest {
 impl Encode for DiagnosticSessionControlRequest {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.session_type);
-        write_u8(writer, u8::from(sub_function)).map_err(Error::io)
+        Ok(write_u8(writer, u8::from(sub_function))?)
     }
 }
 
@@ -269,10 +269,10 @@ impl DiagnosticSessionControlResponse {
 impl Encode for DiagnosticSessionControlResponse {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut written = write_u8(writer, u8::from(self.session_type)).map_err(Error::io)?;
-        written += write_u16_be(writer, self.p2_server_max).map_err(Error::io)?;
-        written += write_u16_be(writer, self.p2_star_server_max).map_err(Error::io)?;
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        let mut written = write_u8(writer, u8::from(self.session_type))?;
+        written += write_u16_be(writer, self.p2_server_max)?;
+        written += write_u16_be(writer, self.p2_star_server_max)?;
         Ok(written)
     }
 }
@@ -314,7 +314,11 @@ mod request {
         assert_eq!(req.session_type, DiagnosticSessionType::ProgrammingSession);
 
         let mut buffer = [0u8; 4];
-        let written = Encode::encode(&req, &mut buffer.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &req,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         assert_eq!(&buffer[..written], &bytes);
         assert_eq!(req.encoded_size().unwrap(), 1);
         assert_encode_size_agrees(&req);
@@ -335,7 +339,11 @@ mod response {
         assert_eq!(resp.p2_star_server_max, 0x3344);
 
         let mut buffer = [0u8; 8];
-        let written = Encode::encode(&resp, &mut buffer.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &resp,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         assert_eq!(&buffer[..written], &bytes);
         assert_eq!(resp.encoded_size().unwrap(), 5);
         assert_encode_size_agrees(&resp);

@@ -1,7 +1,7 @@
 //! `TransferData` (0x36) service implementation
 
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{write_all, write_u8};
+use automotive_wire_codec::{write_bytes, write_u8};
 
 const TRANSFER_DATA_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 6] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -64,9 +64,9 @@ impl<'d> TransferDataRequest<'d> {
 impl Encode for TransferDataRequest<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut written = write_u8(writer, self.block_sequence_counter).map_err(Error::io)?;
-        written += write_all(writer, self.data).map_err(Error::io)?;
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        let mut written = write_u8(writer, self.block_sequence_counter)?;
+        written += write_bytes(writer, self.data)?;
         Ok(written)
     }
 }
@@ -118,9 +118,9 @@ impl<'d> TransferDataResponse<'d> {
 impl Encode for TransferDataResponse<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut written = write_u8(writer, self.block_sequence_counter).map_err(Error::io)?;
-        written += write_all(writer, self.data).map_err(Error::io)?;
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        let mut written = write_u8(writer, self.block_sequence_counter)?;
+        written += write_bytes(writer, self.data)?;
         Ok(written)
     }
 }
@@ -183,7 +183,11 @@ mod request {
         let (req, _) = <TransferDataRequest as Decode>::decode(&bytes).unwrap();
 
         let mut written_bytes = [0u8; 16];
-        let written = Encode::encode(&req, &mut written_bytes.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &req,
+            &mut automotive_wire_codec::SliceSink::new(&mut written_bytes),
+        )
+        .unwrap();
         assert_eq!(&written_bytes[..written], &bytes);
         assert_eq!(written, req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
@@ -201,7 +205,11 @@ mod response {
         let (resp, _) = <TransferDataResponse as Decode>::decode(&bytes).unwrap();
 
         let mut written_bytes = [0u8; 16];
-        let written = Encode::encode(&resp, &mut written_bytes.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &resp,
+            &mut automotive_wire_codec::SliceSink::new(&mut written_bytes),
+        )
+        .unwrap();
         assert_eq!(&written_bytes[..written], &bytes);
         assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);

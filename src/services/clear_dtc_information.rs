@@ -19,7 +19,10 @@ impl ClearDiagnosticInfoResponse {
 
 impl Encode for ClearDiagnosticInfoResponse {
     type Error = crate::Error;
-    fn encode(&self, _writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
+    fn encode(
+        &self,
+        _writer: &mut impl automotive_wire_codec::Sink,
+    ) -> Result<usize, crate::Error> {
         Ok(0)
     }
 }
@@ -100,10 +103,10 @@ impl ClearDiagnosticInfoRequest {
 impl Encode for ClearDiagnosticInfoRequest {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, crate::Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, crate::Error> {
         let mut written = Encode::encode(&self.group_of_dtc, writer)?;
         if let Some(memory_selection) = self.memory_selection {
-            written += write_u8(writer, memory_selection).map_err(crate::Error::io)?;
+            written += write_u8(writer, memory_selection)?;
         }
         Ok(written)
     }
@@ -135,10 +138,7 @@ impl<'a> Decode<'a> for ClearDiagnosticInfoRequest {
 mod request {
     use super::*;
     use crate::{Decode, Encode, Incomplete, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec;
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn decode_clear_dtc_info_request() {
         let bytes = [0xFF, 0xFF, 0xFF, 0x00];
@@ -146,9 +146,10 @@ mod request {
         let (req, _) = <ClearDiagnosticInfoRequest as Decode>::decode(&bytes).unwrap();
         assert_eq!(req, compare);
 
-        let mut buf = vec![];
-        let written = Encode::encode(&req, &mut buf).unwrap();
-        assert_eq!(buf, [0xFF, 0xFF, 0xFF, 0x00]);
+        let mut buf = [0u8; 4];
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
+        assert_eq!(&buf[..written], [0xFF, 0xFF, 0xFF, 0x00]);
         assert_eq!(req.encoded_size().unwrap(), written);
         assert_encode_size_agrees(&req);
     }
@@ -175,7 +176,8 @@ mod request {
     fn a_request_without_a_memory_selection_encodes_three_bytes() {
         let req = ClearDiagnosticInfoRequest::clear_all();
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &[0xFF, 0xFF, 0xFF]);
         assert_encode_size_agrees(&req);
     }
@@ -196,7 +198,8 @@ mod request {
             0x2A,
         );
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &[0x01, 0x02, 0x03, 0x2A]);
         assert_encode_size_agrees(&req);
     }
@@ -247,7 +250,8 @@ mod response {
     fn clear_dtc_response_roundtrips_empty() {
         let resp = ClearDiagnosticInfoResponse::new();
         let mut buf = [0u8; 4];
-        let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let n =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(n, 0);
         let (decoded, remaining) =
             <ClearDiagnosticInfoResponse as Decode>::decode(&buf[..0]).unwrap();

@@ -11,7 +11,7 @@ use crate::shared::{
     AddressAndLengthFormatIdentifier, DataFormatIdentifier, LengthFormatIdentifier,
 };
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{read_be_uint_into, write_all, write_be_uint, write_u8};
+use automotive_wire_codec::{read_be_uint_into, write_be_uint, write_bytes, write_u8};
 
 /// Widest `maxNumberOfBlockLength` a `lengthFormatIdentifier` nibble can declare, in bytes.
 const MAX_BLOCK_LENGTH_BYTES: usize = 0x0F;
@@ -276,15 +276,15 @@ macro_rules! upload_download_service {
         impl Encode for $req {
             type Error = crate::Error;
 
-            fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-                let mut written = write_all(
+            fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+                let mut written = write_bytes(
                     writer,
                     &[
                         self.data_format_identifier.into(),
                         self.address_and_length_format_identifier.into(),
                     ],
                 )
-                .map_err(Error::io)?;
+                ?;
 
                 let addr_len = self
                     .address_and_length_format_identifier
@@ -384,7 +384,7 @@ macro_rules! upload_download_service {
         impl Encode for $resp<'_> {
             type Error = crate::Error;
 
-            fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+            fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
                 // `new` already bounded this to a nibble, so the cast cannot truncate.
                 #[allow(clippy::cast_possible_truncation)]
                 let nibble = self.max_number_of_block_length.len() as u8;
@@ -392,8 +392,8 @@ macro_rules! upload_download_service {
                     max_number_of_block_length: nibble,
                 };
                 let mut written =
-                    write_u8(writer, length_format_identifier.into()).map_err(Error::io)?;
-                written += write_all(writer, self.max_number_of_block_length).map_err(Error::io)?;
+                    write_u8(writer, length_format_identifier.into())?;
+                written += write_bytes(writer, self.max_number_of_block_length)?;
                 Ok(written)
             }
         }
@@ -485,7 +485,7 @@ macro_rules! upload_download_service {
                 );
 
                 let mut buf = [0u8; 8];
-                let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                let written = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
                 let (decoded, _) = <$req as Decode>::decode(&buf[..written]).unwrap();
                 assert_eq!(decoded.memory_address(), 0);
                 assert_eq!(decoded.memory_size(), 0);
@@ -495,7 +495,7 @@ macro_rules! upload_download_service {
             fn check_message_size() {
                 let req = $req::new(0x00.into(), 0xF0_FF_FF_67, 0x0A).unwrap();
                 let mut buf = [0u8; 16];
-                let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                let written = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
 
                 assert_eq!(written, req.encoded_size().unwrap());
                 assert_encode_size_agrees(&req);
@@ -519,7 +519,7 @@ macro_rules! upload_download_service {
                 ] {
                     let req = $req::new(DataFormatIdentifier::NONE, address, size).unwrap();
                     let mut buf = [0u8; 16];
-                    let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                    let written = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
                     assert_eq!(
                         &buf[..written],
                         want,
@@ -549,7 +549,7 @@ macro_rules! upload_download_service {
                 )
                 .unwrap();
                 let mut buf = [0u8; 16];
-                let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                let written = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
                 assert_eq!(
                     &buf[..written],
                     &[0x11, 0x33, 0x60, 0x20, 0x00, 0x00, 0xFF, 0xFF],
@@ -617,7 +617,7 @@ macro_rules! upload_download_service {
                 let req =
                     $req::new(DataFormatIdentifier::NONE, 0xFF_FFFF_FFFF, 0xFFFF_FFFF).unwrap();
                 let mut buf = [0u8; 16];
-                let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                let written = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
                 assert_eq!(
                     &buf[..written],
                     &[
@@ -656,12 +656,12 @@ macro_rules! upload_download_service {
                 assert_eq!(resp.max_number_of_block_length(), &[0x08, 0x00]);
 
                 let mut buf = [0u8; 8];
-                let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+                let written = Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
                 assert_eq!(&buf[..written], &[0x20, 0x08, 0x00]);
 
                 // And a response the crate builds itself encodes the same way.
                 let fresh = $resp::new(&[0x08, 0x00]).unwrap();
-                let written = Encode::encode(&fresh, &mut buf.as_mut_slice()).unwrap();
+                let written = Encode::encode(&fresh, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
                 assert_eq!(&buf[..written], &[0x20, 0x08, 0x00]);
             }
 
@@ -676,7 +676,7 @@ macro_rules! upload_download_service {
                 let block = [0x02u8, 0x00];
                 let resp = $resp::new(&block).unwrap();
                 let mut buf = [0u8; 8];
-                let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+                let n = Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
                 assert_eq!(&buf[..n], &[0x20, 0x02, 0x00]);
                 let (decoded, rest) = <$resp as Decode>::decode(&buf[..n]).unwrap();
                 assert!(rest.is_empty());

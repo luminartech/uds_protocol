@@ -1,6 +1,6 @@
 //! `RequestTransferExit` (0x37 / 0x77) service implementation.
 use crate::{Decode, Encode, Error, NegativeResponseCode};
-use automotive_wire_codec::write_all;
+use automotive_wire_codec::write_bytes;
 
 macro_rules! transfer_exit_descriptor {
     ($name:ident, $doc:literal) => {
@@ -24,8 +24,11 @@ macro_rules! transfer_exit_descriptor {
         impl Encode for $name<'_> {
             type Error = crate::Error;
 
-            fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-                write_all(writer, self.parameter_record).map_err(Error::io)
+            fn encode(
+                &self,
+                writer: &mut impl automotive_wire_codec::Sink,
+            ) -> Result<usize, Error> {
+                Ok(write_bytes(writer, self.parameter_record)?)
             }
         }
         impl<'a> Decode<'a> for $name<'a> {
@@ -96,7 +99,8 @@ mod tests {
         for rec in [&[][..], &[0xAA, 0xBB][..]] {
             let req = RequestTransferExitRequest::new(rec);
             let mut buf = [0u8; 8];
-            let n = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+            let n =
+                Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
             assert_eq!(&buf[..n], rec);
             let (d, rest) = <RequestTransferExitRequest as Decode>::decode(&buf[..n]).unwrap();
             assert!(rest.is_empty());

@@ -1,7 +1,7 @@
 use bitmask_enum::bitmask;
 
 use crate::{Decode, DecodeIter, Encode, Error, Incomplete};
-use automotive_wire_codec::{write_all, write_u8};
+use automotive_wire_codec::{write_bytes, write_u8};
 
 /// Bit-packed DTC status information used by the `ReadDTCInformation` service
 ///
@@ -109,8 +109,8 @@ pub enum DtcStatusMask {
 
 impl Encode for DtcStatusMask {
     type Error = crate::Error;
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u8(writer, self.bits()).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u8(writer, self.bits())?)
     }
 }
 
@@ -320,8 +320,11 @@ impl From<DtcRecord> for u32 {
 impl Encode for DtcRecord {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_all(writer, &[self.high_byte, self.middle_byte, self.low_byte]).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_bytes(
+            writer,
+            &[self.high_byte, self.middle_byte, self.low_byte],
+        )?)
     }
 }
 
@@ -431,8 +434,8 @@ impl From<FunctionalGroupIdentifier> for u8 {
 impl Encode for FunctionalGroupIdentifier {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u8(writer, self.value()).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u8(writer, self.value())?)
     }
 }
 
@@ -507,8 +510,8 @@ impl DtcSeverityMask {
 impl Encode for DtcSeverityMask {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u8(writer, self.bits()).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u8(writer, self.bits())?)
     }
 }
 
@@ -584,8 +587,8 @@ impl From<u8> for DtcStoredDataRecordNumber {
 impl Encode for DtcStoredDataRecordNumber {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u8(writer, self.0).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u8(writer, self.0)?)
     }
 }
 
@@ -612,7 +615,8 @@ mod encode_param_tests {
     fn encode_stored_data_record_number() {
         let n = DtcStoredDataRecordNumber::new(0x05);
         let mut buf = [0u8; 4];
-        let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&n, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, 1);
         assert_eq!(buf[0], 0x05);
         assert_encode_size_agrees(&n);
@@ -642,7 +646,8 @@ mod encode_param_tests {
     fn encode_severity_mask() {
         let m = DtcSeverityMask::CheckImmediately;
         let mut buf = [0u8; 4];
-        let written = Encode::encode(&m, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&m, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, 1);
         assert_eq!(buf[0], 0b1000_0000);
         assert_encode_size_agrees(&m);
@@ -652,7 +657,8 @@ mod encode_param_tests {
     fn encode_functional_group_identifier_named() {
         let g = FunctionalGroupIdentifier::EmissionsSystemGroup;
         let mut buf = [0u8; 4];
-        let written = Encode::encode(&g, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&g, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, 1);
         assert_eq!(buf[0], 0x33);
         assert_encode_size_agrees(&g);
@@ -716,7 +722,11 @@ mod dtc_status_tests {
     fn dtc_record_encode_decode() {
         let record = DtcRecord::new(0x01, 0x02, 0x03);
         let mut buf = [0u8; 3];
-        let written = Encode::encode(&record, &mut buf.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &record,
+            &mut automotive_wire_codec::SliceSink::new(&mut buf),
+        )
+        .unwrap();
         assert_eq!(written, 3);
         let (decoded, rest) = <DtcRecord as Decode>::decode(&buf).unwrap();
         assert_eq!(decoded, record);

@@ -72,8 +72,8 @@ impl PartialEq<u8> for DtcExtDataRecordNumber {
 impl Encode for DtcExtDataRecordNumber {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u8(writer, self.value()).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u8(writer, self.value())?)
     }
 }
 
@@ -108,7 +108,9 @@ mod tests {
         use crate::test_util::assert_encode_size_agrees;
         let n = DtcExtDataRecordNumber::new(0x90);
         let mut buf = [0u8; 4];
-        let written = crate::Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            crate::Encode::encode(&n, &mut automotive_wire_codec::SliceSink::new(&mut buf))
+                .unwrap();
         assert_eq!(written, 1);
         assert_eq!(buf[0], 0x90);
         assert_encode_size_agrees(&n);

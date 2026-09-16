@@ -11,7 +11,7 @@ use crate::{
     },
     shared::split_sprmib,
 };
-use automotive_wire_codec::{write_all, write_u8};
+use automotive_wire_codec::{write_bytes, write_u8};
 
 use super::service::UdsServiceType;
 
@@ -149,12 +149,12 @@ impl<'a> Decode<'a> for Request<'a> {
 impl Encode for Request<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let sid = match self {
             Self::Other { sid, .. } => *sid,
             other => other.service().to_request_sid(),
         };
-        let sid_len = write_u8(writer, sid).map_err(Error::io)?;
+        let sid_len = write_u8(writer, sid)?;
         let payload = match self {
             Self::ClearDiagnosticInfo(req) => req.encode(writer)?,
             Self::CommunicationControl(req) => req.encode(writer)?,
@@ -168,7 +168,7 @@ impl Encode for Request<'_> {
             Self::RequestFileTransfer(req) => req.encode(writer)?,
             Self::RequestTransferExit(req) => req.encode(writer)?,
             Self::RequestUpload(req) => req.encode(writer)?,
-            Self::Other { data, .. } => write_all(writer, data).map_err(Error::io)?,
+            Self::Other { data, .. } => write_bytes(writer, data)?,
             Self::RoutineControl(req) => req.encode(writer)?,
             Self::SecurityAccess(req) => req.encode(writer)?,
             Self::TesterPresent(req) => req.encode(writer)?,
@@ -408,7 +408,8 @@ mod tests {
         assert!(rest.is_empty());
         assert!(matches!(req, Request::WriteDataByIdentifier(_)));
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &wire);
     }
 
@@ -420,7 +421,8 @@ mod tests {
         assert!(rest.is_empty());
         assert_eq!(req.is_positive_response_suppressed(), Some(true));
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &wire);
     }
 
@@ -619,7 +621,8 @@ mod tests {
             other => panic!("expected Other, got {other:?}"),
         }
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &frame);
     }
 
@@ -637,7 +640,8 @@ mod tests {
             other => panic!("expected Other, got {other:?}"),
         }
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &frame); // previously re-encoded as 0x7F
     }
 }

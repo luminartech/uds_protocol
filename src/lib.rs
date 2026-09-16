@@ -62,7 +62,8 @@ mod no_std_api_tests {
     fn encode_decode_tester_present_roundtrip() {
         let req = TesterPresentRequest::new(false);
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, 1);
 
         let (decoded, rest) = <TesterPresentRequest as Decode>::decode(&buf[..written]).unwrap();

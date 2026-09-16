@@ -1,6 +1,6 @@
 //! `ReadDataByIdentifier` (0x22) service implementation
 use crate::{Decode, Encode, Error, NegativeResponseCode};
-use automotive_wire_codec::{write_all, write_u16_be};
+use automotive_wire_codec::{write_bytes, write_u16_be};
 
 /// Positive response to `ReadDataByIdentifier`: raw `[DID][data record]…` bytes.
 ///
@@ -33,8 +33,8 @@ impl<'a> ReadDataByIdentifierResponse<'a> {
 impl Encode for ReadDataByIdentifierResponse<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_all(writer, self.records).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_bytes(writer, self.records)?)
     }
 }
 
@@ -129,16 +129,16 @@ impl Iterator for DidIter<'_> {
 impl Encode for ReadDataByIdentifierRequest<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         match self.dids {
             Dids::Native(s) => {
                 let mut written = 0;
                 for did in s {
-                    written += write_u16_be(writer, *did).map_err(Error::io)?;
+                    written += write_u16_be(writer, *did)?;
                 }
                 Ok(written)
             }
-            Dids::Wire(b) => write_all(writer, b).map_err(Error::io),
+            Dids::Wire(b) => Ok(write_bytes(writer, b)?),
         }
     }
 }
@@ -174,7 +174,7 @@ mod test {
     fn rdbi_native_encodes_be() {
         let req = ReadDataByIdentifierRequest::new(&[0xF190, 0xF186]);
         let mut buf = [0u8; 8];
-        let n = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let n = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..n], &[0xF1, 0x90, 0xF1, 0x86]);
         assert_encode_size_agrees(&req);
     }
@@ -196,10 +196,11 @@ mod test {
     fn rdbi_cross_backing_encodes_identically() {
         let native = ReadDataByIdentifierRequest::new(&[0xF190]);
         let mut a = [0u8; 4];
-        let na = Encode::encode(&native, &mut a.as_mut_slice()).unwrap();
+        let na =
+            Encode::encode(&native, &mut automotive_wire_codec::SliceSink::new(&mut a)).unwrap();
         let (wire, _) = <ReadDataByIdentifierRequest as Decode>::decode(&a[..na]).unwrap();
         let mut b = [0u8; 4];
-        let nb = Encode::encode(&wire, &mut b.as_mut_slice()).unwrap();
+        let nb = Encode::encode(&wire, &mut automotive_wire_codec::SliceSink::new(&mut b)).unwrap();
         assert_eq!(a[..na], b[..nb]);
     }
 
@@ -218,7 +219,8 @@ mod test {
         assert!(remaining.is_empty());
         assert_eq!(resp.records, &raw);
         let mut buf = [0u8; 8];
-        let n = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let n =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..n], &raw);
     }
 
@@ -227,7 +229,8 @@ mod test {
         let ids = [0xF180u16, 0xF186u16];
         let req = ReadDataByIdentifierRequest::new(&ids);
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, 4); // 2 DIDs * 2 bytes each
         assert_eq!(&buf[..4], &[0xF1, 0x80, 0xF1, 0x86]);
         assert_encode_size_agrees(&req);

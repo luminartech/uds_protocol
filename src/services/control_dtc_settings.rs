@@ -1,7 +1,7 @@
 //! `ControlDTCSetting` (0x85) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{write_all, write_u8};
+use automotive_wire_codec::{write_bytes, write_u8};
 
 /// Controls whether the server should enable or disable DTC status-bit updates.
 ///
@@ -127,11 +127,11 @@ impl<'d> ControlDtcSettingRequest<'d> {
 impl Encode for ControlDtcSettingRequest<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.setting);
-        let mut written = write_u8(writer, u8::from(sub_function)).map_err(Error::io)?;
-        written += write_all(writer, self.option_record).map_err(Error::io)?;
+        let mut written = write_u8(writer, u8::from(sub_function))?;
+        written += write_bytes(writer, self.option_record)?;
         Ok(written)
     }
 }
@@ -184,8 +184,8 @@ impl ControlDtcSettingResponse {
 impl Encode for ControlDtcSettingResponse {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u8(writer, u8::from(self.setting)).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u8(writer, u8::from(self.setting))?)
     }
 }
 
@@ -213,7 +213,11 @@ mod request {
     fn simple_request() {
         let req = ControlDtcSettingRequest::new(true, DtcSettingType::On);
         let mut buffer = [0u8; 4];
-        let written = Encode::encode(&req, &mut buffer.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &req,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         assert_eq!(&buffer[..written], &[0x81]);
         assert_eq!(req.encoded_size().unwrap(), written);
 
@@ -241,7 +245,8 @@ mod request {
             assert_eq!(req.setting, expected, "for sub-function {byte:#04X}");
 
             let mut buf = [0u8; 4];
-            let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+            let written =
+                Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
             assert_eq!(&buf[..written], &[byte], "round trip for {byte:#04X}");
         }
     }
@@ -325,7 +330,11 @@ mod response {
     fn simple_response() {
         let req = ControlDtcSettingResponse::new(DtcSettingType::On);
         let mut buffer = [0u8; 4];
-        let written = Encode::encode(&req, &mut buffer.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &req,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         assert_eq!(&buffer[..written], &[0x01]);
         assert_eq!(req.encoded_size().unwrap(), written);
 

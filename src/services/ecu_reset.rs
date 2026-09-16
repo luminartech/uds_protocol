@@ -214,11 +214,11 @@ impl EcuResetRequest {
 impl Encode for EcuResetRequest {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         // Fuse the SPRMIB bit into the sub-function byte only at the wire boundary.
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.reset_type);
-        write_u8(writer, u8::from(sub_function)).map_err(Error::io)
+        Ok(write_u8(writer, u8::from(sub_function))?)
     }
 }
 
@@ -291,10 +291,10 @@ impl EcuResetResponse {
 impl Encode for EcuResetResponse {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut written = write_u8(writer, u8::from(self.reset_type)).map_err(Error::io)?;
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        let mut written = write_u8(writer, u8::from(self.reset_type))?;
         if let Some(power_down_time) = self.power_down_time {
-            written += write_u8(writer, power_down_time).map_err(Error::io)?;
+            written += write_u8(writer, power_down_time)?;
         }
         Ok(written)
     }
@@ -341,7 +341,11 @@ mod request {
         let bytes: [u8; 2] = [0x81, 0x00];
         let req = EcuResetRequest::new(true, ResetType::HardReset);
         let mut buffer = [0u8; 4];
-        let written = Encode::encode(&req, &mut buffer.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &req,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         // The request is one byte: the second byte of `bytes` is the next frame's, and the
         // decoder is expected to leave it alone.
         assert_eq!(&buffer[..written], &bytes[..1]);
@@ -365,7 +369,11 @@ mod response {
         let resp =
             EcuResetResponse::new_with_power_down_time(ResetType::EnableRapidPowerShutDown, 0x20);
         let mut buffer = [0u8; 4];
-        let written = Encode::encode(&resp, &mut buffer.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &resp,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         let (result, _) = <EcuResetResponse as Decode>::decode(&bytes).unwrap();
         assert_eq!(result, resp);
 
@@ -386,7 +394,8 @@ mod response {
         assert_eq!(resp.power_down_time, None);
 
         let mut buf = [0u8; 4];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &[0x01]);
         assert_encode_size_agrees(&resp);
     }

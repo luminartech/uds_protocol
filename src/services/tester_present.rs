@@ -119,14 +119,14 @@ impl TesterPresentRequest {
 impl Encode for TesterPresentRequest {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         // Fuse the SPRMIB bit back onto the sub-function at the wire boundary. The retained
         // sub-function is written verbatim so a reserved value round-trips unchanged.
         let sub_function = SuppressablePositiveResponse::new(
             self.suppress_positive_response,
             self.zero_sub_function,
         );
-        write_u8(writer, u8::from(sub_function)).map_err(Error::io)
+        Ok(write_u8(writer, u8::from(sub_function))?)
     }
 }
 
@@ -196,8 +196,8 @@ impl Default for TesterPresentResponse {
 impl Encode for TesterPresentResponse {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u8(writer, u8::from(self.zero_sub_function)).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u8(writer, u8::from(self.zero_sub_function))?)
     }
 }
 
@@ -221,7 +221,7 @@ mod test {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
     #[cfg(feature = "alloc")]
-    use alloc::{vec, vec::Vec};
+    use alloc::vec;
 
     #[test]
     fn try_from_all_zero_subfunction() {
@@ -309,7 +309,8 @@ mod test {
                 assert_eq!(req.sub_function(), raw, "sub-function byte not retained");
 
                 let mut buf = [0u8; 4];
-                let n = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+                let n = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf))
+                    .unwrap();
                 assert_eq!(&buf[..n], &wire, "lossy re-encode for {wire:02X?}");
                 assert_encode_size_agrees(&req);
             }
@@ -331,7 +332,11 @@ mod test {
         // The common case keeps its one-argument constructor and its 0x00 encoding.
         assert_eq!(TesterPresentRequest::new(false).sub_function(), 0x00);
         let mut buf = [0u8; 4];
-        let n = Encode::encode(&TesterPresentRequest::new(true), &mut buf.as_mut_slice()).unwrap();
+        let n = Encode::encode(
+            &TesterPresentRequest::new(true),
+            &mut automotive_wire_codec::SliceSink::new(&mut buf),
+        )
+        .unwrap();
         assert_eq!(&buf[..n], &[0x80]);
     }
 
@@ -339,11 +344,15 @@ mod test {
     #[test]
     fn write_request_type() {
         let test_type = TesterPresentRequest::new(false);
-        let mut buffer = Vec::new();
-        Encode::encode(&test_type, &mut buffer).unwrap();
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(
+            &test_type,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
 
         let expected_bytes = vec![0];
-        assert_eq!(buffer, expected_bytes);
+        assert_eq!(&buffer[..written], expected_bytes.as_slice());
         assert_encode_size_agrees(&test_type);
     }
 
@@ -359,11 +368,15 @@ mod test {
     #[test]
     fn write_response_type() {
         let test_type = TesterPresentResponse::new();
-        let mut buffer = Vec::new();
-        Encode::encode(&test_type, &mut buffer).unwrap();
+        let mut buffer = [0u8; 4];
+        let written = Encode::encode(
+            &test_type,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
 
         let expected_bytes = vec![0];
-        assert_eq!(buffer, expected_bytes);
+        assert_eq!(&buffer[..written], expected_bytes.as_slice());
         assert_encode_size_agrees(&test_type);
     }
 }

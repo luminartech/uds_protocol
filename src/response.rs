@@ -6,7 +6,7 @@ use crate::{
     RoutineControlResponse, SecurityAccessResponse, TesterPresentResponse, TransferDataResponse,
     UdsServiceType, WriteDataByIdentifierResponse,
 };
-use automotive_wire_codec::{write_all, write_u8};
+use automotive_wire_codec::{write_bytes, write_u8};
 
 /// Parsed zero-copy UDS response. Borrows from the wire buffer.
 ///
@@ -197,8 +197,8 @@ impl Response<'_> {
 impl Encode for Response<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let sid_len = write_u8(writer, self.response_sid()).map_err(Error::io)?;
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        let sid_len = write_u8(writer, self.response_sid())?;
         let payload = match self {
             Self::ClearDiagnosticInfo(resp) => resp.encode(writer)?,
             Self::RequestTransferExit(resp) => resp.encode(writer)?,
@@ -217,7 +217,7 @@ impl Encode for Response<'_> {
             Self::SecurityAccess(resp) => resp.encode(writer)?,
             Self::TesterPresent(resp) => resp.encode(writer)?,
             Self::TransferData(resp) => resp.encode(writer)?,
-            Self::Other { data, .. } => write_all(writer, data).map_err(Error::io)?,
+            Self::Other { data, .. } => write_bytes(writer, data)?,
         };
         Ok(sid_len + payload)
     }
@@ -235,7 +235,8 @@ mod tests {
         assert!(remaining.is_empty());
         assert!(matches!(resp, Response::WriteDataByIdentifier(_)));
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &wire);
     }
 
@@ -246,7 +247,8 @@ mod tests {
         let (resp, remaining) = Response::decode(&wire).unwrap();
         assert!(remaining.is_empty());
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &wire);
     }
 
@@ -264,7 +266,8 @@ mod tests {
             other => panic!("expected Other, got {other:?}"),
         }
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &frame);
     }
 
@@ -275,7 +278,8 @@ mod tests {
         assert!(matches!(resp, Response::Other { sid: 0x99, .. }));
         assert_eq!(resp.service(), UdsServiceType::from_response_sid(0x99));
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &frame); // previously became 0x7F (NegativeResponse)
     }
 

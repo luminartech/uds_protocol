@@ -54,7 +54,7 @@ additive.
 
 | Feature | Implies | What it gives you |
 |---------|---------|-------------------|
-| `std` *(default)* | `alloc` | `std::error::Error` for [`Error`], and `embedded_io`'s `std` layer. Turn it off for bare metal. |
+| `std` *(default)* | `alloc` | `std::error::Error` for [`Error`]. Turn it off for bare metal. |
 | `alloc` | — | The `alloc`-only conveniences. Nothing in the wire codec needs it; encoding and decoding work with borrowed slices alone. |
 | `serde` | — | `Serialize`/`Deserialize` on the request, response and parameter types. The only optional integration usable on a bare-metal target: it is wired as a core-only dependency and picks up serde's `alloc`/`std` layers only when this crate's own are on. |
 | `utoipa` | `std`, `serde` | `ToSchema` for `OpenAPI` generation. |
@@ -80,20 +80,21 @@ encode to an illegal byte.
 async runtime. To use it over any transport (`DoIP`, `UDSonIP`, ISO-TP, …):
 
 - **Decode** an inbound frame from the `&[u8]` you received.
-- **Encode** an outbound frame into any `embedded_io::Write` (or a caller-owned buffer
-  sized with `encoded_size()`).
+- **Encode** an outbound frame into any `automotive_wire_codec::Sink` (or a caller-owned
+  buffer sized with `encoded_size()`, via `SliceSink`).
 
 Drive the I/O loop from your own sync or async layer — the crate never blocks or awaits.
 
 ### Encode (build a request)
 
 ```rust
+use automotive_wire_codec::SliceSink;
 use uds_protocol::{Encode, TesterPresentRequest};
 
 let req = TesterPresentRequest::new(false);
 let mut buf = [0u8; 8];
-let mut writer = buf.as_mut_slice();
-let written = Encode::encode(&req, &mut writer).unwrap();
+let mut sink = SliceSink::new(&mut buf);
+let written = Encode::encode(&req, &mut sink).unwrap();
 // `buf[..written]` is the wire frame, ready to hand to your transport.
 ```
 

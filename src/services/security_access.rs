@@ -1,7 +1,7 @@
 //! `SecurityAccess` (0x27) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{write_all, write_u8};
+use automotive_wire_codec::{write_bytes, write_u8};
 
 /// A `SecurityAccess` level byte, guaranteed to fit the 7-bit sub-function field
 /// (`0x00..=0x7F`).
@@ -301,11 +301,11 @@ impl<'d> SecurityAccessRequest<'d> {
 impl Encode for SecurityAccessRequest<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.access_type);
-        let mut written = write_u8(writer, u8::from(sub_function)).map_err(Error::io)?;
-        written += write_all(writer, self.request_data).map_err(Error::io)?;
+        let mut written = write_u8(writer, u8::from(sub_function))?;
+        written += write_bytes(writer, self.request_data)?;
         Ok(written)
     }
 }
@@ -359,9 +359,9 @@ impl<'d> SecurityAccessResponse<'d> {
 impl Encode for SecurityAccessResponse<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut written = write_u8(writer, u8::from(self.access_type)).map_err(Error::io)?;
-        written += write_all(writer, self.security_seed).map_err(Error::io)?;
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        let mut written = write_u8(writer, u8::from(self.access_type))?;
+        written += write_bytes(writer, self.security_seed)?;
         Ok(written)
     }
 }
@@ -419,7 +419,8 @@ mod request {
         assert_eq!(req.request_data, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         // The bytes, not just the count: the two halves of this test were otherwise
         // disconnected, so swapping what `encode` writes went unnoticed.
         assert_eq!(&buf[..written], &bytes);
@@ -448,7 +449,8 @@ mod response {
         assert_eq!(resp.security_seed, &[0x00, 0x01, 0x02, 0x03, 0x04]);
 
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &bytes);
         assert_eq!(written, resp.encoded_size().unwrap());
         assert_encode_size_agrees(&resp);

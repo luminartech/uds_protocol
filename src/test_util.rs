@@ -26,9 +26,9 @@ where
         size <= cap,
         "test helper buffer too small: encoded_size() is {size}, buffer is {cap}"
     );
-    let mut writer: &mut [u8] = &mut buf;
-    let written = value.encode(&mut writer).unwrap();
-    let consumed = cap - writer.len();
+    let mut sink = automotive_wire_codec::SliceSink::new(&mut buf);
+    let written = value.encode(&mut sink).unwrap();
+    let consumed = sink.written();
     assert_eq!(
         written, size,
         "encode returned {written}, encoded_size() is {size}"

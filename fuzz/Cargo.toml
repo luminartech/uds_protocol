@@ -8,6 +8,7 @@ edition = "2024"
 cargo-fuzz = true
 
 [dependencies]
+automotive-wire-codec = { path = "../../../automotive_wire_format", default-features = false }
 libfuzzer-sys = "0.4"
 uds_protocol = { path = ".." }
 

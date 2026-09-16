@@ -3,7 +3,7 @@
 use crate::shared::DataFormatIdentifier;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
 use automotive_wire_codec::{
-    minimal_be_len, read_be_uint, write_all, write_be_uint, write_u8, write_u16_be, write_u64_be,
+    minimal_be_len, read_be_uint, write_be_uint, write_bytes, write_u8, write_u16_be, write_u64_be,
 };
 
 /// Minimum byte-width (clamped to at least 1) needed to hold the larger of two size
@@ -535,12 +535,12 @@ pub enum RequestFileTransferResponse<'a> {
 impl Encode for NamePayload<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let name = self.file_path_and_name.as_bytes();
         let name_len =
             u16::try_from(name.len()).map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
-        let mut written = write_u16_be(writer, name_len).map_err(Error::io)?;
-        written += write_all(writer, name).map_err(Error::io)?;
+        let mut written = write_u16_be(writer, name_len)?;
+        written += write_bytes(writer, name)?;
         Ok(written)
     }
 }
@@ -580,9 +580,9 @@ impl Encode for SizePayload {
     type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u8
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let n = self.width();
-        let mut written = write_u8(writer, n as u8).map_err(Error::io)?;
+        let mut written = write_u8(writer, n as u8)?;
         written += write_be_uint(writer, self.file_size_uncompressed, n)?;
         written += write_be_uint(writer, self.file_size_compressed, n)?;
         Ok(written)
@@ -622,11 +622,11 @@ impl<'a> Decode<'a> for SizePayload {
 impl Encode for SentDataPayload<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let len = u8::try_from(self.max_number_of_block_length.len())
             .map_err(|_| Error::IncorrectMessageLengthOrInvalidFormat)?;
-        let mut written = write_u8(writer, len).map_err(Error::io)?;
-        written += write_all(writer, self.max_number_of_block_length).map_err(Error::io)?;
+        let mut written = write_u8(writer, len)?;
+        written += write_bytes(writer, self.max_number_of_block_length)?;
         Ok(written)
     }
 }
@@ -662,9 +662,9 @@ impl Encode for FileSizePayload {
     type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let n = self.width();
-        let mut written = write_u16_be(writer, n as u16).map_err(Error::io)?;
+        let mut written = write_u16_be(writer, n as u16)?;
         written += write_be_uint(writer, self.file_size_uncompressed, n)?;
         written += write_be_uint(writer, self.file_size_compressed, n)?;
         Ok(written)
@@ -705,9 +705,9 @@ impl Encode for DirSizePayload {
     type Error = crate::Error;
 
     #[allow(clippy::cast_possible_truncation)] // width() <= 16, fits in u16
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let n = self.width();
-        let mut written = write_u16_be(writer, n as u16).map_err(Error::io)?;
+        let mut written = write_u16_be(writer, n as u16)?;
         written += write_be_uint(writer, self.dir_info_length, n)?;
         Ok(written)
     }
@@ -739,8 +739,8 @@ impl<'a> Decode<'a> for DirSizePayload {
 impl Encode for PositionPayload {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u64_be(writer, self.file_position).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u64_be(writer, self.file_position)?)
     }
 }
 
@@ -764,20 +764,20 @@ impl<'a> Decode<'a> for PositionPayload {
 impl Encode for RequestFileTransferRequest<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         // The mode byte comes from the variant, so it cannot disagree with the payload.
-        let mut len = write_u8(writer, self.mode_of_operation().value()).map_err(Error::io)?;
+        let mut len = write_u8(writer, self.mode_of_operation().value())?;
         match self {
             Self::AddFile(name, dfi, size)
             | Self::ReplaceFile(name, dfi, size)
             | Self::ResumeFile(name, dfi, size) => {
                 len += name.encode(writer)?;
-                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*dfi))?;
                 len += size.encode(writer)?;
             }
             Self::ReadFile(name, dfi) => {
                 len += name.encode(writer)?;
-                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*dfi))?;
             }
             Self::DeleteFile(name) | Self::ReadDir(name) => {
                 len += name.encode(writer)?;
@@ -839,33 +839,33 @@ impl<'a> Decode<'a> for RequestFileTransferRequest<'a> {
 impl Encode for RequestFileTransferResponse<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         let mut len = 0;
         match self {
             Self::DeleteFile(mode) => {
-                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode))?;
             }
             Self::AddFile(mode, sent, dfi) | Self::ReplaceFile(mode, sent, dfi) => {
-                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode))?;
                 len += sent.encode(writer)?;
-                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*dfi))?;
             }
             Self::ReadFile(mode, sent, dfi, fs) => {
-                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode))?;
                 len += sent.encode(writer)?;
-                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*dfi))?;
                 len += fs.encode(writer)?;
             }
             Self::ReadDir(mode, sent, dfi, ds) => {
-                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode))?;
                 len += sent.encode(writer)?;
-                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*dfi))?;
                 len += ds.encode(writer)?;
             }
             Self::ResumeFile(mode, sent, dfi, pos) => {
-                len += write_u8(writer, u8::from(*mode)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*mode))?;
                 len += sent.encode(writer)?;
-                len += write_u8(writer, u8::from(*dfi)).map_err(Error::io)?;
+                len += write_u8(writer, u8::from(*dfi))?;
                 len += pos.encode(writer)?;
             }
         }
@@ -986,7 +986,8 @@ mod request_tests {
         let path = "/tmp/foo.bin";
         let n = name_payload(path);
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&n, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, n.encoded_size().unwrap());
         let (decoded, rest) = NamePayload::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
@@ -998,7 +999,8 @@ mod request_tests {
     fn size_payload_roundtrip() {
         let s = SizePayload::new(u128::from(u64::MAX) + 1000, 0x12_3456);
         let mut buf = [0u8; 32];
-        let written = Encode::encode(&s, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&s, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, s.encoded_size().unwrap());
         let (decoded, rest) = SizePayload::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
@@ -1023,7 +1025,8 @@ mod request_tests {
         // not a caller-supplied length that could disagree with the value.
         let s = SizePayload::new(0x12, 0x34);
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&s, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&s, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &[0x01, 0x12, 0x34]);
     }
 
@@ -1041,7 +1044,8 @@ mod request_tests {
         assert_eq!(req.mode_of_operation(), FileOperationMode::AddFile);
 
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(
             &buf[..written],
             &[0x01, 0x00, 0x02, b'/', b'a', 0x00, 0x01, 0x01, 0x01],
@@ -1068,7 +1072,8 @@ mod request_tests {
         // The 2-byte length prefix is always exactly the UTF-8 length of the name.
         let n = name_payload("abc");
         let mut buf = [0u8; 16];
-        let written = Encode::encode(&n, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&n, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         // length=0x0003, "abc" — the modeOfOperation byte belongs to the request, not here.
         assert_eq!(&buf[..written], &[0x00, 0x03, b'a', b'b', b'c']);
     }
@@ -1082,7 +1087,8 @@ mod request_tests {
             SizePayload::new(0x1234, 0x1234),
         );
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
@@ -1095,7 +1101,8 @@ mod request_tests {
         let path = "/var/tmp/delete_file.bin";
         let req = RequestFileTransferRequest::DeleteFile(name_payload(path));
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
@@ -1111,7 +1118,8 @@ mod request_tests {
             DataFormatIdentifier::from(0x11),
         );
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, req.encoded_size().unwrap());
         let (decoded, rest) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert!(rest.is_empty());
@@ -1124,7 +1132,8 @@ mod request_tests {
         let path = "/var/log";
         let req = RequestFileTransferRequest::ReadDir(name_payload(path));
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         let (decoded, _) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, req);
         assert_encode_size_agrees(&req);
@@ -1139,7 +1148,8 @@ mod request_tests {
             SizePayload::new(0xDEAD_BEEF, 0xDEAD_BEEF),
         );
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         let (decoded, _) = RequestFileTransferRequest::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, req);
         assert_encode_size_agrees(&req);
@@ -1164,7 +1174,8 @@ mod response_tests {
             DataFormatIdentifier::from(0x00),
         );
         let mut buf = [0u8; 32];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, resp.encoded_size().unwrap());
         let (decoded, remaining) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert!(remaining.is_empty());
@@ -1176,7 +1187,8 @@ mod response_tests {
     fn delete_file_response_roundtrip() {
         let resp = RequestFileTransferResponse::DeleteFile(FileOperationMode::DeleteFile);
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(written, 1);
         let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
@@ -1193,7 +1205,8 @@ mod response_tests {
             FileSizePayload::new(0xAABB_CCDD, 0x1122_3344),
         );
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
@@ -1209,7 +1222,8 @@ mod response_tests {
             DirSizePayload::new(0x1234_5678),
         );
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);
@@ -1227,7 +1241,8 @@ mod response_tests {
             },
         );
         let mut buf = [0u8; 64];
-        let written = Encode::encode(&resp, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&resp, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         let (decoded, _) = RequestFileTransferResponse::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, resp);
         assert_encode_size_agrees(&resp);

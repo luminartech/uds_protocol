@@ -1,6 +1,6 @@
 //! `WriteDataByIdentifier` (0x2E) service implementation
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{write_all, write_u16_be};
+use automotive_wire_codec::{write_bytes, write_u16_be};
 
 const WRITE_DID_NEGATIVE_RESPONSE_CODES: [NegativeResponseCode; 5] = [
     NegativeResponseCode::IncorrectMessageLengthOrInvalidFormat,
@@ -67,9 +67,9 @@ impl<'d> WriteDataByIdentifierRequest<'d> {
 impl Encode for WriteDataByIdentifierRequest<'_> {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        let mut written = write_u16_be(writer, self.identifier).map_err(Error::io)?;
-        written += write_all(writer, self.data).map_err(Error::io)?;
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        let mut written = write_u16_be(writer, self.identifier)?;
+        written += write_bytes(writer, self.data)?;
         Ok(written)
     }
 }
@@ -120,8 +120,8 @@ impl WriteDataByIdentifierResponse {
 impl Encode for WriteDataByIdentifierResponse {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u16_be(writer, self.identifier).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u16_be(writer, self.identifier)?)
     }
 }
 
@@ -162,7 +162,11 @@ mod test {
     fn test_write_response_encode() {
         let response = WriteDataByIdentifierResponse::new(0xBEEF);
         let mut buf = [0u8; 4];
-        let written = Encode::encode(&response, &mut buf.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &response,
+            &mut automotive_wire_codec::SliceSink::new(&mut buf),
+        )
+        .unwrap();
         assert_eq!(written, 2);
         assert_eq!(buf[0], 0xBE);
         assert_eq!(buf[1], 0xEF);
@@ -173,7 +177,11 @@ mod test {
     fn write_response_roundtrip() {
         let response = WriteDataByIdentifierResponse::new(0xF186);
         let mut buf = [0u8; 4];
-        let written = Encode::encode(&response, &mut buf.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &response,
+            &mut automotive_wire_codec::SliceSink::new(&mut buf),
+        )
+        .unwrap();
         let (decoded, rest) =
             <WriteDataByIdentifierResponse as Decode>::decode(&buf[..written]).unwrap();
         assert_eq!(decoded, response);
@@ -192,7 +200,7 @@ mod test {
     fn wdbi_request_round_trips() {
         let req = WriteDataByIdentifierRequest::new(0xF190, &[0x01, 0x02, 0x03]).unwrap();
         let mut buf = [0u8; 8];
-        let n = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let n = Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..n], &[0xF1, 0x90, 0x01, 0x02, 0x03]);
         let (decoded, rest) = <WriteDataByIdentifierRequest as Decode>::decode(&buf[..n]).unwrap();
         assert!(rest.is_empty());

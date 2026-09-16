@@ -1,6 +1,4 @@
-use automotive_wire_codec::{
-    Incomplete, InvalidWidth, ReadUintError, TrailingBytes, WriteUintError,
-};
+use automotive_wire_codec::{Incomplete, InvalidWidth, ReadUintError, TrailingBytes, WriteError};
 use thiserror::Error;
 
 use crate::NegativeResponseCode;
@@ -9,9 +7,9 @@ use crate::NegativeResponseCode;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
-    /// An underlying I/O error occurred while reading or writing.
-    #[error("I/O error: {0:?}")]
-    IoError(embedded_io::ErrorKind),
+    /// A write to the encode-side sink failed.
+    #[error(transparent)]
+    Write(#[from] WriteError),
     /// The byte stream contained fewer bytes than expected.
     ///
     /// Corresponds to NRC 0x13 (`incorrectMessageLengthOrInvalidFormat`).
@@ -88,13 +86,6 @@ pub enum Error {
 }
 
 impl Error {
-    /// Convert any `embedded_io::Error` into [`Error::IoError`].
-    #[inline]
-    #[allow(clippy::needless_pass_by_value)]
-    pub(crate) fn io<E: embedded_io::Error>(e: E) -> Self {
-        Self::IoError(e.kind())
-    }
-
     /// The [`NegativeResponseCode`] a server should return for this error.
     ///
     /// A server decodes an inbound request, and on failure has to answer with a negative
@@ -111,7 +102,7 @@ impl Error {
     /// assert_eq!(u8::from(nack.nrc()), 0x13);
     /// ```
     ///
-    /// Returns `None` for [`Error::IoError`]: a transport failure is not a protocol error, so
+    /// Returns `None` for [`Error::Write`]: a transport failure is not a protocol error, so
     /// there is no NRC to send. Every other error maps to a code.
     ///
     /// # Classification
@@ -186,14 +177,8 @@ impl Error {
             // Transport failure. ISO does not model this as an NRC at all: clause 7.4.1.6
             // surfaces it to the server application as `A_Result = error`. There is no byte to
             // put on the wire, because the wire is what failed.
-            Self::IoError(_) => None,
+            Self::Write(_) => None,
         }
-    }
-}
-
-impl From<embedded_io::ErrorKind> for Error {
-    fn from(kind: embedded_io::ErrorKind) -> Self {
-        Self::IoError(kind)
     }
 }
 
@@ -224,19 +209,10 @@ impl From<ReadUintError> for Error {
     }
 }
 
-impl From<WriteUintError> for Error {
-    fn from(err: WriteUintError) -> Self {
-        match err {
-            WriteUintError::Io(kind) => Self::IoError(kind),
-            WriteUintError::InvalidWidth(w) => Self::InvalidWidth(w),
-        }
-    }
-}
-
 #[cfg(feature = "std")]
 impl From<std::io::Error> for Error {
-    fn from(err: std::io::Error) -> Self {
-        Self::IoError(err.kind().into())
+    fn from(_err: std::io::Error) -> Self {
+        Self::Write(WriteError::Io)
     }
 }
 
@@ -422,14 +398,27 @@ mod tests {
     }
 
     #[test]
-    fn write_uint_error_arms_map_losslessly() {
-        use automotive_wire_codec::{InvalidWidth, WriteUintError};
-        let io = WriteUintError::Io(embedded_io::ErrorKind::WriteZero);
+    fn write_error_lifts_into_error_transparently() {
+        use automotive_wire_codec::{InsufficientBuffer, InvalidWidth};
+
+        let insufficient = WriteError::Insufficient(InsufficientBuffer {
+            needed: 4,
+            available: 1,
+        });
         assert!(matches!(
-            Error::from(io),
-            Error::IoError(embedded_io::ErrorKind::WriteZero)
+            Error::from(insufficient),
+            Error::Write(WriteError::Insufficient(b)) if b.needed == 4 && b.available == 1
         ));
-        let iw = WriteUintError::InvalidWidth(InvalidWidth { max: 16, got: 17 });
-        assert!(matches!(Error::from(iw), Error::InvalidWidth(w) if w.got == 17));
+
+        let invalid_width = WriteError::InvalidWidth(InvalidWidth { max: 16, got: 17 });
+        assert!(matches!(
+            Error::from(invalid_width),
+            Error::Write(WriteError::InvalidWidth(w)) if w.got == 17
+        ));
+
+        assert!(matches!(
+            Error::from(WriteError::Io),
+            Error::Write(WriteError::Io)
+        ));
     }
 }

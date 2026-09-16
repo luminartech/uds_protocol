@@ -5,6 +5,7 @@
 // bytes rather than the decoded values: encoding a decoded message, decoding
 // those bytes again, and re-encoding must yield identical bytes.
 #![no_main]
+use automotive_wire_codec::SliceSink;
 use libfuzzer_sys::fuzz_target;
 use uds_protocol::{Decode, Encode, Request};
 
@@ -21,7 +22,7 @@ fuzz_target!(|data: &[u8]| {
             .encoded_size()
             .expect("size a freshly decoded request")
     ];
-    if Encode::encode(&request, &mut first.as_mut_slice()).is_err() {
+    if Encode::encode(&request, &mut SliceSink::new(&mut first)).is_err() {
         return;
     }
 
@@ -33,7 +34,7 @@ fuzz_target!(|data: &[u8]| {
     // Encoding must be idempotent: re-encoding the reparsed message produces
     // the same bytes.
     let mut second = vec![0u8; reparsed.encoded_size().expect("size a re-decoded request")];
-    Encode::encode(&reparsed, &mut second.as_mut_slice())
+    Encode::encode(&reparsed, &mut SliceSink::new(&mut second))
         .expect("failed to re-encode a decoded message");
 
     assert_eq!(

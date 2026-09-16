@@ -1,7 +1,7 @@
 //! `CommunicationControl` (0x28) service implementation
 use crate::shared::SuppressablePositiveResponse;
 use crate::{Decode, Encode, Error, Incomplete, NegativeResponseCode};
-use automotive_wire_codec::{write_all, write_u8, write_u16_be};
+use automotive_wire_codec::{write_bytes, write_u8, write_u16_be};
 
 /// `CommunicationControlType` is used to specify the type of communication behavior to be modified
 ///
@@ -507,20 +507,19 @@ impl CommunicationControlRequest {
 impl Encode for CommunicationControlRequest {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
         // Fuse the SPRMIB bit onto the sub-function at the wire boundary.
         let sub_function =
             SuppressablePositiveResponse::new(self.suppress_positive_response, self.control_type);
-        let mut written = write_all(
+        let mut written = write_bytes(
             writer,
             &[
                 u8::from(sub_function),
                 (self.subnet.value() << 4) | u8::from(self.communication_type),
             ],
-        )
-        .map_err(Error::io)?;
+        )?;
         if let Some(id) = self.node_id {
-            written += write_u16_be(writer, id).map_err(Error::io)?;
+            written += write_u16_be(writer, id)?;
         }
         Ok(written)
     }
@@ -599,8 +598,8 @@ impl CommunicationControlResponse {
 impl Encode for CommunicationControlResponse {
     type Error = crate::Error;
 
-    fn encode(&self, writer: &mut impl embedded_io::Write) -> Result<usize, Error> {
-        write_u8(writer, u8::from(self.control_type)).map_err(Error::io)
+    fn encode(&self, writer: &mut impl automotive_wire_codec::Sink) -> Result<usize, Error> {
+        Ok(write_u8(writer, u8::from(self.control_type))?)
     }
 }
 
@@ -623,8 +622,6 @@ impl<'a> Decode<'a> for CommunicationControlResponse {
 mod request {
     use super::*;
     use crate::{Decode, Encode, test_util::assert_encode_size_agrees};
-    #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
 
     #[test]
     fn the_communication_type_byte_carries_a_subnet_number() {
@@ -697,12 +694,12 @@ mod request {
         assert_eq!(req.subnet(), SubnetNumber::ReceivedOn);
 
         let mut buf = [0u8; 8];
-        let written = Encode::encode(&req, &mut buf.as_mut_slice()).unwrap();
+        let written =
+            Encode::encode(&req, &mut automotive_wire_codec::SliceSink::new(&mut buf)).unwrap();
         assert_eq!(&buf[..written], &[0x03, 0xF3]);
         assert_encode_size_agrees(&req);
     }
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn simple_request() {
         let bytes: [u8; 3] = [0x01, 0x02, 0x03];
@@ -717,14 +714,16 @@ mod request {
         );
         assert_eq!(req.node_id(), None);
 
-        let mut buffer = Vec::new();
-        let written = Encode::encode(&req, &mut buffer).unwrap();
+        let mut buffer = [0u8; 8];
+        let written = Encode::encode(
+            &req,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         assert_eq!(written, req.encoded_size().unwrap());
-        assert_eq!(buffer.len(), req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 
-    #[cfg(feature = "alloc")]
     #[test]
     fn node_id() {
         let bytes: [u8; 4] = [0x05, 0x02, 0x01, 0x02];
@@ -739,10 +738,13 @@ mod request {
         );
         assert_eq!(req.node_id(), Some(258));
 
-        let mut buffer = Vec::new();
-        let written = Encode::encode(&req, &mut buffer).unwrap();
+        let mut buffer = [0u8; 8];
+        let written = Encode::encode(
+            &req,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         assert_eq!(written, req.encoded_size().unwrap());
-        assert_eq!(buffer.len(), req.encoded_size().unwrap());
         assert_encode_size_agrees(&req);
     }
 
@@ -817,7 +819,11 @@ mod response {
         );
 
         let mut buffer = [0u8; 4];
-        let written = Encode::encode(&res, &mut buffer.as_mut_slice()).unwrap();
+        let written = Encode::encode(
+            &res,
+            &mut automotive_wire_codec::SliceSink::new(&mut buffer),
+        )
+        .unwrap();
         assert_eq!(&buffer[..written], &bytes);
         assert_encode_size_agrees(&res);
     }
