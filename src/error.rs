@@ -402,12 +402,12 @@ mod tests {
         use automotive_wire_codec::{InsufficientBuffer, InvalidWidth};
 
         let insufficient = WriteError::Insufficient(InsufficientBuffer {
-            needed: 4,
+            needed_at_least: 4,
             available: 1,
         });
         assert!(matches!(
             Error::from(insufficient),
-            Error::Write(WriteError::Insufficient(b)) if b.needed == 4 && b.available == 1
+            Error::Write(WriteError::Insufficient(b)) if b.needed_at_least == 4 && b.available == 1
         ));
 
         let invalid_width = WriteError::InvalidWidth(InvalidWidth { max: 16, got: 17 });
