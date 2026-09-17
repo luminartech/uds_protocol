@@ -14,8 +14,15 @@ byte sequence or test case that reproduces the behavior.
 
 ## Supported versions
 
-This crate is pre-1.0. Fixes land on the latest published version; there are no
-maintained release branches.
+This crate is pre-1.0. Fixes land on the latest version published to
+[crates.io](https://crates.io/crates/uds_protocol); there are no maintained
+release branches, and older versions do not receive backported fixes. If you are
+not on the latest version, please check whether it still reproduces there before
+reporting.
+
+The [Releases page](https://github.com/luminartech/uds_protocol/releases)
+carries the same versions with their changelog entries — release-plz publishes
+the crate and cuts the release together, so the two do not drift.
 
 ## Scope
 
