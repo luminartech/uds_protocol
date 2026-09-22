@@ -9,6 +9,13 @@ pre-1.0 crates).
 
 ## [Unreleased]
 
+## [0.1.1](https://github.com/luminartech/uds_protocol/compare/v0.1.0...v0.1.1) - 2026-09-22
+
+### Documentation
+
+- say where the latest supported version is
+- add the security policy, code of conduct, and contributing guide
+
 ## [0.1.0](https://github.com/luminartech/uds_protocol/compare/v0.0.2...v0.1.0) - 2026-08-10
 
 ### Added
