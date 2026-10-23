@@ -31,7 +31,7 @@ pub enum ResetType {
     /// This `SubFunction` identifies a condition similar to the driver turning the ignition key off and back on.
     /// This reset condition should simulate a key-off-on sequence (i.e. interrupting the switched power supply).
     /// The performed action is implementation specific and not defined by the spec.
-    /// Typically the values of non-volatile mmemory locations are preserved;
+    /// Typically the values of non-volatile memory locations are preserved;
     /// volatile memory will be initialized.
     KeyOffOnReset,
     /// This `SubFunction` identifies a "soft reset" condition, which causes the server to immediately restart the application program if applicable.
@@ -43,7 +43,7 @@ pub enum ResetType {
     /// Therefore a shutdown forces the sleep mode rather than a power off.
     /// Sleep means power off but still ready for wake-up (battery powered).
     /// The intention of the `SubFunction` is to reduce the stand-by time of an ECU after ignition is turned into the off position.
-    /// This value requests the server to enable and perform a "rapid powershut down" function.
+    /// This value requests the server to enable and perform a "rapid power shut down" function.
     /// The server shall execute the function immediately once the "key/ignition" is switched off.
     /// While the server executes the power down function,
     /// it shall transition either directly or after a defined stand-by-time to sleep mode.
