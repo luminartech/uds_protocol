@@ -1,5 +1,10 @@
 # Unified Diagnostics Services (UDS) Protocol
 
+> [!IMPORTANT]
+> `uds_protocol` has moved to [luminartech/uds_stack](https://github.com/luminartech/uds_stack),
+> which publishes the crate to crates.io. This repository is no longer updated;
+> open issues and pull requests there.
+
 This crate offers an ergonomic, `no_std`-friendly implementation of the UDS (ISO 14229) protocol codec in Rust.
 It targets embedded ECU diagnostics and desktop tooling alike: encoding and decoding UDS protocol messages — and custom data types — with no required allocator and no async runtime.
 It is not in a complete state yet, please check back soon!
